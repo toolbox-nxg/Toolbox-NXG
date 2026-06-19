@@ -7,6 +7,8 @@ on:
 jobs:
   build-release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
     # TODO: somehow check if the pushed tag was a backport (i.e. it's a lower
     # version than the latest beta release) and don't publish those. #964
@@ -69,6 +71,7 @@ jobs:
 
   publish-chrome:
     runs-on: ubuntu-latest
+    permissions: {}
     needs: build-release
     steps:
     - uses: actions/download-artifact@v4
@@ -84,6 +87,7 @@ jobs:
 
   publish-firefox:
     runs-on: ubuntu-latest
+    permissions: {}
     needs: build-release
     steps:
     - uses: actions/download-artifact@v4
