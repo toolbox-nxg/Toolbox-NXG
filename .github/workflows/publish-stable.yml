@@ -8,6 +8,7 @@ on:
 jobs:
   build-release:
     runs-on: ubuntu-latest
+    permissions: {}
     steps:
     - uses: actions/checkout@v7
     - uses: actions/setup-node@v6
@@ -53,6 +54,7 @@ jobs:
 
   publish-chrome:
     runs-on: ubuntu-latest
+    permissions: {}
     needs: build-release
     steps:
     - uses: actions/download-artifact@v4
@@ -68,6 +70,7 @@ jobs:
 
   publish-firefox:
     runs-on: ubuntu-latest
+    permissions: {}
     needs: build-release
     steps:
     - uses: actions/download-artifact@v4
