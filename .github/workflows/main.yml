@@ -1,5 +1,7 @@
 name: tests
 on: [push, pull_request]
+permissions:
+  contents: read
 
 # Cancel superseded runs on the same ref (e.g. rapid pushes to a branch) so CI
 # only spends minutes on the latest commit.
