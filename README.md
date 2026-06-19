@@ -28,8 +28,8 @@ All Toolbox subreddit settings and data are stored in subreddit wikis through ve
 [apache2]: https://www.apache.org/licenses/LICENSE-2.0
 [chrome-store]: https://chromewebstore.google.com/detail/moderator-toolbox-nxg-for/kglcfhgacmfabofjhbjlonpihkhonmkh
 [firefox-store]: https://addons.mozilla.org/en-US/firefox/addon/toolbox-nxg/
-[releases]: https://github.com/toolbox-nxg/moderator-toolbox-nxg/releases
+[releases]: https://github.com/toolbox-nxg/toolbox-nxg/releases
 [post-on-reddit]: https://www.reddit.com/r/toolbox_nxg/submit?text=true
-[issues]: https://github.com/toolbox-nxg/moderator-toolbox-nxg/issues
-[contributing]: /docs/developer/contributing.md
-[third-party-docs]: /docs/schema/
+[issues]: https://github.com/toolbox-nxg/toolbox-nxg/issues
+[contributing]: https://toolbox-nxg.github.io/Toolbox-NXG/developer/contributing.html
+[third-party-docs]: https://toolbox-nxg.github.io/Toolbox-NXG/schema/index.html
