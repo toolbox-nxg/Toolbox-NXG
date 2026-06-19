@@ -10,6 +10,10 @@ Install Toolbox-NXG from the [Chrome Web Store](https://chromewebstore.google.co
 
 ## What's new in NXG
 
+### OAuth API
+
+NXG makes all Reddit API calls through the official OAuth API, authenticated as the logged-in user. Original Toolbox used unauthenticated requests and cookie-based access to scrape Reddit endpoints directly. The OAuth approach is more reliable, less likely to break when Reddit changes its internal endpoints, and respects rate limits properly. No additional setup is required — the extension requests the necessary OAuth scopes on first use.
+
 ### New Reddit support
 
 NXG runs on both old Reddit (`old.reddit.com`) and new Reddit / Shreddit (`sh.reddit.com`); Old Reddit is treated as first-class, and Shreddit support as practical. Most modules work on both; a handful are platform-specific and their pages note which they support.

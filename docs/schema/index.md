@@ -17,14 +17,14 @@ proposals
 
 All Toolbox-NXG data lives in subreddit wikis under the `toolbox-nxg/` path prefix (NXG layout) alongside legacy pages (classic layout). The in-memory model is always the NXG format; classic pages are maintained as compatibility mirrors for 6.x clients.
 
-| Data                                                         | NXG wiki page                                                                                         | Classic wiki page         |
-| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- | ------------------------- |
-| Subreddit config (removal reasons, macros, ban macros, etc.) | `toolbox-nxg`                                                                                         | `toolbox`                 |
-| Usernotes                                                    | `toolbox-nxg/usernotes` (manifest), `toolbox-nxg/usernotes/<slug>` ([shards](usernotes-shards.md)), … | `usernotes`               |
-| [Domain tags](domain-tags.md)                                | `toolbox-nxg/domain-tags`                                                                             | `domain-tags`             |
-| [Proposals](proposals.md)                                    | `toolbox-nxg/proposals`                                                                               | _(none — NXG-only)_       |
-| Subreddit notes index                                        | `notes/index`                                                                                         | `notes/index` (v1 subset) |
-| Subreddit note content                                       | `notes/<slug>`                                                                                        | `notes/<slug>`            |
+| Data                                                         | NXG wiki page                                                                                         | Classic wiki page                |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- | -------------------------------- |
+| Subreddit config (removal reasons, macros, ban macros, etc.) | `toolbox-nxg`                                                                                         | `toolbox`                        |
+| Usernotes                                                    | `toolbox-nxg/usernotes` (manifest), `toolbox-nxg/usernotes/<slug>` ([shards](usernotes-shards.md)), … | `usernotes`                      |
+| [Domain tags](domain-tags.md)                                | `toolbox-nxg/domain-tags`                                                                             | _(embedded in `toolbox` config)_ |
+| [Proposals](proposals.md)                                    | `toolbox-nxg/proposals`                                                                               | _(none — NXG-only)_              |
+| Subreddit notes index (classic: "personal notes")            | `notes/index`                                                                                         | `notes/index` (v1 subset)        |
+| Subreddit note content                                       | `notes/<slug>`                                                                                        | `notes/<slug>`                   |
 
 All pages are restricted to moderator-only access by wiki page settings (`permlevel: 2`).
 

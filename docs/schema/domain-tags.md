@@ -2,9 +2,9 @@
 
 Domain tags let moderators color-code links by domain so the source of a submission is visible at a glance. Each subreddit's tags are stored on a dedicated wiki page separate from the main config, giving cleaner audit history when tags are added or updated.
 
-| Wiki page (NXG layout)    | Wiki page (legacy layout) |
-| ------------------------- | ------------------------- |
-| `toolbox-nxg/domain-tags` | `domain-tags`             |
+| Wiki page (NXG layout)    | Classic layout                                   |
+| ------------------------- | ------------------------------------------------ |
+| `toolbox-nxg/domain-tags` | _(embedded in `toolbox` config as `domainTags`)_ |
 
 The page is restricted to moderator-only access (`permlevel: 2`).
 

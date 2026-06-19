@@ -1,6 +1,6 @@
 # Subreddit Notes Schema
 
-Subreddit notes are moderator-written wiki pages attached to a shared index. They are distinct from [usernotes](usernotes.md) (per-user annotations): subreddit notes are general-purpose text documents — rule summaries, ban templates, workflow guides — that the whole mod team can browse and search from within Toolbox.
+Subreddit notes are moderator-written wiki pages attached to a shared index. They are distinct from [usernotes](usernotes.md) (per-user annotations): subreddit notes are general-purpose text documents — rule summaries, ban templates, workflow guides — that the whole mod team can browse and search from within Toolbox. This feature was called "personal notes" in classic Toolbox 6.x.
 
 ## Overview
 
