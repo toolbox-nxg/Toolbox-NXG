@@ -8,6 +8,10 @@ A fork and near-complete reimplementation of [toolbox for reddit][upstream], pro
 
 Install Toolbox-NXG for Chrome (and other Chromium browsers such as Edge and Brave) from the [Chrome Web Store][chrome-store], or for Firefox from [Firefox Add-ons][firefox-store]. You can also install a build manually from [GitHub Releases][releases].
 
+## Read the Documentation
+
+Read the documentation for Toolbox-NXG [here](https://toolbox-nxg.github.io/Toolbox-NXG/).
+
 ## Reporting issues and feature requests
 
 If you think you've found a bug, or want to suggest a new feature, please [make a post on /r/toolbox_nxg][post-on-reddit] or [open an issue on GitHub][issues].
