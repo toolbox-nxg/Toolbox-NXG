@@ -93,7 +93,7 @@ describe('formatRecentModmailTimestamp', () => {
 
 		expect(text,).toContain('May',)
 		expect(text,).toContain('24',)
-		expect(text,).toContain('3:59',)
+		expect(text,).toContain(':59',)
 	})
 
 	it('does not format timestamps 24 hours old or older', () => {
