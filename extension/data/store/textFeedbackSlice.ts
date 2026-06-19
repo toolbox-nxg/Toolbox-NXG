@@ -1,61 +1,55 @@
-import {createSlice, type PayloadAction} from '@reduxjs/toolkit';
-import {type AppThunk} from '.';
+/**
+ * Redux slice for transient text feedback messages (toasts).
+ * State shape: `{ current }` - the currently visible message, or null when none is shown.
+ * Auto-dismiss timing is handled by a listenerMiddleware effect in store/index.ts.
+ */
 
-// TODO: remove `TBui.FEEDBACK_*` constants in favor of this enum
+import {createSlice, type PayloadAction,} from '@reduxjs/toolkit'
+
+/** Visual kind of a text feedback message. */
 export enum TextFeedbackKind {
-    NEUTRAL = 'neutral',
-    POSITIVE = 'positive',
-    NEGATIVE = 'negative',
+	Neutral = 'neutral',
+	Positive = 'positive',
+	Negative = 'negative',
 }
 
-// TODO: remove `TBui.DISPLAY_*` constants in favor of this enum
-export enum TextFeedbackLocation {
-    CENTER = 'center',
-    BOTTOM = 'bottom',
-}
-
-/** A text feedback message to be displayed. */
+/** A transient text-feedback message shown to the user. */
 export interface TextFeedback {
-    message: string;
-    kind: TextFeedbackKind;
-    location: TextFeedbackLocation;
+	message: string
+	kind: TextFeedbackKind
 }
 
-// alright time for redux shit
+/** Payload for the showTextFeedback action. */
+export interface ShowTextFeedbackPayload extends TextFeedback {
+	/** How long (ms) to show the message before auto-dismissing. Defaults to 3000. */
+	duration?: number
+}
 
 interface TextFeedbackState {
-    current: TextFeedback | null;
+	current: TextFeedback | null
 }
+
 export const textFeedbackSlice = createSlice({
-    name: 'textFeedback',
-    initialState: {
-        current: null,
-    } as TextFeedbackState,
-    reducers: {
-        set (state, action: PayloadAction<TextFeedback>) {
-            state.current = action.payload;
-        },
-        clear (state) {
-            state.current = null;
-        },
-    },
-});
-export default textFeedbackSlice.reducer;
-const {set, clear} = textFeedbackSlice.actions;
-
-let removeTextFeedbackTimeout: number | null = null;
-export const showTextFeedback = (message: TextFeedback, duration = 3000): AppThunk => dispatch => {
-    // cancel any pending removal from previous messages
-    if (removeTextFeedbackTimeout) {
-        clearTimeout(removeTextFeedbackTimeout);
-    }
-
-    // display the message
-    dispatch(set(message));
-
-    // queue the message to be removed after the duration
-    removeTextFeedbackTimeout = window.setTimeout(() => {
-        dispatch(clear());
-        removeTextFeedbackTimeout = null;
-    }, duration);
-};
+	name: 'textFeedback',
+	initialState: {
+		current: null,
+	} as TextFeedbackState,
+	reducers: {
+		/**
+		 * Shows a text feedback message. The `duration` field is read by the
+		 * listenerMiddleware effect in index.ts and is not stored in Redux state.
+		 */
+		showTextFeedback (state, action: PayloadAction<ShowTextFeedbackPayload>,) {
+			state.current = {
+				message: action.payload.message,
+				kind: action.payload.kind,
+			}
+		},
+		/** Clears the currently displayed text feedback message. */
+		clearTextFeedback (state,) {
+			state.current = null
+		},
+	},
+},)
+export default textFeedbackSlice.reducer
+export const {showTextFeedback, clearTextFeedback,} = textFeedbackSlice.actions

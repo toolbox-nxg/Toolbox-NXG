@@ -1,0 +1,109 @@
+/* Applied to Reddit's native DOM elements by queueSidebarSorting.ts */
+.toolbox-subreddit-item-count {
+	background-color: rgb(
+		213 111 24
+	); /* intentional: orange badge distinguishes queue-count items visually from other list elements */
+
+	color: var(--toolbox-bg);
+	font-size: var(--toolbox-sp-11);
+	font-weight: bold;
+	padding: 0 var(--toolbox-sp-3) var(--toolbox-sp-3);
+	margin: var(--toolbox-sp-3);
+	border-radius: 2px;
+	display: inline-block;
+	order: -1;
+}
+
+.subscription-box li {
+	display: flex;
+	flex-wrap: wrap;
+}
+
+.toolbox-scope .toolbox-sort-subs {
+	float: right;
+	margin: var(--toolbox-sp-4);
+	border: 1px solid var(--toolbox-button-border);
+	border-left: 2px solid var(--toolbox-button-border);
+	padding: var(--toolbox-sp-3);
+	background-color: var(--toolbox-bg);
+	font-size: var(--toolbox-sp-13);
+}
+
+.toolbox-scope .toolbox-sort-subs:hover {
+	background-color: var(--toolbox-button-hover-bg);
+}
+
+.toolbox-scope .toolbox-sort-subs img {
+	margin-bottom: -var(--toolbox-sp-3);
+	margin-right: var(--toolbox-sp-3);
+}
+
+/* Applied to Reddit's native queue DOM by queueModtools.tsx */
+.thing.toolbox-mm-hidden {
+	/* stylelint-disable-next-line declaration-no-important -- overrides Reddit's .thing display to hide mass-moderated items */
+	display: none !important;
+}
+.toolbox-reports-expanded .report-reasons {
+	display: block;
+}
+.toolbox-mm-checkbox {
+	margin: var(--toolbox-sp-5);
+	float: left;
+}
+
+/* Applied by processNewThings when auto-refresh injects new items */
+/* Reddit's native sort bar is replaced by our toolbar sort dropdown */
+body.toolbox-mm-active .menuarea {
+	display: none;
+}
+
+@keyframes toolbox-new-item-fade {
+	0% {
+		outline: 2px solid var(--toolbox-accent-color);
+	}
+	100% {
+		outline: 2px solid transparent;
+	}
+}
+.toolbox-mm-new {
+	animation: toolbox-new-item-fade 2s ease-out forwards;
+}
+
+/* Applied by groupBySubreddit() when group-by-subreddit is active */
+.toolbox-sub-group {
+	margin-bottom: var(--toolbox-sp-6);
+}
+/* Hide a subreddit group entirely when all of its items are filtered/hidden */
+.toolbox-sub-group:not(:has(.thing:not(.toolbox-mm-hidden))) {
+	display: none;
+}
+.toolbox-sub-group-header {
+	font-weight: bold;
+	font-size: var(--toolbox-sp-13);
+	padding: var(--toolbox-sp-3) var(--toolbox-sp-6);
+	border-bottom: 2px solid var(--toolbox-surface-border);
+	color: var(--toolbox-text-heading);
+	margin-bottom: var(--toolbox-sp-3);
+}
+
+/* Marks the relabeled big-mod button once the mod log shows the item was actioned elsewhere. The
+   button keeps its native pretty-button color/shape; the italics signal it's an already-actioned
+   label rather than a fresh action. */
+.toolbox-modlog-action-status {
+	font-weight: bold;
+	font-style: italic;
+	color: var(--toolbox-text-body);
+}
+
+/* Applied by appendNewItems() - pins auto-refresh items at the bottom of the queue */
+.toolbox-new-items-group {
+	margin-top: var(--toolbox-sp-6);
+}
+.toolbox-new-items-header {
+	font-weight: bold;
+	font-size: var(--toolbox-sp-13);
+	padding: var(--toolbox-sp-3) var(--toolbox-sp-6);
+	border-bottom: 2px solid var(--toolbox-accent-color);
+	color: var(--toolbox-text-heading);
+	margin-bottom: var(--toolbox-sp-3);
+}

@@ -1,0 +1,15 @@
+.wrapper {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--toolbox-sp-4);
+}
+
+.label {
+	composes: baselabel from "../../css/Base.module.css";
+}
+
+.input {
+	height: 28px;
+	padding: 0 var(--toolbox-sp-5);
+	width: 70px;
+}

@@ -1,0 +1,37 @@
+.root {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-16);
+}
+
+.intro {
+	composes: columngaplarge from "../../../css/Base.module.css";
+}
+
+.introText {
+	font-size: 1em;
+	color: var(--toolbox-text-body);
+	margin: 0;
+}
+
+.introActions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--toolbox-sp-6);
+	align-items: center;
+}
+
+.advancedSection {
+	padding-top: 1em;
+	border-top: 1px solid var(--toolbox-surface-border);
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-4);
+}
+
+.advancedHint {
+	margin: 0;
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-text-secondary);
+	font-style: italic;
+}

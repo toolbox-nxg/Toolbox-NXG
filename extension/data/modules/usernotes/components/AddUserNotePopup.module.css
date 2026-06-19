@@ -1,0 +1,324 @@
+.error {
+	composes: errorcolor from "../../../css/Base.module.css";
+}
+
+.toggle {
+	composes: toggle from "../../../css/Base.module.css";
+}
+
+.popup {
+	max-width: 90vw;
+	max-height: 80vh;
+	display: flex;
+	flex-direction: column;
+}
+
+.popup > div:nth-child(2) {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow: auto;
+}
+
+.toolboxLayout {
+	display: flex;
+	flex-direction: column;
+	gap: 1em;
+}
+
+.historyPane,
+.composerPane {
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+.historyPane {
+	gap: var(--toolbox-sp-8);
+	overflow: auto;
+	padding-right: var(--toolbox-sp-2);
+	max-height: 360px;
+}
+
+.composerPane {
+	gap: var(--toolbox-sp-10);
+	border-top: 1px solid var(--toolbox-input-border);
+	padding-top: 1em;
+}
+
+.emptyHistory {
+	border: 1px dashed var(--toolbox-input-border);
+	border-radius: 6px;
+	color: var(--toolbox-text-secondary);
+	padding: var(--toolbox-sp-18);
+	text-align: center;
+}
+
+.noteCard {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-1);
+	border: 1px solid var(--toolbox-input-border);
+	border-radius: 6px;
+	padding: var(--toolbox-sp-6) var(--toolbox-sp-8);
+	background: var(--toolbox-bg);
+}
+
+.noteCardLinked {
+	cursor: pointer;
+}
+
+.noteCardLink {
+	position: absolute;
+	inset: 0;
+}
+
+.noteRow {
+	display: flex;
+	align-items: center;
+	gap: var(--toolbox-sp-8);
+	min-width: 0;
+}
+
+.noteTypeChip,
+.noteModChip {
+	position: relative;
+	z-index: 1;
+	flex: 0 0 auto;
+	border: 1px solid var(--toolbox-border-color);
+	border-radius: 999px;
+	padding: var(--toolbox-sp-1) var(--toolbox-sp-7);
+	font-size: 80%;
+	font-weight: bold;
+	line-height: 1.5;
+	max-width: 100%;
+	overflow-wrap: anywhere;
+}
+
+.noteTypeChip {
+	cursor: default;
+}
+
+.noteModChip {
+	margin-left: auto;
+	color: var(--toolbox-text-heading);
+	white-space: nowrap;
+	text-decoration: none;
+}
+
+.noteModChip:hover {
+	text-decoration: underline;
+}
+
+.noteDate {
+	position: relative;
+	z-index: 1;
+	font-size: 80%;
+	color: var(--toolbox-text-secondary);
+	line-height: 1.2;
+	cursor: default;
+}
+
+.noteBody {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow-wrap: anywhere;
+	line-height: 1.35;
+}
+
+.noteText {
+	color: inherit;
+}
+
+.noteTextLinked {
+	color: var(--toolbox-link-color);
+}
+
+.noteCardLinked:hover .noteTextLinked {
+	text-decoration: underline;
+}
+
+.noteActions {
+	position: relative;
+	z-index: 1;
+	display: flex;
+	gap: var(--toolbox-sp-2);
+	flex: 0 0 auto;
+}
+
+.iconButton {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 26px;
+	height: 22px;
+	background: transparent;
+	border: 1px solid transparent;
+	border-radius: 4px;
+	cursor: pointer;
+	color: inherit;
+	padding: 0;
+}
+
+/* Anchor variant of .iconButton for the removal-message (modmail) link. */
+.messageLinkAnchor {
+	text-decoration: none;
+}
+
+.iconButton:disabled {
+	cursor: default;
+	opacity: 0.45;
+}
+
+.iconButton:hover:not(:disabled) {
+	border-color: var(--toolbox-border-color);
+	background-color: var(--toolbox-button-hover-bg);
+}
+
+.composerHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--toolbox-sp-8);
+	font-weight: bold;
+}
+
+.textButton {
+	border: 0;
+	background: transparent;
+	color: var(--toolbox-link-color);
+	cursor: pointer;
+	padding: var(--toolbox-sp-2) 0;
+}
+
+.textButton:disabled {
+	cursor: default;
+	opacity: 0.5;
+}
+
+.types {
+	width: 100%;
+}
+
+.typeList {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--toolbox-sp-4);
+}
+
+.typeButton {
+	border: 1px solid var(--toolbox-border-color);
+	border-radius: 4px;
+	background: transparent;
+	cursor: pointer;
+	padding: var(--toolbox-sp-4) var(--toolbox-sp-6);
+	text-align: left;
+	line-height: 1.2;
+	max-width: 100%;
+	overflow-wrap: anywhere;
+}
+
+.typeButton:disabled {
+	cursor: default;
+	opacity: 0.55;
+}
+
+.typeButton:hover:not(:disabled) {
+	background-color: var(--toolbox-button-hover-bg);
+}
+
+.selectedType {
+	background-color: var(--toolbox-button-hover-bg);
+	outline: solid 1px var(--toolbox-link-color);
+}
+
+.selectedType::before {
+	content: "\2713";
+	margin-right: var(--toolbox-sp-3);
+}
+
+.noteInput {
+	width: 100%;
+	box-sizing: border-box;
+	padding: var(--toolbox-sp-2);
+}
+
+.composerFooter {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	flex-wrap: wrap;
+	gap: var(--toolbox-sp-8);
+	margin-top: auto;
+}
+
+/* Keeps the include-link toggles together at the header's far end, instead of
+   space-between spreading them out evenly with the pane title. */
+.includeLinkGroup {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--toolbox-sp-8);
+}
+
+.includeLink {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--toolbox-sp-6);
+	white-space: nowrap;
+	font-weight: normal;
+	cursor: pointer;
+}
+
+.includeLink input:disabled ~ span {
+	color: rgb(
+		112 128 144
+	); /* intentional: muted slate for disabled checkbox label; blue-grey sits between --toolbox-text-secondary and the input border */
+}
+
+.includeBan {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--toolbox-sp-6);
+	margin-right: auto;
+	white-space: nowrap;
+	cursor: pointer;
+}
+
+.banMessageInput {
+	width: 100%;
+	box-sizing: border-box;
+	padding: var(--toolbox-sp-4) var(--toolbox-sp-6);
+	resize: vertical;
+}
+
+.nativeBanRow {
+	display: flex;
+	align-items: center;
+	gap: var(--toolbox-sp-5);
+	white-space: nowrap;
+	margin-right: auto;
+}
+
+.banDaysInput {
+	width: 52px;
+	box-sizing: border-box;
+	padding: var(--toolbox-sp-2) var(--toolbox-sp-4);
+}
+
+/* Archived notes shown via the history toggle. */
+.noteCardHidden {
+	opacity: 0.55;
+}
+
+/* "archived by X" attribution next to the note date. */
+.noteStatus {
+	font-style: italic;
+}
+
+@media (max-width: 720px) {
+	.noteRow {
+		align-items: flex-start;
+		flex-wrap: wrap;
+		gap: var(--toolbox-sp-5);
+	}
+}

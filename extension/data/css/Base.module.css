@@ -1,0 +1,294 @@
+/* Shared base CSS Module for reusable component styles. */
+
+.toggle {
+	appearance: none;
+	flex-shrink: 0;
+	width: 28px;
+	height: 16px;
+	border-radius: 8px;
+	background: var(--toolbox-chrome);
+	position: relative;
+	cursor: pointer;
+	transition: background 0.15s;
+	vertical-align: middle;
+}
+
+.toggle::before {
+	content: "";
+	position: absolute;
+	width: 12px;
+	height: 12px;
+	border-radius: 50%;
+	background: rgb(255 255 255); /* intentional: thumb must stay white against the coloured track in all themes */
+	top: 2px;
+	left: 2px;
+	transition: left 0.15s;
+}
+
+.toggle:checked {
+	background: var(--toolbox-link-color);
+}
+
+.basewrapper {
+	display: block;
+}
+
+.baselabel {
+	font-size: 1em;
+}
+
+.baseinput {
+	padding: var(--toolbox-sp-3) var(--toolbox-sp-5);
+}
+
+.columngaplarge {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-8);
+}
+
+.columngapsmall {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-3);
+}
+
+.fullwidth {
+	width: 100%;
+	box-sizing: border-box;
+}
+
+.cardtitle {
+	font-size: 1em;
+	font-weight: bold;
+	color: var(--toolbox-text-body);
+	flex: 1;
+	min-width: 0;
+}
+
+.untitled {
+	color: var(--toolbox-input-focus);
+	font-weight: normal;
+}
+
+.errorcolor {
+	color: var(--toolbox-error-color);
+}
+
+.secondaryitalic {
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-text-secondary);
+	font-style: italic;
+}
+
+.baserow {
+	margin: 0;
+	padding: var(--toolbox-sp-8) 0;
+	font-size: 1em;
+	border-bottom: 1px solid var(--toolbox-divider-color);
+}
+
+.basetable {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.toggle:checked::before {
+	left: 14px;
+}
+
+.toggle:disabled {
+	opacity: 0.4;
+	cursor: default;
+}
+
+.actionbutton {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--toolbox-sp-4);
+	vertical-align: middle;
+	padding: var(--toolbox-sp-6) var(--toolbox-sp-6) var(--toolbox-sp-5) var(--toolbox-sp-5);
+	font-family: var(--toolbox-font-family);
+	font-size: 1em;
+	line-height: var(--toolbox-sp-14);
+	background-color: var(--toolbox-action-bg);
+	border-radius: 1px;
+	border-width: 1px 1px 2px 2px;
+	border-color: var(--toolbox-border-color);
+	border-style: solid;
+	color: var(--toolbox-action-text);
+	outline: none;
+}
+
+.actionbutton:active {
+	border-width: 1px;
+	border-color: var(--toolbox-header-button-hover-bg);
+	padding: var(--toolbox-sp-6);
+	outline: none;
+}
+
+.actionbutton i {
+	font-size: 14px;
+}
+
+.actionbutton.inline {
+	padding: var(--toolbox-sp-3) var(--toolbox-sp-3) var(--toolbox-sp-2) var(--toolbox-sp-2);
+}
+
+.actionbutton.inline:active {
+	padding: var(--toolbox-sp-3);
+}
+
+.actionbutton.primary {
+	background-color: var(--toolbox-accent-color);
+	border-color: var(--toolbox-accent-hover);
+	color: var(--toolbox-bg);
+	font-weight: bold;
+	padding: var(--toolbox-sp-6) var(--toolbox-sp-14) var(--toolbox-sp-5);
+	border-width: 1px 1px 2px;
+	border-radius: 2px;
+}
+
+.actionbutton.primary:hover {
+	background-color: var(--toolbox-accent-hover);
+	border-color: var(--toolbox-accent-active);
+}
+
+.actionbutton.primary:active {
+	background-color: var(--toolbox-accent-active);
+	border-color: var(--toolbox-accent-active);
+	border-width: 1px;
+	padding: var(--toolbox-sp-6) var(--toolbox-sp-14);
+}
+
+.actionbutton:disabled {
+	opacity: 0.55;
+	cursor: not-allowed;
+	pointer-events: auto;
+}
+
+.actionbutton.primary:disabled {
+	background-color: var(--toolbox-accent-disabled);
+	border-color: var(--toolbox-accent-disabled-border);
+}
+
+.drawer {
+	position: fixed;
+	bottom: var(--toolbox-modbar-height);
+	left: 10px;
+	max-height: 65vh;
+	background-color: var(--toolbox-bg);
+	border: 1px solid var(--toolbox-surface-border);
+	border-radius: 3px;
+	box-shadow: var(--toolbox-shadow-color) 0 2px 8px;
+	z-index: var(--toolbox-z-window);
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+.header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0 0 0 var(--toolbox-sp-8);
+	line-height: 26px;
+	background-color: var(--toolbox-header-bg);
+	font-weight: bold;
+	font-size: 1em;
+	flex-shrink: 0;
+	border-bottom: 1px solid var(--toolbox-border-color);
+}
+
+.iconbutton {
+	background-color: var(--toolbox-header-button-bg);
+	border: none;
+	cursor: pointer;
+	padding: 0;
+	width: 36px;
+	align-self: stretch;
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--toolbox-text-body);
+	margin-left: var(--toolbox-sp-1);
+}
+
+.iconbutton:hover {
+	background-color: var(--toolbox-header-button-hover-bg);
+}
+
+.warning {
+	background: var(--toolbox-caution-bg);
+	border: 1px solid var(--toolbox-caution-border);
+	border-left: 3px solid var(--toolbox-caution-accent);
+	border-radius: 2px;
+	padding: var(--toolbox-sp-6) var(--toolbox-sp-10);
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-caution-text);
+}
+
+.warninglist {
+	margin: 0;
+	padding: 0 0 0 var(--toolbox-sp-16);
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-3);
+}
+
+.draghandle {
+	background: none;
+	border: none;
+	padding: 0;
+	cursor: grab;
+	color: var(--toolbox-input-focus);
+	/* stylelint-disable-next-line font-family-no-missing-generic-family-keyword -- icon fonts must not fall back to text fonts */
+	font-family: "Material Symbols Filled";
+	font-size: 18px;
+	line-height: 1;
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+}
+
+.draghandle:active {
+	cursor: grabbing;
+}
+
+.inlineiconbutton {
+	background: none;
+	border: none;
+	padding: var(--toolbox-sp-2);
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	border-radius: 2px;
+	line-height: 1;
+}
+
+.inlineiconbutton:hover {
+	background: var(--toolbox-hover-overlay);
+}
+
+.rowcard {
+	display: flex;
+	align-items: center;
+	gap: var(--toolbox-sp-6);
+	border: 1px solid var(--toolbox-surface-border);
+	border-radius: 3px;
+	background: var(--toolbox-action-bg);
+	padding: var(--toolbox-sp-5) var(--toolbox-sp-8);
+}
+
+.columngapmedium {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-6);
+}
+
+.cardactions {
+	display: flex;
+	gap: var(--toolbox-sp-2);
+	flex-shrink: 0;
+}

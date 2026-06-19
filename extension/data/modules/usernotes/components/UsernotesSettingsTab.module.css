@@ -1,0 +1,34 @@
+/* Section grouping */
+.section {
+	margin-bottom: var(--toolbox-sp-18);
+}
+
+.section:last-child {
+	margin-bottom: 0;
+}
+
+.sectionTitle {
+	font-size: var(--toolbox-sp-11);
+	font-weight: bold;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--toolbox-text-secondary);
+	margin-bottom: var(--toolbox-sp-8);
+	padding-bottom: var(--toolbox-sp-4);
+	border-bottom: 1px solid var(--toolbox-surface-border);
+}
+
+/* Descriptive text under a section title */
+.sectionDesc {
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-text-secondary);
+	margin: 0 0 var(--toolbox-sp-8);
+	font-style: italic;
+}
+
+/* Stacked requirement checkboxes */
+.checkboxGroup {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-5);
+}

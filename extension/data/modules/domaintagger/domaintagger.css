@@ -1,0 +1,101 @@
+.toolbox-domain-controls {
+	display: inline-block;
+}
+
+.toolbox-scope .add-domain-tag {
+	margin-left: var(--toolbox-sp-2);
+}
+
+.toolbox-scope .add-domain-tag:hover {
+	cursor: pointer;
+}
+
+/* Popup container */
+
+.toolbox-scope .toolbox-window.dtagger-popup {
+	max-width: 900px;
+	text-align: center;
+}
+.toolbox-scope .toolbox-window.dtagger-popup .dt-popup-content {
+	display: inline-block;
+}
+.toolbox-scope .dtagger-popup .right {
+	float: right;
+}
+.toolbox-scope .dtagger-popup .left {
+	float: left;
+}
+.toolbox-scope .dtagger-popup .status {
+	display: none;
+}
+
+.toolbox-scope .dtagger-popup tbody tr {
+	width: 225px;
+	vertical-align: top;
+	border-bottom: 1px solid
+		rgb(128 128 128); /* intentional: neutral mid-grey separator; no theming needed for this structural divider */
+
+	display: block;
+	padding: var(--toolbox-sp-5);
+}
+
+.toolbox-scope .dtagger-popup th {
+	padding-right: var(--toolbox-sp-10)
+		!important; /* stylelint-disable-line declaration-no-important -- overrides Reddit's th padding in table resets */
+}
+
+.toolbox-scope .dtagger-popup .dt-popup-color-content {
+	margin-bottom: var(--toolbox-sp-2);
+}
+
+.toolbox-scope .dtagger-popup .domain-name {
+	width: 150px;
+	margin-left: var(--toolbox-sp-2);
+	margin-right: var(--toolbox-sp-7);
+}
+
+.toolbox-scope .dtagger-popup .clear-domain {
+	margin-left: var(--toolbox-sp-4);
+}
+
+body.toolbox-scope .dtagger-popup .clear-domain:hover {
+	background-color: var(--toolbox-error-bg)
+		!important; /* stylelint-disable-line declaration-no-important -- overrides .toolbox-action-button hover background with higher specificity */
+}
+
+/* Domain tag styling */
+
+.toolbox-scope .toolbox-dt-little-dot {
+	margin-right: var(--toolbox-sp-3);
+	font-size: 25px;
+	line-height: 0;
+}
+
+/* Counts folded into the dot: a colored pill carrying `▲N ▼M`, replacing the bare dot glyph. */
+.toolbox-scope .toolbox-dt-dot-counts {
+	margin-right: var(--toolbox-sp-3);
+	padding: 0 var(--toolbox-sp-3);
+	font-size: 0.75em;
+	line-height: 1.4;
+	white-space: nowrap;
+	border-radius: 8px;
+}
+
+/* Shreddit-specific styles */
+
+shreddit-post.toolbox-dt-post-border {
+	border-left: 3px solid var(--toolbox-dt-color)
+		!important; /* stylelint-disable-line declaration-no-important -- overrides Shreddit's border-left on post elements */
+}
+
+.toolbox-dt-shreddit-indicator {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--toolbox-sp-3);
+	font-size: 0.8em;
+	padding: var(--toolbox-sp-1) var(--toolbox-sp-4);
+}
+
+.toolbox-dt-shreddit-indicator .toolbox-dt-little-dot {
+	font-size: 18px;
+}

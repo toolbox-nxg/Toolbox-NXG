@@ -1,0 +1,33 @@
+{
+    "entryPointStrategy": "expand",
+    "entryPoints": ["extension/data"],
+    "tsconfig": "./tsconfig.json",
+    "plugin": ["typedoc-plugin-markdown"],
+    "out": "docs/developer/api",
+    "readme": "none",
+    "exclude": ["**/*.test.ts", "**/*.test.tsx"],
+    "excludeInternal": true,
+    "excludePrivate": true,
+    "excludeProtected": true,
+    "groupOrder": ["Functions", "Classes", "Interfaces", "Type Aliases", "Variables", "*"],
+    "hidePageHeader": true,
+    "hideBreadcrumbs": false,
+    "cleanOutputDir": false,
+    "suppressCommentWarningsInDeclarationFiles": true,
+    "validation": {
+        "notExported": false
+    },
+    "externalSymbolLinkMappings": {
+        "@types/react": {
+            "React.Component.render": "https://react.dev/reference/react/Component#render",
+            "React.Component.setState": "https://react.dev/reference/react/Component#setstate",
+            "React.StaticLifecycle.getDerivedStateFromProps": "https://react.dev/reference/react/Component#static-getderivedstatefromprops",
+            "React.ComponentLifecycle.componentDidMount": "https://react.dev/reference/react/Component#componentdidmount",
+            "React.NewLifecycle.getSnapshotBeforeUpdate": "https://react.dev/reference/react/Component#getsnapshotbeforeupdate"
+        },
+        "moderator-toolbox-nxg-for-reddit": {
+            "dissolveNewItemsSection": "#",
+            "upconvertReasonHtml": "#"
+        }
+    }
+}

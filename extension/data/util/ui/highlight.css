@@ -1,0 +1,8 @@
+/* intentional: bright yellow is the canonical text-search highlight colour; amber variant distinguishes action-reason matches */
+.toolbox-scope .toolbox-highlight {
+	background-color: rgb(255 255 22);
+}
+
+.toolbox-scope .toolbox-highlight-action-reason {
+	background-color: rgb(255 208 22);
+}

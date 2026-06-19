@@ -1,0 +1,27 @@
+.wrapper {
+	composes: basewrapper from "../../css/Base.module.css";
+}
+
+.row {
+	display: flex;
+	align-items: center;
+	gap: var(--toolbox-sp-4);
+	margin-bottom: var(--toolbox-sp-2);
+}
+
+.input {
+	composes: baseinput from "../../css/Base.module.css";
+	flex: 1;
+	min-width: 0;
+}
+
+.removeBtn,
+.addBtn {
+	background: none;
+	border: none;
+	padding: 0;
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	flex-shrink: 0;
+}

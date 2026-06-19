@@ -1,0 +1,39 @@
+.wrapper {
+	composes: basewrapper from "../../css/Base.module.css";
+}
+
+.table {
+	composes: basetable from "../../css/Base.module.css";
+	font-size: 1em;
+}
+
+.table th,
+.table td {
+	padding: var(--toolbox-sp-2) var(--toolbox-sp-4);
+	text-align: left;
+}
+
+.input {
+	composes: baseinput from "../../css/Base.module.css";
+}
+
+.removeCol {
+	text-align: center;
+	width: 40px;
+}
+
+.removeBtn,
+.addBtn {
+	background: none;
+	border: none;
+	padding: 0;
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	text-decoration: none;
+}
+
+.addBtn:disabled {
+	opacity: 0.35;
+	cursor: default;
+}

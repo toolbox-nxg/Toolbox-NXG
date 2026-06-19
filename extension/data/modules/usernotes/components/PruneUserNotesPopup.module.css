@@ -1,0 +1,337 @@
+.content {
+	display: flex;
+	flex-direction: column;
+	gap: 1em;
+	height: 100%;
+	min-height: 0;
+	box-sizing: border-box;
+}
+
+.scrollableSections {
+	flex: 1 1 auto;
+	overflow-y: auto;
+	padding-right: var(--toolbox-sp-4);
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-8);
+	min-height: 0;
+}
+
+.content * {
+	box-sizing: border-box;
+}
+
+.section {
+	padding-bottom: var(--toolbox-sp-8);
+	border-bottom: 1px solid var(--toolbox-surface-border);
+}
+
+.section:last-child {
+	padding-bottom: 0;
+	border-bottom: 0;
+}
+
+.sectionTitle {
+	margin-bottom: var(--toolbox-sp-6);
+	font-size: var(--toolbox-sp-10);
+	font-weight: bold;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--toolbox-text-secondary);
+}
+
+.sectionDesc {
+	margin-bottom: var(--toolbox-sp-6);
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-text-secondary);
+}
+
+.topRow {
+	display: flex;
+	gap: var(--toolbox-sp-12);
+	flex-wrap: wrap;
+	align-items: flex-start;
+}
+
+.topRowColumn {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-6);
+	flex: 1 1 200px;
+	min-width: 0;
+}
+
+.topRowColumn .sectionTitle {
+	margin-bottom: 0;
+}
+
+.kindChips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--toolbox-sp-5);
+}
+
+.kindChip {
+	display: inline-flex;
+	gap: var(--toolbox-sp-5);
+	align-items: center;
+	min-height: 24px;
+	font-size: var(--toolbox-sp-10);
+	font-weight: bold;
+	color: var(--toolbox-text-secondary);
+	background: var(--toolbox-bg);
+	border: 1px solid var(--toolbox-surface-border);
+	border-radius: 2px;
+	padding: var(--toolbox-sp-2) var(--toolbox-sp-5);
+	cursor: pointer;
+}
+
+.kindChip:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.kindChip:hover:not(:disabled) {
+	border-color: var(--toolbox-input-focus);
+	background: var(--toolbox-action-bg);
+}
+
+.kindChipActive {
+	border-color: var(--toolbox-input-focus);
+	background: var(--toolbox-action-bg);
+}
+
+.kindChipDot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	flex: 0 0 auto;
+}
+
+.kindChip strong {
+	color: var(--toolbox-action-text);
+}
+
+.kindHint {
+	margin-top: var(--toolbox-sp-6);
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-text-secondary);
+}
+
+.inactiveDaysInput {
+	display: flex;
+	align-items: center;
+	gap: var(--toolbox-sp-5);
+	flex-wrap: wrap;
+	font-size: var(--toolbox-sp-11);
+}
+
+.optionsRow {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--toolbox-sp-6) var(--toolbox-sp-14);
+}
+
+.inlineOptionGroup {
+	display: flex;
+	align-items: center;
+	gap: var(--toolbox-sp-8);
+	flex-wrap: wrap;
+}
+
+.inlineOptionLabel {
+	font-size: var(--toolbox-sp-10);
+	font-weight: bold;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--toolbox-text-secondary);
+	white-space: nowrap;
+}
+
+.radioGroup {
+	display: flex;
+	gap: var(--toolbox-sp-8);
+}
+
+.radioOption {
+	display: flex;
+	gap: var(--toolbox-sp-5);
+	align-items: center;
+}
+
+.previewStats {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--toolbox-sp-5);
+	margin-bottom: var(--toolbox-sp-8);
+}
+
+.previewStats span {
+	font-size: var(--toolbox-sp-10);
+	font-weight: bold;
+	color: var(--toolbox-text-secondary);
+	background: var(--toolbox-badge-bg);
+	border: 1px solid var(--toolbox-surface-border);
+	border-radius: 2px;
+	padding: var(--toolbox-sp-2) var(--toolbox-sp-5);
+}
+
+.previewUserList {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-7);
+}
+
+.previewUserEntry {
+	border: 1px solid var(--toolbox-surface-border);
+	border-radius: 3px;
+	background: var(--toolbox-bg);
+	overflow: hidden;
+}
+
+.previewUserHeader {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: var(--toolbox-sp-8);
+	min-height: 34px;
+	padding: var(--toolbox-sp-6) var(--toolbox-sp-8);
+	background: var(--toolbox-action-bg);
+	border-bottom: 1px solid var(--toolbox-surface-border);
+}
+
+.previewUserTitle {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--toolbox-sp-6);
+	align-items: center;
+	min-width: 0;
+}
+
+.previewUserTitle a {
+	font-weight: bold;
+	overflow-wrap: anywhere;
+}
+
+.previewUserTitle span,
+.modInfo {
+	font-size: var(--toolbox-sp-10);
+	font-weight: bold;
+	color: var(--toolbox-text-secondary);
+	background: var(--toolbox-badge-bg);
+	border: 1px solid var(--toolbox-surface-border);
+	border-radius: 2px;
+	padding: var(--toolbox-sp-2) var(--toolbox-sp-5);
+}
+
+.noteList {
+	display: flex;
+	flex-direction: column;
+}
+
+.noteDetails {
+	display: grid;
+	grid-template-columns: minmax(86px, 120px) minmax(0, 1fr) auto auto;
+	gap: var(--toolbox-sp-7);
+	align-items: center;
+	min-height: 30px;
+	padding: var(--toolbox-sp-5) var(--toolbox-sp-8);
+	border-bottom: 1px solid var(--toolbox-divider-color);
+}
+
+.noteDetails:last-child {
+	border-bottom: 0;
+}
+
+.noteDetails:hover {
+	background: var(--toolbox-action-bg);
+}
+
+.noteType {
+	font-size: var(--toolbox-sp-11);
+	font-weight: bold;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.noteText {
+	overflow-wrap: anywhere;
+}
+
+.emptyPreview {
+	padding: var(--toolbox-sp-14) var(--toolbox-sp-8);
+	text-align: center;
+	color: var(--toolbox-text-secondary);
+	background: var(--toolbox-action-bg);
+	border: 1px dashed var(--toolbox-surface-border);
+	border-radius: 3px;
+}
+
+.incompletePreview {
+	margin-top: var(--toolbox-sp-8);
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-text-secondary);
+	font-style: italic;
+	text-align: center;
+}
+
+.actions {
+	flex: 0 0 auto;
+	display: flex;
+	justify-content: flex-end;
+	padding-top: var(--toolbox-sp-10);
+	border-top: 1px solid var(--toolbox-surface-border);
+}
+
+.progressPanel {
+	flex: 0 0 auto;
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-6);
+	padding: var(--toolbox-sp-8) var(--toolbox-sp-10);
+	border: 1px solid var(--toolbox-surface-border);
+	border-radius: 3px;
+	background: var(--toolbox-action-bg);
+}
+
+.progressText {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	gap: var(--toolbox-sp-8);
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-text-secondary);
+}
+
+.progressText strong {
+	color: var(--toolbox-action-text);
+}
+
+.progressTrack {
+	height: 8px;
+	overflow: hidden;
+	border-radius: 2px;
+	background: var(--toolbox-bg);
+	border: 1px solid var(--toolbox-surface-border);
+}
+
+.progressTrack span {
+	display: block;
+	height: 100%;
+	background: var(--toolbox-link-color);
+	transition: width 120ms ease;
+}
+
+@media (max-width: 560px) {
+	.noteDetails {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.noteType,
+	.modInfo,
+	.noteDetails time {
+		grid-column: 1;
+	}
+}

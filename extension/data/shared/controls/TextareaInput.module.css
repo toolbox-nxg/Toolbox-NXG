@@ -1,0 +1,13 @@
+.wrapper {
+	composes: basewrapper from "../../css/Base.module.css";
+}
+
+.label {
+	composes: baselabel from "../../css/Base.module.css";
+}
+
+.textarea {
+	padding: var(--toolbox-sp-5) var(--toolbox-sp-6);
+	width: 100%;
+	resize: vertical;
+}

@@ -1,0 +1,28 @@
+/* Vertical list of radio "cards" */
+.radioGroup {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-4);
+}
+
+.radioOption {
+	padding: var(--toolbox-sp-7) var(--toolbox-sp-10);
+	border: 1px solid var(--toolbox-input-border);
+	border-radius: 2px;
+	background: var(--toolbox-action-bg);
+	cursor: default;
+}
+
+.radioOption.selected {
+	border-color: var(--toolbox-input-focus);
+	background: var(--toolbox-selected-bg);
+}
+
+.radioLabel {
+	display: flex;
+	align-items: center;
+	gap: var(--toolbox-sp-7);
+	cursor: pointer;
+	margin: 0;
+	font-size: 1em;
+}

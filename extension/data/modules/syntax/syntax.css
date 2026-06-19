@@ -1,0 +1,18 @@
+/* stylelint-disable selector-id-pattern -- all IDs here are Reddit's native editor DOM */
+.toolbox-scope #stylesheet_contents_div,
+.toolbox-scope #json_contents_div,
+.toolbox-scope #wiki_contents_div {
+	height: 500px;
+	border: solid 1px var(--toolbox-divider-color);
+}
+
+.toolbox-scope.mod-syntax .sheets .buttons .btn,
+.toolbox-scope.mod-syntax #wiki_save_button {
+	display: none;
+}
+
+.toolbox-scope.mod-syntax #toolbox-syntax-buttons,
+.toolbox-scope.mod-syntax .sheets .buttons {
+	display: inline-block;
+	margin-left: var(--toolbox-sp-5);
+}

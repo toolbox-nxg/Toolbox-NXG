@@ -1,0 +1,355 @@
+/*
+ * Global CSS for toolbox button classes applied by legacy (non-React) modules.
+ * The React button components (ActionButton, GeneralButton) have
+ * their own CSS Modules; this file covers the global class names those modules
+ * inject into Reddit's DOM directly.
+ *
+ * Selectors use :is(body.toolbox-scope, :host) so they match in both contexts:
+ *   - light DOM: body.toolbox-scope matches, :host is ignored (forgiving selector list)
+ *   - shadow DOM: :host matches the shadow host, body.toolbox-scope is ignored
+ */
+
+/*
+------------
+    General buttons - blend in with Reddit's UI while marking toolbox actions.
+    Do NOT use in place of actual button elements; that's what action buttons are for.
+------------
+*/
+
+:is(body.toolbox-scope, :host) .toolbox-removal-reason-remove {
+	cursor: pointer;
+}
+
+/*
+------------
+    Shreddit flat-list mod-action slot. The `toolbox-flat-list-slot` span is appended to the
+    bottom of a `shreddit-post` / `shreddit-comment` (in the thing's `toolbox-thing-slot` when
+    present), so the Toolbox row controls (Second opinion, Remove, Approve, Spam, Lock, ...) render
+    on their own full-width line below the post/comment. Reddit's native action bar - especially
+    the card-view one (`<div class="ms-auto flex flex-row">`) - is too narrow to hold the full set
+    without clipping, so we no longer slot into it.
+
+    These rules are scoped under `.toolbox-flat-list-slot` so they only affect Shreddit: the
+    old-Reddit flat-list uses a different host (`.toolbox-flat-list-actions-slot`) and keeps its
+    own look.
+------------
+*/
+:is(body.toolbox-scope, :host) .toolbox-flat-list-slot {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	/* Sits on its own line below the post body, so give it a little breathing room from the
+	   native action bar above. */
+	margin-top: 4px;
+	/* Raise the row above the post's `<a slot="full-post-link" class="absolute inset-0">` overlay,
+	   which is absolutely positioned and otherwise paints over (and swallows clicks on) the
+	   statically-positioned content area - so clicking a Toolbox button just opened the post.
+	   A positive z-index on this positioned element wins against the overlay's auto z-index, the
+	   same way Reddit keeps its own action controls clickable (it wraps them in `.relative`). */
+	position: relative;
+	z-index: 1;
+}
+
+/* Inline flat-list-slot controls (ModActions pills, the Toolbox Remove link, the Second opinion
+   toggle), styled as native Reddit pills. These all render inside the row's Toolbox shadow host, so
+   they are NOT scoped under `.toolbox-flat-list-slot`: that ancestor lives in light DOM, outside the
+   shadow root and therefore unreachable from the host's adopted stylesheet. Scoping on the action
+   class via `:host` is what actually reaches them (otherwise even `cursor`/`padding` silently fail to
+   apply). `border: 0`/`background: transparent` reset any host-page button chrome; `color: inherit`
+   tracks Reddit's light/dark themes. The Remove link and Second opinion toggle opt in by also
+   carrying `toolbox-flat-list-action` alongside their own behavioural class. */
+:is(body.toolbox-scope, :host) .toolbox-flat-list-action {
+	display: inline-flex;
+	align-items: center;
+	font: inherit;
+	line-height: inherit;
+	color: inherit;
+	padding: 4px 8px;
+	border: 0;
+	border-radius: 9999px;
+	background: transparent;
+	white-space: nowrap;
+	text-decoration: none;
+	cursor: pointer;
+}
+
+:is(body.toolbox-scope, :host) .toolbox-flat-list-action:hover {
+	background-color: rgb(127 127 127 / 20%);
+	text-decoration: none;
+}
+
+/* Transient feedback while an action runs / after it fails (kept theme-agnostic). */
+:is(body.toolbox-scope, :host) .toolbox-flat-list-action.is-pending {
+	opacity: 0.6;
+	pointer-events: none;
+}
+
+:is(body.toolbox-scope, :host) .toolbox-flat-list-action.is-error {
+	color: var(--toolbox-error-color);
+}
+
+/* Hide Reddit's native inline mod-action pills on Shreddit surfaces where Toolbox renders its own
+   inline mod actions (e.g. post-detail / queue, which render `mod-action-button` elements directly
+   - the feed keeps them in the lazy ⋯ menu, handled separately by suppressNativeOverflowModActions).
+   The native Approve is left visible by this rule (Toolbox replaces it only on removed rows - see the
+   rule below - so reported-but-not-removed items keep their native Approve); share/save/award are
+   untouched. */
+body.toolbox-scope shreddit-post mod-action-button:not([data-mod-action="mod-approve-content"]),
+body.toolbox-scope shreddit-comment-action-row mod-action-button:not([data-mod-action="mod-approve-content"]) {
+	/* stylelint-disable-next-line declaration-no-important -- Reddit's own stylesheet sets these; specificity alone can't win. */
+	display: none !important;
+}
+
+/* On removed rows the Toolbox row renders its own Approve (gateway-routed, training-capture aware), so
+   hide the native Approve there to avoid showing two. Matches the removed-state attributes that
+   `isThingRemoved` reads; scoped to things with an injected Toolbox row. Non-removed items that still
+   expose an Approve (e.g. reported-but-not-removed) keep the native one - the Toolbox row doesn't
+   render an Approve for them, so the rule above leaves it in place. */
+body.toolbox-scope
+	shreddit-post.toolbox-has-flat-list-row:is([removed], [item-state="REMOVED"], [moderation-verdict="MOD_REMOVED"])
+	mod-action-button[data-mod-action="mod-approve-content"],
+body.toolbox-scope
+	shreddit-comment.toolbox-has-flat-list-row:is([removed], [item-state="REMOVED"], [moderation-verdict="MOD_REMOVED"])
+	mod-action-button[data-mod-action="mod-approve-content"] {
+	/* stylelint-disable-next-line declaration-no-important -- Reddit's own stylesheet sets these; specificity alone can't win. */
+	display: none !important;
+}
+
+/* Reddit's inline mod-action group (approve/remove, plus spam/lock/distinguish in non-card views)
+   lives in a `<shreddit-mod-inline-actions>` custom element whose `mod-action-button`s sit in ITS
+   OWN shadow root - so the `mod-action-button` rule above can't pierce it. Toolbox renders its own
+   copies of all of these in the flat-list row, so hide the whole native inline-actions host. Target
+   the light-DOM host element (reachable regardless of its inner shadow), scoped to things where
+   Toolbox injected its row (`.toolbox-has-flat-list-row`, set in JS at injection time - cheaper than
+   `:has(.toolbox-flat-list-slot)` re-evaluated on every style recalc) so things we skipped keep their
+   native controls. The native controls only render for moderators, the same audience that gets the
+   Toolbox row, so nothing is left without a replacement. */
+body.toolbox-scope shreddit-post.toolbox-has-flat-list-row shreddit-mod-inline-actions,
+body.toolbox-scope shreddit-comment.toolbox-has-flat-list-row shreddit-mod-inline-actions {
+	/* stylelint-disable-next-line declaration-no-important -- Reddit sets inline/utility display; specificity alone can't win. */
+	display: none !important;
+}
+
+/* Hide the native mod-actions shield (the 🛡 dropdown of mod actions) on COMMENTS only - the Toolbox
+   row already duplicates these for comments. Posts keep their shield (not everything in the post one
+   is duplicated in the Toolbox row). The comment shield is lazy-loaded, so target both its menu
+   element (mirroring the post's `shreddit-post-mod-actions-menu`) and the `mod-overflow-menu` slot it
+   occupies inside `mod-content-actions`; scoped to comments with an injected Toolbox row, and hidden
+   even when the native row is expanded (nothing in it needs reaching). */
+body.toolbox-scope shreddit-comment.toolbox-has-flat-list-row shreddit-comment-mod-actions-menu,
+body.toolbox-scope shreddit-comment.toolbox-has-flat-list-row mod-content-actions [slot="mod-overflow-menu"] {
+	/* stylelint-disable-next-line declaration-no-important -- Reddit sets inline/utility display; specificity alone can't win. */
+	display: none !important;
+}
+
+/* Comment Actions module: the Toolbox row recreates vote/reply/report/share for comments, so collapse
+   the native `shreddit-comment-action-row` to a single row (eliminates the scroll layout jump). Scoped
+   to comments with an injected Toolbox slot; posts are never matched (selector rooted at
+   shreddit-comment). The native row stays in the DOM so the Toolbox Reply/Report can drive it; the
+   Expand (⋯) toggle adds `.toolbox-native-row-expanded` to reveal it inline for save/award/insights. */
+body.toolbox-scope
+	shreddit-comment.toolbox-has-flat-list-row:not(.toolbox-native-row-expanded)
+	shreddit-comment-action-row {
+	/* stylelint-disable-next-line declaration-no-important -- Reddit sets inline/utility display; specificity alone can't win. */
+	display: none !important;
+}
+
+/* Recreated vote control: arrows + score laid out inline; active arrow tinted up/down-vote colours. */
+:is(body.toolbox-scope, :host) .toolbox-comment-vote {
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+}
+
+:is(body.toolbox-scope, :host) .toolbox-comment-vote.is-pending {
+	opacity: 0.6;
+	pointer-events: none;
+}
+
+:is(body.toolbox-scope, :host) .toolbox-comment-score {
+	min-width: 1.5em;
+	text-align: center;
+	font: inherit;
+}
+
+:is(body.toolbox-scope, :host) .toolbox-flat-list-action.is-upvoted {
+	color: var(--toolbox-upvote-color, rgb(255 69 0));
+}
+
+:is(body.toolbox-scope, :host) .toolbox-flat-list-action.is-downvoted {
+	color: var(--toolbox-downvote-color, rgb(113 147 255));
+}
+
+/* Red shading for removed comments - parity with old Reddit's removed highlight, which Shreddit lacks.
+   A removed comment carries `moderation-verdict="MOD_REMOVED"` (or `item-state="REMOVED"`); a
+   translucent red reads on both light and dark themes. Removed comments are usually collapsed, but
+   when expanded their replies nest INSIDE them, so reset nested non-removed replies to Reddit's page
+   background to keep the tint from bleeding down the subtree. */
+body.toolbox-scope shreddit-comment:is([moderation-verdict="MOD_REMOVED"], [item-state="REMOVED"]) {
+	background-color: rgb(255 0 0 / 10%);
+}
+
+body.toolbox-scope
+	shreddit-comment:is([moderation-verdict="MOD_REMOVED"], [item-state="REMOVED"])
+	shreddit-comment:not([moderation-verdict="MOD_REMOVED"], [item-state="REMOVED"]) {
+	/* stylelint-disable-next-line custom-property-pattern -- reference Reddit's own page-background var to mask the tint behind nested replies */
+	background-color: var(--color-neutral-background, transparent);
+}
+
+:is(body.toolbox-scope, :host) .toolbox-general-button,
+:is(body.toolbox-scope, :host) li a.toolbox-general-button {
+	background-color: var(--toolbox-button-bg-solid);
+	/* stylelint-disable declaration-block-no-redundant-longhand-properties -- font shorthand with var() in font-family is stored as pending substitution; if the variable resolves late, font-weight/line-height drop and Reddit's inherited bold/line-height wins */
+	font-family: var(--toolbox-font-family);
+	font-size: var(--toolbox-sp-11);
+	font-weight: normal;
+	font-style: normal;
+	font-variant: normal;
+	font-stretch: normal;
+	line-height: 15px;
+	/* stylelint-enable declaration-block-no-redundant-longhand-properties */
+	margin: 0 2px;
+	color: var(--toolbox-button-text);
+	border-width: 0 0 0 3px;
+	border-color: var(--toolbox-button-border);
+	border-style: solid;
+	box-shadow: none;
+	padding: 1px 5px;
+	cursor: pointer;
+	display: inline-block;
+	box-sizing: content-box;
+	height: 15px;
+	vertical-align: baseline;
+	text-shadow: none;
+	text-align: center;
+	text-indent: 0;
+	text-transform: none;
+	letter-spacing: normal;
+	text-decoration: none;
+	outline: none;
+}
+
+:is(body.toolbox-scope, :host) .toolbox-general-button:hover,
+:is(body.toolbox-scope, :host) li a.toolbox-general-button:hover {
+	background-color: var(--toolbox-button-hover-bg);
+	text-decoration: none;
+}
+
+:is(body.toolbox-scope, :host) .toolbox-general-button img {
+	vertical-align: top;
+}
+
+/* Handle icons within buttons */
+:is(body.toolbox-scope, :host) .toolbox-general-button .toolbox-icons,
+:is(body.toolbox-scope, :host) li a.toolbox-general-button .toolbox-icons {
+	font-size: 15px;
+	display: inline-block;
+	vertical-align: top;
+}
+
+/* handle general buttons within the hovercard api container */
+:is(body.toolbox-scope, :host) .toolbox-frontend-container[data-toolbox-type="TBuserHovercard"] {
+	padding: var(--toolbox-sp-3);
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-5);
+}
+
+:is(body.toolbox-scope, :host)
+	.toolbox-frontend-container[data-toolbox-type="TBuserHovercard"]
+	.toolbox-general-button {
+	display: block;
+	width: max-content;
+}
+
+/*
+------------
+    Action buttons - used where you normally would use actual button elements and where
+    you need to be absolutely certain they always show in the same way. This is
+    ridiculously locked down because subreddit styles WON'T STOP TOUCHING NATIVE
+    TOOLBOX STUFF - as always, toolbox loves you!
+
+    !important throughout this block: subreddit CSS (and sometimes Reddit's own
+    stylesheet) actively overrides every property listed below. Specificity escalation
+    alone cannot win because subreddit styles frequently use IDs, body-class chains,
+    or their own !important declarations.
+------------
+*/
+
+/* stylelint-disable declaration-no-important */
+:is(body.toolbox-scope, :host) .toolbox-action-button {
+	display: inline-block;
+	height: 14px !important;
+	vertical-align: bottom !important;
+	padding: 5px 6px 4px 5px !important;
+	/* stylelint-disable declaration-block-no-redundant-longhand-properties -- see bracket-button comment above */
+	font-family: var(--toolbox-font-family) !important;
+	font-size: 1em !important;
+	font-weight: normal !important;
+	font-style: normal !important;
+	font-variant: normal !important;
+	font-stretch: normal !important;
+	line-height: 14px !important;
+	/* stylelint-enable declaration-block-no-redundant-longhand-properties */
+	text-shadow: none !important;
+	text-decoration: none !important;
+	text-align: left !important;
+	text-indent: 0 !important;
+	text-transform: none !important;
+	letter-spacing: normal !important;
+	background-color: var(--toolbox-action-bg) !important;
+	border-radius: 1px !important;
+	border-width: 1px 1px 2px 2px !important;
+	border-color: var(--toolbox-border-color) !important;
+	border-style: solid !important;
+	box-shadow: none !important;
+	box-sizing: content-box !important;
+	color: var(--toolbox-action-text) !important;
+	outline: none !important;
+}
+
+:is(body.toolbox-scope, :host) .toolbox-action-button:active {
+	border-width: 1px !important;
+	border-color: var(--toolbox-input-focus) !important;
+	padding: 5px 6px !important;
+	box-shadow: none !important;
+	outline: none !important;
+}
+
+:is(.toolbox-scope, :host) select.toolbox-action-button {
+	background-image: url("data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 2 1\" width=\"10\" height=\"5\"><polygon points=\"0,0 1,1 2,0\" fill=\"%2372869A\"/></svg>");
+	background-repeat: no-repeat;
+	background-position: right 5px center;
+	appearance: none;
+}
+:is(.toolbox-scope, :host) select.toolbox-action-button,
+:is(.toolbox-scope, :host) select.toolbox-action-button:active {
+	padding-right: 20px !important;
+}
+
+:is(body.toolbox-scope, :host) .toolbox-usertext-buttons .toolbox-action-button {
+	vertical-align: initial !important;
+}
+
+/* Show the mod sticky + save button only where it belongs. Doing this in JS is
+   awkward because Reddit clones the reply field from the top-level one, and the
+   button should appear on top-level comments but not on nested replies. */
+/* stylelint-disable-next-line no-descending-specificity -- intentional: hides the button globally before the scoped show-rule below */
+button.save-sticky {
+	display: none !important;
+}
+:is(.toolbox-scope, :host) .commentarea > form button.save-sticky {
+	display: inline-block !important;
+}
+
+:is(body.toolbox-scope, :host) .toolbox-action-button:focus {
+	outline: none !important;
+}
+
+:is(body.toolbox-scope, :host) .toolbox-action-button:hover {
+	background-color: var(--toolbox-button-hover-bg) !important;
+	text-decoration: none !important;
+	outline: none !important;
+}
+/* stylelint-enable declaration-no-important */

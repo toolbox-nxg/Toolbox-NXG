@@ -1,0 +1,79 @@
+.window {
+	width: 520px;
+	max-width: 90vw;
+}
+
+.toolbar {
+	display: flex;
+	gap: var(--toolbox-sp-6);
+	padding: var(--toolbox-sp-6) var(--toolbox-sp-8);
+}
+
+.content {
+	display: flex;
+	flex-direction: column;
+	max-height: 60vh;
+	overflow: auto;
+}
+
+.message {
+	margin: 0;
+	padding: var(--toolbox-sp-15);
+	text-align: center;
+	color: var(--toolbox-text-secondary);
+}
+
+.error {
+	margin: 0;
+	padding: var(--toolbox-sp-15);
+	color: var(--toolbox-error-color);
+}
+
+/* One announcement row: title + metadata on the left, remove action on the right. */
+.row {
+	display: flex;
+	align-items: center;
+	gap: var(--toolbox-sp-8);
+	padding: var(--toolbox-sp-8);
+	border-bottom: 1px solid var(--toolbox-divider-color);
+}
+
+.row:last-child {
+	border-bottom: 0;
+}
+
+.rowMain {
+	flex: 1;
+	min-width: 0;
+}
+
+.rowActions {
+	display: flex;
+	gap: var(--toolbox-sp-5);
+	flex-shrink: 0;
+}
+
+.rowTitle {
+	font-weight: bold;
+	color: var(--toolbox-text-heading);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.rowMeta {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--toolbox-sp-6);
+	margin-top: var(--toolbox-sp-3);
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-text-secondary);
+}
+
+.badge {
+	padding: 0 var(--toolbox-sp-5);
+	border-radius: var(--toolbox-sp-3);
+	background: var(--toolbox-badge-bg);
+	color: var(--toolbox-text-secondary);
+}

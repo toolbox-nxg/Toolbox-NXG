@@ -1,0 +1,18 @@
+.backdrop {
+	position: fixed;
+	inset: 0 0 var(--toolbox-modbar-height, 0) var(--toolbox-drawer-left-offset, 0);
+	background: rgb(0 0 0 / 50%);
+	z-index: var(--toolbox-z-backdrop);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: left 180ms ease;
+}
+
+.dialog {
+	position: relative;
+	z-index: var(--toolbox-z-window);
+	max-width: calc(100vw - 20px - var(--toolbox-drawer-left-offset, 0px));
+	max-height: calc(100vh - 20px - var(--toolbox-modbar-height, 0px));
+	transition: max-width 180ms ease;
+}

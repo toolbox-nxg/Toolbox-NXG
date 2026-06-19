@@ -1,0 +1,58 @@
+/* Section grouping (mirrors the usernotes settings tab) */
+.section {
+	margin-bottom: var(--toolbox-sp-18);
+}
+
+.section:last-child {
+	margin-bottom: 0;
+}
+
+.sectionTitle {
+	font-size: var(--toolbox-sp-11);
+	font-weight: bold;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--toolbox-text-secondary);
+	margin-bottom: var(--toolbox-sp-8);
+	padding-bottom: var(--toolbox-sp-4);
+	border-bottom: 1px solid var(--toolbox-surface-border);
+}
+
+.sectionDesc {
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-text-secondary);
+	margin: 0 0 var(--toolbox-sp-8);
+	font-style: italic;
+}
+
+/* Scrollable list of moderators with a trainee toggle each */
+.modList {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-5);
+	max-height: 320px;
+	overflow-y: auto;
+}
+
+/* Status / empty / error line */
+.status {
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-text-secondary);
+}
+
+/* Inline hint next to a locked (senior) moderator's name */
+.hint {
+	color: var(--toolbox-text-secondary);
+	font-style: italic;
+}
+
+/* Prominent warning shown when 6.x compatibility writes are on */
+.compatWarning {
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-text);
+	background: var(--toolbox-caution-bg);
+	border: 1px solid var(--toolbox-caution-border);
+	border-radius: var(--toolbox-sp-4);
+	padding: var(--toolbox-sp-8);
+	margin-bottom: var(--toolbox-sp-8);
+}

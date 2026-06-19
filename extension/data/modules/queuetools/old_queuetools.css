@@ -1,0 +1,12 @@
+/* Action reason styling */
+
+.action-reason {
+	padding: var(--toolbox-sp-5);
+	font-size: 1em;
+	background-color: rgb(86 86 86 / 20%); /* intentional: translucent white over the Reddit page background */
+	color: var(--toolbox-text-body);
+}
+
+.action-reason a {
+	font-size: var(--toolbox-sp-10);
+}

@@ -1,0 +1,25 @@
+/* Color borders */
+.toolbox-subreddit-color {
+	border-left: solid 3px var(--toolbox-sub-color)
+		!important; /* stylelint-disable-line declaration-no-important -- overrides Reddit's .thing border styles */
+}
+
+.comment.toolbox-subreddit-color {
+	padding-left: 10px;
+}
+
+/* Highlight for zero-scored posts */
+.toolbox-zero-highlight {
+	background: var(--toolbox-caution-bg);
+}
+
+/* Shreddit queue items use Tailwind bg-* utilities that need !important to override */
+shreddit-post.toolbox-zero-highlight {
+	background: var(--toolbox-caution-bg)
+		!important; /* stylelint-disable-line declaration-no-important -- overrides Tailwind bg-* utility on shreddit-post */
+}
+
+shreddit-post.toolbox-subreddit-color {
+	border-left: solid 3px var(--toolbox-sub-color)
+		!important; /* stylelint-disable-line declaration-no-important -- overrides Tailwind border-* utility on shreddit-post */
+}

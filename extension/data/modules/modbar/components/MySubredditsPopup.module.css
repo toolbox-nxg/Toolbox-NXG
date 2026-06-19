@@ -1,0 +1,157 @@
+.drawer {
+	composes: drawer from "../../../css/Base.module.css";
+	width: 330px;
+}
+
+.header {
+	composes: header from "../../../css/Base.module.css";
+}
+
+.closeButton {
+	composes: iconbutton from "../../../css/Base.module.css";
+}
+
+.filterBar {
+	padding: var(--toolbox-sp-5) var(--toolbox-sp-8);
+	border-bottom: 1px solid var(--toolbox-divider-color);
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	gap: var(--toolbox-sp-6);
+	background: var(--toolbox-action-bg);
+}
+
+.filterInput {
+	flex: 1;
+	height: 24px;
+	padding: 0 var(--toolbox-sp-6);
+	border: 1px solid var(--toolbox-input-border);
+	border-radius: 3px;
+	background: var(--toolbox-bg);
+	font-family: var(--toolbox-font-family);
+	font-size: 1em;
+	color: var(--toolbox-action-text);
+}
+
+.filterInput:focus-visible {
+	outline: 2px solid var(--toolbox-input-focus);
+	outline-offset: 1px;
+}
+
+.filterCount {
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-text-muted);
+	white-space: nowrap;
+}
+
+.body {
+	overflow-y: auto;
+	flex: 1;
+	min-height: 0;
+}
+
+.list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	font-size: var(--toolbox-sp-11);
+}
+
+.row {
+	display: flex;
+	align-items: center;
+	gap: var(--toolbox-sp-6);
+	padding: var(--toolbox-sp-4) var(--toolbox-sp-6);
+	border-bottom: 1px solid var(--toolbox-divider-color);
+}
+
+.row:last-child {
+	border-bottom: none;
+}
+
+.row:hover {
+	background-color: var(--toolbox-selected-bg);
+}
+
+.subName {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--toolbox-link-color);
+	text-decoration: none;
+}
+
+.subName:hover {
+	text-decoration: underline;
+}
+
+.subActions {
+	flex-shrink: 0;
+	white-space: nowrap;
+	/* Centred flex row so the `[N]` count and every 19px action icon share one
+	   vertical centre line and stay in tidy columns across rows. */
+	display: flex;
+	align-items: center;
+}
+
+/*
+ * Fixed-width slot holding the modqueue count chip, to the right of the modqueue icon.
+ * Reserving a constant width (whether or not a chip is present) keeps the sibling action
+ * icons in tidy columns across rows even as the chip's width varies with the count.
+ */
+.queueChipSlot {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: var(--toolbox-sp-20);
+	margin-right: var(--toolbox-sp-3);
+}
+
+/*
+ * Modqueue count rendered as an accent pill, mirroring the modbar's own
+ * `.toolbox-counter-badge` chip. The modqueue anchor carries the global `toolbox-icons`
+ * class (forces "Material Symbols Filled"), so the chip restores the body font or its
+ * digits render blank.
+ */
+.queueChip {
+	display: inline-block;
+	min-width: var(--toolbox-sp-14);
+	padding: 0 var(--toolbox-sp-4);
+	border-radius: var(--toolbox-sp-8);
+	background: var(--toolbox-accent-color);
+	color: var(--toolbox-bg);
+	font-family: var(--toolbox-font-family);
+	font-variant-numeric: tabular-nums;
+	font-weight: bold;
+	font-size: var(--toolbox-sp-8);
+	line-height: var(--toolbox-sp-14);
+	text-align: center;
+}
+
+/*
+ * The modqueue link holds both the `[N]` count and the icon, unlike the other
+ * action links which hold a lone icon. The link carries the global `toolbox-icons`
+ * class, whose `.toolbox-scope .toolbox-icons` rule (specificity 0,2,0) forces
+ * `display: inline-block`. The repeated class raises this rule to (0,3,0) so the
+ * override wins no matter how the global and module CSS end up ordered in the
+ * bundle. Laying the link out as a centred flex row geometrically centres the count
+ * and icon, which keeps the icon level with the lone icons in the sibling action
+ * links (a `vertical-align: middle` on inline children instead would centre against
+ * the text baseline/x-height and leave the whole link sitting low).
+ */
+.queueLink.queueLink.queueLink {
+	display: inline-flex;
+	align-items: center;
+}
+
+.subActionButton {
+	background: none;
+	border: none;
+	padding: 0;
+	cursor: pointer;
+	color: var(--toolbox-text-body);
+	display: inline-block;
+	vertical-align: middle;
+}

@@ -1,0 +1,68 @@
+.builder {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-6);
+}
+
+/* One named select definition */
+.definitionCard {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-6);
+	border: 1px solid var(--toolbox-surface-border);
+	border-radius: 3px;
+	background: var(--toolbox-action-bg);
+	padding: var(--toolbox-sp-6);
+}
+
+.definitionField {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-3);
+}
+
+.definitionLabel {
+	font-size: var(--toolbox-sp-11);
+	font-weight: bold;
+	color: var(--toolbox-text-body);
+}
+
+/* Name input beside the insert-reference and delete buttons */
+.nameRow {
+	display: flex;
+	align-items: center;
+	gap: var(--toolbox-sp-6);
+}
+
+.nameRow input[type="text"] {
+	flex: 1;
+	min-width: 0;
+}
+
+/* Option textarea beside its remove button */
+.optionRow {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--toolbox-sp-6);
+}
+
+.optionRow > span {
+	flex: 1;
+	min-width: 0;
+}
+
+.optionRow textarea {
+	box-sizing: border-box;
+	width: 100%;
+	resize: vertical;
+}
+
+.iconButton {
+	composes: inlineiconbutton from "../../../css/Base.module.css";
+	align-self: flex-start;
+}
+
+.warning {
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-error-color);
+}

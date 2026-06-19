@@ -1,0 +1,61 @@
+.window {
+	width: 80vw;
+	max-width: 1000px;
+	height: 80vh;
+	display: flex;
+	flex-direction: column;
+}
+
+.window > div:nth-child(2) {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow: auto;
+}
+
+.content {
+	padding: var(--toolbox-sp-8);
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-8);
+}
+
+.siteTable {
+	flex: 1 1 auto;
+	min-height: 100px;
+	border: 1px solid var(--toolbox-surface-border);
+	padding: var(--toolbox-sp-6);
+	overflow: auto;
+}
+
+.inputs {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--toolbox-sp-6);
+}
+
+.inputs input[type="text"] {
+	flex: 1 1 auto;
+	min-width: 200px;
+}
+
+.absoluteLabel {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--toolbox-sp-4);
+}
+
+.notifSection {
+	border-top: 1px solid var(--toolbox-surface-border);
+	padding-top: var(--toolbox-sp-8);
+}
+
+.notifSection h1 {
+	font-size: var(--toolbox-sp-14);
+	margin: 0 0 var(--toolbox-sp-4);
+}
+
+.notifSection input[type="text"] {
+	margin: var(--toolbox-sp-2) 0;
+	width: 300px;
+}

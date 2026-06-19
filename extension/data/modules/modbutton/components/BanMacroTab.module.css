@@ -1,0 +1,55 @@
+.root {
+	display: flex;
+	flex-direction: column;
+	gap: 1em;
+}
+
+.field {
+	composes: columngapsmall from "../../../css/Base.module.css";
+}
+
+.fieldLabel {
+	display: block;
+	font-size: var(--toolbox-sp-11);
+	font-weight: bold;
+	color: var(--toolbox-text-body);
+}
+
+.fullWidth {
+	composes: fullwidth from "../../../css/Base.module.css";
+}
+
+.fieldHint {
+	composes: secondaryitalic from "../../../css/Base.module.css";
+}
+
+.tokenHint {
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-text-secondary);
+	margin: var(--toolbox-sp-4) 0 0;
+	font-style: italic;
+}
+
+.presetList {
+	composes: columngapsmall from "../../../css/Base.module.css";
+}
+
+.presetRow {
+	display: flex;
+	align-items: center;
+	gap: var(--toolbox-sp-4);
+}
+
+.presetInput {
+	width: 80px;
+}
+
+.presetRemoveBtn,
+.presetAddBtn {
+	background: none;
+	border: none;
+	padding: 0;
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+}

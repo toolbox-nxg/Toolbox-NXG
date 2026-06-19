@@ -1,0 +1,189 @@
+.root {
+	composes: columngaplarge from "../../../css/Base.module.css";
+}
+
+/* Card list */
+.cardList {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-6);
+	margin-top: var(--toolbox-sp-4);
+}
+
+/* Individual macro card */
+.card {
+	border: 1px solid var(--toolbox-surface-border);
+	border-radius: 3px;
+	background: var(--toolbox-action-bg);
+	overflow: hidden;
+}
+
+.addCard {
+	background: var(--toolbox-selected-bg);
+	border-color: var(--toolbox-input-focus);
+}
+
+.cardHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: var(--toolbox-sp-6) var(--toolbox-sp-8);
+	background: var(--toolbox-selected-bg);
+	border-bottom: 1px solid var(--toolbox-surface-border);
+	gap: var(--toolbox-sp-8);
+}
+
+.cardTitle {
+	composes: cardtitle from "../../../css/Base.module.css";
+}
+
+.dragHandle {
+	composes: draghandle from "../../../css/Base.module.css";
+}
+
+.untitled {
+	composes: untitled from "../../../css/Base.module.css";
+}
+
+.contextBadges {
+	display: flex;
+	gap: var(--toolbox-sp-3);
+	flex-shrink: 0;
+}
+
+.contextBadge {
+	font-size: var(--toolbox-sp-10);
+	font-weight: bold;
+	color: var(--toolbox-text-secondary);
+	background: var(--toolbox-badge-bg);
+	border-radius: 2px;
+	padding: var(--toolbox-sp-1) var(--toolbox-sp-4);
+	letter-spacing: 0.02em;
+}
+
+.cardActions {
+	composes: cardactions from "../../../css/Base.module.css";
+}
+
+.iconButton {
+	composes: inlineiconbutton from "../../../css/Base.module.css";
+}
+
+.iconButtonActive {
+	color: var(--toolbox-accent-color);
+}
+
+/* Preview area */
+.previewWrap {
+	padding: var(--toolbox-sp-6) var(--toolbox-sp-8);
+}
+
+.previewClamped {
+	overflow: hidden;
+	display: -webkit-box;
+	-webkit-line-clamp: 3;
+	-webkit-box-orient: vertical;
+	font-size: 1em;
+	color: var(--toolbox-text-body);
+	line-height: 1.4;
+}
+
+.previewFull {
+	font-size: 1em;
+	color: var(--toolbox-text-body);
+	line-height: 1.4;
+}
+
+.expandToggle {
+	display: inline-block;
+	margin-top: var(--toolbox-sp-3);
+	background: none;
+	border: none;
+	padding: 0;
+	cursor: pointer;
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-accent-color);
+	font-family: var(--toolbox-font-family);
+}
+
+.expandToggle:hover {
+	text-decoration: underline;
+}
+
+.noText {
+	display: block;
+	padding: var(--toolbox-sp-6) var(--toolbox-sp-8);
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-input-focus);
+	font-style: italic;
+}
+
+/* Edit form wrapper inside a card */
+.editWrap {
+	padding: 0;
+}
+
+/* Edit form */
+.editForm {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-10);
+	padding: var(--toolbox-sp-8);
+	width: 100%;
+}
+
+.editField {
+	composes: columngapsmall from "../../../css/Base.module.css";
+}
+
+.editField input[type="text"],
+.editField select,
+.editField textarea {
+	box-sizing: border-box;
+	width: 100%;
+}
+
+.editFieldLabel {
+	font-size: var(--toolbox-sp-11);
+	font-weight: bold;
+	color: var(--toolbox-text-body);
+}
+
+.editTextarea {
+	box-sizing: border-box;
+	width: 100%;
+	min-height: 3lh;
+}
+
+/* Action groups grid */
+.actionsGrid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+	gap: var(--toolbox-sp-8);
+	padding: var(--toolbox-sp-8);
+	border: 1px solid var(--toolbox-surface-border);
+	border-radius: 2px;
+	background: var(--toolbox-action-bg);
+}
+
+.actionGroup {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-5);
+}
+
+.actionGroupLabel {
+	font-size: var(--toolbox-sp-10);
+	font-weight: bold;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--toolbox-text-secondary);
+	margin-bottom: var(--toolbox-sp-2);
+	padding-bottom: var(--toolbox-sp-3);
+	border-bottom: 1px solid var(--toolbox-surface-border);
+}
+
+.editButtons {
+	display: flex;
+	gap: var(--toolbox-sp-6);
+}

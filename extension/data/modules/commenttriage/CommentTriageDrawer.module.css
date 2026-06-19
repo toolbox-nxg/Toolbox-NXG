@@ -1,0 +1,72 @@
+/* intentional: these colors match the comment-triage highlight colors in commenttriage.css
+   and must not follow the toolbox theme palette */
+
+.drawer {
+	composes: drawer from "../../css/Base.module.css";
+	bottom: var(--toolbox-modbar-height, 28px);
+	min-width: 200px;
+	font-size: 1em;
+}
+
+.header {
+	composes: header from "../../css/Base.module.css";
+}
+
+.closeButton {
+	composes: iconbutton from "../../css/Base.module.css";
+}
+
+.closeButton:hover {
+	background-color: var(--toolbox-header-button-hover-bg);
+}
+
+.content {
+	padding: var(--toolbox-sp-8);
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-8);
+}
+
+.buttons {
+	display: flex;
+	gap: var(--toolbox-sp-4);
+	flex-wrap: wrap;
+}
+
+.legend {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-3);
+	border-top: 1px solid var(--toolbox-divider-color);
+	padding-top: var(--toolbox-sp-6);
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-text-secondary);
+}
+
+.legendItem {
+	display: flex;
+	align-items: center;
+	gap: var(--toolbox-sp-6);
+}
+
+.legendSwatch {
+	width: 14px;
+	height: 14px;
+	flex-shrink: 0;
+	border-radius: 2px;
+}
+
+.swatchControversy {
+	background-color: rgb(255 0 0 / 40%);
+	box-shadow: -2px 0 rgb(255 0 0 / 80%);
+}
+
+.swatchNeg {
+	background-color: rgb(0 0 255 / 40%);
+	box-shadow: -2px 0 rgb(0 0 255 / 80%);
+}
+
+.swatchBoth {
+	background-color: rgb(255 0 255 / 40%);
+	box-shadow: -2px 0 rgb(255 0 255 / 80%);
+}

@@ -1,28 +1,71 @@
-name: Update documentation
+name: Deploy documentation
 
 on:
   push:
-    branches: [ master ]
+    branches: [main]
+  # Validate the docs build on PRs too, so a change that breaks TypeDoc or
+  # Sphinx is caught before merge rather than failing the post-merge deploy.
+  pull_request:
+  # Allow manual runs from the Actions tab
+  workflow_dispatch:
+
+# Sets permissions for the GITHUB_TOKEN to allow GitHub Pages deployment
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Serialize Pages deploys (never cancel an in-progress deploy), but let
+# superseded PR validation runs cancel each other to save minutes.
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  updateDocs:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: checkout@v3
-        uses: actions/checkout@v4
-      - name: setup node
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
         uses: actions/setup-node@v4
-      - run: npm install
-      - name: generate docs
-        run: npm run docs
-        continue-on-error: true
-      - name: Push docs to source-docs repo
-        uses: cpina/github-action-push-to-another-repository@v1.5
-        env:
-          SSH_DEPLOY_KEY: ${{ secrets.SSH_DEPLOY_KEY }}
         with:
-          source-directory: 'docs'
-          destination-github-username: 'toolbox-team'
-          destination-repository-name: 'source-docs'
-          user-email: creesch@users.noreply.github.com
-          target-branch: gh-pages
+          node-version: 24
+          cache: npm
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Generate TypeDoc API reference
+        run: npm run docs:api
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: docs/requirements.txt
+
+      - name: Install Sphinx dependencies
+        run: pip install -r docs/requirements.txt
+
+      - name: Build Sphinx docs
+        run: sphinx-build -b html docs docs/_build/html
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/_build/html
+
+  deploy:
+    needs: build
+    # PRs only validate the build above; deployment is reserved for main.
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

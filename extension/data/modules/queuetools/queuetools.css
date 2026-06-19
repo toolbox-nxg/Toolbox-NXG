@@ -1,0 +1,97 @@
+/* Queue creator */
+/* stylelint-disable-next-line selector-id-pattern -- Reddit's native DOM element */
+.toolbox-scope #queueCreatureWrapper {
+	width: 100%;
+	text-align: center;
+	position: absolute;
+	top: 230px;
+	display: none;
+	z-index: var(--toolbox-z-popup)
+		!important; /* stylelint-disable-line declaration-no-important -- overrides Reddit's z-index on #queueCreatureWrapper */
+}
+
+/* The creature class sits directly on #queueCreature (an inline-block of fixed
+   size); make it a centered block so it doesn't hug the left edge on old Reddit. */
+/* stylelint-disable-next-line selector-id-pattern -- matches the #queueCreature element we inject */
+.toolbox-scope #queueCreature {
+	display: block;
+	margin-inline: auto;
+}
+
+.toolbox-scope .toolbox-kitteh {
+	display: inline-block;
+	width: 330px;
+	height: 351px;
+	background-image: url("https://b.thumbs.redditmedia.com/7uBqTsML9Y-sksmfvCrKrHvoUANP6ZCOw9UOVIV6aXQ.png");
+	background-repeat: no-repeat;
+	background-position: center center;
+}
+
+.toolbox-scope .toolbox-puppy {
+	display: inline-block;
+	width: 360px;
+	height: 460px;
+	background-image: url("https://a.thumbs.redditmedia.com/L8eKqhvo2mcjB0E8t87nOlu1_oMoSQ8F8LzqbFHumK8.png");
+	background-repeat: no-repeat;
+	background-position: center center;
+	text-indent: -1000px;
+	overflow: hidden;
+}
+
+.toolbox-scope .toolbox-spiders {
+	display: inline-block;
+	width: 360px;
+	height: 460px;
+	background-image: url("https://b.thumbs.redditmedia.com/AgVm8q7yNxjcklDntkpH4hc6UoYrBUcwU8SXcZWgBJA.png");
+	background-repeat: no-repeat;
+	background-position: center center;
+}
+
+.toolbox-scope .toolbox-piggy {
+	display: inline-block;
+	width: 360px;
+	height: 460px;
+	background-image: url("https://b.thumbs.redditmedia.com/FMheFSik2oy58sq7qWASounTkW2H0u0F0gtGorsu3cc.png");
+	background-repeat: no-repeat;
+	background-position: center center;
+}
+
+.toolbox-scope .toolbox-begifs::after {
+	content: "baby elephant is pleased!";
+}
+
+/* Action reason stuff - table styles live in ActionDetails.module.css */
+
+.toolbox-window.queuetools-select-popup .divider {
+	margin-top: var(--toolbox-sp-8);
+}
+
+.toolbox-window.queuetools-select-popup .choice {
+	margin-top: var(--toolbox-sp-2);
+}
+
+/* Actioned item highlighting */ /* TODO: Make sure this is the right place for these */
+/* intentional: approved/removed/spammed/flaired are fixed semantic highlight colours injected into old Reddit's light DOM */
+
+.toolbox-scope .thing.approved {
+	background-color: rgb(152 251 152);
+}
+
+.toolbox-scope .thing.removed {
+	background-color: rgb(211 211 211);
+}
+
+.toolbox-scope .thing.spammed {
+	background-color: rgb(255 99 71);
+}
+
+/* In dark mode, match RES nightmode's muted spam tint instead of the bright tomato above */
+.res-nightmode .toolbox-scope .thing.spammed,
+.theme-dark.toolbox-scope .thing.spammed,
+.toolbox-os-dark .toolbox-scope .thing.spammed {
+	background-color: rgb(61 41 41);
+}
+
+.toolbox-scope .thing.flaired {
+	background-color: rgb(175 238 238);
+}

@@ -1,0 +1,80 @@
+.toolbox-scope .toolbox-queue-overlay .toolbox-window.toolbox-window-large {
+	max-width: 1750px;
+	margin-bottom: auto;
+	top: 0;
+}
+
+.toolbox-scope .toolbox-queue-overlay .toolbox-queue-options {
+	display: flex;
+	align-items: center;
+	gap: var(--toolbox-sp-5);
+	padding-inline: var(--toolbox-sp-5);
+}
+
+.toolbox-scope .toolbox-queue-overlay input.toolbox-input.toolbox-queue-url {
+	flex-grow: 1;
+}
+
+.toolbox-scope .toolbox-queue-overlay .toolbox-queue-reload.loading {
+	animation-name: reload-spin;
+	animation-duration: 1000ms;
+	animation-iteration-count: infinite;
+	animation-timing-function: linear;
+}
+
+@keyframes reload-spin {
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.toolbox-scope .toolbox-queue-overlay iframe.toolbox-queue-iframe {
+	box-sizing: border-box;
+	width: 100%;
+	height: calc(100vh - 203px);
+	border: 0;
+}
+
+.toolbox-scope.toolbox-embedded-queues .menuarea.modtools {
+	margin-right: 5px
+		!important; /* stylelint-disable-line declaration-no-important -- overrides Reddit's .menuarea margin-right */
+}
+
+.embedded-page.moderator #header .pagename {
+	padding: 0;
+	font-size: 1em;
+}
+
+.embedded-page.moderator #header .tabmenu {
+	margin: 0;
+}
+
+.embedded-page.moderator .content > .sitetable {
+	box-sizing: border-box;
+	width: 100%;
+}
+
+.embedded-page.moderator .side {
+	display: none;
+}
+
+/* Keep the RES floater from overlapping the queuetools bar */
+/* stylelint-disable-next-line selector-class-pattern -- Reddit Enhancement Suite class name */
+.embedded-page.moderator .res-floater-visibleAfterScroll {
+	top: 50px
+		!important; /* stylelint-disable-line declaration-no-important -- overrides RES floater's default top position */
+}
+
+.embedded-page.moderator .thing.spam.spam {
+	background-color: var(--toolbox-banned-bg);
+}
+
+.embedded-page.moderator .thing.banned-user.banned-user {
+	overflow: hidden;
+	background-color: rgb(
+		250 128 114 / 50%
+	); /* intentional: 50% opacity variant of --toolbox-banned-bg for banned-user rows */
+}

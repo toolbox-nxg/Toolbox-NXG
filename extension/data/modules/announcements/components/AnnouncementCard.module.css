@@ -1,0 +1,111 @@
+/* Note-card look: rounded corners, a subtle border, and a soft drop shadow.
+   Positioning and the over-page fade live on the popup's .anchor, not here, so
+   this card renders fully opaque wherever it is reused (e.g. the composer
+   preview). */
+.card {
+	position: relative;
+	box-sizing: border-box;
+	width: 320px;
+	max-width: calc(100vw - 32px);
+	padding: 10px 14px 12px;
+	background: var(--toolbox-bg);
+	color: var(--toolbox-text-body);
+	border: 1px solid var(--toolbox-surface-border);
+	border-radius: 10px;
+	box-shadow: var(--toolbox-shadow-color) 0 4px 16px 0;
+}
+
+/* Close button floats over the top-right corner of the card, matching the
+   placement of close icons elsewhere in Toolbox. */
+.close {
+	position: absolute;
+	top: 6px;
+	right: 6px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	padding: 0;
+	border: 0;
+	border-radius: 4px;
+	background: transparent;
+	color: var(--toolbox-text-secondary);
+	font: inherit;
+	line-height: 1;
+	cursor: pointer;
+}
+
+.close:hover {
+	background: var(--toolbox-hover-overlay);
+	color: var(--toolbox-fg);
+}
+
+/* Headline lives in the body; right edge clears the floating ✕ in the corner.
+   Children below use top-margins so spacing stays correct whether or not the
+   optional date is present. */
+.title {
+	margin: 0;
+	padding-right: 22px;
+	font-size: 1em;
+	font-weight: bold;
+	color: var(--toolbox-text-heading);
+}
+
+/* Small muted publish date, tucked just under the headline. */
+.date {
+	margin: 2px 0 0;
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-text-secondary);
+}
+
+.body {
+	margin: 6px 0 0;
+	font-size: 13px;
+	line-height: 1.4;
+	/* Honor authored line breaks (e.g. consolidated multi-item notifications). */
+	white-space: pre-line;
+}
+
+/* Bottom row: "Read more" link on the left, dot pager on the right, baseline-
+   shared. Only rendered when there is a link and/or more than one note. */
+.actions {
+	display: flex;
+	align-items: center;
+	margin-top: 10px;
+}
+
+.link {
+	font-size: 13px;
+	color: var(--toolbox-link-color);
+}
+
+/* Dot pager shown only when there is more than one unseen note. Each dot jumps
+   to that note; the current note's dot is filled. Pushed to the right edge. */
+.pager {
+	display: flex;
+	gap: 6px;
+	margin-left: auto;
+}
+
+.dot {
+	width: 7px;
+	height: 7px;
+	padding: 0;
+	border: 0;
+	border-radius: 50%;
+	background: var(--toolbox-text-muted);
+	opacity: 0.5;
+	cursor: pointer;
+	transition: opacity 0.15s ease;
+}
+
+.dot:hover {
+	opacity: 0.85;
+}
+
+.dotActive {
+	background: var(--toolbox-link-color);
+	opacity: 1;
+	cursor: default;
+}

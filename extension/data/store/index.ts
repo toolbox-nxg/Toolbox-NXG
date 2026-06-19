@@ -1,26 +1,54 @@
-import {combineReducers, configureStore, type ThunkAction, type UnknownAction} from '@reduxjs/toolkit';
-import settingsReducer, {loadSettings} from './settingsSlice';
-import textFeedbackReducer from './textFeedbackSlice';
+/** Configures the Redux store with all Toolbox slice reducers and exports typed helpers. */
+
+import {
+	combineReducers,
+	configureStore,
+	createListenerMiddleware,
+	type ThunkAction,
+	type UnknownAction,
+} from '@reduxjs/toolkit'
+import contextMenuReducer from './contextMenuSlice'
+import settingsReducer, {loadSettings,} from './settingsSlice'
+import spinnerReducer from './spinnerSlice'
+import textFeedbackReducer, {clearTextFeedback, showTextFeedback,} from './textFeedbackSlice'
+
+const listenerMiddleware = createListenerMiddleware()
 
 const rootReducer = combineReducers({
-    textFeedback: textFeedbackReducer,
-    settings: settingsReducer,
-});
+	textFeedback: textFeedbackReducer,
+	settings: settingsReducer,
+	spinner: spinnerReducer,
+	contextMenu: contextMenuReducer,
+},)
 
 const store = configureStore({
-    reducer: rootReducer,
-});
-export default store;
+	reducer: rootReducer,
+	middleware: (getDefaultMiddleware,) => getDefaultMiddleware().prepend(listenerMiddleware.middleware,),
+},)
+export default store
 
-// Attempt to load settings from storage immediately
-store.dispatch(loadSettings());
+// Auto-dismiss text feedback after the requested duration.
+// cancelActiveListeners ensures only one dismiss timer runs at a time.
+listenerMiddleware.startListening({
+	actionCreator: showTextFeedback,
+	effect: async (action, listenerApi,) => {
+		listenerApi.cancelActiveListeners()
+		await listenerApi.delay(action.payload.duration ?? 3000,)
+		listenerApi.dispatch(clearTextFeedback(),)
+	},
+},)
 
-// TS concerns - see https://redux.js.org/usage/usage-with-typescript#define-root-state-and-dispatch-types
-export type RootState = ReturnType<typeof rootReducer>;
-export type AppDispatch = typeof store.dispatch;
-export type AppThunk<ReturnType = void> = ThunkAction<
-    ReturnType,
-    RootState,
-    unknown,
-    UnknownAction
->;
+// Kick off the initial settings load from storage right away
+store.dispatch(loadSettings(),)
+
+/** The combined state type for all Toolbox reducers. */
+export type RootState = ReturnType<typeof rootReducer>
+/** Typed dispatch function for the Toolbox store. */
+export type AppDispatch = typeof store.dispatch
+/** Typed thunk action creator helper. */
+export type AppThunk<ReturnType = void,> = ThunkAction<
+	ReturnType,
+	RootState,
+	unknown,
+	UnknownAction
+>

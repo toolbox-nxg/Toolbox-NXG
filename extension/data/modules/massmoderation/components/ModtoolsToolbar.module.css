@@ -1,0 +1,175 @@
+.toolbar {
+	background-color: var(--toolbox-action-bg);
+	border: 1px solid var(--toolbox-button-border);
+	z-index: 98;
+	overflow: visible;
+	padding: var(--toolbox-sp-4) var(--toolbox-sp-3);
+	margin: var(--toolbox-sp-5) 0;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--toolbox-sp-3);
+}
+
+/* Phantom spacer - shown by the scroll handler when the toolbar becomes position:fixed */
+.duplicate {
+	display: none;
+}
+
+/* Button groups wrap as atomic units on small screens */
+.group {
+	display: inline-flex;
+	align-items: center;
+	flex-wrap: nowrap;
+	gap: var(--toolbox-sp-2);
+}
+
+/* Select-all checkbox (was inline style) */
+.selectAllCheckbox {
+	margin: 0 var(--toolbox-sp-3);
+}
+
+/* Action button color modifiers - applied on top of GeneralButton's shape/sizing.
+   Uses `button.` to match GeneralButton's specificity (0,1,1) so source order wins. */
+
+/* intentional: negative/positive/neutral are semantic visual encodings for mass-mod action outcomes */
+/* border-color matches background to suppress the dark surface-border that would show as a visible
+   outline on these light-colored buttons in dark mode, making them appear larger than siblings */
+button.negative {
+	background-color: var(--toolbox-remove-bg);
+	border-color: var(--toolbox-remove-bg);
+	color: rgb(0 0 0);
+}
+button.positive {
+	background-color: var(--toolbox-approve-bg);
+	border-color: var(--toolbox-approve-bg);
+	color: rgb(0 0 0);
+}
+/* intentional: hardcoded neutral grey for remove/ignore actions - not a theme variable */
+button.neutral {
+	background-color: rgb(213 213 213);
+	border-color: rgb(213 213 213);
+	color: rgb(0 0 0);
+}
+
+/* intentional: hover and pressed states are hard-coded darkened shades of the semantic base colors */
+button.negative:hover {
+	background-color: rgb(201 161 162);
+	border-color: rgb(201 161 162);
+}
+button.positive:hover {
+	background-color: rgb(178 199 162);
+	border-color: rgb(178 199 162);
+}
+button.neutral:hover {
+	background-color: rgb(181 181 181);
+	border-color: rgb(181 181 181);
+}
+button.negative.pressed {
+	background-color: rgb(136 107 108);
+	border-color: rgb(136 107 108);
+}
+button.positive.pressed {
+	background-color: rgb(132 148 121);
+	border-color: rgb(132 148 121);
+}
+button.neutral.pressed {
+	background-color: rgb(158 156 156);
+	border-color: rgb(158 156 156);
+}
+
+/* placeholder to give .pressed a module export (combined with color classes above) */
+/* stylelint-disable-next-line block-no-empty */
+.pressed {}
+
+/* Sort lock active state */
+.lockActive {
+	font-weight: bold;
+}
+
+/* Auto-refresh active state */
+.autoRefreshActive {
+	font-weight: bold;
+	color: var(--toolbox-accent-color);
+}
+
+/* Sort dropdown trigger */
+.dropdown {
+	cursor: default;
+	display: inline;
+	position: relative;
+}
+
+.dropChoices {
+	position: absolute;
+	left: 0;
+	border: 1px solid var(--toolbox-border-color);
+	z-index: 501;
+	background-color: var(--toolbox-bg);
+	white-space: nowrap;
+	line-height: normal;
+	margin-top: var(--toolbox-sp-2);
+	display: none;
+}
+
+.dropChoices.open {
+	display: block;
+}
+
+.choice {
+	cursor: pointer;
+	padding: var(--toolbox-sp-2) var(--toolbox-sp-3) var(--toolbox-sp-1);
+	display: block;
+}
+
+.choice:hover {
+	background-color: var(--toolbox-selected-bg);
+}
+
+.selected {
+	color: var(--toolbox-text-body);
+	cursor: pointer;
+}
+
+.sortDirection {
+	min-width: 2em;
+}
+
+/* Threshold number inputs */
+.threshold {
+	width: 3em;
+}
+
+/* Wraps a label+input pair within the threshold group */
+.thresholdGroup {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--toolbox-sp-3);
+	white-space: nowrap;
+}
+
+/* Selected item count badge */
+.selectedCount {
+	font-weight: bold;
+	margin: 0 var(--toolbox-sp-2);
+	white-space: nowrap;
+}
+
+/* Action log row - flex-basis:100% forces it onto its own line within the flex container */
+.actionLogRow {
+	flex-basis: 100%;
+	display: flex;
+	align-items: center;
+	gap: var(--toolbox-sp-6);
+	padding: 0 var(--toolbox-sp-3);
+	color: var(--toolbox-text-muted);
+	font-size: var(--toolbox-sp-11);
+}
+
+/* Inline toast feedback shown next to the action buttons */
+.toast {
+	font-style: italic;
+	color: var(--toolbox-text-muted);
+	margin-left: var(--toolbox-sp-3);
+	white-space: nowrap;
+}

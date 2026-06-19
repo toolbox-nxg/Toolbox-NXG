@@ -1,0 +1,584 @@
+.overlay {
+	width: 760px;
+	max-width: calc(100vw - 40px);
+	height: min(90vh, 780px);
+	max-height: 90vh;
+	display: flex;
+	flex-direction: column;
+}
+
+.overlay > div:nth-child(2) {
+	display: flex;
+	flex-direction: column;
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow: hidden;
+}
+
+.scrollContent {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow: auto;
+	padding: 0 var(--toolbox-sp-2) var(--toolbox-sp-2);
+}
+
+.drawerRoot {
+	position: fixed;
+	top: 0;
+	right: auto;
+	bottom: var(--toolbox-modbar-height, 0);
+	z-index: var(--toolbox-z-window);
+	width: 420px;
+	max-width: 100vw;
+}
+
+.drawerWindow {
+	width: 100%;
+	height: 100%;
+	max-height: none;
+	border-right: 1px solid var(--toolbox-border-color);
+	box-shadow: 2px 0 8px rgb(0 0 0 / 20%);
+}
+
+.popupBackdrop {
+	z-index: 2147483642;
+}
+
+/* stylelint-disable-next-line no-descending-specificity -- .popupBackdrop is not a child of .overlay; these selectors match different elements */
+.popupBackdrop > div {
+	z-index: 2147483643;
+}
+
+.overlay,
+.overlay * {
+	color-scheme: none;
+	box-sizing: border-box;
+}
+
+.overlay input:not([type="checkbox"]):not([type="radio"]),
+.overlay select,
+.overlay textarea {
+	font-size: 1em;
+	border: 1px solid var(--toolbox-input-border);
+	background-color: var(--toolbox-bg);
+}
+
+.overlay input[type="checkbox"],
+.overlay input[type="radio"] {
+	vertical-align: text-bottom;
+}
+
+.overlay input[type="checkbox"] {
+	border: 0;
+}
+
+.overlay button:not(:disabled) {
+	cursor: pointer;
+}
+
+.overlay textarea {
+	width: 100%;
+	min-width: 0;
+}
+
+.editIconButton {
+	composes: inlineiconbutton from "../../../css/Base.module.css";
+	color: var(--toolbox-text-secondary);
+}
+
+.editIconButtonActive {
+	color: var(--toolbox-accent-color);
+}
+
+.editReasonActions {
+	display: flex;
+	gap: var(--toolbox-sp-5);
+	margin-top: var(--toolbox-sp-6);
+}
+
+.overlay select {
+	max-width: 100%;
+}
+
+.overlay strong {
+	font-weight: bold;
+}
+
+.overlay em {
+	font-style: oblique;
+}
+
+.contextHeader {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var(--toolbox-sp-5);
+	padding: var(--toolbox-sp-9) var(--toolbox-sp-10);
+	margin-bottom: var(--toolbox-sp-10);
+	background: var(--toolbox-action-bg);
+	border: 1px solid var(--toolbox-surface-border);
+	border-radius: 3px;
+}
+
+.contextMain {
+	width: 100%;
+	min-width: 0;
+}
+
+.contextEyebrow {
+	font-size: var(--toolbox-sp-10);
+	font-weight: bold;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--toolbox-text-secondary);
+}
+
+.sectionTitle,
+.subGroupLabel {
+	font-size: var(--toolbox-sp-10);
+	font-weight: bold;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--toolbox-text-secondary);
+}
+
+.contextTitle {
+	display: block;
+	font-size: var(--toolbox-sp-13);
+	font-weight: bold;
+	color: var(--toolbox-action-text);
+	text-decoration: none;
+	overflow-wrap: anywhere;
+}
+
+.contextTitle:hover {
+	text-decoration: underline;
+}
+
+.contextMeta {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: flex-start;
+	gap: var(--toolbox-sp-4);
+	max-width: 100%;
+}
+
+.contextMeta span,
+.contextMeta a,
+.contextBadge {
+	font-size: var(--toolbox-sp-10);
+	font-weight: bold;
+	color: var(--toolbox-text-secondary);
+	background: var(--toolbox-badge-bg);
+	border: 1px solid var(--toolbox-surface-border);
+	border-radius: 2px;
+	padding: var(--toolbox-sp-2) var(--toolbox-sp-5);
+}
+
+.contextMeta a {
+	cursor: pointer;
+	text-decoration: none;
+}
+
+.contextMeta a:hover {
+	text-decoration: underline;
+}
+
+.section {
+	margin-bottom: var(--toolbox-sp-14);
+}
+
+.section:last-child {
+	margin-bottom: 0;
+}
+
+.sectionTitle {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: var(--toolbox-sp-8);
+	padding-bottom: var(--toolbox-sp-4);
+	border-bottom: 1px solid var(--toolbox-surface-border);
+}
+
+.messagePiece {
+	padding: var(--toolbox-sp-7) var(--toolbox-sp-8);
+	margin-bottom: var(--toolbox-sp-7);
+	border: 1px solid var(--toolbox-surface-border);
+	border-radius: 3px;
+	background: var(--toolbox-action-bg);
+}
+
+.includeToggle {
+	margin-bottom: var(--toolbox-sp-4);
+}
+
+.reasonPreview {
+	margin-top: var(--toolbox-sp-6);
+	padding-top: var(--toolbox-sp-6);
+	border-top: 1px solid var(--toolbox-divider-color);
+	overflow-wrap: anywhere;
+}
+
+.reasonPreview p,
+.reasonContent p {
+	margin: var(--toolbox-sp-3) 0;
+}
+
+.reasonPicker {
+	margin: var(--toolbox-sp-7) 0;
+	padding: var(--toolbox-sp-1);
+	border: 1px solid transparent;
+	border-radius: 3px;
+}
+
+.reasonCardList {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-6);
+}
+
+.reasonCard {
+	border: 1px solid var(--toolbox-surface-border);
+	border-radius: 3px;
+	background: var(--toolbox-bg);
+	overflow: hidden;
+	cursor: pointer;
+}
+
+.reasonCard:hover {
+	border-color: var(--toolbox-input-focus);
+}
+
+.reasonCardHeader {
+	display: grid;
+	grid-template-columns: 20px auto minmax(0, 1fr) auto auto;
+	align-items: center;
+	gap: var(--toolbox-sp-6);
+	min-height: 32px;
+	padding: var(--toolbox-sp-5) var(--toolbox-sp-8);
+	background: var(--toolbox-action-bg);
+}
+
+.dragHandle {
+	background: none;
+	border: none;
+	padding: 0;
+	cursor: grab;
+	color: var(--toolbox-text-muted);
+	/* stylelint-disable-next-line font-family-no-missing-generic-family-keyword -- icon fonts must not fall back to text fonts */
+	font-family: "Material Symbols Filled";
+	font-size: 18px;
+	line-height: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.dragHandle:active {
+	cursor: grabbing;
+}
+
+.reasonCardSelect {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--toolbox-sp-5);
+	cursor: pointer;
+}
+
+.reasonCardTitle {
+	min-width: 0;
+	font-size: 1em;
+	font-weight: bold;
+	color: var(--toolbox-text-body);
+	overflow-wrap: anywhere;
+}
+
+.untitled {
+	color: var(--toolbox-text-muted);
+	font-weight: normal;
+}
+
+.contextBadges {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--toolbox-sp-3);
+	justify-content: flex-end;
+}
+
+.reasonSelected {
+	border-color: var(--toolbox-input-focus);
+	box-shadow: inset 3px 0 var(--toolbox-accent-color);
+}
+
+.reasonSelected .reasonCardHeader {
+	background: var(--toolbox-selected-bg);
+}
+
+.reasonNum {
+	width: 17px;
+	height: 17px;
+	display: inline-block;
+	text-align: center;
+	font-size: var(--toolbox-sp-10);
+	line-height: var(--toolbox-sp-17);
+	color: var(--toolbox-text-secondary);
+	background: var(--toolbox-badge-bg);
+	border-radius: 2px;
+}
+
+.reasonSelected .reasonNum {
+	color: var(--toolbox-bg);
+	background: var(--toolbox-accent-color);
+}
+
+.reasonCheck {
+	margin: 0;
+	display: inline;
+}
+
+.reasonContent {
+	padding: var(--toolbox-sp-7) var(--toolbox-sp-9) var(--toolbox-sp-8) var(--toolbox-sp-35);
+	border-top: 1px solid var(--toolbox-divider-color);
+	background: var(--toolbox-bg);
+	overflow-wrap: anywhere;
+}
+
+/* stylelint-disable-next-line no-descending-specificity -- sets max-width only; no overlap with overlay input rule's font/border properties */
+.reasonContent input,
+.reasonContent select,
+.reasonContent textarea {
+	max-width: 100%;
+}
+
+.deliverySettings {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-5);
+	padding: var(--toolbox-sp-1);
+	border: 1px solid transparent;
+	border-radius: 3px;
+}
+
+.deliveryOption {
+	padding: var(--toolbox-sp-7) var(--toolbox-sp-10);
+	border: 1px solid var(--toolbox-input-border);
+	border-radius: 3px;
+	background: var(--toolbox-action-bg);
+}
+
+.deliveryOptionSelected {
+	border-color: var(--toolbox-input-focus);
+	background: var(--toolbox-selected-bg);
+}
+
+.deliveryLabel {
+	display: flex;
+	align-items: center;
+	gap: var(--toolbox-sp-7);
+	cursor: pointer;
+	margin: 0;
+	font-size: 1em;
+	font-weight: bold;
+	color: var(--toolbox-text-heading);
+}
+
+.subOptions {
+	margin-top: var(--toolbox-sp-8);
+	margin-left: var(--toolbox-sp-22);
+	padding-top: var(--toolbox-sp-7);
+	border-top: 1px solid var(--toolbox-surface-border);
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-5);
+}
+
+.combinedOptions > .subOptions {
+	margin-top: var(--toolbox-sp-5);
+}
+
+.subNote,
+.fieldHint {
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-text-secondary);
+	font-style: italic;
+	margin: 0 0 0 var(--toolbox-sp-34);
+}
+
+.subGroupLabel {
+	margin: var(--toolbox-sp-9) 0 0 var(--toolbox-sp-22);
+}
+
+.deliverySeparator {
+	margin-top: var(--toolbox-sp-4);
+	padding-top: var(--toolbox-sp-8);
+	border-top: 1px solid var(--toolbox-divider-color);
+}
+
+.forcedSettingsSummary {
+	padding: var(--toolbox-sp-8) var(--toolbox-sp-10);
+	border: 1px solid var(--toolbox-surface-border);
+	border-radius: 3px;
+	background: var(--toolbox-action-bg);
+}
+
+.forcedSettingsTitle {
+	margin-bottom: var(--toolbox-sp-4);
+	font-weight: bold;
+	color: var(--toolbox-text-heading);
+}
+
+.forcedSettingsSummary ul {
+	margin: var(--toolbox-sp-5) 0 0 var(--toolbox-sp-18);
+	padding: 0;
+}
+
+.forcedSettingsSummary li {
+	margin-top: var(--toolbox-sp-3);
+}
+
+.logReason {
+	margin-top: var(--toolbox-sp-7);
+	padding: var(--toolbox-sp-7) var(--toolbox-sp-8);
+	border: 1px solid var(--toolbox-surface-border);
+	border-radius: 3px;
+	background: var(--toolbox-action-bg);
+}
+
+.fieldLabel {
+	display: block;
+	margin-bottom: var(--toolbox-sp-4);
+	font-size: var(--toolbox-sp-11);
+	font-weight: bold;
+	color: var(--toolbox-text-body);
+}
+
+.logReasonInput {
+	width: 100%;
+	min-width: 0;
+	padding: var(--toolbox-sp-4);
+}
+
+.logReasonInput.errorHighlight,
+.errorHighlight {
+	border-color: var(--toolbox-error-color);
+}
+
+.status {
+	text-align: left;
+	margin-right: auto;
+	color: var(--toolbox-text-body);
+}
+
+.statusError {
+	color: var(--toolbox-error-color);
+	font-weight: bold;
+}
+
+@media (max-width: 899px) {
+	.drawerRoot {
+		width: min(420px, 100vw);
+	}
+}
+
+@media (max-width: 520px) {
+	.overlay {
+		max-width: 100vw;
+	}
+
+	.contextHeader,
+	.reasonCardHeader {
+		display: flex;
+		flex-wrap: wrap;
+	}
+
+	.contextMeta {
+		justify-content: flex-start;
+		max-width: 100%;
+	}
+}
+
+.noteTypeChips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--toolbox-sp-4);
+	margin-bottom: var(--toolbox-sp-4);
+}
+
+.noteTypeChip {
+	background: none;
+	border: 1px solid currentcolor;
+	border-radius: 3px;
+	padding: var(--toolbox-sp-2) var(--toolbox-sp-7);
+	font-size: var(--toolbox-sp-11);
+	cursor: pointer;
+	font-family: inherit;
+	opacity: 0.6;
+}
+
+.noteTypeChip:hover {
+	opacity: 0.85;
+}
+
+.noteTypeChipSelected {
+	opacity: 1;
+	background: var(--toolbox-hover-overlay-strong);
+	font-weight: bold;
+}
+
+/* Radio button groups rendered from <select> elements in reason templates */
+/* stylelint-disable selector-class-pattern -- :global() references; global classes use kebab-case by convention */
+.reasonContent :global(.toolbox-radio-group),
+.reasonPreview :global(.toolbox-radio-group) {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-3);
+	margin: var(--toolbox-sp-4) 0;
+}
+
+.reasonContent :global(.toolbox-radio-group-prompt),
+.reasonPreview :global(.toolbox-radio-group-prompt) {
+	color: var(--toolbox-text-body);
+	font-weight: bold;
+}
+
+.reasonContent :global(.toolbox-radio-label),
+.reasonPreview :global(.toolbox-radio-label) {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--toolbox-sp-6);
+	font-size: 1em;
+	color: var(--toolbox-text-body);
+	cursor: pointer;
+}
+
+.reasonContent :global(.toolbox-radio-input),
+.reasonPreview :global(.toolbox-radio-input) {
+	margin-top: var(--toolbox-sp-2);
+	flex-shrink: 0;
+	cursor: pointer;
+}
+
+.reasonContent :global(.toolbox-radio-text),
+.reasonPreview :global(.toolbox-radio-text) {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.reasonContent :global(.toolbox-radio-text) p,
+.reasonContent :global(.toolbox-radio-text) ul,
+.reasonContent :global(.toolbox-radio-text) ol,
+.reasonPreview :global(.toolbox-radio-text) p,
+.reasonPreview :global(.toolbox-radio-text) ul,
+.reasonPreview :global(.toolbox-radio-text) ol {
+	margin: 0;
+}
+
+.reasonContent :global(.toolbox-radio-text) a,
+.reasonPreview :global(.toolbox-radio-text) a {
+	color: var(--toolbox-action-text);
+}
+/* stylelint-enable selector-class-pattern */

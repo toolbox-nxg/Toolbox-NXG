@@ -1,0 +1,33 @@
+.toolbox-scope .macro-popup .macro-edit-area {
+	font-size: 1em
+		!important; /* stylelint-disable-line declaration-no-important -- overrides subreddit CSS font-size on textarea elements */
+
+	width: 60em;
+}
+
+.toolbox-scope .macro-popup .toolbox-macro-preview {
+	margin: var(--toolbox-sp-5) 0;
+	padding: 0;
+}
+
+.toolbox-scope .macro-popup .toolbox-macro-preview .toolbox-preview-heading {
+	margin: var(--toolbox-sp-5) 0;
+	font-size: var(--toolbox-sp-14);
+	font-weight: bold;
+}
+
+.toolbox-scope .macro-popup .toolbox-comment-body {
+	background-color: var(--toolbox-action-bg);
+	margin: 0;
+	padding: var(--toolbox-sp-5);
+	font-size: 1em;
+	max-width: 60em;
+	height: 150px;
+	overflow-x: auto;
+	resize: both;
+}
+
+.toolbox-scope .macro-popup .toolbox-macro-action-list {
+	margin-top: var(--toolbox-sp-5);
+	padding: var(--toolbox-sp-5);
+}

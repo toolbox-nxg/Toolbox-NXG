@@ -1,0 +1,41 @@
+.group {
+	display: inline-flex;
+	flex-wrap: wrap;
+	gap: var(--toolbox-sp-4);
+}
+
+.option input[type="radio"] {
+	appearance: none;
+	position: absolute;
+	opacity: 0;
+	width: 0;
+	height: 0;
+}
+
+.option label {
+	display: inline-block;
+	padding: var(--toolbox-sp-3) var(--toolbox-sp-8);
+	font-size: var(--toolbox-sp-11);
+	cursor: pointer;
+	background: var(--toolbox-header-button-bg);
+	border: 1px solid var(--toolbox-chrome);
+	border-radius: 2px;
+	color: var(--toolbox-link-color);
+	user-select: none;
+}
+
+.option label:hover {
+	background: var(--toolbox-header-button-hover-bg);
+	border-color: var(--toolbox-header-button-hover-bg);
+}
+
+.option input[type="radio"]:checked + label {
+	background: var(--toolbox-header-button-hover-bg);
+	border-color: var(--toolbox-header-button-hover-bg);
+	border-style: solid;
+}
+
+.option input[type="radio"]:focus-visible + label {
+	outline: 2px solid var(--toolbox-link-color);
+	outline-offset: 1px;
+}

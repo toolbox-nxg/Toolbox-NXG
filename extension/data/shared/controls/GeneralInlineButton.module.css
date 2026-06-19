@@ -1,0 +1,41 @@
+/* Mirrors the light-DOM .toolbox-general-button shape for React-owned inline controls. */
+button.generalInlineButton {
+	background-color: var(--toolbox-button-bg);
+	font: normal normal normal normal var(--toolbox-sp-11) 15px var(--toolbox-font-family);
+	margin: 0 2px;
+	color: var(--toolbox-button-text);
+	border-width: 0 0 0 3px;
+	border-color: var(--toolbox-button-border);
+	border-style: solid;
+	box-shadow: none;
+	padding: 1px 5px;
+	cursor: pointer;
+	display: inline-block;
+	box-sizing: content-box;
+	height: 15px;
+	vertical-align: baseline;
+	text-shadow: none;
+	text-align: center;
+	text-indent: 0;
+	text-transform: none;
+	letter-spacing: normal;
+	text-decoration: none;
+	outline: none;
+	appearance: none;
+}
+
+button.generalInlineButton:hover {
+	background-color: var(--toolbox-button-hover-bg);
+	text-decoration: none;
+}
+
+button.generalInlineButton img {
+	vertical-align: top;
+}
+
+/* stylelint-disable-next-line selector-class-pattern -- global icon class referenced from CSS module */
+button.generalInlineButton .toolbox-icons {
+	font-size: 15px;
+	display: inline-block;
+	vertical-align: top;
+}

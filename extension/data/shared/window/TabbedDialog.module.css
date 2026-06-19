@@ -1,0 +1,7 @@
+.tabsContainer {
+	/* min() ensures ~40px of centered breathing room above and below at all viewport sizes */
+	height: calc(min(90vh, 100vh - 120px) - var(--toolbox-modbar-height, 0px));
+	flex: 1;
+	min-height: 0;
+	min-width: 0;
+}

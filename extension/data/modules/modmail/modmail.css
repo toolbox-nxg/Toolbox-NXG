@@ -1,0 +1,23 @@
+/* Modmail: always-visible search */
+body.toolbox-modmail-search-top #modmail-search-form {
+	display: flex
+		!important; /* stylelint-disable-line declaration-no-important -- overrides Reddit's display: none on the hidden search form */
+}
+
+/* Modmail: hide search toggle (magnifying glass) in sidebar */
+body.toolbox-modmail-search-top .modhub-layout-left-nav rpl-tooltip:has(svg[icon-name="search"]) {
+	display: none
+		!important; /* stylelint-disable-line declaration-no-important -- overrides Reddit's display on the sidebar search toggle */
+}
+
+/* Modmail: hide Reddit-wide header search on modmail pages */
+body.toolbox-modmail-search-top reddit-search-large {
+	display: none
+		!important; /* stylelint-disable-line declaration-no-important -- overrides Reddit's display on the global header search */
+}
+
+/* Modmail: hide Cancel button - form is always visible so Cancel is redundant */
+body.toolbox-modmail-search-top #modmail-search-form > button:not([id]) {
+	display: none
+		!important; /* stylelint-disable-line declaration-no-important -- overrides Reddit's display on the form Cancel button */
+}

@@ -1,0 +1,11 @@
+.controls {
+	text-align: center;
+	margin-bottom: var(--toolbox-sp-5);
+}
+.content + .controls {
+	margin-bottom: 0;
+	margin-top: var(--toolbox-sp-5);
+}
+.control.active {
+	background-color: var(--toolbox-button-active-bg);
+}

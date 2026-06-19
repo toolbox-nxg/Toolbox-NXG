@@ -1,0 +1,15 @@
+/*
+ * The inline second-opinion toggle wears the shared `.toolbox-flat-list-action` pill class
+ * (defined globally in toolbox-buttons.css) so it matches the other flat-list-slot controls;
+ * this module only adds `vertical-align` and the armed on-state. When armed, its label turns
+ * the "new mail" green (light/dark aware) so the on-state reads at a glance.
+ */
+.toggle {
+	vertical-align: middle;
+}
+
+.armed {
+	/* stylelint-disable-next-line declaration-no-important -- beat Reddit's native flat-list link colour so the armed green shows */
+	color: var(--toolbox-new-mail-color) !important;
+	font-weight: bold;
+}

@@ -1,0 +1,20 @@
+/* Fixes the announcement card to the bottom-left of the viewport, above page
+   content but with no dimming backdrop. Sits faded so it stays unobtrusive over
+   the page, then pops to fully opaque on hover (or keyboard focus) when the user
+   actually wants to read it. */
+.anchor {
+	position: fixed;
+	left: 16px;
+	/* Sit above the modbar when it's shown. --toolbox-modbar-height is set on
+	   body.toolbox-modbar-shown and inherits through the shadow boundary; it is
+	   absent (→ 0) when no modbar is present, leaving the card at the normal gap. */
+	bottom: calc(16px + var(--toolbox-modbar-height, 0px));
+	z-index: var(--toolbox-z-window);
+	opacity: 0.85;
+	transition: opacity 0.15s ease;
+}
+
+.anchor:hover,
+.anchor:focus-within {
+	opacity: 1;
+}

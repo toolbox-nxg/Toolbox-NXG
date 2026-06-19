@@ -1,0 +1,70 @@
+/*
+ * Colours here are intentionally hardcoded: red, blue, and purple are the
+ * visual encoding of the comment triage feature itself (red = controversial,
+ * blue = negative score, purple = both). They are not UI chrome and must not
+ * follow the toolbox theme palette.
+ *
+ * Rule order: lowest-specificity selectors first, so higher-specificity
+ * overrides (controversy-hl + combined states) reliably win.
+ */
+
+.toolbox-scope .toolbox-neg > .entry {
+	box-shadow: -2px 0 rgb(0 0 255 / 100%);
+}
+
+.toolbox-scope .toolbox-neg:not(.link) > .entry {
+	background-color: rgb(0 0 255 / 20%);
+}
+/* stylelint-disable-next-line selector-class-pattern -- Reddit Enhancement Suite class name */
+.toolbox-scope .toolbox-neg:not(.link) > .RES-keyNav-activeElement.entry {
+	box-shadow: inset 0 0 3px 1px rgb(0 0 255 / 100%);
+}
+
+.toolbox-scope .toolbox-controversy {
+	box-shadow: -2px 0 rgb(255 0 0 / 50%);
+}
+
+.toolbox-scope .toolbox-ncontroversy {
+	box-shadow: -2px 0 rgb(0 0 255 / 50%);
+}
+
+.toolbox-scope.toolbox-controversy-hl .controversial > .entry {
+	box-shadow: -2px 0 rgb(255 0 0 / 100%);
+}
+
+.toolbox-scope.toolbox-controversy-hl .controversial:not(.link) > .entry {
+	background-color: rgb(255 0 0 / 20%);
+}
+/* stylelint-disable-next-line selector-class-pattern -- Reddit Enhancement Suite class name */
+.toolbox-scope.toolbox-controversy-hl .controversial:not(.link) > .RES-keyNav-activeElement.entry {
+	box-shadow: inset 0 0 3px 1px rgb(255 0 0 / 100%);
+}
+
+.toolbox-scope.toolbox-controversy-hl .controversial.toolbox-neg > .entry {
+	box-shadow: -2px 0 rgb(255 0 255 / 100%);
+}
+
+.toolbox-scope.toolbox-controversy-hl .controversial.toolbox-neg:not(.link) > .entry {
+	background-color: rgb(255 0 255 / 20%);
+}
+
+/* stylelint-disable-next-line selector-class-pattern -- Reddit Enhancement Suite class name */
+.toolbox-scope.toolbox-controversy-hl .controversial.toolbox-neg:not(.link) > .RES-keyNav-activeElement.entry {
+	box-shadow: inset 0 0 3px 1px rgb(255 0 255 / 100%);
+}
+
+.toolbox-scope .toolbox-controversy.toolbox-ncontroversy {
+	box-shadow: -2px 0 rgb(255 0 255 / 50%);
+}
+
+.toolbox-scope.toolbox-nchildren .comment.noncollapsed .numchildren {
+	display: inline;
+}
+
+.toolbox-scope.toolbox-nchildrentop .thing::before {
+	content: attr(data-nchildren);
+}
+
+.toolbox-scope .thing.collapsed::before {
+	position: absolute;
+}

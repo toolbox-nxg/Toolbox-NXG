@@ -1,0 +1,130 @@
+.root {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-18);
+}
+
+.importField {
+	composes: columngapsmall from "../../../css/Base.module.css";
+}
+
+.fieldLabel {
+	display: block;
+	font-size: var(--toolbox-sp-11);
+	font-weight: bold;
+	color: var(--toolbox-text-body);
+}
+
+.fieldHint {
+	composes: secondaryitalic from "../../../css/Base.module.css";
+}
+
+.preview {
+	display: block;
+}
+
+.previewTitle {
+	font-size: var(--toolbox-sp-11);
+	font-weight: bold;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--toolbox-text-secondary);
+	margin-bottom: var(--toolbox-sp-8);
+	padding-bottom: var(--toolbox-sp-4);
+	border-bottom: 1px solid var(--toolbox-surface-border);
+}
+
+.previewTable {
+	composes: basetable from "../../../css/Base.module.css";
+	font-size: 1em;
+}
+
+.previewTable th {
+	text-align: left;
+	padding: var(--toolbox-sp-4) var(--toolbox-sp-8);
+	font-size: var(--toolbox-sp-11);
+	font-weight: bold;
+	color: var(--toolbox-text-secondary);
+	border-bottom: 1px solid var(--toolbox-surface-border);
+}
+
+.previewTable td {
+	text-align: left;
+	padding: var(--toolbox-sp-4) var(--toolbox-sp-8);
+	border-bottom: 1px solid var(--toolbox-divider-color);
+	color: var(--toolbox-text-body);
+}
+
+.previewTable tr:last-child td {
+	border-bottom: none;
+}
+
+.tagPill {
+	display: inline-block;
+	padding: var(--toolbox-sp-2) var(--toolbox-sp-8);
+	border-radius: 3px;
+	font-size: var(--toolbox-sp-11);
+	font-weight: bold;
+	white-space: nowrap;
+}
+
+.noTags {
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-input-focus);
+	font-style: italic;
+	margin: 0;
+}
+
+.actionCol {
+	width: 1%;
+	white-space: nowrap;
+	text-align: center;
+}
+
+.colorPicker {
+	width: 32px;
+	height: 24px;
+	padding: 0;
+	border: 1px solid var(--toolbox-input-border);
+	border-radius: 3px;
+	background: none;
+	cursor: pointer;
+}
+
+.deleteButton {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--toolbox-sp-2);
+	border: none;
+	background: none;
+	cursor: pointer;
+}
+
+.inputError {
+	border-color: var(--toolbox-error-border);
+}
+
+.preview > button {
+	margin-top: var(--toolbox-sp-10);
+}
+
+.toggleRow {
+	display: flex;
+	align-items: center;
+	gap: var(--toolbox-sp-8);
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-text-body);
+	cursor: pointer;
+	user-select: none;
+}
+
+.thresholdInput {
+	width: 60px;
+}
+
+.countCell {
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+	color: var(--toolbox-text-muted);
+}

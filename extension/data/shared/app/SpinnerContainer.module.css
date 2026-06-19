@@ -1,0 +1,35 @@
+.spinner {
+	position: fixed;
+	bottom: 36px;
+	left: 50%;
+	transform: translateX(-50%);
+	background: color-mix(in srgb, var(--toolbox-header-bg) 85%, transparent);
+	border: 1px solid var(--toolbox-header-button-hover-bg);
+	border-radius: 4px;
+	padding: var(--toolbox-sp-4) var(--toolbox-sp-8);
+	font-size: var(--toolbox-sp-14);
+	font-weight: 500;
+	color: var(--toolbox-fg);
+	z-index: var(--toolbox-z-popup);
+	display: flex;
+	gap: var(--toolbox-sp-10);
+	align-items: center;
+	box-shadow: 0 2px 8px rgb(0 0 0 / 25%);
+}
+
+.dot {
+	width: 12px;
+	height: 12px;
+	border-radius: 50%;
+	background: var(--toolbox-link-color);
+	animation: pulse 1s infinite ease-in-out;
+}
+
+@keyframes pulse {
+	0%, 100% {
+		opacity: 0.3;
+	}
+	50% {
+		opacity: 1;
+	}
+}

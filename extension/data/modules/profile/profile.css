@@ -1,0 +1,46 @@
+/* Hide entries filtered out by the profile overlay's Hide-unmoddable /
+   Hide-mod-actions toggles. Double .toolbox-scope lifts specificity to (0,3,0)
+   so display:none beats the (0,2,0) layout rules on .toolbox-submission etc. */
+.toolbox-scope.toolbox-scope .toolbox-mod-hidden,
+.toolbox-scope.toolbox-scope .toolbox-mod-filtered,
+.toolbox-scope.toolbox-scope .toolbox-repost-filtered {
+	display: none;
+}
+
+/* Repost highlighting. A repost shares a normalized link or text signature with
+   another entry in the same user's history. Same-subreddit reposts use an amber
+   accent; cross-subreddit reposts use a red accent so they stand out. */
+.toolbox-scope .toolbox-repost {
+	border-left: 4px solid var(--toolbox-caution-accent);
+	background: color-mix(in srgb, var(--toolbox-caution-accent) 8%, transparent);
+}
+
+.toolbox-scope .toolbox-repost.toolbox-repost-cross-sub {
+	border-left-color: var(--toolbox-error-color);
+	background: color-mix(in srgb, var(--toolbox-error-color) 8%, transparent);
+}
+
+/* Clickable count badge injected into a repost entry's title/tagline. Clicking it
+   isolates that duplicate group (see applyRepostHighlights). */
+.toolbox-scope .toolbox-repost-badge {
+	display: inline-block;
+	margin-left: 6px;
+	padding: 0 6px;
+	border-radius: 9px;
+	background: var(--toolbox-caution-accent);
+	color: rgb(255 255 255);
+	font-size: 11px;
+	font-weight: bold;
+	line-height: 16px;
+	white-space: nowrap;
+	cursor: pointer;
+	vertical-align: middle;
+}
+
+.toolbox-scope .toolbox-repost-cross-sub .toolbox-repost-badge {
+	background: var(--toolbox-error-color);
+}
+
+.toolbox-scope .toolbox-repost-badge:hover {
+	filter: brightness(1.1);
+}

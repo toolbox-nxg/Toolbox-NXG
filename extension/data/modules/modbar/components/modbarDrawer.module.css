@@ -1,0 +1,11 @@
+.drawer {
+	composes: drawer from "../../../css/Base.module.css";
+}
+
+.header {
+	composes: header from "../../../css/Base.module.css";
+}
+
+.iconButton {
+	composes: iconbutton from "../../../css/Base.module.css";
+}

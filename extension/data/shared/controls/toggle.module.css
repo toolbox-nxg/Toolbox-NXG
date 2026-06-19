@@ -1,0 +1,3 @@
+.toggle {
+	composes: toggle from "../../css/Base.module.css";
+}

@@ -3,13 +3,11 @@
 /.settings
 /.vscode
 /project.json
-/docs
+/docs/_build
+/docs/developer/api
 *.zip
 *.xpi
 *.nex
 /node_modules
 /build
-/scratch.js
-/ftpconfig.json
 .DS_Store
-/coverage

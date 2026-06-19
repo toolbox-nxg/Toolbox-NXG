@@ -1,0 +1,66 @@
+.window {
+	width: 95vw;
+	max-width: 1750px;
+	height: 95vh;
+	display: flex;
+	flex-direction: column;
+}
+
+.window > div:nth-child(2) {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow: hidden;
+}
+
+.body {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+}
+
+.tabs {
+	display: flex;
+	border-bottom: 1px solid var(--toolbox-surface-border);
+	flex: 0 0 auto;
+}
+
+.tab {
+	padding: var(--toolbox-sp-6) 1em;
+	cursor: pointer;
+	text-decoration: none;
+	color: inherit;
+}
+
+.tabActive {
+	background-color: var(--toolbox-action-bg);
+	border-bottom: 2px solid var(--toolbox-button-border);
+	font-weight: bold;
+}
+
+.tabContent {
+	flex: 1 1 auto;
+	overflow: hidden;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+/* stylelint-disable-next-line no-descending-specificity -- .tabContent is a descendant of .window; these selectors match different elements */
+.tabContent > div {
+	flex: 1 1 auto;
+	min-height: 0;
+}
+
+.reloadButton {
+	cursor: pointer;
+	background: var(--toolbox-input-border);
+	border-radius: 50%;
+	vertical-align: middle;
+	padding: var(--toolbox-sp-2);
+	color: var(--toolbox-text-body);
+}
+
+.reloadButton:hover {
+	color: var(--toolbox-input-border);
+	background-color: var(--toolbox-link-color);
+}

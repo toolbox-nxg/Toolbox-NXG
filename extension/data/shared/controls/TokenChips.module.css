@@ -1,0 +1,37 @@
+/* Focus-activated token chip row under template editor fields. */
+
+.wrap {
+	display: flex;
+	flex-direction: column;
+}
+
+/* Hidden at rest; shown while the wrapped field (or a chip) has focus. */
+.chips {
+	display: none;
+}
+
+.wrap:focus-within .chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--toolbox-sp-4);
+	margin-top: var(--toolbox-sp-4);
+}
+
+.chip {
+	background: none;
+	border: 1px solid currentcolor;
+	border-radius: 3px;
+	padding: var(--toolbox-sp-2) var(--toolbox-sp-7);
+	font-size: var(--toolbox-sp-11);
+	font-family: monospace;
+	/* Buttons don't inherit text color by default (UA `buttontext` is near-black),
+	   which made chips unreadable on dark themes. */
+	color: var(--toolbox-text-body);
+	cursor: pointer;
+	opacity: 0.6;
+}
+
+.chip:hover {
+	opacity: 1;
+	background: var(--toolbox-hover-overlay-strong);
+}

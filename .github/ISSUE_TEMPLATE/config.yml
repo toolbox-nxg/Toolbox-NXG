@@ -1,0 +1,9 @@
+# Disable the "blank issue" escape hatch so reports flow through the forms below.
+blank_issues_enabled: false
+contact_links:
+  - name: Discussion on Reddit
+    url: https://www.reddit.com/r/toolbox_nxg
+    about: For general questions, support, and ideas, post on /r/toolbox_nxg.
+  - name: Documentation
+    url: https://toolbox-nxg.github.io/moderator-toolbox-nxg/
+    about: Read the user guide and developer docs before filing an issue.

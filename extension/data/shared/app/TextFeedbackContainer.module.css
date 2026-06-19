@@ -1,0 +1,98 @@
+/*
+ * Feedback toasts share the loading spinner's pill appearance (see SpinnerContainer.module.css):
+ * a bottom-centered rounded pill with a leading status dot. The pill is color-coded by kind -
+ * grey for neutral progress, green for success, red for failure.
+ */
+.window {
+	position: fixed;
+	bottom: 36px;
+	left: 50%;
+	transform: translateX(-50%);
+	max-width: 400px;
+	background: color-mix(in srgb, var(--toolbox-header-bg) 85%, transparent);
+	border: 1px solid var(--toolbox-header-button-hover-bg);
+	border-radius: 4px;
+	padding: var(--toolbox-sp-4) var(--toolbox-sp-8);
+	font-size: var(--toolbox-sp-14);
+	font-weight: 500;
+	color: var(--toolbox-fg);
+	z-index: var(--toolbox-z-toast);
+	display: flex;
+	gap: var(--toolbox-sp-10);
+	align-items: center;
+	box-shadow: 0 2px 8px rgb(0 0 0 / 25%);
+}
+
+/* Raised above the loading spinner's slot (bottom: 36px) when both are visible, so they don't overlap. */
+.window.raised {
+	bottom: 76px;
+}
+
+.text {
+	margin: 0;
+}
+
+.dot {
+	width: 12px;
+	height: 12px;
+	flex: none;
+	border-radius: 50%;
+	background: var(--toolbox-link-color);
+}
+
+/* Neutral progress mirrors the spinner: grey pill with a pulsing blue dot. */
+.window.neutral {
+	/* neutral uses the default window background - no override needed */
+}
+.window.neutral .dot {
+	animation: pulse 1s infinite ease-in-out;
+}
+
+/*
+ * Success/error pills use soft, desaturated tints so they read as a settled result rather than the
+ * active in-progress neutral toast. The dot is color-matched (green/red) and does a single "pulse-in"
+ * on appearance - a brief pop, not the looping pulse of the neutral progress dot.
+ */
+.window.positive {
+	background: rgb(190 224 196 / 85%);
+	border-color: rgb(160 202 168);
+	color: rgb(0 0 0 / 80%);
+}
+.window.negative {
+	background: rgb(238 196 188 / 85%);
+	border-color: rgb(214 168 158);
+	color: rgb(0 0 0 / 80%);
+}
+.window.positive .dot {
+	background: rgb(46 160 67);
+	animation: pulse-in 0.45s ease-out;
+}
+.window.negative .dot {
+	background: rgb(206 58 47);
+	animation: pulse-in 0.45s ease-out;
+}
+
+@keyframes pulse {
+	0%, 100% {
+		opacity: 0.3;
+	}
+	50% {
+		opacity: 1;
+	}
+}
+
+/* Single pulse on appearance, then settles at full - for the terminal save/fail result dots */
+@keyframes pulse-in {
+	0% {
+		opacity: 0.4;
+		transform: scale(0.6);
+	}
+	60% {
+		opacity: 1;
+		transform: scale(1.15);
+	}
+	100% {
+		opacity: 1;
+		transform: scale(1);
+	}
+}

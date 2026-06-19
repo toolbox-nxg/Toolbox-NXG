@@ -1,0 +1,238 @@
+.drawer {
+	composes: drawer from "../../../css/Base.module.css";
+	min-width: 420px;
+}
+
+.header {
+	composes: header from "../../../css/Base.module.css";
+}
+
+.headerButtons {
+	display: flex;
+	gap: var(--toolbox-sp-2);
+}
+
+.headerButton {
+	composes: iconbutton from "../../../css/Base.module.css";
+}
+
+.refreshButton {
+	background: none;
+	border: none;
+	cursor: pointer;
+	padding: 0 var(--toolbox-sp-6);
+	color: var(--toolbox-text-body);
+	display: flex;
+	align-items: center;
+	opacity: 0.7;
+}
+
+.refreshButton:hover {
+	opacity: 1;
+}
+
+/* Active mods strip */
+
+.activeMods {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: var(--toolbox-sp-4);
+	padding: var(--toolbox-sp-4) var(--toolbox-sp-8);
+	flex-shrink: 0;
+	background-color: var(--toolbox-active-mods-bg);
+	border-bottom: 1px solid var(--toolbox-active-mods-border);
+	font-size: var(--toolbox-sp-11);
+}
+
+.activeModsLabel {
+	color: var(--toolbox-text-secondary);
+	font-weight: bold;
+	white-space: nowrap;
+}
+
+.activeMod {
+	color: var(--toolbox-link-color);
+	text-decoration: none;
+	background: var(--toolbox-active-mod-chip);
+	border-radius: 3px;
+	padding: 0 var(--toolbox-sp-5);
+}
+
+.activeMod:hover {
+	text-decoration: underline;
+}
+
+/* Filter chips */
+
+.filters {
+	display: flex;
+	gap: var(--toolbox-sp-4);
+	padding: var(--toolbox-sp-5) var(--toolbox-sp-8);
+	flex-shrink: 0;
+	border-bottom: 1px solid var(--toolbox-divider-color);
+	background-color: var(--toolbox-action-bg);
+}
+
+.chip {
+	background: none;
+	border: 1px solid var(--toolbox-input-border);
+	border-radius: 3px;
+	padding: var(--toolbox-sp-1) var(--toolbox-sp-8);
+	font-size: var(--toolbox-sp-11);
+	font-family: var(--toolbox-font-family);
+	cursor: pointer;
+	color: var(--toolbox-text-body);
+}
+
+.chip:hover {
+	background-color: var(--toolbox-selected-bg);
+}
+
+.chipActive {
+	font-weight: bold;
+	background-color: var(--toolbox-header-button-bg);
+	border-color: var(--toolbox-border-color);
+	color: var(--toolbox-text-heading);
+}
+
+/* Action list */
+
+.list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-2);
+	overflow-y: auto;
+	padding: var(--toolbox-sp-4);
+	scrollbar-width: thin;
+	scrollbar-color: var(--toolbox-text-muted) transparent;
+}
+
+.list::-webkit-scrollbar {
+	width: 6px;
+}
+
+.list::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.list::-webkit-scrollbar-thumb {
+	background: var(--toolbox-text-muted);
+	border-radius: 3px;
+}
+
+.list::-webkit-scrollbar-thumb:hover {
+	background: var(--toolbox-fg);
+}
+
+.loading,
+.empty,
+.error {
+	padding: var(--toolbox-sp-8);
+	color: var(--toolbox-text-secondary);
+	font-style: italic;
+}
+
+/* Only the in-progress loading text pulses; empty/error are terminal states and stay static. */
+.loading {
+	animation: soft-pulse 1.6s infinite ease-in-out;
+}
+
+.error {
+	composes: errorcolor from "../../../css/Base.module.css";
+}
+
+/* Gentle pulse - text stays legible at the trough (floor 0.6, unlike the dot's 0.3). */
+@keyframes soft-pulse {
+	0%, 100% {
+		opacity: 0.6;
+	}
+	50% {
+		opacity: 1;
+	}
+}
+
+/* Base row - also used for "other" family actions */
+.row,
+.rowApproval,
+.rowRemove,
+.rowBan {
+	display: flex;
+	align-items: baseline;
+	flex-wrap: wrap;
+	gap: var(--toolbox-sp-4);
+	padding: var(--toolbox-sp-4) var(--toolbox-sp-6);
+	border-radius: 3px;
+}
+
+.rowApproval {
+	background: var(--toolbox-row-approve);
+}
+.rowRemove {
+	background: var(--toolbox-row-remove);
+}
+.rowBan {
+	background: var(--toolbox-row-ban);
+}
+
+.row:nth-child(odd) {
+	background: var(--toolbox-row-neutral);
+}
+.rowApproval:nth-child(odd) {
+	background: var(--toolbox-row-approve-alt);
+}
+.rowRemove:nth-child(odd) {
+	background: var(--toolbox-row-remove-alt);
+}
+.rowBan:nth-child(odd) {
+	background: var(--toolbox-row-ban-alt);
+}
+
+.actionType {
+	font-weight: bold;
+	font-size: 1em;
+	min-width: 130px;
+	color: var(--toolbox-text-heading);
+}
+
+.sub {
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-text-secondary);
+}
+
+.author,
+.mod {
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-link-color);
+	text-decoration: none;
+}
+
+.mod {
+	margin-left: auto;
+	color: var(--toolbox-text-secondary);
+}
+
+.author:hover,
+.mod:hover {
+	text-decoration: underline;
+}
+
+.link {
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-link-color);
+	text-decoration: none;
+	max-width: 150px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.link:hover {
+	text-decoration: underline;
+}
+
+.time {
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-text-muted);
+	white-space: nowrap;
+}

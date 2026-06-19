@@ -1,0 +1,266 @@
+/* Expose modbar height as a CSS variable so other components can account for it */
+body.toolbox-modbar-shown {
+	--toolbox-modbar-height: 28px; /* line-height: 27px + border-top: 1px */
+
+	padding-bottom: var(--toolbox-modbar-height)
+		!important; /* stylelint-disable-line declaration-no-important -- overrides Reddit's body padding-bottom to make room for the fixed modbar */
+}
+
+/* The bottom bar element itself */
+.toolbox-scope .toolbox-bottombar,
+.toolbox-scope .toolbox-bottombar-hidden {
+	position: fixed;
+	z-index: var(--toolbox-z-popup)
+		!important; /* stylelint-disable-line declaration-no-important -- overrides Reddit's z-index on the bottombar element */
+
+	bottom: 0;
+	left: 0;
+	right: 0;
+	/* These two rules control height for the whole toolbar */
+	line-height: 27px;
+	display: flex;
+	align-items: center;
+	font-size: 1em;
+	text-align: left;
+	background-color: var(--toolbox-header-bg);
+	color: var(--toolbox-button-text);
+	border-top: solid 1px var(--toolbox-header-button-hover-bg);
+
+	/* Rules to work with subreddit styles */
+	box-sizing: content-box
+		!important; /* stylelint-disable-line declaration-no-important -- overrides subreddit CSS box-sizing on the modbar */
+
+	padding: 0
+		!important; /* stylelint-disable-line declaration-no-important -- overrides subreddit CSS padding on the modbar */
+
+	margin-left: 0;
+	margin-right: 0;
+}
+.toolbox-scope .toolbox-bottombar a,
+.toolbox-scope .toolbox-bottombar-hidden a {
+	text-decoration: none;
+}
+.toolbox-scope .toolbox-bottombar a:not(.toolbox-action-button):not(.toolbox-general-button):not(.toolbox-icons) {
+	color: var(--toolbox-link-color);
+}
+
+.toolbox-scope .toolbox-bottombar-hidden {
+	right: unset;
+	border-right: 1px solid var(--toolbox-header-button-hover-bg);
+}
+
+/* When a Reddit modal is open (.modal.in), drop the modbar below the modal backdrop (z-index 1040)
+   so the backdrop covers the bar instead of the bar floating above the modal. */
+body:has(.modal.in) .toolbox-scope .toolbox-bottombar,
+body:has(.modal.in) .toolbox-scope .toolbox-bottombar-hidden {
+	z-index: 1
+		!important; /* stylelint-disable-line declaration-no-important -- must override the high z-index set on the selectors above */
+}
+
+/* Compact mode: the unhide button shrinks down */
+.toolbox-scope .toolbox-bottombar-compact .toolbox-bottombar-unhide {
+	margin: -var(--toolbox-sp-4) -var(--toolbox-sp-8);
+}
+
+/* Glyphs in the bottom bar */
+.toolbox-scope .toolbox-bottombar .toolbox-bottombar-hide,
+.toolbox-scope .toolbox-bottombar-hidden .toolbox-bottombar-unhide,
+.toolbox-scope .toolbox-bottombar .toolbox-toolbar-new-settings,
+.toolbox-scope .toolbox-reload-link,
+.toolbox-scope .toolbox-prerelease-link {
+	flex: 0 0 auto;
+	padding: 0 var(--toolbox-sp-3);
+}
+.toolbox-scope .toolbox-bottombar-hidden .toolbox-icons,
+.toolbox-scope .toolbox-bottombar .toolbox-icons {
+	line-height: inherit;
+	color: var(--toolbox-text-body);
+}
+
+/* Items aligned to the left of the bar */
+.toolbox-scope .toolbox-bottombar-contentleft {
+	flex: 1 1 auto;
+	display: flex;
+	align-items: center;
+}
+
+.toolbox-scope .toolbox-bottombar-contentright {
+	display: flex;
+	align-items: center;
+}
+
+/* Ordering of the individual buttons */
+.toolbox-scope .toolbox-toolbar-mysubs {
+	order: 0;
+} /* Moderated subreddits */
+.toolbox-scope .toolbox-old-new-reddit-toggle {
+	order: 1;
+} /* Old/new Reddit toggle */
+.toolbox-scope .toolbox-subreddit-notes-button {
+	order: 2;
+} /* Subreddit notes */
+
+/* The user-configured shortcut list */
+.toolbox-scope .toolbox-toolbarshortcuts {
+	order: 99; /* This has to be after all the other buttons */
+	display: flex;
+	align-items: center;
+	margin-left: var(--toolbox-sp-6);
+}
+/* stylelint-disable-next-line no-descending-specificity -- .toolbox-toolbarshortcuts is a child of .toolbox-bottombar; these selectors match the same elements but set different properties, no actual cascade conflict */
+.toolbox-scope .toolbox-toolbarshortcuts a {
+	margin-right: var(--toolbox-sp-3);
+}
+.toolbox-scope .toolbox-toolbarshortcuts a + a::before {
+	content: "\2013"; /* En dash (slightly larger than hyphen) */
+	margin-right: var(--toolbox-sp-3);
+	color: var(--toolbox-text-body);
+}
+
+/* Unread message counters */
+.toolbox-scope .toolbox-toolbarcounters {
+	display: flex;
+	margin-right: var(--toolbox-sp-10);
+	font-weight: bold;
+	order: 1;
+}
+.toolbox-scope .toolbox-toolbarcounters .toolbox-icons {
+	margin-left: var(--toolbox-sp-5);
+	padding: 0 var(--toolbox-sp-1);
+}
+
+/* The proposals counter opens a drawer via onClick rather than an href, so it
+   needs an explicit pointer cursor the other (href-backed) counters get for free. */
+.toolbox-scope .toolbox-toolbarcounters .toolbox-proposalscount {
+	cursor: pointer;
+}
+
+/* "Training mode" indicator: a graduation-cap glyph shown for trainees viewing a
+   subreddit they're sandboxed in, signalling that their mod actions there are captured
+   for review. It sits in the counter group (inheriting the shared icon sizing/spacing)
+   but is a passive indicator - no link, so caution-tinted with a default cursor. */
+.toolbox-scope .toolbox-toolbarcounters .toolbox-training-mode {
+	color: var(--toolbox-caution-text);
+	cursor: default;
+}
+
+/* Pill badge for each counter (modmail, modqueue, unmoderated, proposals) */
+.toolbox-scope .toolbox-toolbarcounters .toolbox-counter-badge {
+	display: inline-block;
+	min-width: var(--toolbox-sp-16);
+	margin-left: var(--toolbox-sp-5);
+	padding: 0 var(--toolbox-sp-5);
+	border-radius: var(--toolbox-sp-8);
+	background: var(--toolbox-accent-color);
+	color: var(--toolbox-bg);
+	font-size: var(--toolbox-sp-11);
+	line-height: var(--toolbox-sp-16);
+	text-align: center;
+}
+
+/* Per-type tinting for unread items */
+/* intentional: mail indicator colours are fixed semantic signals - green=new mail.
+ * The token carries the light/dark split (lighter green washes out on light bars). */
+.toolbox-scope .toolbox-modmail.havemail {
+	color: var(--toolbox-new-mail-color);
+}
+
+/* Tooltip for the new modmail categories */
+.toolbox-scope .toolbox-modmail-tooltip {
+	display: none;
+	z-index: 9999;
+	position: fixed;
+	height: initial;
+	width: initial;
+	line-height: initial;
+	right: 55px;
+	margin-bottom: var(--toolbox-sp-11);
+	bottom: 27px;
+	background-color: var(--toolbox-bg);
+	box-shadow: var(--toolbox-shadow-color) 0 1px 3px 1px;
+	border: solid 10px var(--toolbox-header-bg);
+	padding: var(--toolbox-sp-5);
+}
+
+.toolbox-scope .toolbox-modmail-tooltip tr:nth-child(2n) {
+	background: rgb(
+		162 162 162 / 20%
+	); /* intentional: neutral alternating-row tint; opacity prevents CSS variable use */
+}
+.toolbox-scope .toolbox-modmail-tooltip td {
+	padding: var(--toolbox-sp-3);
+}
+.toolbox-scope .toolbox-modmail-tooltip .toolbox-new-mm-count {
+	font-weight: bold;
+}
+
+.toolbox-scope .toolbox-reload-link {
+	order: 3;
+	display: inline-block;
+	margin-right: var(--toolbox-sp-5);
+}
+.toolbox-scope .toolbox-prerelease-link {
+	display: flex;
+	background: none;
+	border: none;
+	appearance: none;
+	height: 27px;
+	margin: 0 var(--toolbox-sp-5) 0 0;
+	padding: 0 var(--toolbox-sp-3);
+	gap: var(--toolbox-sp-3);
+	align-items: center;
+	color: rgb(255 0 0)
+		!important; /* stylelint-disable-line declaration-no-important -- overrides Naut theme's link color on prerelease button */ /* intentional: pure red maximises visibility for this dev-only warning indicator */
+	cursor: pointer;
+	/* Naut stuff */
+	text-transform: none;
+	font-weight: normal;
+	box-shadow: none;
+}
+.toolbox-scope .toolbox-prerelease-link > * {
+	color: inherit
+		!important; /* stylelint-disable-line declaration-no-important -- overrides Naut theme's color on child elements of prerelease button */
+}
+
+.toolbox-scope .toolbox-modbar-hide-tooltip {
+	z-index: 9999;
+	position: fixed;
+	bottom: 37px;
+	left: 32px;
+	height: initial;
+	width: initial;
+	background-color: var(--toolbox-bg);
+	box-shadow: var(--toolbox-shadow-color) 0 1px 3px 1px;
+	border-width: 10px;
+	border-style: solid;
+	border-color: var(--toolbox-header-bg);
+	border-image: initial;
+	padding: var(--toolbox-sp-5);
+	font-size: var(--toolbox-sp-11);
+}
+
+.toolbox-scope .toolbox-modbar-hide-tooltip td {
+	padding: var(--toolbox-sp-2);
+}
+.toolbox-scope .toolbox-modbar-hide-tooltip tr:nth-child(2n) {
+	background: rgb(
+		162 162 162 / 20%
+	); /* intentional: neutral alternating-row tint; opacity prevents CSS variable use */
+}
+
+/* First-run hint pointing at the settings button */
+.toolbox-scope .toolbox-first-run {
+	color: rgb(255 0 0); /* intentional: pure red draws attention to the first-run prompt */
+	vertical-align: top;
+	height: 22px;
+	line-height: 22px;
+	margin-right: var(--toolbox-sp-6);
+}
+
+/* Settings links get a trailing icon marking them as internal */
+a[href*="#?tbsettings"]:not(.toolbox-no-gustavobc)::after {
+	content: " \E8B8"; /* icon `settings`; space intentionally included */
+	/* stylelint-disable-next-line font-family-no-missing-generic-family-keyword -- icon fonts must not fall back to text fonts */
+	font: 1em "Material Symbols Filled";
+	vertical-align: middle;
+}

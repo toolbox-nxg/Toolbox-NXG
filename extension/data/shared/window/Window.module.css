@@ -1,0 +1,118 @@
+.window {
+	max-width: 1000px;
+	padding: 0;
+	background-color: var(--toolbox-bg);
+	border: 0;
+	box-shadow: var(--toolbox-shadow-color) 0 1px 3px 1px;
+	display: flex;
+	flex-direction: column;
+}
+
+.draggable {
+	position: absolute;
+	z-index: var(--toolbox-z-window);
+}
+
+/* Header / title bar */
+.header {
+	display: flex;
+	background-color: var(--toolbox-header-bg);
+	line-height: 26px;
+	white-space: nowrap;
+}
+.header::before {
+	/* Pseudo-element added to the beginning of the window to help center titles */
+	content: "";
+	flex: 1;
+}
+.title {
+	flex: 1;
+	display: flex;
+	justify-content: center;
+	font-size: var(--toolbox-sp-14);
+	font-weight: bold;
+	padding: 0;
+	margin: 0 var(--toolbox-sp-10);
+	color: var(--toolbox-fg);
+}
+/* Close and help buttons */
+.buttons {
+	flex: 1;
+	display: flex;
+	justify-content: flex-end;
+}
+.buttons a,
+.buttons button {
+	display: flex;
+	background-color: var(--toolbox-header-button-bg);
+	width: 36px;
+	margin-left: var(--toolbox-sp-1);
+	text-align: center;
+	/* center inner icons */
+	justify-content: center;
+	align-items: center;
+	text-decoration: none;
+	border: 0;
+	padding: 0;
+	cursor: pointer;
+	font: inherit;
+	color: var(--toolbox-text-body);
+}
+.buttons a:hover,
+.buttons button:hover {
+	background-color: var(--toolbox-header-button-hover-bg);
+}
+
+/* Toolbar slot - between header and content, full-width */
+.toolbarSlot {
+	flex-shrink: 0;
+}
+
+/* Resets for the content area */
+.content {
+	line-height: normal; /* Reset for new Reddit, fixes lots of stupid things */
+	overflow: auto;
+	padding: var(--toolbox-sp-5);
+	flex: 1;
+	scrollbar-width: thin;
+	scrollbar-color: var(--toolbox-text-muted) transparent;
+}
+
+.content::-webkit-scrollbar {
+	width: 6px;
+}
+
+.content::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.content::-webkit-scrollbar-thumb {
+	background: var(--toolbox-text-muted);
+	border-radius: 3px;
+}
+
+.content::-webkit-scrollbar-thumb:hover {
+	background: var(--toolbox-fg);
+}
+
+/* Footer layout */
+.footer {
+	display: flex;
+	gap: var(--toolbox-sp-5);
+	padding: var(--toolbox-sp-5);
+	min-height: 36px;
+	justify-content: center;
+	align-items: center;
+	background-color: var(--toolbox-header-bg);
+}
+/*
+ * Footer forms only carry submit action reasons and don't affect how footer
+ * items are laid out.
+ */
+.footer form {
+	display: contents;
+}
+/* Hide empty text segments so buttons stay centered */
+.footer :not(input):empty {
+	display: none;
+}

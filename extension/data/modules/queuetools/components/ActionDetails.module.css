@@ -1,0 +1,42 @@
+/* Styles for the collapsible recent-actions table in the queue tools module. */
+/* This runs inside a shadow root, so no .toolbox-scope prefix is needed. */
+
+.table {
+	font-size: var(--toolbox-sp-11);
+	text-align: left;
+	color: var(--toolbox-fg);
+	margin: var(--toolbox-sp-5) 0;
+	border-collapse: collapse;
+}
+
+.table th {
+	font-weight: bold;
+	background-color: var(--toolbox-header-bg);
+	color: var(--toolbox-fg);
+	padding: var(--toolbox-sp-5) var(--toolbox-sp-6);
+}
+
+.table td {
+	padding: var(--toolbox-sp-5) var(--toolbox-sp-6);
+	font-size: 1em;
+}
+
+.table td:not(:first-child) {
+	border-left: solid 1px var(--toolbox-input-border);
+}
+
+.row {
+	background: var(--toolbox-bg);
+}
+
+.rowApproval {
+	background: var(--toolbox-row-approve);
+}
+
+.rowRemove {
+	background: var(--toolbox-row-remove);
+}
+
+.rowBan {
+	background: var(--toolbox-row-ban);
+}

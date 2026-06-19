@@ -1,0 +1,12 @@
+.label {
+	cursor: pointer;
+	user-select: none;
+	display: inline-flex;
+	align-items: center;
+	gap: var(--toolbox-sp-6);
+}
+
+.toggle {
+	composes: toggle from "../../css/Base.module.css";
+	vertical-align: middle;
+}

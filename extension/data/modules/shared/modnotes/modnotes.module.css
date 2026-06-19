@@ -1,0 +1,133 @@
+.noteButton {
+	max-width: 200px;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.noteTable {
+	composes: basetable from "../../../css/Base.module.css";
+}
+
+.noteTable :is(th, td) {
+	padding: var(--toolbox-sp-6) var(--toolbox-sp-8);
+	border: solid 1px var(--toolbox-input-border);
+	vertical-align: top;
+}
+
+.noteTable th {
+	text-align: left;
+	background: var(--toolbox-button-hover-bg);
+}
+
+.noteTable a {
+	color: var(--toolbox-link-color);
+	text-decoration: none;
+}
+
+/* Note body text */
+.noteTable blockquote {
+	margin: 0;
+	overflow-wrap: anywhere;
+}
+
+.actionSummary {
+	font-style: italic;
+	opacity: 0.5;
+}
+
+.nativeNoteList {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-8);
+}
+
+.nativeNoteCard {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-1);
+	border: 1px solid var(--toolbox-input-border);
+	border-radius: 6px;
+	padding: var(--toolbox-sp-6) var(--toolbox-sp-8);
+	background: var(--toolbox-bg);
+}
+
+.nativeNoteRow {
+	display: flex;
+	align-items: center;
+	gap: var(--toolbox-sp-8);
+	min-width: 0;
+}
+
+.nativeNoteTypeChip,
+.nativeNoteModChip {
+	flex: 0 0 auto;
+	border: 1px solid var(--toolbox-border-color);
+	border-radius: 999px;
+	padding: var(--toolbox-sp-1) var(--toolbox-sp-7);
+	font-size: 80%;
+	font-weight: bold;
+	line-height: 1.5;
+	max-width: 100%;
+	overflow-wrap: anywhere;
+}
+
+.nativeNoteModChip {
+	margin-left: auto;
+	color: var(--toolbox-text-heading);
+	white-space: nowrap;
+}
+
+.nativeNoteBody {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow-wrap: anywhere;
+	line-height: 1.35;
+}
+
+.nativeNoteText {
+	color: inherit;
+}
+
+a.nativeNoteText {
+	color: var(--toolbox-link-color);
+	text-decoration: none;
+}
+
+a.nativeNoteText:hover {
+	text-decoration: underline;
+}
+
+.nativeNoteDate {
+	font-size: 80%;
+	color: var(--toolbox-text-secondary);
+	line-height: 1.2;
+}
+
+.nativeNoteIconButton {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 26px;
+	height: 22px;
+	flex: 0 0 auto;
+	background: transparent;
+	border: 1px solid transparent;
+	border-radius: 4px;
+	cursor: pointer;
+	color: inherit;
+	padding: 0;
+}
+
+.nativeNoteIconButton:hover {
+	border-color: var(--toolbox-border-color);
+	background-color: var(--toolbox-button-hover-bg);
+}
+
+@media (max-width: 720px) {
+	.nativeNoteRow {
+		align-items: flex-start;
+		flex-wrap: wrap;
+		gap: var(--toolbox-sp-5);
+	}
+}

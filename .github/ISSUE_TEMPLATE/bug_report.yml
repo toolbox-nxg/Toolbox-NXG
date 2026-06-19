@@ -1,0 +1,66 @@
+name: Bug report
+description: Report something in Toolbox-NXG that isn't working as expected.
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report! Please fill out the
+        sections below so we can reproduce and fix the problem. For general
+        questions or support, post on [/r/toolbox_nxg](https://www.reddit.com/r/toolbox_nxg) instead.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear and concise description of the bug, including what you expected to happen instead.
+      placeholder: When I click X, Y happens, but I expected Z.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: How can we reproduce the problem? Be as specific as possible.
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. See error
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and version
+      description: Which browser (and version) are you using?
+      placeholder: Firefox 140, Chrome 138, etc.
+    validations:
+      required: true
+  - type: input
+    id: extension-version
+    attributes:
+      label: Toolbox-NXG version
+      description: The extension version (shown on the extensions management page).
+      placeholder: e.g. 7.0.0-beta.1
+    validations:
+      required: true
+  - type: dropdown
+    id: reddit-version
+    attributes:
+      label: Which version of Reddit?
+      description: Where does the bug occur?
+      options:
+        - Old Reddit (old.reddit.com)
+        - New Reddit (www.reddit.com)
+        - Both
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: console
+    attributes:
+      label: Console errors
+      description: Any errors from the browser developer console (F12 → Console). This will be automatically formatted as code, so no need for backticks.
+      render: shell
+    validations:
+      required: false

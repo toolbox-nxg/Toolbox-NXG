@@ -1,0 +1,31 @@
+.icon {
+	/* stylelint-disable-next-line font-family-no-missing-generic-family-keyword -- icon fonts must not fall back to text fonts */
+	font-family: "Material Symbols Filled"
+		!important; /* stylelint-disable-line declaration-no-important -- overrides Reddit's font-family reset on all elements */
+
+	font-weight: normal;
+	font-style: normal;
+	font-size: 19px; /* Preferred icon size */
+	color: inherit;
+	display: inline-block;
+	line-height: 1;
+	text-transform: none;
+	letter-spacing: normal;
+	overflow-wrap: normal;
+	white-space: nowrap;
+	direction: ltr;
+}
+
+.negative {
+	composes: errorcolor from "../../css/Base.module.css";
+}
+.negative:hover {
+	color: var(--toolbox-error-text);
+}
+
+.positive {
+	color: var(--toolbox-positive-color);
+}
+.positive:hover {
+	color: var(--toolbox-positive-hover);
+}

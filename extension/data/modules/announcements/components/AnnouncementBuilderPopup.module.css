@@ -1,0 +1,68 @@
+.window {
+	width: 600px;
+	max-width: 90vw;
+}
+
+/* Two columns: the form on the left, a live card preview on the right. Wraps to
+   a single column on narrow viewports. */
+.body {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--toolbox-sp-13);
+	padding: var(--toolbox-sp-10);
+}
+
+.form {
+	flex: 1 1 240px;
+	min-width: 220px;
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-10);
+}
+
+.previewPane {
+	flex: 1 1 320px;
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-6);
+}
+
+.field {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-4);
+}
+
+.label {
+	font-weight: bold;
+	color: var(--toolbox-text-body);
+}
+
+.builds {
+	display: flex;
+	gap: var(--toolbox-sp-13);
+}
+
+.hint {
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-text-secondary);
+	font-style: italic;
+}
+
+.error {
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-error-color);
+}
+
+/* Recessed surface the preview card floats on, so it reads as a preview rather
+   than part of the form. */
+.preview {
+	display: flex;
+	justify-content: center;
+	align-items: flex-start;
+	flex: 1;
+	padding: var(--toolbox-sp-15);
+	background: var(--toolbox-action-bg);
+	border: 1px solid var(--toolbox-surface-border);
+	border-radius: var(--toolbox-sp-3);
+}

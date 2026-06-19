@@ -1,0 +1,33 @@
+/* button element included in selector to beat page-level `button { }` resets (specificity 0,1,1) */
+button.generalButton {
+	background-color: var(--toolbox-action-bg);
+	font-family: var(--toolbox-font-family);
+	color: var(--toolbox-action-text);
+	font-size: 1em;
+	font-weight: normal;
+	border: 1px solid var(--toolbox-surface-border);
+	border-radius: 3px;
+	padding: var(--toolbox-sp-3) var(--toolbox-sp-8);
+	margin: 0 var(--toolbox-sp-2);
+	cursor: pointer;
+	display: inline-block;
+	box-sizing: border-box;
+	line-height: normal;
+	vertical-align: middle;
+	text-shadow: none;
+	text-align: center;
+	text-decoration: none;
+	outline: none;
+	box-shadow: none;
+}
+
+button.generalButton:hover {
+	background-color: var(--toolbox-selected-bg);
+	border-color: var(--toolbox-border-color);
+	text-decoration: none;
+}
+
+button.generalButton:disabled {
+	opacity: 0.5;
+	cursor: default;
+}

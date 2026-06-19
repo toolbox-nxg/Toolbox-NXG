@@ -1,0 +1,277 @@
+/*
+ * Reddit page DOM integration - styles injected into the Reddit page light DOM
+ * via content scripts, and also loaded inside shadow roots for jQuery-era
+ * components that share the same CSS classes.
+ */
+
+/*
+========================
+
+    TB reddit css fixes
+
+========================
+*/
+
+.toolbox-profile a {
+	text-decoration: none;
+}
+
+/* Shreddit posts use an `absolute inset-0` anchor overlay to make the whole card clickable.
+   Our injected containers must be positioned so they stack above that overlay in z-order. */
+.toolbox-author-slot,
+.toolbox-thing-slot {
+	position: relative;
+}
+
+.toolbox-tagline .toolbox-author-slot,
+.toolbox-tagline .toolbox-react-shadow-host,
+.toolbox-tagline .toolbox-react-light-host {
+	display: inline;
+}
+
+.toolbox-scope .toolbox-frontend-container[data-toolbox-type="TBpostAuthor"],
+.toolbox-scope .toolbox-frontend-container[data-toolbox-type="TBcommentAuthor"] {
+	/* Spacing for user buttons on old Reddit, where whitespace between inline elements is significant */
+	display: inline-flex;
+	margin-right: var(--toolbox-sp-6);
+}
+
+.toolbox-scope .toolbox-tagline .toolbox-frontend-container[data-toolbox-type="TBpostAuthor"],
+.toolbox-scope .toolbox-tagline .toolbox-frontend-container[data-toolbox-type="TBcommentAuthor"] {
+	align-items: baseline;
+	display: inline-flex;
+	gap: var(--toolbox-sp-2);
+	margin: 0 0.35em;
+	vertical-align: baseline;
+}
+
+.toolbox-scope .toolbox-frontend-container[data-toolbox-type="TBpost"] {
+	display: block;
+	margin-bottom: var(--toolbox-sp-3);
+}
+
+/* Set the order of author buttons: N NN M H P */
+/* These must target direct flex children of .toolbox-frontend-container */
+.toolbox-scope [data-toolbox-usernote-container] {
+	order: 1;
+}
+.toolbox-scope [data-toolbox-mount="toolbox-modnote-badge"] {
+	order: 2;
+}
+.toolbox-scope .global-mod-button {
+	order: 3;
+}
+.toolbox-scope .toolbox-user-profile {
+	order: 5;
+}
+
+/* stylelint-disable-next-line selector-class-pattern -- Reddit CSS-in-JS generated class name */
+.toolbox-scope.toolbox-modbar-shown .jowVts,
+.toolbox-scope.toolbox-modbar-shown .pinned-to-bottom {
+	bottom: 31px;
+}
+
+/*
+========================
+
+    TB Font stuff
+
+========================
+*/
+
+/* Prefer Verdana for Toolbox UI rather than Reddit's default font */
+/* class lift on .toolbox-window - beats Reddit/subreddit multi-class font-family rules at (0,2,0); .toolbox-scope.toolbox-scope .child = (0,3,0) */
+.toolbox-scope.toolbox-scope .toolbox-window,
+.toolbox-scope .toolbox-bottombar,
+.toolbox-scope #toolbox-context-menu,
+.toolbox-scope .toolbox-input {
+	font-family: var(--toolbox-font-family);
+	font-size: 1em
+		!important; /* stylelint-disable-line declaration-no-important -- overrides Reddit's font-size on context menu and inputs */
+}
+
+/*
+========================
+
+    TB Icons
+
+========================
+*/
+
+.toolbox-scope .toolbox-icons {
+	/* stylelint-disable-next-line font-family-no-missing-generic-family-keyword -- icon fonts must not fall back to text fonts */
+	font-family: "Material Symbols Filled"
+		!important; /* stylelint-disable-line declaration-no-important -- overrides Reddit's font-family reset on all elements */
+
+	font-weight: normal;
+	font-style: normal;
+	font-size: 19px; /* Preferred icon size */
+	color: var(--toolbox-text-body);
+	display: inline-block;
+	line-height: 1;
+	text-transform: none;
+	letter-spacing: normal;
+	overflow-wrap: normal;
+	white-space: nowrap;
+	direction: ltr;
+	cursor: pointer;
+}
+
+.toolbox-scope .toolbox-icons-negative {
+	color: var(--toolbox-error-color);
+}
+.toolbox-scope .toolbox-icons.toolbox-icons-negative:hover {
+	color: var(--toolbox-error-text)
+		!important; /* stylelint-disable-line declaration-no-important -- overrides Reddit's a:hover color rule */
+}
+
+.toolbox-scope .toolbox-icons-positive {
+	color: var(--toolbox-positive-color);
+}
+.toolbox-scope .toolbox-icons.toolbox-icons-positive:hover {
+	color: var(--toolbox-positive-hover)
+		!important; /* stylelint-disable-line declaration-no-important -- overrides Reddit's a:hover color rule */
+}
+
+/*
+------------
+    Consistent styling for jQuery-era inputs
+------------
+*/
+
+/* class lift + element lift stacked - beats subreddit CSS that applies border/bg to inputs at (0,2,1) or higher; (0,3,1) needed to clear all known adversary patterns */
+body.toolbox-scope.toolbox-scope .toolbox-input {
+	border: solid 1px var(--toolbox-input-border);
+	font-size: 1em;
+	padding: var(--toolbox-sp-5) var(--toolbox-sp-6);
+	height: 14px;
+	line-height: 14px;
+	background-color: var(--toolbox-bg);
+	color: var(--toolbox-fg);
+	color-scheme: none;
+}
+
+body.toolbox-scope.toolbox-scope .toolbox-input:focus-visible {
+	outline-color: var(--toolbox-input-focus);
+	border-color: var(--toolbox-input-focus);
+	color-scheme: none;
+}
+
+/*
+------------
+    Context menu
+------------
+*/
+.toolbox-scope #toolbox-context-menu {
+	align-items: center;
+	min-height: 30px;
+	display: flex;
+	position: fixed;
+	bottom: 60px;
+	z-index: 6000;
+	padding: 0;
+	background-color: var(--toolbox-button-hover-bg);
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-button-text);
+	border: 1px solid var(--toolbox-button-border);
+	text-align: left;
+	background-repeat: no-repeat;
+	background-position-y: 3px;
+}
+
+.toolbox-scope #toolbox-context-menu.show-context-left {
+	left: 0;
+	border-left: 0;
+}
+.toolbox-scope #toolbox-context-menu.show-context-right {
+	right: 0;
+	border-right: 0;
+	flex-direction: row-reverse; /* So the arrow shows up on the other side */
+}
+
+.toolbox-scope #toolbox-context-menu #toolbox-context-header {
+	font-weight: bold;
+	padding: var(--toolbox-sp-5);
+	margin: 0;
+	display: block;
+	line-height: normal;
+}
+.toolbox-scope #toolbox-context-menu-list {
+	width: 100%;
+	padding: 0;
+	margin: 0;
+	list-style: none;
+}
+.toolbox-scope #toolbox-context-menu-wrap {
+	width: 0;
+	height: 0;
+	opacity: 0;
+	white-space: nowrap;
+	overflow: hidden;
+	transition: 300ms;
+}
+
+.toolbox-scope #toolbox-context-menu.click-activated {
+	cursor: pointer;
+}
+
+.toolbox-scope #toolbox-context-menu.open #toolbox-context-menu-wrap,
+.toolbox-scope #toolbox-context-menu.hover-activated:hover #toolbox-context-menu-wrap {
+	width: auto;
+	height: auto;
+	opacity: 1;
+}
+
+.toolbox-scope #toolbox-context-menu.fade:not(:hover) {
+	animation: toolbox-context-fade 3s;
+	animation-iteration-count: infinite;
+}
+
+@keyframes toolbox-context-fade {
+	0% {
+		opacity: 0.2;
+	}
+	50% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0.2;
+	}
+}
+
+/* Rotate the arrow while the menu is open to signal that clicking again closes it */
+.toolbox-scope #toolbox-context-menu .toolbox-context-arrow {
+	transition: 300ms;
+}
+.toolbox-scope #toolbox-context-menu.open .toolbox-context-arrow {
+	transform: rotate(180deg);
+	transform-origin: center;
+}
+
+.toolbox-scope #toolbox-context-menu-list li {
+	background: var(--toolbox-action-bg);
+	border-top: 1px solid var(--toolbox-surface-border);
+	display: flex;
+	align-items: center;
+	padding: var(--toolbox-sp-2) var(--toolbox-sp-10);
+	margin: 0;
+	cursor: pointer;
+	font-size: 1em;
+}
+
+.toolbox-scope #toolbox-context-menu-list li:hover {
+	background-color: rgb(
+		174 212 250 / 50%
+	); /* intentional: semi-transparent blue hover; opacity prevents CSS variable use */
+}
+
+.toolbox-scope #toolbox-context-menu-list .toolbox-icons {
+	margin-right: var(--toolbox-sp-5);
+}
+
+.toolbox-scope .show-context-left #toolbox-context-menu-list li {
+	border-right: 1px solid var(--toolbox-surface-border);
+}
+.toolbox-scope .show-context-right #toolbox-context-menu-list li {
+	border-left: 1px solid var(--toolbox-surface-border);
+}

@@ -1,0 +1,37 @@
+.window {
+	width: 80vw;
+	max-width: 1100px;
+	height: 85vh;
+	display: flex;
+	flex-direction: column;
+}
+
+.window > div:nth-child(2) {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow: auto;
+}
+
+.search {
+	background-color: var(--toolbox-action-bg);
+	color: var(--toolbox-button-text);
+	border: 1px solid var(--toolbox-button-border);
+	padding: var(--toolbox-sp-3);
+	margin: var(--toolbox-sp-11);
+}
+
+.input {
+	margin: 0 var(--toolbox-sp-4);
+}
+
+.count {
+	background-color: var(--toolbox-button-border);
+	padding: var(--toolbox-sp-4);
+	color: var(--toolbox-action-bg);
+	font-weight: bold;
+	margin-left: var(--toolbox-sp-6);
+}
+
+.sitetable {
+	padding: 0 var(--toolbox-sp-11) var(--toolbox-sp-11);
+}

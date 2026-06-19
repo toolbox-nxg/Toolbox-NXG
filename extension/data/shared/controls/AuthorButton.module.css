@@ -1,0 +1,23 @@
+/* button element included to match GeneralButton specificity, doubled class wins regardless CSS import order. */
+button.authorButton.authorButton {
+	/* Opaque so author/domain-tagger buttons stay readable on Reddit's tinted
+	   spam/removed rows (.spam is salmon #fa8072); translucent let the red bleed through. */
+	background-color: var(--toolbox-button-bg-solid);
+	color: var(--toolbox-button-text);
+	font-size: 10px;
+	line-height: 10px;
+	margin: 0 var(--toolbox-sp-2);
+	border-left: 3px solid var(--toolbox-button-border);
+	padding: 0 3px;
+	height: 12px;
+	min-width: 12px;
+	vertical-align: baseline;
+}
+
+button.authorButton.authorButton:hover {
+	background-color: var(--toolbox-button-hover-bg);
+	/* Keep the non-left borders at the resting surface color; GeneralButton's
+	   :hover otherwise darkens the whole outline via --toolbox-border-color. */
+	border-color: var(--toolbox-surface-border);
+	border-left: 3px solid var(--toolbox-button-border);
+}

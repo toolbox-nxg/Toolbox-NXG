@@ -1,0 +1,16 @@
+/* Inline "proposal pending" badge on a thing's action row */
+.badge {
+	color: var(--toolbox-accent-color);
+	font-weight: bold;
+	white-space: nowrap;
+}
+
+/*
+ * Shrink the document glyph to sit alongside the small action-row text instead of
+ * the Icon component's default 19px. The compound selector outweighs Icon's own
+ * `.icon { font-size }` rule, so cascade order doesn't matter.
+ */
+.badge .badgeIcon {
+	font-size: 1em;
+	vertical-align: text-bottom;
+}

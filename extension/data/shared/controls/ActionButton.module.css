@@ -1,0 +1,88 @@
+/* button element included in selector to beat page-level button resets in light DOM (specificity 0,1,1) */
+button.actionButton {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--toolbox-sp-4);
+	vertical-align: middle;
+	padding: var(--toolbox-sp-6) var(--toolbox-sp-6) var(--toolbox-sp-5) var(--toolbox-sp-5);
+	font-family: var(--toolbox-font-family);
+	font-size: 1em;
+	line-height: var(--toolbox-sp-14);
+	background-color: var(--toolbox-action-bg);
+	border-radius: 1px;
+	border-width: 1px 1px 2px 2px;
+	border-color: var(--toolbox-border-color);
+	border-style: solid;
+	color: var(--toolbox-action-text);
+	outline: none;
+}
+
+button.actionButton:active {
+	border-width: 1px;
+	border-color: var(--toolbox-header-button-hover-bg);
+	padding: var(--toolbox-sp-6);
+	outline: none;
+}
+
+button.actionButton i {
+	font-size: 14px;
+}
+
+button.actionButton.inline {
+	padding: var(--toolbox-sp-3) var(--toolbox-sp-3) var(--toolbox-sp-2) var(--toolbox-sp-2);
+}
+
+button.actionButton.inline:active {
+	padding: var(--toolbox-sp-3);
+}
+
+.actionButton.primary {
+	background-color: var(--toolbox-accent-color);
+	border-color: var(--toolbox-accent-hover);
+	color: var(--toolbox-bg);
+	font-weight: bold;
+	padding: var(--toolbox-sp-6) var(--toolbox-sp-14) var(--toolbox-sp-5);
+	border-width: 1px 1px 2px;
+	border-radius: 2px;
+}
+
+.actionButton.primary:hover {
+	background-color: var(--toolbox-accent-hover);
+	border-color: var(--toolbox-accent-active);
+}
+
+.actionButton.primary:active {
+	background-color: var(--toolbox-accent-active);
+	border-color: var(--toolbox-accent-active);
+	border-width: 1px;
+	padding: var(--toolbox-sp-6) var(--toolbox-sp-14);
+}
+
+.actionButton:disabled {
+	opacity: 0.55;
+	cursor: not-allowed;
+	pointer-events: auto;
+}
+
+/* Leading spinner shown while the button's action is in flight (the `busy` prop). */
+.spinner {
+	width: var(--toolbox-sp-12);
+	height: var(--toolbox-sp-12);
+	border: 2px solid currentcolor;
+	border-top-color: transparent;
+	border-radius: 50%;
+	/* Spinner inherits the button's text color but reads as dimmer than the label. */
+	opacity: 0.7;
+	animation: action-button-spin 0.7s linear infinite;
+}
+
+@keyframes action-button-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.actionButton.primary:disabled {
+	background-color: var(--toolbox-accent-disabled);
+	border-color: var(--toolbox-accent-disabled-border);
+}

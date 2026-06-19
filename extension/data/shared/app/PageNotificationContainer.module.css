@@ -1,0 +1,16 @@
+.wrapper {
+	position: fixed;
+	bottom: 42px;
+	right: 10px;
+	width: 320px;
+}
+/* Reserve room for the context-menu handle when it sits on the right */
+.wrapper.hasRightContextMenu {
+	right: 30px;
+}
+
+.notification {
+	margin-top: var(--toolbox-sp-5);
+	/* The whole card opens the linked item when clicked. */
+	cursor: pointer;
+}

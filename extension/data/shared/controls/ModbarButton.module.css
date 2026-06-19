@@ -1,0 +1,15 @@
+.modbarButton {
+	background: color-mix(in srgb, var(--toolbox-header-button-bg) 80%, transparent);
+	border-left: 1px solid var(--toolbox-header-button-hover-bg);
+	border-right: 1px solid var(--toolbox-header-button-hover-bg);
+	display: inline-block;
+	vertical-align: top;
+	height: 100%;
+	margin-left: var(--toolbox-sp-3);
+	padding: 0 var(--toolbox-sp-3);
+	cursor: pointer;
+}
+
+.modbarButton:hover {
+	background: var(--toolbox-header-button-hover-bg);
+}

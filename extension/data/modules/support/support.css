@@ -1,0 +1,12 @@
+/* !important throughout: overriding .toolbox-action-button base styles in toolbox-buttons.css which themselves use !important */
+/* stylelint-disable declaration-no-important */
+body.toolbox-scope .toolbox-action-button.toolbox-insert-debug {
+	display: inline-block !important;
+	box-sizing: border-box !important;
+	height: 26px !important;
+	margin: var(--toolbox-sp-5) var(--toolbox-sp-5) var(--toolbox-sp-10) 0 !important;
+	cursor: pointer;
+	line-height: normal !important;
+}
+
+/* stylelint-enable declaration-no-important */

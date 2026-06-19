@@ -1,0 +1,22 @@
+.root {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-8);
+}
+
+.description {
+	font-size: 1em;
+	color: var(--toolbox-text-body);
+	margin: 0;
+}
+
+.actions {
+	display: flex;
+	align-items: center;
+	gap: var(--toolbox-sp-8);
+	flex-wrap: wrap;
+}
+
+.note {
+	composes: secondaryitalic from "../../../css/Base.module.css";
+}

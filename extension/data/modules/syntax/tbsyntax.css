@@ -1,0 +1,41 @@
+.toolbox-syntax-keyboard i {
+	font-size: medium;
+}
+
+.toolbox-scope .toolbox-syntax-keyboard {
+	position: absolute;
+	width: 150px;
+	background-color: rgb(
+		206 227 248 / 55%
+	); /* intentional: semi-transparent header-bg tint; opacity prevents CSS variable use */
+
+	color: var(--toolbox-fg);
+	right: 0;
+	top: 0;
+	z-index: 99999999999;
+	padding: var(--toolbox-sp-3);
+	transition: width 0.3s;
+}
+
+.toolbox-scope .toolbox-syntax-keyboard:hover {
+	width: 500px;
+}
+
+.toolbox-scope .toolbox-syntax-keyboard ul {
+	display: none;
+}
+
+.toolbox-syntax-keyboard:hover ul {
+	display: block;
+}
+
+/* Fullscreen mode for the CodeMirror 6 editor */
+.toolbox-cm-fullscreen {
+	position: fixed
+		!important; /* stylelint-disable-line declaration-no-important -- overrides CodeMirror's default position on the editor container */
+
+	inset: 0;
+	z-index: var(--toolbox-z-popup);
+	height: 100vh
+		!important; /* stylelint-disable-line declaration-no-important -- overrides CodeMirror's inline height on the editor container */
+}

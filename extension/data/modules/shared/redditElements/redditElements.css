@@ -1,0 +1,547 @@
+/*
+ * Global CSS for comment and submission DOM elements built by TBComment and
+ * TBSubmission. These class names must stay global because FlatViewOverlay and
+ * other modules query them via querySelector.
+ */
+
+/*
+-----------
+    Comment rebuilding css
+-----------
+*/
+
+.toolbox-scope .toolbox-comment-children:not(:first-of-type) {
+	margin-left: var(--toolbox-sp-10);
+}
+
+.toolbox-scope .toolbox-comment-entry {
+	margin-left: var(--toolbox-sp-7);
+	display: flex;
+}
+
+.toolbox-scope .toolbox-comment {
+	margin: var(--toolbox-sp-5);
+	padding: var(--toolbox-sp-5);
+}
+
+.toolbox-scope .toolbox-comment-body {
+	margin-left: var(--toolbox-sp-10);
+	margin-top: var(--toolbox-sp-5);
+}
+
+.toolbox-scope .toolbox-parent {
+	font-size: var(--toolbox-sp-10);
+	margin-bottom: var(--toolbox-sp-5);
+	line-height: var(--toolbox-sp-18);
+}
+
+.toolbox-scope .toolbox-parent .toolbox-link-title {
+	font-size: var(--toolbox-sp-13);
+}
+
+.toolbox-scope .toolbox-more-comments {
+	margin: var(--toolbox-sp-5);
+	padding: var(--toolbox-sp-5);
+	display: block;
+	font-size: var(--toolbox-sp-10);
+}
+
+.toolbox-scope .toolbox-more-comments a {
+	font-weight: bold;
+}
+
+/*
+-----------
+    Submission entry rebuilding css
+-----------
+*/
+.toolbox-scope .toolbox-submission-entry {
+	width: 100%;
+	margin-top: var(--toolbox-sp-5);
+}
+
+.toolbox-scope .toolbox-pinned-tagline {
+	font-weight: bold;
+	color: rgb(0 137 133); /* intentional: teal matches Reddit's own pinned-post indicator colour */
+}
+
+.toolbox-scope .toolbox-comment-content {
+	flex: 1;
+	min-width: 0;
+}
+
+.toolbox-scope .toolbox-comment-score {
+	margin: var(--toolbox-sp-20) 0;
+	color: var(--toolbox-vote-neutral);
+	font-weight: bold;
+	width: 4em;
+	text-align: center;
+	flex-shrink: 0;
+}
+
+.toolbox-scope .toolbox-comment-score.liked {
+	color: var(--toolbox-vote-up);
+}
+
+.toolbox-scope .toolbox-comment-score.disliked {
+	color: var(--toolbox-vote-down);
+}
+
+.toolbox-scope .toolbox-submission-score {
+	margin: var(--toolbox-sp-20) 0;
+	color: var(--toolbox-vote-neutral);
+	font-weight: bold;
+	width: 4em;
+	text-align: center;
+}
+
+.toolbox-scope .toolbox-submission-score.liked {
+	color: var(--toolbox-vote-up);
+}
+
+.toolbox-scope .toolbox-submission-score.disliked {
+	color: var(--toolbox-vote-down);
+}
+.toolbox-scope .toolbox-submission {
+	display: flex;
+	margin: var(--toolbox-sp-5);
+	padding: var(--toolbox-sp-5);
+	background-color: var(--toolbox-submission-bg);
+}
+
+.toolbox-scope .toolbox-submission-title a {
+	font-size: var(--toolbox-sp-16);
+}
+
+.toolbox-scope .toolbox-submission-title .toolbox-domain,
+.toolbox-scope .toolbox-submission-title .toolbox-domain a {
+	font-size: var(--toolbox-sp-10);
+}
+
+.toolbox-scope .toolbox-self-expando-button {
+	float: left;
+	color: var(--toolbox-text-secondary);
+	background: var(--toolbox-flair-bg);
+	height: 25px;
+	width: 25px;
+	margin: var(--toolbox-sp-3);
+	cursor: pointer;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+}
+
+.toolbox-scope .toolbox-self-expando-button:hover {
+	background: var(--toolbox-text-secondary);
+	color: var(--toolbox-flair-bg);
+}
+
+.toolbox-scope .toolbox-self-expando {
+	margin-top: var(--toolbox-sp-5);
+	display: none;
+}
+
+.toolbox-scope .toolbox-no-image-thumbnail {
+	height: 40px;
+	width: 70px;
+	background: var(--toolbox-flair-bg);
+	text-align: center;
+	vertical-align: middle;
+	line-height: 40px;
+	text-decoration: none
+		!important; /* stylelint-disable-line declaration-no-important -- overrides Reddit's a { text-decoration } rule */
+
+	color: var(--toolbox-text-secondary);
+}
+
+.toolbox-scope .toolbox-submission-thumbnail {
+	margin: var(--toolbox-sp-5);
+}
+
+/* intentional: matches Reddit's own NSFW red used in their native UI */
+.toolbox-scope .toolbox-submission-thumbnail.nsfw .toolbox-no-image-thumbnail {
+	color: var(--toolbox-reddit-nsfw);
+	border: solid 1px var(--toolbox-reddit-nsfw);
+}
+
+/*
+-----------
+    Comment & submission entry rebuilding css (shared)
+-----------
+*/
+
+/* intentional: see above - matches Reddit's native NSFW red */
+.toolbox-scope .toolbox-nsfw-stamp {
+	color: var(--toolbox-reddit-nsfw);
+}
+
+.toolbox-scope .toolbox-stamp {
+	border: 1px solid;
+	display: inline-block;
+	font-size: var(--toolbox-sp-10);
+	line-height: 1.4em;
+	padding: 0 var(--toolbox-sp-4);
+}
+
+.toolbox-scope .toolbox-stamp acronym,
+.toolbox-scope .toolbox-stamp abbr {
+	text-decoration: none;
+}
+
+.toolbox-scope .toolbox-tagline {
+	font-size: var(--toolbox-sp-10);
+	padding: var(--toolbox-sp-3);
+}
+
+.toolbox-scope .toolbox-submission-buttons,
+.toolbox-scope .toolbox-comment-buttons {
+	font-size: var(--toolbox-sp-11);
+	margin-left: var(--toolbox-sp-8);
+	margin-bottom: var(--toolbox-sp-8);
+}
+
+.toolbox-scope .toolbox-actioned-button,
+.toolbox-scope .toolbox-submission-button,
+.toolbox-scope .toolbox-comment-button {
+	margin-right: var(--toolbox-sp-10);
+}
+
+.toolbox-scope .toolbox-comment-button.toolbox-comment-context-popup,
+.toolbox-scope .toolbox-comment-button-spam,
+.toolbox-scope .toolbox-comment-button-remove,
+.toolbox-scope .toolbox-comment-button-approve {
+	cursor: pointer;
+}
+
+.toolbox-scope .toolbox-replacement .toolbox-actioned-button,
+.toolbox-scope .toolbox-replacement .toolbox-submission-button,
+.toolbox-scope .toolbox-replacement .toolbox-comment-button {
+	margin: inherit;
+}
+
+/* intentional: see above - matches Reddit's native NSFW red */
+.toolbox-scope .toolbox-actioned-button.toolbox-actioned-error {
+	color: var(--toolbox-reddit-nsfw);
+}
+
+.toolbox-scope .toolbox-self-expando .md,
+.toolbox-scope .toolbox-comment-body .md {
+	color: inherit;
+	max-width: 60em;
+}
+
+.toolbox-scope .toolbox-submission .toolbox-self-expando .md p,
+.toolbox-scope .toolbox-comment .toolbox-comment-body .md p {
+	border: none;
+	padding: 0;
+	/* No top margin: paragraph separation is driven entirely by margin-bottom.
+	   Without this the browser-default top margin (~1em ≈ 13px at the 13px font
+	   size) adds an unwanted gap above the first line of the body text. */
+	margin-top: 0;
+	margin-bottom: var(--toolbox-sp-5);
+	font-size: var(--toolbox-sp-13);
+	line-height: 1.32;
+}
+
+/* Drop the browser-default top margin on the first block when it isn't a paragraph
+   (heading, list, etc.) so the body text still sits flush under the tagline. */
+.toolbox-scope .toolbox-submission .toolbox-self-expando .md > :first-child,
+.toolbox-scope .toolbox-comment .toolbox-comment-body .md > :first-child {
+	margin-top: 0;
+}
+
+.toolbox-scope .toolbox-submission .toolbox-self-expando .md s,
+.toolbox-scope .toolbox-comment .toolbox-comment-body .md s,
+.toolbox-scope .toolbox-submission .toolbox-self-expando .md strike,
+.toolbox-scope .toolbox-comment .toolbox-comment-body .md strike,
+.toolbox-scope .toolbox-submission .toolbox-self-expando .md del,
+.toolbox-scope .toolbox-comment .toolbox-comment-body .md del {
+	text-decoration: line-through;
+	font-weight: inherit;
+}
+
+.toolbox-scope .toolbox-submission .toolbox-self-expando .md em,
+.toolbox-scope .toolbox-comment .toolbox-comment-body .md em {
+	font-style: italic;
+	font-weight: inherit;
+}
+
+.toolbox-scope .toolbox-submission .toolbox-self-expando .md strong,
+.toolbox-scope .toolbox-comment .toolbox-comment-body .md strong {
+	font-weight: 600;
+	font-style: inherit;
+}
+
+.toolbox-scope .toolbox-comment .toolbox-self-expando .md code,
+.toolbox-scope .toolbox-comment .toolbox-comment-body .md code {
+	margin: 0 var(--toolbox-sp-2);
+	padding: 0 var(--toolbox-sp-4);
+	white-space: nowrap;
+	word-break: normal;
+	font-style: normal;
+	font-weight: normal;
+	font-family: monospace;
+}
+
+.toolbox-scope .toolbox-comment .toolbox-self-expando .md pre,
+.toolbox-scope .toolbox-comment .toolbox-comment-body .md pre,
+.toolbox-scope .toolbox-comment .toolbox-self-expando .md code,
+.toolbox-scope .toolbox-comment .toolbox-comment-body .md code {
+	border: 1px solid var(--toolbox-surface-border);
+	background-color: var(--toolbox-badge-bg);
+}
+
+.toolbox-scope .toolbox-comment .toolbox-self-expando .md pre code,
+.toolbox-scope .toolbox-comment .toolbox-comment-body .md pre code {
+	white-space: pre;
+	background-color: transparent;
+	border: 0;
+	display: block;
+	padding: 0
+		!important; /* stylelint-disable-line declaration-no-important -- overrides Reddit's pre code { padding } rule */
+}
+
+.toolbox-scope .toolbox-comment .toolbox-self-expando .md pre,
+.toolbox-scope .toolbox-comment .toolbox-comment-body .md pre {
+	padding: var(--toolbox-sp-4) var(--toolbox-sp-9);
+	overflow: auto;
+	margin-bottom: var(--toolbox-sp-5);
+}
+
+.toolbox-scope .toolbox-submission .toolbox-self-expando .md ol,
+.toolbox-scope .toolbox-comment .toolbox-comment-body .md ol {
+	font-size: var(--toolbox-sp-13);
+	list-style-type: decimal;
+	padding-left: var(--toolbox-sp-40);
+}
+
+.toolbox-scope .toolbox-submission .toolbox-self-expando .md ul,
+.toolbox-scope .toolbox-comment .toolbox-comment-body .md ul {
+	font-size: var(--toolbox-sp-13);
+	list-style-type: disc;
+	padding-left: var(--toolbox-sp-40);
+}
+
+.toolbox-scope .toolbox-submission .toolbox-self-expando .md ul li,
+.toolbox-scope .toolbox-comment .toolbox-comment-body .md ul li {
+	line-height: 1.32;
+	margin-bottom: var(--toolbox-sp-3);
+}
+
+.toolbox-scope .toolbox-submission .toolbox-self-expando .md h1,
+.toolbox-scope .toolbox-comment .toolbox-comment-body .md h1 {
+	font-size: var(--toolbox-sp-18);
+	font-weight: bold;
+	margin-top: var(--toolbox-sp-10);
+	margin-bottom: var(--toolbox-sp-3);
+}
+
+.toolbox-scope .toolbox-submission .toolbox-self-expando .md h2,
+.toolbox-scope .toolbox-comment .toolbox-comment-body .md h2 {
+	font-size: 1.3em;
+	font-weight: bold;
+	margin-top: var(--toolbox-sp-10);
+	margin-bottom: var(--toolbox-sp-3);
+}
+
+.toolbox-scope .toolbox-submission .toolbox-self-expando .md h3,
+.toolbox-scope .toolbox-comment .toolbox-comment-body .md h3 {
+	font-size: 1.1em;
+	font-weight: bold;
+	margin-top: var(--toolbox-sp-10);
+	margin-bottom: var(--toolbox-sp-3);
+}
+
+.toolbox-scope .toolbox-submission .toolbox-self-expando table,
+.toolbox-scope .toolbox-comment .toolbox-comment-body table {
+	margin-bottom: var(--toolbox-sp-5);
+}
+
+.toolbox-scope .toolbox-submission .toolbox-self-expando table td,
+.toolbox-scope .toolbox-comment .toolbox-comment-body table td {
+	border: solid 1px
+		rgb(208 208 208); /* intentional: light grey table border matches Reddit's own markdown table style */
+
+	padding: var(--toolbox-sp-3);
+	text-align: left;
+}
+
+.toolbox-scope .toolbox-submission .toolbox-self-expando table th,
+.toolbox-scope .toolbox-comment .toolbox-comment-body table th {
+	font-weight: bold;
+	border: solid 1px rgb(208 208 208); /* intentional: see above */
+	padding: var(--toolbox-sp-3);
+}
+
+.toolbox-scope .toolbox-submission .toolbox-self-expando blockquote,
+.toolbox-scope .toolbox-comment .toolbox-comment-body blockquote {
+	background: var(--toolbox-blockquote-bg);
+	padding: var(--toolbox-sp-4) var(--toolbox-sp-4) var(--toolbox-sp-4) var(--toolbox-sp-8);
+	margin: 0 var(--toolbox-sp-10) var(--toolbox-sp-5);
+	color: var(--toolbox-blockquote-color);
+}
+
+.toolbox-scope .toolbox-submission-flair,
+.toolbox-scope .toolbox-comment-flair {
+	background-color: var(--toolbox-flair-bg);
+	padding: var(--toolbox-sp-2);
+}
+
+/* intentional: award tier colours are fixed Reddit brand identifiers - silver/gold/platinum */
+.toolbox-scope .toolbox-award-silver {
+	color: rgb(126 126 126);
+}
+.toolbox-scope .toolbox-award-gold {
+	color: rgb(247 138 23);
+}
+.toolbox-scope .toolbox-award-platinum {
+	color: rgb(72 165 154);
+}
+
+.toolbox-scope .toolbox-submission-edited,
+.toolbox-scope .toolbox-comment-edited {
+	font-style: italic;
+}
+
+/* intentional: pure red removed-content border - universally understood danger signal, stronger than --toolbox-error-color */
+.toolbox-scope .toolbox-submission.removed,
+.toolbox-scope .toolbox-comment-entry.removed {
+	border: solid 2px rgb(255 0 0);
+}
+
+/* intentional: fixed dark red for spammed-content border - semantic indicator, not UI chrome */
+.toolbox-scope .toolbox-submission.spammed,
+.toolbox-scope .toolbox-comment-entry.spammed {
+	border: solid 2px rgb(160 48 48);
+}
+
+/*
+ * intentional: these buttons are injected directly into old Reddit's light-DOM page.
+ * Black text and grey/action-coloured backgrounds must match the surrounding
+ * old-Reddit UI, not toolbox's own theme palette.
+ */
+body.toolbox-scope .toolbox-comment-entry.filtered a.toolbox-comment-button-remove,
+body.toolbox-scope .toolbox-submission.filtered a.toolbox-submission-button-remove,
+body.toolbox-scope a.toolbox-big-button.toolbox-comment-button-remove,
+body.toolbox-scope a.toolbox-big-button.toolbox-submission-button-remove {
+	border: 1px solid rgb(102 102 102);
+	color: rgb(0 0 0);
+	padding: var(--toolbox-sp-1) var(--toolbox-sp-6);
+	background: rgb(191 207 224);
+}
+
+body.toolbox-scope .toolbox-comment-entry.filtered a.toolbox-comment-button-spam,
+body.toolbox-scope .toolbox-submission.filtered a.toolbox-submission-button-spam,
+body.toolbox-scope a.toolbox-big-button.toolbox-comment-button-spam,
+body.toolbox-scope a.toolbox-big-button.toolbox-submission-button-spam {
+	border: 1px solid rgb(102 102 102);
+	color: rgb(0 0 0);
+	padding: var(--toolbox-sp-1) var(--toolbox-sp-6);
+	background: var(--toolbox-remove-bg);
+}
+
+body.toolbox-scope .toolbox-comment-entry.filtered a.toolbox-comment-button-approve,
+body.toolbox-scope .toolbox-submission.filtered a.toolbox-submission-button-approve,
+body.toolbox-scope a.toolbox-big-button.toolbox-comment-button-approve,
+body.toolbox-scope a.toolbox-big-button.toolbox-submission-button-approve {
+	border: 1px solid rgb(102 102 102);
+	color: rgb(0 0 0);
+	padding: var(--toolbox-sp-1) var(--toolbox-sp-6);
+	background: var(--toolbox-approve-bg);
+}
+
+.toolbox-scope .toolbox-moderator {
+	color: var(--toolbox-reddit-moderator);
+}
+
+.toolbox-scope .toolbox-submitter {
+	color: var(--toolbox-reddit-submitter);
+}
+
+.toolbox-scope .toolbox-parent .toolbox-author,
+.toolbox-scope .toolbox-parent .toolbox-link-author,
+.toolbox-scope .toolbox-tagline .toolbox-comment-author {
+	font-weight: bold;
+}
+
+/* intentional: yellow background and black border match Reddit's own user-report widget styling in old Reddit */
+.toolbox-scope ul.toolbox-user-reports {
+	width: 80%;
+	background-color: rgb(246 230 159);
+	border: thin solid rgb(0 0 0);
+	padding: var(--toolbox-sp-5);
+}
+
+/* stylelint-disable-next-line no-descending-specificity -- ul.toolbox-user-reports is a toolbox widget, never a child of .toolbox-self-expando .md */
+.toolbox-scope ul.toolbox-user-reports li:first-of-type {
+	margin-bottom: var(--toolbox-sp-5);
+	font-weight: bold;
+}
+
+.toolbox-scope .toolbox-tagline .toolbox-submission-author:hover,
+.toolbox-scope .toolbox-tagline .toolbox-comment-author:hover {
+	text-decoration: underline;
+}
+
+/*
+ * intentional: role badge background colours are fixed semantic identifiers -
+ * submitter=blue, moderator=green, admin=red, unknown=orange.
+ * White text on all coloured backgrounds is always correct regardless of theme.
+ *
+ * class lift - .toolbox-scope.toolbox-scope raises base specificity to (0,5,0),
+ * matching the (0,5,0) of the :hover rules below (which add one pseudo-class unit).
+ * Source order then makes hover win over the base rule, without needing !important.
+ */
+.toolbox-scope.toolbox-scope .toolbox-tagline .toolbox-submission-author.toolbox-submitter,
+.toolbox-scope.toolbox-scope .toolbox-tagline .toolbox-comment-author.toolbox-submitter {
+	color: rgb(255 255 255);
+	background-color: var(--toolbox-reddit-submitter);
+	font-weight: bold;
+	border-radius: 0;
+	padding: 0 var(--toolbox-sp-2);
+}
+
+.toolbox-scope.toolbox-scope .toolbox-tagline .toolbox-submission-author.toolbox-moderator,
+.toolbox-scope.toolbox-scope .toolbox-tagline .toolbox-comment-author.toolbox-moderator {
+	color: rgb(255 255 255);
+	background-color: var(--toolbox-reddit-moderator);
+	font-weight: bold;
+	border-radius: 0;
+	padding: 0 var(--toolbox-sp-2);
+}
+
+.toolbox-scope.toolbox-scope .toolbox-tagline .toolbox-submission-author.toolbox-admin,
+.toolbox-scope.toolbox-scope .toolbox-tagline .toolbox-comment-author.toolbox-admin {
+	color: rgb(255 255 255);
+	background-color: rgb(233 30 30);
+	font-weight: bold;
+	border-radius: 0;
+	padding: 0 var(--toolbox-sp-2);
+}
+
+.toolbox-scope.toolbox-scope .toolbox-tagline .toolbox-submission-author.toolbox-unknown,
+.toolbox-scope.toolbox-scope .toolbox-tagline .toolbox-comment-author.toolbox-unknown {
+	color: rgb(255 255 255);
+	background-color: rgb(255 141 100);
+	font-weight: bold;
+	border-radius: 0;
+	padding: 0 var(--toolbox-sp-2);
+}
+.toolbox-scope .toolbox-tagline .toolbox-submission-author.toolbox-submitter:hover,
+.toolbox-scope .toolbox-tagline .toolbox-submission-author.toolbox-moderator:hover,
+.toolbox-scope .toolbox-tagline .toolbox-submission-author.toolbox-admin:hover,
+.toolbox-scope .toolbox-tagline .toolbox-submission-author.toolbox-unknown:hover,
+.toolbox-scope .toolbox-tagline .toolbox-comment-author.toolbox-submitter:hover,
+.toolbox-scope .toolbox-tagline .toolbox-comment-author.toolbox-moderator:hover,
+.toolbox-scope .toolbox-tagline .toolbox-comment-author.toolbox-admin:hover,
+.toolbox-scope .toolbox-tagline .toolbox-comment-author.toolbox-unknown:hover {
+	color: rgb(255 255 255); /* intentional: see role badge comment above - white text stays correct on hover too */
+	opacity: 0.8;
+	text-decoration: none;
+}
+
+.toolbox-scope .toolbox-submission-data,
+.toolbox-scope .toolbox-comment-data {
+	margin: var(--toolbox-sp-5);
+	font-size: var(--toolbox-sp-10);
+}

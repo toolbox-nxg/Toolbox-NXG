@@ -1,0 +1,107 @@
+.container {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--toolbox-sp-4);
+	padding: var(--toolbox-sp-4) var(--toolbox-sp-6);
+	min-height: 30px;
+	background: var(--toolbox-input-bg);
+	border: 1px solid var(--toolbox-input-border);
+	border-radius: 2px;
+	cursor: text;
+	position: relative;
+}
+
+.container:focus-within {
+	border-color: var(--toolbox-input-focus);
+	outline: 1px solid var(--toolbox-input-focus);
+	outline-offset: -1px;
+}
+
+.disabled {
+	opacity: 0.6;
+	cursor: default;
+	pointer-events: none;
+}
+
+.pill {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--toolbox-sp-3);
+	padding: var(--toolbox-sp-1) var(--toolbox-sp-7);
+	background: var(--toolbox-header-button-hover-bg);
+	border: 1px solid var(--toolbox-input-border);
+	border-radius: 10px;
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-fg);
+	white-space: nowrap;
+	line-height: 1.4;
+}
+
+.pillRemove {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 13px;
+	height: 13px;
+	padding: 0;
+	border: 0;
+	border-radius: 50%;
+	background: transparent;
+	color: var(--toolbox-text-body);
+	cursor: pointer;
+	font-size: var(--toolbox-sp-13);
+	line-height: 1;
+	margin-left: var(--toolbox-sp-1);
+}
+
+.pillRemove:hover {
+	background: var(--toolbox-input-border);
+	color: var(--toolbox-fg);
+}
+
+.input {
+	flex: 1;
+	min-width: 80px;
+	border: 0;
+	background: transparent;
+	color: var(--toolbox-fg);
+	font-size: 1em;
+	font-family: var(--toolbox-font-family);
+	outline: none;
+	padding: var(--toolbox-sp-2) 0;
+}
+
+.input::placeholder {
+	color: var(--toolbox-text-body);
+	opacity: 0.7;
+}
+
+.dropdown {
+	position: absolute;
+	top: calc(100% + 2px);
+	left: 0;
+	right: 0;
+	z-index: 100;
+	margin: 0;
+	padding: var(--toolbox-sp-2) 0;
+	list-style: none;
+	background: var(--toolbox-bg);
+	border: 1px solid var(--toolbox-input-border);
+	box-shadow: 0 3px 8px rgb(0 0 0 / 20%);
+	border-radius: 2px;
+	max-height: 180px;
+	overflow-y: auto;
+}
+
+.suggestion {
+	padding: var(--toolbox-sp-5) var(--toolbox-sp-10);
+	font-size: 1em;
+	cursor: pointer;
+	color: var(--toolbox-fg);
+}
+
+.suggestion:hover,
+.suggestionActive {
+	background: var(--toolbox-header-button-hover-bg);
+}

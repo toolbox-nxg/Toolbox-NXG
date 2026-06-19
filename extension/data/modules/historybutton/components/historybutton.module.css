@@ -1,0 +1,117 @@
+.windowContent {
+	min-width: 650px;
+	padding: var(--toolbox-sp-8) var(--toolbox-sp-10);
+	font-size: 1em;
+	color: var(--toolbox-text-body);
+	border-bottom: 1px solid var(--toolbox-divider-color);
+}
+
+.headerRow {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: var(--toolbox-sp-4);
+}
+
+.row {
+	display: flex;
+	flex-wrap: wrap;
+	padding: var(--toolbox-sp-6);
+	border-bottom: 1px solid var(--toolbox-divider-color);
+}
+
+.row > div {
+	flex: 1 1 260px;
+	min-width: 0;
+	max-height: 200px;
+	overflow: hidden auto;
+	padding: 0 var(--toolbox-sp-4);
+	border-right: 1px solid var(--toolbox-divider-color);
+	scrollbar-width: thin;
+	scrollbar-color: var(--toolbox-chrome) transparent;
+}
+
+.row > div::-webkit-scrollbar {
+	width: 4px;
+}
+
+.row > div::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.row > div::-webkit-scrollbar-thumb {
+	background: var(--toolbox-chrome);
+	border-radius: 2px;
+}
+
+.row > div:last-child {
+	border-right: none;
+}
+
+.row > div .error {
+	text-align: center;
+	color: var(--toolbox-error-color);
+}
+
+.table {
+	composes: basetable from "../../../css/Base.module.css";
+	font-size: var(--toolbox-sp-11);
+}
+
+.table th,
+.table td {
+	padding: var(--toolbox-sp-3) var(--toolbox-sp-5);
+	text-align: left;
+	overflow-wrap: break-word;
+}
+
+.table th {
+	position: sticky;
+	top: 0;
+	background: var(--toolbox-bg);
+	border-bottom: 1px solid var(--toolbox-surface-border);
+	font-weight: bold;
+	color: var(--toolbox-text-secondary);
+	font-size: var(--toolbox-sp-10);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+.table td {
+	border-bottom: 1px solid var(--toolbox-divider-color);
+	min-width: 30px;
+}
+
+.table td:first-child {
+	max-width: 186px;
+}
+
+.table tr:last-child td {
+	border-bottom: none;
+}
+
+.disclaimer {
+	margin: var(--toolbox-sp-6) 0;
+	background: var(--toolbox-action-bg);
+	border: 1px solid var(--toolbox-divider-color);
+	border-radius: 3px;
+	padding: var(--toolbox-sp-5) var(--toolbox-sp-8);
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-text-secondary);
+}
+
+/* stylelint-disable-next-line no-descending-specificity -- targets different rows than tr:last-child td; no actual cascade conflict */
+.currentSubreddit td {
+	background: var(--toolbox-selected-bg);
+	font-weight: bold;
+}
+
+/* intentional: warning/danger colours are visual severity encoding for history entries, not UI chrome */
+.warning {
+	background: rgb(255 210 0 / 22%);
+}
+
+.danger {
+	background: rgb(210 50 30 / 12%);
+	color: var(--toolbox-error-color);
+}

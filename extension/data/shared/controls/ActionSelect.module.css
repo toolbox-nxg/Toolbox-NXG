@@ -1,0 +1,18 @@
+.actionSelect {
+	composes: actionbutton from "../../css/Base.module.css";
+	vertical-align: baseline; /* override actionButton's bottom alignment */
+}
+
+.actionSelect:active {
+	border-width: 1px;
+	border-color: var(--toolbox-header-button-hover-bg);
+	padding: var(--toolbox-sp-5) var(--toolbox-sp-6);
+	outline: none;
+}
+
+.actionSelect.inline {
+	padding: var(--toolbox-sp-3) var(--toolbox-sp-3) var(--toolbox-sp-2) var(--toolbox-sp-2);
+}
+.actionSelect.inline:active {
+	padding: var(--toolbox-sp-3);
+}

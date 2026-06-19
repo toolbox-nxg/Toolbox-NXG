@@ -1,0 +1,380 @@
+/*
+ * Shadow DOM foundation - loaded into every shadow root created by Toolbox.
+ * Sets up fonts, CSS custom properties, element resets, and base input styles.
+ * Keep this file small: only things that every shadow root needs.
+ */
+
+@font-face {
+	/*
+	 * Material Symbols subset, instanced to the filled style and trimmed to just
+	 * the glyphs Toolbox renders (see util/ui/icons.ts). No local() fallback: a
+	 * locally-installed "Material Icons"/"Material Symbols" font uses different
+	 * codepoints for several glyphs, so it would render the wrong icons.
+	 */
+	font-family: "Material Symbols Filled";
+	font-style: normal;
+	font-weight: 400;
+	src: url("./MaterialSymbols-Filled.woff2") format("woff2");
+}
+
+:host {
+	/* strip styles inherited from the host page for a clean slate */
+	all: initial;
+	/*
+	 * Avoid giving host elements their own box; instead adopt the box of
+	 * whatever we render inside. This sidesteps subtle layout glitches when the
+	 * rendered content's root element is `inline`, `inline-block`, or something
+	 * unusual like `table-*`.
+	 * see https://developer.mozilla.org/en-US/docs/Web/CSS/display#contents
+	 */
+	display: contents;
+
+	/* apply our preferred typography */
+	font-family: var(--toolbox-font-family);
+	font-size: var(--toolbox-ui-font-size);
+	/* all:initial resets color to CanvasText (black); restore it from the
+	   theme variable so shadow-root content inherits the dark-mode value */
+	color: var(--toolbox-fg);
+}
+
+/*
+ * Mirrors old Reddit's look, which suits Toolbox well since much of our styling
+ * is modeled on it.
+ */
+a {
+	color: var(--toolbox-link-color);
+	text-decoration: none;
+}
+
+/*
+========================
+
+    CSS custom properties
+
+========================
+*/
+
+:root {
+	--toolbox-font-family: verdana, arial, helvetica, sans-serif;
+	--toolbox-ui-font-size: 12px;
+
+	/*
+	 * Theme "space toggles": --toolbox-theme-light holds an empty (valid) value
+	 * in light mode and the guaranteed-invalid `initial` in dark mode, and vice
+	 * versa for --toolbox-theme-dark. Prepending `var(--toolbox-theme-light)`
+	 * to a declaration makes it valid only in light mode, letting inline styles
+	 * pick a per-theme color with no JS theme detection (see noteTypeColorStyle).
+	 */
+	--toolbox-theme-light: ;
+	--toolbox-theme-dark: initial;
+
+	--toolbox-header-bg: rgb(206 227 248);
+	--toolbox-header-button-bg: rgb(199 214 230);
+	--toolbox-header-button-hover-bg: rgb(159 186 214);
+	--toolbox-border-color: rgb(114 134 154);
+	--toolbox-shadow-color: rgb(160 177 193 / 40%);
+
+	--toolbox-button-bg: rgb(182 201 221 / 23%);
+	/* Opaque equivalent of --toolbox-button-bg composited over white, for light-DOM
+	   general buttons that sit on Reddit's unpredictable row backgrounds (e.g. the
+	   tomato spam/removed row tint) - translucency there lets the red bleed through. */
+	--toolbox-button-bg-solid: rgb(238 243 247);
+	--toolbox-button-text: rgb(105 105 105);
+	--toolbox-button-border: rgb(182 201 221);
+	--toolbox-button-hover-bg: rgb(226 238 250);
+	--toolbox-button-active-bg: rgb(182 201 221);
+
+	--toolbox-action-bg: rgb(247 250 253);
+	--toolbox-action-text: rgb(23 50 78);
+
+	--toolbox-input-bg: rgb(255 255 255);
+	--toolbox-input-border: rgb(199 214 230);
+	--toolbox-input-focus: rgb(159 186 214);
+
+	--toolbox-surface-border: rgb(208 220 232);
+	--toolbox-divider-color: rgb(232 239 245);
+	--toolbox-badge-bg: rgb(232 241 250);
+	--toolbox-selected-bg: rgb(234 242 250);
+
+	--toolbox-accent-color: rgb(59 125 180);
+	--toolbox-accent-hover: rgb(45 96 144);
+	--toolbox-accent-active: rgb(34 82 126);
+	--toolbox-accent-disabled: rgb(122 173 208);
+	--toolbox-accent-disabled-border: rgb(94 143 173);
+	--toolbox-link-color: rgb(51 102 153);
+	--toolbox-text-muted: rgb(138 167 196);
+
+	--toolbox-text-heading: rgb(51 72 94);
+	--toolbox-text-body: rgb(70 89 109);
+	--toolbox-text-secondary: rgb(107 122 141);
+
+	--toolbox-error-color: rgb(192 57 43);
+	--toolbox-error-bg: rgb(255 245 245);
+	--toolbox-error-border: rgb(245 191 191);
+	--toolbox-error-text: rgb(139 32 32);
+
+	--toolbox-caution-bg: rgb(255 248 230);
+	--toolbox-caution-border: rgb(232 213 160);
+	--toolbox-caution-accent: rgb(201 162 39);
+	--toolbox-caution-text: rgb(107 90 30);
+
+	--toolbox-success-bg: rgb(212 237 218);
+	--toolbox-success-text: rgb(21 87 36);
+
+	--toolbox-neutral-bg: rgb(226 227 229);
+	--toolbox-neutral-text: rgb(56 61 65);
+
+	--toolbox-row-approve: rgb(0 140 0 / 7%);
+	--toolbox-row-approve-alt: rgb(0 140 0 / 10%);
+	--toolbox-row-remove: rgb(200 0 0 / 7%);
+	--toolbox-row-remove-alt: rgb(200 0 0 / 10%);
+	--toolbox-row-ban: rgb(200 80 0 / 8%);
+	--toolbox-row-ban-alt: rgb(200 80 0 / 11%);
+	--toolbox-row-neutral: rgb(0 0 0 / 3%);
+
+	/* Solid state backgrounds for action buttons and injected DOM elements */
+	--toolbox-approve-bg: rgb(209 234 191);
+	--toolbox-remove-bg: rgb(237 189 190);
+	--toolbox-banned-bg: rgb(250 128 114);
+
+	/* Positive action icon colors - more vivid than --toolbox-success-text for icon use */
+	--toolbox-positive-color: rgb(54 167 74);
+	--toolbox-positive-hover: rgb(36 117 51);
+
+	/* "New mail" green - shared by the modbar modmail icon and the second-opinion toggle */
+	--toolbox-new-mail-color: rgb(101 210 96);
+
+	/* Hover overlay tints - semi-transparent so they work over any background */
+	--toolbox-hover-overlay: rgb(0 0 0 / 6%);
+	--toolbox-hover-overlay-strong: rgb(0 0 0 / 8%);
+
+	/* Reddit semantic colors - match Reddit's own UI conventions */
+	--toolbox-reddit-nsfw: rgb(209 0 35);
+	--toolbox-reddit-moderator: rgb(34 136 34);
+	--toolbox-reddit-submitter: rgb(0 85 223);
+	--toolbox-vote-neutral: rgb(198 198 198);
+	--toolbox-vote-up: rgb(255 139 96);
+	--toolbox-vote-down: rgb(148 148 255);
+
+	--toolbox-active-mods-bg: rgb(0 140 0 / 5%);
+	--toolbox-active-mods-border: rgb(0 140 0 / 12%);
+	--toolbox-active-mod-chip: rgb(0 140 0 / 8%);
+
+	--toolbox-chrome: rgb(168 181 194);
+
+	--toolbox-bg: rgb(255 255 255);
+	--toolbox-fg: rgb(0 0 0);
+
+	--toolbox-blockquote-bg: rgb(234 229 229);
+	--toolbox-blockquote-color: rgb(76 76 76);
+	--toolbox-flair-bg: rgb(216 216 216);
+	--toolbox-submission-bg: rgb(241 241 241);
+	--toolbox-highlight-bg: rgb(255 248 213);
+
+	--toolbox-z-backdrop: 2147483644;
+	--toolbox-z-window: 2147483645;
+	--toolbox-z-popup: 2147483646;
+	--toolbox-z-toast: 2147483647;
+
+	/*
+	 * Spacing tokens: --toolbox-sp-N = N pixels at the 12px Toolbox base font size.
+	 * Use these instead of raw em fractions throughout all Toolbox CSS so that
+	 * resizing the baseline is a single-point change here.
+	 * sp-12 is intentionally omitted - `1em` is semantic ("match current font size").
+	 */
+	--toolbox-sp-1: 0.0833em;
+	--toolbox-sp-2: 0.1667em;
+	--toolbox-sp-3: 0.25em;
+	--toolbox-sp-4: 0.3333em;
+	--toolbox-sp-5: 0.4167em;
+	--toolbox-sp-6: 0.5em;
+	--toolbox-sp-7: 0.5833em;
+	--toolbox-sp-8: 0.6667em;
+	--toolbox-sp-9: 0.75em;
+	--toolbox-sp-10: 0.8333em;
+	--toolbox-sp-11: 0.9167em;
+	--toolbox-sp-13: 1.0833em;
+	--toolbox-sp-14: 1.1667em;
+	--toolbox-sp-15: 1.25em;
+	--toolbox-sp-16: 1.3333em;
+	--toolbox-sp-17: 1.4167em;
+	--toolbox-sp-18: 1.5em;
+	--toolbox-sp-20: 1.6667em;
+	--toolbox-sp-22: 1.8333em;
+	--toolbox-sp-28: 2.3333em;
+	--toolbox-sp-34: 2.8333em;
+	--toolbox-sp-35: 2.9167em;
+	--toolbox-sp-40: 3.3333em;
+}
+
+.toolbox-react-light-host.toolbox-scope,
+.toolbox-window,
+#toolbox-bottombar,
+#toolbox-context-menu,
+#toolbox-notifications-wrapper,
+.toolbox-frontend-container,
+.toolbox-comment-entry,
+.toolbox-submission-entry,
+.toolbox-more-comments {
+	font-size: var(--toolbox-ui-font-size);
+}
+
+/*
+========================
+
+    TB warning
+
+========================
+*/
+
+body.toolbox[toolbox-warning]::before {
+	position: fixed;
+	content: attr(toolbox-warning);
+	right: 40px;
+	bottom: 50px;
+	z-index: var(--toolbox-z-backdrop);
+	color: rgb(236 19 19 / 84%);
+	background-color: rgb(206 227 248 / 86%);
+	padding: 5px;
+	font-size: 14px;
+}
+
+/* Base styles for React-component inputs/textareas/selects - zero specificity so module CSS always wins.
+   Duplicated with :host so the rules also apply inside shadow roots (where .toolbox-scope is in the
+   light DOM and not visible to shadow-scoped CSS). */
+:where(.toolbox-scope
+	input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="color"]):not([type="file"])),
+:where(:host
+	input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="color"]):not([type="file"])),
+:where(.toolbox-scope textarea),
+:where(:host textarea),
+:where(.toolbox-scope select),
+:where(:host select) {
+	font-family: var(--toolbox-font-family);
+	font-size: 1em;
+	border: solid 1px var(--toolbox-input-border);
+	background-color: var(--toolbox-input-bg);
+	color: var(--toolbox-fg);
+	color-scheme: none;
+	box-sizing: border-box;
+}
+:where(.toolbox-scope
+	input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="color"]):not([type="file"]):focus-visible),
+:where(:host
+	input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="color"]):not([type="file"]):focus-visible),
+:where(.toolbox-scope textarea:focus-visible),
+:where(:host textarea:focus-visible),
+:where(.toolbox-scope select:focus-visible),
+:where(:host select:focus-visible) {
+	outline-color: var(--toolbox-input-focus);
+	border-color: var(--toolbox-input-focus);
+	color-scheme: none;
+}
+
+/*
+========================
+
+    Dark mode - RES nightmode, Reddit native dark theme, OS dark preference
+
+    CSS custom properties are inherited, so overriding them here (on body.toolbox-scope,
+    which is a light-DOM ancestor of every shadow host we create) automatically propagates
+    the dark values into all shadow roots without any :host-context tricks.
+
+    .toolbox-os-dark is applied by init.ts via matchMedia('prefers-color-scheme: dark')
+    so all three triggers share a single variable block.
+
+========================
+*/
+
+.res-nightmode .toolbox-scope,
+.theme-dark.toolbox-scope,
+.toolbox-os-dark .toolbox-scope {
+	/* Flip the theme space toggles - see the :root block for how these work */
+	--toolbox-theme-light: initial;
+	--toolbox-theme-dark: ;
+
+	--toolbox-header-bg: rgb(26 45 66);
+	--toolbox-header-button-bg: rgb(36 52 70);
+	--toolbox-header-button-hover-bg: rgb(45 74 106);
+	--toolbox-border-color: rgb(58 80 104);
+	--toolbox-shadow-color: rgb(0 10 20 / 60%);
+
+	--toolbox-button-bg: rgb(80 120 160 / 20%);
+	/* Opaque dark-mode counterpart - the spam/removed row tint is not theme-conditional,
+	   so dark mode has the same bleed-through; light grey button text reads well on this. */
+	--toolbox-button-bg-solid: rgb(37 50 66);
+	--toolbox-button-text: rgb(176 190 200);
+	--toolbox-button-border: rgb(52 74 96);
+	--toolbox-button-hover-bg: rgb(30 50 72);
+	--toolbox-button-active-bg: rgb(30 58 95);
+
+	--toolbox-action-bg: rgb(17 27 38);
+	--toolbox-action-text: rgb(184 207 230);
+
+	--toolbox-input-bg: rgb(22 32 48);
+	--toolbox-input-border: rgb(52 74 96);
+	--toolbox-input-focus: rgb(90 136 184);
+
+	--toolbox-surface-border: rgb(36 50 68);
+	--toolbox-divider-color: rgb(24 36 51);
+	--toolbox-badge-bg: rgb(24 36 51);
+	--toolbox-selected-bg: rgb(30 48 68);
+
+	--toolbox-accent-color: rgb(90 159 212);
+	--toolbox-accent-hover: rgb(74 143 190);
+	--toolbox-accent-active: rgb(61 122 168);
+	--toolbox-accent-disabled: rgb(45 80 112);
+	--toolbox-accent-disabled-border: rgb(30 58 84);
+	--toolbox-link-color: rgb(90 159 212);
+	--toolbox-text-muted: rgb(90 122 150);
+
+	--toolbox-text-heading: rgb(200 220 232);
+	--toolbox-text-body: rgb(168 188 200);
+	--toolbox-text-secondary: rgb(122 144 164);
+
+	--toolbox-error-color: rgb(224 92 78);
+	--toolbox-error-bg: rgb(31 10 10);
+	--toolbox-error-border: rgb(90 32 32);
+	--toolbox-error-text: rgb(232 112 112);
+
+	--toolbox-caution-bg: rgb(26 20 0);
+	--toolbox-caution-border: rgb(90 72 0);
+	--toolbox-caution-accent: rgb(212 168 39);
+	--toolbox-caution-text: rgb(232 200 90);
+
+	--toolbox-success-bg: rgb(10 34 24);
+	--toolbox-success-text: rgb(110 232 154);
+
+	/* Darker "new mail" green - the lighter value washes out against light bar backgrounds */
+	--toolbox-new-mail-color: rgb(24 112 20);
+
+	--toolbox-neutral-bg: rgb(30 32 34);
+	--toolbox-neutral-text: rgb(154 160 166);
+
+	--toolbox-row-approve: rgb(0 200 0 / 15%);
+	--toolbox-row-approve-alt: rgb(0 200 0 / 22%);
+	--toolbox-row-remove: rgb(220 60 60 / 15%);
+	--toolbox-row-remove-alt: rgb(220 60 60 / 22%);
+	--toolbox-row-ban: rgb(220 120 0 / 15%);
+	--toolbox-row-ban-alt: rgb(220 120 0 / 22%);
+	--toolbox-row-neutral: rgb(255 255 255 / 3%);
+
+	/* Hover overlays flip to white-based in dark mode */
+	--toolbox-hover-overlay: rgb(255 255 255 / 6%);
+	--toolbox-hover-overlay-strong: rgb(255 255 255 / 8%);
+
+	--toolbox-active-mods-bg: rgb(0 200 0 / 10%);
+	--toolbox-active-mods-border: rgb(0 200 0 / 25%);
+	--toolbox-active-mod-chip: rgb(0 200 0 / 15%);
+
+	--toolbox-chrome: rgb(58 76 92);
+
+	--toolbox-bg: rgb(13 21 32);
+	--toolbox-fg: rgb(224 232 240);
+
+	--toolbox-blockquote-bg: rgb(26 37 53);
+	--toolbox-blockquote-color: rgb(168 188 200);
+	--toolbox-flair-bg: rgb(36 52 70);
+	--toolbox-submission-bg: rgb(24 36 51);
+	--toolbox-highlight-bg: rgb(58 53 0);
+}

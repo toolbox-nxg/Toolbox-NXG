@@ -1,0 +1,12 @@
+.toolbox-scope .toolbox-bottombar #toolbox-toggle-removed {
+	display: flex;
+	align-items: center;
+	opacity: 0.8;
+	cursor: pointer;
+	font-weight: bold;
+	margin-left: var(--toolbox-sp-5);
+}
+
+.toolbox-scope .toolbox-bottombar #toolbox-toggle-removed:hover {
+	opacity: 1;
+}

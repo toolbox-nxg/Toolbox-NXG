@@ -1,0 +1,192 @@
+/* Tab list */
+.wrapper {
+	margin: calc(-1 * var(--toolbox-sp-5));
+	overflow: hidden;
+}
+
+.tabs {
+	display: flex;
+	align-items: stretch;
+	background-color: var(--toolbox-header-button-bg);
+}
+.tabButton {
+	composes: tab from "./TabBar.module.css";
+}
+
+.tabButtonActive {
+	/* The composed class name is camelCase; stylelint's keyword-case fix would break the reference. */
+	/* stylelint-disable-next-line value-keyword-case */
+	composes: tabActive from "./TabBar.module.css";
+}
+
+/* Content panel: flex column so footer pins to the bottom */
+.content {
+	display: flex;
+	flex-direction: column;
+}
+
+.tabScrollArea {
+	flex: 1;
+	min-height: 0;
+	overflow: auto;
+	padding: var(--toolbox-sp-5);
+}
+
+.tabFooter {
+	display: flex;
+	flex-shrink: 0;
+	gap: var(--toolbox-sp-5);
+	padding: var(--toolbox-sp-5);
+	min-height: 36px;
+	justify-content: flex-end;
+	align-items: center;
+	background-color: var(--toolbox-header-bg);
+}
+.tabFooter form {
+	display: contents;
+}
+.tabFooter :not(input):empty {
+	display: none;
+}
+
+.vertical {
+	display: flex;
+}
+/* Sidebar is a flex column: fixed items at top/bottom, scrollable section in between */
+.vertical .tabs {
+	flex: 0 0 220px;
+	width: 220px;
+	min-width: 220px;
+	display: flex;
+	flex-direction: column;
+}
+.vertical .content {
+	flex: 1;
+	min-width: 0;
+}
+
+/* Re-lay the tab buttons vertically */
+.vertical .tabs .tabButton {
+	/* Reset horizontal indicator border, add bottom divider instead */
+	border-bottom: 1px dotted var(--toolbox-chrome);
+	height: auto;
+	min-height: 30px;
+	display: flex;
+	align-items: center;
+	gap: var(--toolbox-sp-5);
+	padding: var(--toolbox-sp-7);
+	width: 100%;
+	text-align: left;
+	white-space: normal;
+}
+.vertical .tabs .tabButtonActive {
+	/* Keep left accent instead of bottom indicator for vertical tabs */
+	border-bottom-color: transparent;
+	border-left: 3px solid var(--toolbox-link-color);
+	padding-left: var(--toolbox-sp-4);
+}
+.vertical .tabs .tabButton:not(:first-child):hover,
+.vertical .tabs .tabButton:not(:first-child).tabButtonActive {
+	box-shadow: 0 -1px var(--toolbox-header-button-hover-bg);
+}
+
+.tabDisabled {
+	color: var(--toolbox-text-muted);
+	filter: saturate(0.3);
+}
+
+.tabTitle {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.tabToggle {
+	composes: toggle from "../../css/Base.module.css";
+}
+
+/* Scrollable section within the sidebar */
+.scrollableSectionWrapper {
+	flex: 1;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+.scrollableSection {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	/* Slim scrollbar */
+	scrollbar-width: thin;
+	scrollbar-color: var(--toolbox-chrome) transparent;
+}
+.scrollableSection::-webkit-scrollbar {
+	width: 4px;
+}
+.scrollableSection::-webkit-scrollbar-track {
+	background: transparent;
+}
+.scrollableSection::-webkit-scrollbar-thumb {
+	background: var(--toolbox-chrome);
+	border-radius: 2px;
+}
+
+/* Section header in vertical tab list */
+.sectionHeader {
+	font-size: var(--toolbox-sp-10);
+	font-weight: bold;
+	text-transform: uppercase;
+	color: var(--toolbox-text-secondary);
+	padding: var(--toolbox-sp-8) var(--toolbox-sp-7) var(--toolbox-sp-3);
+	letter-spacing: 0.05em;
+	border-bottom: 1px solid var(--toolbox-surface-border);
+	user-select: none;
+	flex-shrink: 0;
+}
+
+/* Collapsible section header button (used inside scrollable wrappers) */
+.sectionHeaderToggle {
+	appearance: none;
+	background: none;
+	border: none;
+	border-bottom: 1px solid var(--toolbox-surface-border);
+	font-family: var(--toolbox-font-family);
+	font-size: var(--toolbox-sp-10);
+	font-weight: bold;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--toolbox-text-secondary);
+	padding: var(--toolbox-sp-8) var(--toolbox-sp-7) var(--toolbox-sp-3);
+	width: 100%;
+	text-align: left;
+	display: flex;
+	align-items: center;
+	gap: var(--toolbox-sp-4);
+	cursor: pointer;
+	user-select: none;
+	flex-shrink: 0;
+}
+.sectionHeaderToggle:hover {
+	color: var(--toolbox-text-body);
+}
+
+/* Chevron indicator for collapsible section headers */
+.sectionChevron {
+	display: inline-block;
+	width: 0;
+	height: 0;
+	border-left: 4px solid transparent;
+	border-right: 4px solid transparent;
+	border-top: 5px solid currentcolor;
+	transition: transform 0.15s;
+	flex-shrink: 0;
+	margin-bottom: var(--toolbox-sp-2);
+}
+.sectionChevronCollapsed {
+	transform: rotate(-90deg);
+}

@@ -1,0 +1,5 @@
+sphinx>=8.0
+furo
+myst-parser[linkify]
+sphinx-copybutton
+sphinx-design

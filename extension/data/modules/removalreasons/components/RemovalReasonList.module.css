@@ -1,0 +1,255 @@
+.root {
+	composes: columngaplarge from "../../../css/Base.module.css";
+}
+
+/* Card list */
+.cardList {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-6);
+	margin-top: var(--toolbox-sp-4);
+}
+
+/* Individual reason card */
+.card {
+	border: 1px solid var(--toolbox-surface-border);
+	border-radius: 3px;
+	background: var(--toolbox-action-bg);
+	overflow: hidden;
+}
+
+.addCard {
+	background: var(--toolbox-selected-bg);
+	border-color: var(--toolbox-input-focus);
+}
+
+.cardHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: var(--toolbox-sp-6) var(--toolbox-sp-8);
+	background: var(--toolbox-selected-bg);
+	border-bottom: 1px solid var(--toolbox-surface-border);
+	gap: var(--toolbox-sp-8);
+}
+
+.cardTitle {
+	composes: cardtitle from "../../../css/Base.module.css";
+}
+
+.dragHandle {
+	composes: draghandle from "../../../css/Base.module.css";
+}
+
+.untitled {
+	composes: untitled from "../../../css/Base.module.css";
+}
+
+.headerChips {
+	display: flex;
+	gap: var(--toolbox-sp-4);
+	flex-shrink: 0;
+	align-items: center;
+}
+
+.headerChip {
+	border: 1px solid currentcolor;
+	border-radius: 3px;
+	padding: var(--toolbox-sp-1) var(--toolbox-sp-5);
+	font-size: var(--toolbox-sp-11);
+	max-width: 150px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	opacity: 0.65;
+	color: var(--toolbox-text-body);
+	cursor: default;
+}
+
+.cardActions {
+	composes: cardactions from "../../../css/Base.module.css";
+}
+
+.iconButton {
+	composes: inlineiconbutton from "../../../css/Base.module.css";
+}
+
+.iconButtonActive {
+	color: var(--toolbox-accent-color);
+}
+
+/* Preview area */
+.previewWrap {
+	padding: var(--toolbox-sp-6) var(--toolbox-sp-8);
+}
+
+.previewClamped {
+	overflow: hidden;
+	display: -webkit-box;
+	-webkit-line-clamp: 3;
+	-webkit-box-orient: vertical;
+	font-size: 1em;
+	color: var(--toolbox-text-body);
+	line-height: 1.4;
+}
+
+.previewFull {
+	font-size: 1em;
+	color: var(--toolbox-text-body);
+	line-height: 1.4;
+}
+
+/* Radio button groups rendered from <select> elements in reason templates; mirrors
+   the .reasonContent/.reasonPreview rules in RemovalReasonsOverlay.module.css so the
+   editor preview matches the actual removal panel. */
+/* stylelint-disable selector-class-pattern -- :global() references; global classes use kebab-case by convention */
+.previewWrap :global(.toolbox-radio-group) {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-3);
+	margin: var(--toolbox-sp-4) 0;
+}
+
+.previewWrap :global(.toolbox-radio-group-prompt) {
+	color: var(--toolbox-text-body);
+	font-weight: bold;
+}
+
+.previewWrap :global(.toolbox-radio-label) {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--toolbox-sp-6);
+	font-size: 1em;
+	color: var(--toolbox-text-body);
+	cursor: pointer;
+}
+
+.previewWrap :global(.toolbox-radio-input) {
+	margin-top: var(--toolbox-sp-2);
+	flex-shrink: 0;
+	cursor: pointer;
+}
+
+.previewWrap :global(.toolbox-radio-text) {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.previewWrap :global(.toolbox-radio-text) p,
+.previewWrap :global(.toolbox-radio-text) ul,
+.previewWrap :global(.toolbox-radio-text) ol {
+	margin: 0;
+}
+
+.previewWrap :global(.toolbox-radio-text) a {
+	color: var(--toolbox-action-text);
+}
+/* stylelint-enable selector-class-pattern */
+
+.expandToggle {
+	display: inline-block;
+	margin-top: var(--toolbox-sp-3);
+	background: none;
+	border: none;
+	padding: 0;
+	cursor: pointer;
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-accent-color);
+	font-family: var(--toolbox-font-family);
+}
+
+.expandToggle:hover {
+	text-decoration: underline;
+}
+
+.noText {
+	display: block;
+	padding: var(--toolbox-sp-6) var(--toolbox-sp-8);
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-input-focus);
+	font-style: italic;
+}
+
+/* Edit / add form */
+.editForm {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-10);
+	padding: var(--toolbox-sp-8);
+}
+
+.editField {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-3);
+}
+
+.editFieldLabel {
+	font-size: var(--toolbox-sp-11);
+	font-weight: bold;
+	color: var(--toolbox-text-body);
+}
+
+/* Full-width inputs inside a field */
+.editField input[type="text"],
+.editField select,
+.editField textarea {
+	box-sizing: border-box;
+	width: 100%;
+}
+
+/* Side-by-side flair text + CSS class */
+.flairRow {
+	display: flex;
+	gap: var(--toolbox-sp-6);
+}
+
+.flairRow input[type="text"] {
+	flex: 1;
+	min-width: 0;
+}
+
+/* Checkbox group (Posts / Comments) */
+.checkboxRow {
+	display: flex;
+	gap: var(--toolbox-sp-16);
+	flex-wrap: wrap;
+}
+
+.editButtons {
+	display: flex;
+	gap: var(--toolbox-sp-6);
+}
+
+/* Inline non-blocking diagnostics under a form field */
+.fieldWarning {
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-error-color);
+}
+
+.noteTypeChips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--toolbox-sp-4);
+}
+
+.noteTypeChip {
+	background: none;
+	border: 1px solid currentcolor;
+	border-radius: 3px;
+	padding: var(--toolbox-sp-2) var(--toolbox-sp-7);
+	font-size: var(--toolbox-sp-11);
+	cursor: pointer;
+	font-family: inherit;
+	opacity: 0.6;
+}
+
+.noteTypeChip:hover {
+	opacity: 0.85;
+}
+
+.noteTypeChipSelected {
+	opacity: 1;
+	background: var(--toolbox-hover-overlay-strong);
+	font-weight: bold;
+}

@@ -1,0 +1,17 @@
+.popup {
+	min-width: 400px;
+	max-width: 700px;
+	max-height: 70vh;
+}
+
+.code {
+	font-family: consolas, monospace;
+	background-color: var(--toolbox-badge-bg);
+	color: var(--toolbox-fg);
+	padding: var(--toolbox-sp-3);
+	margin: 0;
+	max-height: 60vh;
+	overflow: auto;
+	white-space: pre-wrap;
+	word-break: break-all;
+}

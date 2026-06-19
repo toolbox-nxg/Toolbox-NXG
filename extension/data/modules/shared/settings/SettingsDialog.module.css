@@ -1,0 +1,224 @@
+.settingsContent {
+	padding: var(--toolbox-sp-4) 0;
+}
+
+.settingItem {
+	composes: baserow from "../../../css/Base.module.css";
+}
+
+.settingItem:last-child {
+	border-bottom: none;
+}
+
+/* Label above an input */
+.fieldLabel {
+	display: block;
+	font-size: var(--toolbox-sp-11);
+	font-weight: bold;
+	color: var(--toolbox-text-body);
+	margin-bottom: var(--toolbox-sp-3);
+}
+
+/* Row of buttons + inline note (used in backup section) */
+.backupActions {
+	display: flex;
+	align-items: center;
+	gap: var(--toolbox-sp-8);
+	margin-top: var(--toolbox-sp-5);
+	flex-wrap: wrap;
+}
+
+.backupNote {
+	composes: secondaryitalic from "../../../css/Base.module.css";
+}
+
+.backupWarning {
+	font-size: var(--toolbox-sp-11);
+	margin-left: auto;
+}
+
+.backupWarning.sad {
+	color: var(--toolbox-error-text);
+	font-weight: bold;
+}
+
+/* Advanced settings group */
+.advancedGroup {
+	border-left: 2px solid var(--toolbox-input-border);
+	padding-left: var(--toolbox-sp-10);
+	margin-top: var(--toolbox-sp-4);
+	display: flex;
+	flex-direction: column;
+	gap: 0;
+}
+
+.settingFieldset {
+	border: none;
+	margin: 0;
+	padding: 0;
+}
+
+.moduleDisabledWarning {
+	font-size: 1em;
+	margin-bottom: var(--toolbox-sp-10);
+	padding: var(--toolbox-sp-6) var(--toolbox-sp-10);
+	border: 1px solid var(--toolbox-error-border);
+	border-left: 3px solid var(--toolbox-error-color);
+	background: var(--toolbox-error-bg);
+	color: var(--toolbox-error-text);
+	border-radius: 1px;
+}
+
+.aboutContent {
+	font-size: 1em;
+	padding: var(--toolbox-sp-4) var(--toolbox-sp-8);
+}
+
+.aboutContent h3 {
+	font-size: var(--toolbox-sp-11);
+	font-weight: bold;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--toolbox-text-secondary);
+	margin: var(--toolbox-sp-14) 0 var(--toolbox-sp-6);
+	padding-bottom: var(--toolbox-sp-4);
+	border-bottom: 1px solid var(--toolbox-surface-border);
+}
+
+.aboutContent h3:first-child {
+	margin-top: var(--toolbox-sp-4);
+}
+
+.aboutContent table td {
+	padding: var(--toolbox-sp-2) 1em var(--toolbox-sp-2) 0;
+}
+
+.aboutContent a {
+	color: var(--toolbox-link-color);
+}
+
+.creditsToggle {
+	background: none;
+	border: 1px solid var(--toolbox-button-border);
+	border-left-width: 3px;
+	border-radius: 1px;
+	color: var(--toolbox-link-color);
+	cursor: pointer;
+	font-size: var(--toolbox-sp-11);
+	font-family: var(--toolbox-font-family);
+	padding: var(--toolbox-sp-2) var(--toolbox-sp-8);
+	margin: var(--toolbox-sp-6) 0;
+	display: inline-block;
+	background-color: var(--toolbox-button-bg);
+}
+
+.creditsToggle:hover {
+	background-color: var(--toolbox-button-hover-bg);
+}
+
+/* Inline raw settings */
+.rawSettingsInline {
+	composes: columngapmedium from "../../../css/Base.module.css";
+	margin-top: var(--toolbox-sp-8);
+}
+
+.rawActions {
+	display: flex;
+	gap: var(--toolbox-sp-6);
+}
+
+/* Full-width input (used for backup/restore subreddit field) */
+.fullWidthInput {
+	composes: fullwidth from "../../../css/Base.module.css";
+}
+
+/* Centers the save button in the global settings footer */
+.centeredFooter {
+	margin: 0 auto;
+}
+
+.searchContainer {
+	padding: var(--toolbox-sp-4) var(--toolbox-sp-6) var(--toolbox-sp-6);
+	border-bottom: 1px solid var(--toolbox-surface-border);
+}
+
+.searchContainer input {
+	width: 100%;
+	box-sizing: border-box;
+}
+
+/* Module jump buttons shown in the sidebar during search */
+.searchModuleButton {
+	appearance: none;
+	background: none;
+	border: none;
+	border-bottom: 1px dotted var(--toolbox-chrome);
+	font-family: var(--toolbox-font-family);
+	font-size: 1em;
+	color: var(--toolbox-text-body);
+	padding: var(--toolbox-sp-7);
+	width: 100%;
+	text-align: left;
+	cursor: pointer;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	display: block;
+}
+.searchModuleButton:hover {
+	background-color: var(--toolbox-header-button-hover-bg);
+}
+
+.searchResultModule {
+	font-size: var(--toolbox-sp-10);
+	font-weight: bold;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--toolbox-text-secondary);
+	padding: var(--toolbox-sp-8) 0 var(--toolbox-sp-2);
+	border-top: 1px solid var(--toolbox-divider-color);
+	margin-top: var(--toolbox-sp-4);
+}
+
+.searchResultModule:first-child {
+	border-top: none;
+	margin-top: 0;
+}
+
+.noResults {
+	font-size: 1em;
+	color: var(--toolbox-text-secondary);
+	padding: 1em 0;
+	font-style: italic;
+}
+
+.rawTextarea {
+	font-family: monospace;
+	padding: var(--toolbox-sp-5);
+	resize: both;
+}
+
+/* Per-subreddit wiki layout list */
+.wikiLayoutRow {
+	border-top: 1px solid var(--toolbox-input-border);
+	padding: var(--toolbox-sp-3) 0;
+}
+
+.wikiLayoutRowHeader {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: var(--toolbox-sp-8);
+	width: 100%;
+	background: none;
+	border: none;
+	padding: 0;
+	font: inherit;
+	color: var(--toolbox-text-body);
+	cursor: pointer;
+	text-align: left;
+}
+
+.wikiLayoutRowBody {
+	padding: var(--toolbox-sp-3) 0 0 var(--toolbox-sp-10);
+}

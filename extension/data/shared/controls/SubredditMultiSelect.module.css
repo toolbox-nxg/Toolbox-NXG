@@ -1,0 +1,58 @@
+.wrapper {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-4);
+}
+
+.cardList {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-6);
+}
+
+.card {
+	composes: rowcard from "../../css/Base.module.css";
+	user-select: none;
+}
+
+.card.dragTarget {
+	border-top: 2px solid var(--toolbox-link-color);
+}
+
+.card.dragging {
+	opacity: 0.4;
+}
+
+.dragHandle {
+	composes: draghandle from "../../css/Base.module.css";
+}
+
+.subName {
+	flex: 1;
+	font-size: 1em;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.removeBtn {
+	background: none;
+	border: none;
+	padding: 0;
+	cursor: pointer;
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+}
+
+.addRow {
+	display: flex;
+	gap: var(--toolbox-sp-4);
+}
+
+.addSelect {
+	flex: 1;
+	padding: var(--toolbox-sp-3) var(--toolbox-sp-5);
+	min-width: 0;
+}

@@ -1,0 +1,127 @@
+/** User-facing settings definitions for the Mass Moderation module. */
+
+import {defineSettings, InferSettings,} from '../../framework/module'
+
+export const settings = defineSettings(
+	[
+		{
+			id: 'autoActivate',
+			sharedPolicy: 'raw',
+			type: 'boolean',
+			default: true,
+			description: 'Automatically activate mass moderation tools on queue pages.',
+			oldReddit: true,
+		},
+		{
+			id: 'expandReports',
+			sharedPolicy: 'raw',
+			type: 'boolean',
+			default: false,
+			description: 'Automatically expand reports on mod pages.',
+			oldReddit: true,
+		},
+		{
+			id: 'hideActionedItems',
+			sharedPolicy: 'raw',
+			type: 'boolean',
+			default: false,
+			description: 'Hide items after mod action.',
+			oldReddit: true,
+		},
+		{
+			id: 'linkToQueues',
+			sharedPolicy: 'raw',
+			type: 'boolean',
+			default: false,
+			description: 'Link to subreddit queue on mod pages.',
+			oldReddit: true,
+		},
+		{
+			id: 'reportsOrder',
+			sharedPolicy: 'raw',
+			type: 'selector',
+			advanced: true,
+			values: ['age', 'edited', 'removed', 'score', 'reports', 'author',] as const,
+			default: 'age',
+			description:
+				'Sort by. Note that "edited" and "removed" includes the post time if there is no edit or removal time.',
+			oldReddit: true,
+		},
+		{
+			id: 'reportsThreshold',
+			sharedPolicy: 'raw',
+			type: 'number',
+			advanced: true,
+			min: 0,
+			max: null,
+			step: 1,
+			default: 0,
+			description: 'Reports threshold.',
+			oldReddit: true,
+		},
+		{
+			id: 'reportsAscending',
+			sharedPolicy: 'raw',
+			type: 'boolean',
+			advanced: true,
+			default: false,
+			description: 'Sort ascending.',
+			oldReddit: true,
+		},
+		{
+			id: 'groupCommentsOnModPage',
+			sharedPolicy: 'raw',
+			type: 'boolean',
+			default: false,
+			advanced: true,
+			description: 'Group comments by their parent submission when viewing mod listings.',
+			oldReddit: true,
+		},
+		{
+			id: 'expandos',
+			type: 'boolean',
+			advanced: true,
+			default: false,
+			description: 'Keep all expando boxes open by default on queue pages.',
+			oldReddit: true,
+		},
+		{
+			id: 'scoreThreshold',
+			type: 'number',
+			advanced: true,
+			min: 0,
+			max: null,
+			step: 1,
+			default: 0,
+			description: 'Hide items with score above this value (0 = disabled).',
+			oldReddit: true,
+		},
+		{
+			id: 'sortLocked',
+			type: 'boolean',
+			advanced: true,
+			default: false,
+			description: 'Prevent re-sorting when new items load.',
+			oldReddit: true,
+		},
+		{
+			id: 'groupBySubreddit',
+			type: 'boolean',
+			advanced: true,
+			default: false,
+			description: 'Group queue items by subreddit by default.',
+			oldReddit: true,
+		},
+		{
+			id: 'autoRefresh',
+			type: 'boolean',
+			advanced: true,
+			default: false,
+			description: 'Auto-refresh queue items by default.',
+			oldReddit: true,
+		},
+	] as const,
+)
+
+/** Inferred settings type for the Mass Moderation module. */
+export type MassModerationSettings = InferSettings<typeof settings>

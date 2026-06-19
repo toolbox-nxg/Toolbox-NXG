@@ -1,0 +1,11 @@
+.normalInput {
+	height: 28px;
+	padding: 0 var(--toolbox-sp-8);
+}
+
+/* Tune inputs to sit well alongside other footer controls */
+.normalInput.inWindowFooter {
+	border-color: var(--toolbox-border-color);
+	flex: 1;
+	box-sizing: border-box;
+}

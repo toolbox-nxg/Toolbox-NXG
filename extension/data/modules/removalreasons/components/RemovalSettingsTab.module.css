@@ -1,0 +1,151 @@
+/* Section grouping */
+.section {
+	margin-bottom: var(--toolbox-sp-18);
+}
+
+.section:last-child {
+	margin-bottom: 0;
+}
+
+.sectionTitle {
+	font-size: var(--toolbox-sp-11);
+	font-weight: bold;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--toolbox-text-secondary);
+	margin-bottom: var(--toolbox-sp-8);
+	padding-bottom: var(--toolbox-sp-4);
+	border-bottom: 1px solid var(--toolbox-surface-border);
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.fieldLabel {
+	display: block;
+	font-size: var(--toolbox-sp-11);
+	font-weight: bold;
+	color: var(--toolbox-text-body);
+	margin-bottom: var(--toolbox-sp-3);
+	margin-top: var(--toolbox-sp-10);
+}
+
+.fieldLabel:first-child {
+	margin-top: 0;
+}
+
+.fullWidthInput {
+	composes: fullwidth from "../../../css/Base.module.css";
+}
+
+/* Lock-thread checkbox separated from the radio group above it */
+.actionsSeparator {
+	margin-top: var(--toolbox-sp-8);
+	padding-top: var(--toolbox-sp-8);
+	border-top: 1px solid var(--toolbox-divider-color);
+}
+
+/* Descriptive text under a section title */
+.sectionDesc {
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-text-secondary);
+	margin: 0 0 var(--toolbox-sp-8);
+	font-style: italic;
+}
+
+/* Radio option cards */
+.radioGroup {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-4);
+}
+
+.radioOption {
+	padding: var(--toolbox-sp-7) var(--toolbox-sp-10);
+	border: 1px solid var(--toolbox-input-border);
+	border-radius: 2px;
+	background: var(--toolbox-action-bg);
+	cursor: default;
+}
+
+.radioOption.selected {
+	border-color: var(--toolbox-input-focus);
+	background: var(--toolbox-selected-bg);
+}
+
+.radioLabel {
+	display: flex;
+	align-items: center;
+	gap: var(--toolbox-sp-7);
+	cursor: pointer;
+	margin: 0;
+	font-size: 1em;
+}
+
+/* Sub-options inside a selected radio card */
+.subOptions {
+	margin-top: var(--toolbox-sp-8);
+	margin-left: var(--toolbox-sp-22);
+	padding-top: var(--toolbox-sp-7);
+	border-top: 1px solid var(--toolbox-surface-border);
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-5);
+}
+
+.subNote {
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-text-secondary);
+	font-style: italic;
+	margin: 0 0 0 var(--toolbox-sp-34);
+}
+
+/* Sub-section label inside "both" card */
+.subGroupLabel {
+	font-size: var(--toolbox-sp-10);
+	font-weight: bold;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--toolbox-text-secondary);
+	margin-top: var(--toolbox-sp-8);
+	margin-bottom: var(--toolbox-sp-2);
+}
+
+.subGroupLabel:first-child {
+	margin-top: 0;
+}
+
+/* Advanced settings fields */
+.advancedField {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-3);
+	margin-top: var(--toolbox-sp-10);
+}
+
+.advancedField:first-child {
+	margin-top: 0;
+}
+
+.advancedFieldLabel {
+	font-size: var(--toolbox-sp-11);
+	font-weight: bold;
+	color: var(--toolbox-text-body);
+}
+
+.fieldHint {
+	composes: secondaryitalic from "../../../css/Base.module.css";
+}
+
+.tokenHint {
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-text-secondary);
+	margin: var(--toolbox-sp-8) 0 0;
+	font-style: italic;
+}
+
+.warning {
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-error-color);
+	font-style: italic;
+}

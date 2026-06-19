@@ -1,0 +1,478 @@
+/* Push-drawer shell (mirrors Subreddit Notes) */
+.drawerRoot {
+	position: fixed;
+	top: 0;
+	right: auto;
+	bottom: var(--toolbox-modbar-height, 0);
+	z-index: var(--toolbox-z-window);
+	/* Keep in sync with DRAWER_WIDTH_PX in ProposalsReviewPopup.tsx (the page-push width). */
+	width: 720px;
+	max-width: 100vw;
+}
+
+.popup {
+	width: 100%;
+	height: 100%;
+	max-height: none;
+	max-width: initial;
+	border-right: 1px solid var(--toolbox-border-color);
+	box-shadow: 2px 0 8px rgb(0 0 0 / 20%);
+}
+
+/* Make the Window content slot flex so the workspace fills the drawer. */
+.popup > div:nth-child(2) {
+	display: flex;
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow: hidden;
+}
+
+/* Two-pane grid: sidebar list + detail pane. */
+.workspace {
+	display: grid;
+	grid-template-columns: minmax(220px, 280px) minmax(360px, 1fr);
+	/* negate the 5px padding Window applies to its content slot */
+	width: calc(100% + 10px);
+	height: calc(100% + 10px);
+	margin: calc(-1 * var(--toolbox-sp-5));
+	min-height: 0;
+	background: var(--toolbox-bg);
+}
+
+/* Sidebar */
+.sidebar {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	border-right: 1px solid var(--toolbox-header-button-hover-bg);
+	background: var(--toolbox-header-button-bg);
+}
+
+.tabs {
+	display: flex;
+	gap: var(--toolbox-sp-5);
+	padding: var(--toolbox-sp-8);
+}
+
+/* Filter / sort controls above the list. */
+.filterBar {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--toolbox-sp-4);
+	padding: 0 var(--toolbox-sp-8) var(--toolbox-sp-5);
+}
+
+.filterSelect {
+	flex: 1 1 auto;
+	min-width: 0;
+	padding: var(--toolbox-sp-3) var(--toolbox-sp-4);
+	border: 1px solid var(--toolbox-surface-border);
+	border-radius: var(--toolbox-sp-3);
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-text);
+	background: var(--toolbox-bg);
+}
+
+/* "Showing X of Y" count under the filter bar. */
+.resultCount {
+	padding: 0 var(--toolbox-sp-8) var(--toolbox-sp-5);
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-text-secondary);
+}
+
+/* Banner shown when one or more subs failed to load, with a Retry. */
+.loadError {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--toolbox-sp-5);
+	align-items: center;
+	margin: 0 var(--toolbox-sp-8) var(--toolbox-sp-5);
+	padding: var(--toolbox-sp-5) var(--toolbox-sp-8);
+	border: 1px solid var(--toolbox-surface-border);
+	border-radius: var(--toolbox-sp-3);
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-error-color);
+	background: var(--toolbox-caution-bg);
+}
+
+/* Spin the header Refresh icon while a refresh is in flight. */
+.spinning {
+	display: inline-block;
+	animation: proposal-spin 0.7s linear infinite;
+}
+
+.list {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow: auto;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.listItem {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-2);
+	width: 100%;
+	padding: var(--toolbox-sp-8);
+	border: none;
+	border-bottom: 1px solid var(--toolbox-surface-border);
+	background: transparent;
+	text-align: left;
+	cursor: pointer;
+	color: var(--toolbox-text);
+}
+
+.listItem:hover {
+	background: var(--toolbox-header-button-hover-bg);
+}
+
+.active {
+	background: var(--toolbox-header-button-hover-bg);
+	font-weight: bold;
+}
+
+/* A row whose accept/reject/dismiss is in flight: dim while the queue catches up. */
+.rowBusy {
+	opacity: 0.55;
+}
+
+.itemAction {
+	display: flex;
+	align-items: center;
+	gap: var(--toolbox-sp-5);
+	font-weight: bold;
+}
+
+/* Small item-kind chip (Post / Comment / User) at the head of a list row. */
+.itemKind {
+	padding: 0 var(--toolbox-sp-4);
+	border-radius: var(--toolbox-sp-3);
+	font-size: var(--toolbox-sp-10);
+	font-weight: normal;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--toolbox-text-secondary);
+	background: var(--toolbox-header-button-hover-bg);
+}
+
+/* One-line reason/note preview in a list row. */
+.itemExcerpt {
+	overflow: hidden;
+	font-size: var(--toolbox-sp-11);
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	color: var(--toolbox-text);
+}
+
+.itemMeta,
+.itemStatus {
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-text-secondary);
+}
+
+/* A pending proposal that has been waiting too long: nudge the eye to triage it. */
+.aging {
+	border-left: var(--toolbox-sp-3) solid var(--toolbox-error-color);
+}
+
+/* Subreddit grouping label in the cross-sub list. */
+.sectionLabel {
+	padding: var(--toolbox-sp-5) var(--toolbox-sp-8);
+	font-size: var(--toolbox-sp-11);
+	font-weight: bold;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--toolbox-text-secondary);
+	background: var(--toolbox-header-button-hover-bg);
+}
+
+/* Detail pane */
+.pane {
+	min-height: 0;
+	overflow: auto;
+	padding: var(--toolbox-sp-14);
+}
+
+.detail {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-8);
+}
+
+.detailTitle {
+	font-size: var(--toolbox-sp-16);
+	font-weight: bold;
+}
+
+.detailMeta {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	gap: var(--toolbox-sp-4) var(--toolbox-sp-8);
+	margin: 0;
+	font-size: var(--toolbox-sp-11);
+}
+
+.detailMeta dt {
+	color: var(--toolbox-text-secondary);
+}
+
+.detailMeta dd {
+	margin: 0;
+}
+
+.detailNote {
+	font-size: var(--toolbox-sp-11);
+}
+
+/* "What happens on accept" panel. */
+.intentSummary {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-5);
+}
+
+.sectionHeading {
+	font-size: var(--toolbox-sp-11);
+	font-weight: bold;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--toolbox-text-secondary);
+}
+
+/* Selected reason template name(s), shown above the rendered message. */
+.reasonTitle {
+	font-weight: bold;
+}
+
+/* Usernote value: note text plus its colored type chip. */
+.usernoteValue {
+	display: inline-flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--toolbox-sp-4);
+}
+
+.usernoteChip {
+	padding: 0 var(--toolbox-sp-4);
+	border-radius: var(--toolbox-sp-3);
+	font-size: var(--toolbox-sp-10);
+	white-space: nowrap;
+	background: var(--toolbox-header-button-hover-bg);
+}
+
+/* Rendered removal-reason markdown - the message the author would receive. */
+.reasonBody {
+	padding: var(--toolbox-sp-8);
+	border: 1px solid var(--toolbox-surface-border);
+	border-radius: var(--toolbox-sp-3);
+	font-size: var(--toolbox-sp-12);
+	background: var(--toolbox-header-button-bg);
+	overflow-wrap: break-word;
+}
+
+.reasonBody > :first-child {
+	margin-top: 0;
+}
+
+.reasonBody > :last-child {
+	margin-bottom: 0;
+}
+
+.warn {
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-error-color);
+}
+
+/* Needs-attention diagnostic, promoted from plain red text to a bordered alert card. */
+.alert {
+	display: flex;
+	gap: var(--toolbox-sp-8);
+	align-items: flex-start;
+	padding: var(--toolbox-sp-8);
+	border: 1px solid var(--toolbox-error-color);
+	border-radius: var(--toolbox-sp-3);
+	font-size: var(--toolbox-sp-11);
+	background: var(--toolbox-caution-bg);
+}
+
+.alertIcon {
+	flex: none;
+	color: var(--toolbox-error-color);
+	font-size: var(--toolbox-sp-16);
+}
+
+.alertBody {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-4);
+}
+
+/* Target preview (the post/comment being actioned). */
+.targetPreview {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-4);
+	padding: var(--toolbox-sp-8);
+	border: 1px solid var(--toolbox-surface-border);
+	border-radius: var(--toolbox-sp-3);
+	background: var(--toolbox-header-button-bg);
+}
+
+.targetMeta {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--toolbox-sp-5);
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-text-secondary);
+}
+
+.targetDomain {
+	font-style: italic;
+}
+
+.targetTitle {
+	font-weight: bold;
+}
+
+.targetBody {
+	font-size: var(--toolbox-sp-12);
+	overflow-wrap: break-word;
+}
+
+.targetBody > :first-child {
+	margin-top: 0;
+}
+
+.targetBody > :last-child {
+	margin-bottom: 0;
+}
+
+/* Collapsed long body: clamp height instead of truncating markdown mid-syntax. */
+.targetBodyClamped {
+	max-height: 9em;
+	overflow: hidden;
+}
+
+/* "Show full post" / "Show less" toggle under the body preview. */
+.showMore {
+	align-self: flex-start;
+	padding: 0;
+	border: none;
+	background: transparent;
+	cursor: pointer;
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-link-color, var(--toolbox-text-secondary));
+}
+
+.showMore:hover {
+	text-decoration: underline;
+}
+
+/* Author history (collapsible). */
+.authorContext {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-5);
+}
+
+.authorToggle {
+	display: flex;
+	gap: var(--toolbox-sp-4);
+	align-items: center;
+	padding: var(--toolbox-sp-4) 0;
+	border: none;
+	background: transparent;
+	text-align: left;
+	cursor: pointer;
+	font-size: var(--toolbox-sp-11);
+	font-weight: bold;
+	color: var(--toolbox-text);
+}
+
+/* The chevron in the author toggle: a right-arrow that rotates down when expanded. */
+.authorToggleIcon {
+	font-size: var(--toolbox-sp-14);
+	transition: transform 100ms ease;
+}
+
+.authorToggleIconOpen {
+	transform: rotate(90deg);
+}
+
+/* Failed author-history load: message plus a Retry button. */
+.authorError {
+	display: flex;
+	gap: var(--toolbox-sp-8);
+	align-items: center;
+}
+
+.authorBody {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-5);
+}
+
+.authorNoteList {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-5);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.authorNote {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--toolbox-sp-5);
+	font-size: var(--toolbox-sp-12);
+}
+
+.rejectForm {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-5);
+}
+
+.actions {
+	display: flex;
+	gap: var(--toolbox-sp-5);
+}
+
+.empty {
+	display: block;
+	padding: var(--toolbox-sp-18) var(--toolbox-sp-10);
+	text-align: center;
+	font-style: italic;
+	color: var(--toolbox-text-secondary);
+}
+
+/* In-pane loading state: a small ring spinner with an optional label. */
+.loadingRow {
+	display: flex;
+	gap: var(--toolbox-sp-8);
+	align-items: center;
+	justify-content: center;
+	padding: var(--toolbox-sp-18) var(--toolbox-sp-10);
+	font-style: italic;
+	color: var(--toolbox-text-secondary);
+}
+
+.loadingSpinner {
+	width: var(--toolbox-sp-14);
+	height: var(--toolbox-sp-14);
+	border: 2px solid var(--toolbox-text-secondary);
+	border-top-color: transparent;
+	border-radius: 50%;
+	animation: proposal-spin 0.7s linear infinite;
+}
+
+@keyframes proposal-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}

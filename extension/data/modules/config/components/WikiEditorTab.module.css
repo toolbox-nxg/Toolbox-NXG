@@ -1,0 +1,37 @@
+.settingsLink {
+	font-size: 1em;
+	color: var(--toolbox-text-body);
+	margin: 0 0 var(--toolbox-sp-4);
+}
+
+.warning {
+	composes: warning from "../../../css/Base.module.css";
+	margin-bottom: var(--toolbox-sp-4);
+}
+
+.sideToggle {
+	display: flex;
+	align-items: center;
+	gap: var(--toolbox-sp-3);
+	margin-bottom: var(--toolbox-sp-4);
+	color: var(--toolbox-text-body);
+}
+
+.sideToggleHint {
+	font-size: 0.9167em;
+	opacity: 0.7;
+}
+
+.editWikidata {
+	width: 99%;
+	font: normal small verdana, arial, helvetica, sans-serif;
+	background-color: var(--toolbox-bg);
+	border: 1px solid;
+	flex-direction: column;
+	cursor: auto;
+	padding: var(--toolbox-sp-2)
+		!important; /* stylelint-disable-line declaration-no-important -- overrides Reddit's padding on textarea/pre elements in the wiki editor */
+
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
