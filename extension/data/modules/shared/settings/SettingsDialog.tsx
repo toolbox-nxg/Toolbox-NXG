@@ -40,8 +40,7 @@ function AboutTab () {
 			</a>.
 			<h3>Documentation</h3>
 			Guides, module references, and migration notes are available in the{' '}
-			{/* TODO: replace placeholder with the published documentation URL */}
-			<a href="https://example.com/toolbox-nxg-docs" target="_blank" rel="noreferrer">
+			<a href="https://toolbox-nxg.github.io/Toolbox-NXG/" target="_blank" rel="noreferrer">
 				Toolbox-NXG documentation
 			</a>.
 			<h3>Privacy</h3>
