@@ -20,7 +20,7 @@ Once visible, its features are individually toggled from its settings tab. Both 
 
 ## Settings
 
-| Setting           | Default | Description                                                                          |
-| ----------------- | ------- | ------------------------------------------------------------------------------------ |
-| API helper        | Off     | Show an "api" button next to each element received from Reddit's front-end API       |
-| Comment UI tester | Off     | Add a context-menu item that opens an overlay for testing Toolbox-NXG UI components   |
+| Setting           | Default | Description                                                                         |
+| ----------------- | ------- | ----------------------------------------------------------------------------------- |
+| API helper        | Off     | Show an "api" button next to each element received from Reddit's front-end API      |
+| Comment UI tester | Off     | Add a context-menu item that opens an overlay for testing Toolbox-NXG UI components |

@@ -20,7 +20,7 @@ Beyond bootstrapping the UI, the module restores author names that Reddit hides 
 
 ## Settings
 
-| Setting                       | Default | Description                                                                 |
-| ----------------------------- | ------- | --------------------------------------------------------------------------- |
-| Show usernames on feed pages  | On      | Show author names on feed pages (front page, r/popular, r/all, etc.)        |
-| Show usernames on pinned posts| On      | Show author names on pinned posts shown in card mode                        |
+| Setting                        | Default | Description                                                          |
+| ------------------------------ | ------- | -------------------------------------------------------------------- |
+| Show usernames on feed pages   | On      | Show author names on feed pages (front page, r/popular, r/all, etc.) |
+| Show usernames on pinned posts | On      | Show author names on pinned posts shown in card mode                 |

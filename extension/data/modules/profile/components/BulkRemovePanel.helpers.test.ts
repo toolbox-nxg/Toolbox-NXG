@@ -69,7 +69,7 @@ describe('bulkRemoveUserContent', () => {
 		],),)
 
 		const progress: {scanned: number; removed: number}[] = []
-		await expect(bulkRemoveUserContent('someuser', 'targetsub', {
+		await expect(bulkRemoveUserContent('targetsub', 'someuser', {
 			isCancelled: () => false,
 			onProgress: (p,) => progress.push(p,),
 		},),).resolves.toBeUndefined()
@@ -85,7 +85,7 @@ describe('bulkRemoveUserContent', () => {
 
 	it('stops scanning when cancelled before the first page', async () => {
 		getUserListingPage.mockResolvedValue(page([child('t1_a', 'targetsub',),],),)
-		await bulkRemoveUserContent('someuser', 'targetsub', {
+		await bulkRemoveUserContent('targetsub', 'someuser', {
 			isCancelled: () => true,
 			onProgress: () => {},
 		},)

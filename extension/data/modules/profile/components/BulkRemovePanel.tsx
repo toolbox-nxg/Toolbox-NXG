@@ -37,7 +37,7 @@ export function BulkRemovePanel ({user, subreddit, onClose,}: BulkRemovePanelPro
 		setPhase('running',)
 
 		try {
-			await bulkRemoveUserContent(user, subreddit, {
+			await bulkRemoveUserContent(subreddit, user, {
 				isCancelled: () => cancelRef.current,
 				onProgress: ({scanned: s, removed: r,},) => {
 					setScanned(s,)

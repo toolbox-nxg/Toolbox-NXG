@@ -32,13 +32,13 @@ export interface BulkRemoveOptions {
  * abort the whole scan, even though the target subreddit isn't sandboxed. (A trainee
  * sandboxed in `subreddit` itself is refused upfront by the panel, so the loop never
  * runs for them.)
- * @param user Reddit username whose content is being removed.
  * @param subreddit Target subreddit; only this subreddit's items are removed.
+ * @param user Reddit username whose content is being removed.
  * @param opts Cancellation and progress callbacks.
  */
 export async function bulkRemoveUserContent (
-	user: string,
 	subreddit: string,
+	user: string,
 	opts: BulkRemoveOptions,
 ): Promise<void> {
 	let totalRemoved = 0

@@ -99,7 +99,7 @@ function buildConsolidatedBody (labels: string[], cap = 7,): {body: string; xmor
  */
 function notifyConsolidated (
 	labels: string[],
-	{singularTitle, pluralNoun, moreSuffix, url,}: {
+	opts: {
 		singularTitle: string
 		pluralNoun: string
 		moreSuffix: string
@@ -108,6 +108,7 @@ function notifyConsolidated (
 ): void {
 	const count = labels.length
 	if (count === 0) { return }
+	const {singularTitle, pluralNoun, moreSuffix, url,} = opts
 	const {body, xmore,} = buildConsolidatedBody(labels,)
 	const fullBody = xmore > 0 ? `${body}\n and: ${xmore.toString()} more items${moreSuffix}` : body
 	notification(count === 1 ? singularTitle : `${count.toString()} ${pluralNoun}`, fullBody, url,)

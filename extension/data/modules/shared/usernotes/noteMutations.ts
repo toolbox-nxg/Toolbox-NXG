@@ -120,8 +120,9 @@ export interface FoundUser extends UsernotesUser {
 export function resolveDualKeyUser (
 	users: Record<string, UsernotesUser>,
 	name: string,
-	{keepEmptyNotes, sort,}: {keepEmptyNotes: boolean; sort: boolean},
+	opts: {keepEmptyNotes: boolean; sort: boolean},
 ): FoundUser | undefined {
+	const {keepEmptyNotes, sort,} = opts
 	const lowerCaseName = name.toLowerCase()
 	const hasLower = name !== lowerCaseName && Object.prototype.hasOwnProperty.call(users, lowerCaseName,)
 	const hasExact = Object.prototype.hasOwnProperty.call(users, name,)
