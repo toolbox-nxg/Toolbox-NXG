@@ -93,7 +93,7 @@ describe('formatRecentModmailTimestamp', () => {
 
 		expect(text,).toContain('May',)
 		expect(text,).toContain('24',)
-		expect(text,).toContain(':59',)
+		expect(text,).toContain('7:59',)
 	})
 
 	it('does not format timestamps 24 hours old or older', () => {
@@ -126,7 +126,7 @@ describe('createModmailHandlers', () => {
 
 		createModmailHandlers(defaultSettings,).scan(document.body,)
 
-		expect(time.textContent,).toContain('3:59',)
+		expect(time.textContent,).toContain('7:59',)
 		expect(time.dataset.toolboxOriginalText,).toBe('May 24',)
 		vi.useRealTimers()
 	})

@@ -24,6 +24,7 @@ export default defineConfig({
 		// Lives in a file (loaded inside the worker) rather than inline here, because
 		// functions in `environmentOptions` cannot be cloned to the forks pool.
 		setupFiles: ['./vitest.setup.ts',],
+		env: {TZ: 'UTC',},
 		include: ['extension/**/*.test.{ts,tsx}',],
 	},
 },)
