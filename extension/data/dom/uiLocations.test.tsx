@@ -13,7 +13,6 @@ import {
 	removeProvidedLocation,
 	renderAtLocation,
 	type UILocationContext,
-	type UILocationRenderArgs,
 } from './uiLocations'
 
 // shared context fixture

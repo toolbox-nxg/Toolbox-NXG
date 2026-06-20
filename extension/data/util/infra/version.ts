@@ -9,7 +9,12 @@ import {buildCount, buildSha, buildType,} from './buildenv'
 const manifest = browser.runtime.getManifest()
 const versionRegex = /(?<major>\d\d?)\.(?<minor>\d\d?)\.(?<patch>\d\d?)\.(?<build>\d+)/
 const match = manifest.version.match(versionRegex,)
-const {major, minor, patch, build,} = match?.groups as {major: string; minor: string; patch: string; build: string}
+const {major, minor, patch, build,} = (match?.groups ?? {
+	major: '0',
+	minor: '0',
+	patch: '0',
+	build: '0',
+}) as {major: string; minor: string; patch: string; build: string}
 
 /**
  * Compact version string carrying every potentially useful build detail.

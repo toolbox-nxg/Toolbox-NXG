@@ -14,6 +14,7 @@ export default [
 			'docs/**',
 			'tests/**',
 			'node_modules/**',
+			'.venv/**',
 			'.idea/**',
 			'.settings/**',
 			'.vscode/**',

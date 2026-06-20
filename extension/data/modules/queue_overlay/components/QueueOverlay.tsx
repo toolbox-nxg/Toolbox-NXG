@@ -259,8 +259,6 @@ export function showQueueOverlay (props: Omit<QueueOverlayProps, 'onClose' | 'in
 		},)
 		return currentHandle
 	}
-	// Dispose any stale mount left behind before creating a new one.
-	currentCleanup?.()
 	const instanceRef = {current: null as QueueOverlayHandle | null,}
 	let mounted: {host: HTMLElement; unmount: () => void} | null = null
 	const cleanup = () => {
@@ -270,6 +268,8 @@ export function showQueueOverlay (props: Omit<QueueOverlayProps, 'onClose' | 'in
 		currentInstanceRef = null
 		currentCleanup = null
 	}
+	// Dispose any stale mount left behind before creating a new one.
+	currentCleanup?.()
 	mounted = mountReactInBody(<QueueOverlay {...props} onClose={cleanup} instanceRef={instanceRef} />,)
 	// The handle is set via the useEffect above on first render.
 	// We return a proxy that delegates through the instanceRef.

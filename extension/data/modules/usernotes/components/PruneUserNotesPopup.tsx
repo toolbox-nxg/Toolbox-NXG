@@ -60,7 +60,7 @@ export function PruneUserNotesPanel ({
 	// Purge is a delete variant and passes through as-is.
 	const effectivePruneAction = pruneArchived === 'only' && pruneAction === 'archive' ? 'delete' : pruneAction
 
-	const options: PruneOptions = {
+	const options: PruneOptions = useMemo(() => ({
 		pruneByNoteAge: byAge,
 		pruneByNoteAgeLimit: daysToMilliseconds(Math.max(1, ageDays,),),
 		pruneByNoteAgeDays: Math.max(1, ageDays,),
@@ -72,7 +72,17 @@ export function PruneUserNotesPanel ({
 		pruneByUserSuspended: bySuspended,
 		pruneByUserInactivity: byInactive,
 		pruneByUserInactivityLimit: daysToMilliseconds(Math.max(1, inactiveDays,),),
-	}
+	}), [
+		byAge,
+		ageDays,
+		deselectedKinds,
+		pruneArchived,
+		effectivePruneAction,
+		byDeleted,
+		bySuspended,
+		byInactive,
+		inactiveDays,
+	],)
 
 	const preview = useMemo(() => createPrunePreview(usersToRecord(users,), options, colors,), [
 		users,

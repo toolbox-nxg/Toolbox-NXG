@@ -18,7 +18,7 @@
  * conflict retry and must re-derive its decision from that data.
  */
 
-import {mutateWikiPage, type MutatorOutcome as GenericMutatorOutcome,} from '../../../util/wiki/mutateWikiPage'
+import {mutateWikiPage,} from '../../../util/wiki/mutateWikiPage'
 import {proposalsCodec,} from '../../../util/wiki/schemas/proposals/codec'
 import {type ProposalsData, proposalsSchema,} from '../../../util/wiki/schemas/proposals/schema'
 import {broadcastProposalsChanged, emitProposalsChanged, setCachedProposals,} from './events'
@@ -32,7 +32,7 @@ import {getProposalsPagePath,} from './paths'
  *
  * `result` is the caller-defined value `mutateProposals` resolves with, so callers
  * can surface "already resolved by u/X" without throwing. (A back-compat alias over
- * the generic {@link GenericMutatorOutcome}; proposals never use its `abort` variant.)
+ * the generic {@link import('../../../util/wiki/mutateWikiPage').MutatorOutcome}; proposals never use its `abort` variant.)
  */
 export type MutatorOutcome<T,> =
 	| {write: true; result: T}

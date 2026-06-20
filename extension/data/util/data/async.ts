@@ -108,8 +108,12 @@ export function createDeferredProcessQueue<Item, Result,> (
  * is true for the final item. Used by the pager to preload the next page.
  */
 export async function* wrapWithLastValue<T,> (iterable: AsyncIterable<T> | Iterable<T>,) {
-	const iterator: Iterator<T> | AsyncIterator<T> = (iterable as AsyncIterable<T>)[Symbol.asyncIterator]?.()
-		?? (iterable as Iterable<T>)[Symbol.iterator]?.()
+	const iterator: Iterator<T> | AsyncIterator<T> | undefined =
+		(iterable as AsyncIterable<T>)[Symbol.asyncIterator]?.()
+			?? (iterable as Iterable<T>)[Symbol.iterator]?.()
+	if (!iterator) {
+		throw new TypeError('wrapWithLastValue: value is neither async-iterable nor iterable',)
+	}
 	let current = await iterator.next()
 	while (!current.done) {
 		const next = await iterator.next()
