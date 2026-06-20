@@ -14,14 +14,5 @@ README
 :hidden:
 :maxdepth: 6
 
-api/**
-background/**
-dom/**
-framework/**
-init/**
-modules/**
-shared/**
-store/**
-types/**
-util/**
+**
 ```

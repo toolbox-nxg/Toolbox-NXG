@@ -1,5 +1,9 @@
-sphinx>=8.0
-furo
-myst-parser[linkify]
-sphinx-copybutton
-sphinx-design
+# Pinned so the resolved Sphinx/furo config is stable between CI runs. A furo
+# or Sphinx release changes furo's injected html_static_path/pygments_dark_style,
+# which Sphinx treats as a config change and invalidates the entire cached
+# doctree -> full reparse + rewrite of every page. Bump these deliberately.
+sphinx==9.1.0
+furo==2025.12.19
+myst-parser[linkify]==5.1.0
+sphinx-copybutton==0.5.2
+sphinx-design==0.7.0

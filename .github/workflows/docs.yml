@@ -36,7 +36,21 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      # Cache the generated TypeDoc markdown, keyed on everything that affects
+      # it. On a hit we skip `npm run docs:api` entirely and restore the files
+      # with their original mtimes (actions/cache uses tar) -- which is what lets
+      # Sphinx's doctree cache below treat the unchanged API pages as unchanged.
+      # No restore-keys: a partial restore would leave stale/orphaned pages, so
+      # a miss starts from the clean (index.md-only) checkout and regenerates.
+      - name: Cache TypeDoc API output
+        id: typedoc-cache
+        uses: actions/cache@v5
+        with:
+          path: docs/developer/api
+          key: typedoc-${{ runner.os }}-${{ hashFiles('extension/data/**/*.ts', 'extension/data/**/*.tsx', 'typedoc.json', 'tsconfig.json', 'docs/developer/api/index.md', 'package-lock.json') }}
+
       - name: Generate TypeDoc API reference
+        if: steps.typedoc-cache.outputs.cache-hit != 'true'
         run: npm run docs:api
 
       - name: Set up Python
@@ -49,16 +63,20 @@ jobs:
       - name: Install Sphinx dependencies
         run: pip install -r docs/requirements.txt
 
-      # Cache Sphinx's parsed-doctree pickles so re-runs only reparse pages
-      # whose source changed, instead of all ~1,574 generated API files.
-      - name: Cache Sphinx doctrees
+      # Cache the doctree pickles AND the rendered HTML so a re-run only
+      # reparses/rewrites pages whose source changed. The cache is scoped by the
+      # same TypeDoc source hash as above: when the API surface changes the key
+      # prefix changes, nothing is restored, and Sphinx does a clean full build
+      # into an empty dir -- so HTML for removed symbols can never accumulate.
+      # Within a fixed API surface, restore-keys carries the latest state
+      # forward so prose-only commits write just the pages that changed.
+      - name: Cache Sphinx build (doctrees + HTML)
         uses: actions/cache@v5
         with:
-          path: docs/_build/.doctrees
-          key: sphinx-doctrees-${{ github.ref }}-${{ github.sha }}
+          path: docs/_build
+          key: sphinx-build-${{ runner.os }}-${{ hashFiles('extension/data/**/*.ts', 'extension/data/**/*.tsx', 'typedoc.json', 'tsconfig.json', 'docs/developer/api/index.md', 'package-lock.json') }}-${{ github.sha }}
           restore-keys: |
-            sphinx-doctrees-${{ github.ref }}-
-            sphinx-doctrees-
+            sphinx-build-${{ runner.os }}-${{ hashFiles('extension/data/**/*.ts', 'extension/data/**/*.tsx', 'typedoc.json', 'tsconfig.json', 'docs/developer/api/index.md', 'package-lock.json') }}-
 
       - name: Build Sphinx docs
         # -j auto parallelizes across the runner's vCPUs; -d pins the doctree

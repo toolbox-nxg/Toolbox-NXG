@@ -2,6 +2,12 @@
 
 # Moderator Toolbox-NXG for reddit
 
+[![tests](https://github.com/toolbox-nxg/toolbox-nxg/actions/workflows/main.yml/badge.svg)](https://github.com/toolbox-nxg/toolbox-nxg/actions/workflows/main.yml)
+[![DeepScan grade](https://deepscan.io/api/teams/30078/projects/31882/branches/1036395/badge/grade.svg)](https://deepscan.io/dashboard#view=project&tid=30078&pid=31882&bid=1036395)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
+[![Chrome Web Store](https://img.shields.io/chrome-web-store/v/kglcfhgacmfabofjhbjlonpihkhonmkh?label=Chrome%20Web%20Store)](https://chromewebstore.google.com/detail/moderator-toolbox-nxg-for/kglcfhgacmfabofjhbjlonpihkhonmkh)
+[![Mozilla Add-on](https://img.shields.io/amo/v/toolbox-nxg?label=Firefox)](https://addons.mozilla.org/en-US/firefox/addon/toolbox-nxg/)
+
 A fork and near-complete reimplementation of [toolbox for reddit][upstream], providing a set of tools to help moderators do their jobs more effectively. While Toolbox-NXG originated from the upstream codebase, the vast majority of the code has been rewritten from scratch — retaining the core concepts and data formats while replacing the implementation with a modern, maintainable architecture. Toolbox-NXG extends the original with improvements to the wiki storage schema, a new usernotes layout with archiving support, a richer config editor, and ongoing refactors for maintainability.
 
 > **Attribution:** Toolbox-NXG is derived from [toolbox for reddit][upstream], copyright the toolbox contributors, licensed under the [Apache License, Version 2.0][apache2]. Modifications have been made throughout.
