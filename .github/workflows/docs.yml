@@ -49,8 +49,21 @@ jobs:
       - name: Install Sphinx dependencies
         run: pip install -r docs/requirements.txt
 
+      # Cache Sphinx's parsed-doctree pickles so re-runs only reparse pages
+      # whose source changed, instead of all ~1,574 generated API files.
+      - name: Cache Sphinx doctrees
+        uses: actions/cache@v5
+        with:
+          path: docs/_build/.doctrees
+          key: sphinx-doctrees-${{ github.ref }}-${{ github.sha }}
+          restore-keys: |
+            sphinx-doctrees-${{ github.ref }}-
+            sphinx-doctrees-
+
       - name: Build Sphinx docs
-        run: sphinx-build -b html docs docs/_build/html
+        # -j auto parallelizes across the runner's vCPUs; -d pins the doctree
+        # dir so the cache step above can restore/save it.
+        run: sphinx-build -b html -j auto -d docs/_build/.doctrees docs docs/_build/html
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
