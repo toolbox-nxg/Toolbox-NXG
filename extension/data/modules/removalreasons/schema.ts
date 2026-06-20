@@ -60,6 +60,35 @@ export interface RemovalReasonsConfig {
 	typeLockThread?: boolean
 	/** When true, moderators may edit reason text before sending. */
 	editableReasonsEnabled?: boolean
+	/**
+	 * Mappings from a report reason to removal reason(s), so a matching report
+	 * pre-selects (and optionally one-click applies) those reasons in the queue.
+	 * NXG-only; stripped from the legacy v1 mirror in `encodeClassicConfig`.
+	 */
+	suggestedReasons?: SuggestedReasonMapping[]
+}
+
+/**
+ * Maps a report reason to one or more removal reasons. When a queue item carries a
+ * report whose text matches {@link pattern}, the referenced reasons are pre-selected
+ * in the removal overlay and, when {@link oneClick} is set, exposed as a one-click
+ * "apply suggested removal" button on the item.
+ */
+export interface SuggestedReasonMapping {
+	/** Stable identifier (assigned by `ensureStableIds`); optional because hand-edited configs may omit it. */
+	id?: string
+	/** The report-reason text to look for (plain text for substring match, or a regex source). */
+	pattern: string
+	/** How {@link pattern} is interpreted; `'substring'` (case-insensitive) when absent. */
+	matchType?: 'substring' | 'regex'
+	/** When set, only match reports filed by this mod/bot (case-insensitive); blank matches any reporter. */
+	reporter?: string
+	/** When true, free-text user reports are also matched; otherwise only mod/bot reports are considered. */
+	includeUserReports?: boolean
+	/** Stable ids of the removal reasons to suggest/apply. */
+	reasonIds: string[]
+	/** When true, expose a one-click "apply suggested removal" button for matching items. */
+	oneClick?: boolean
 }
 
 /** A single configured removal reason. */

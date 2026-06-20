@@ -71,6 +71,21 @@ describe('legacyOwnedFieldsEqual', () => {
 
 		expect(legacyOwnedFieldsEqual(nxg, legacy,),).toBe(true,)
 	})
+
+	it('ignores the NXG-only suggestedReasons block (absent from the legacy mirror)', () => {
+		const nxg = makeConfig({
+			removalReasons: {
+				reasons: [{id: 'reason01', title: 'Spam', text: 'no spam',},],
+				suggestedReasons: [{id: 'sug00001', pattern: 'meta post', reasonIds: ['reason01',], oneClick: true,},],
+			},
+		},)
+		const legacy = makeConfig({
+			removalReasons: {reasons: [{title: 'Spam', text: 'no spam',},],},
+		},)
+
+		// The reasons match; suggestedReasons must not register as a difference.
+		expect(legacyOwnedFieldsEqual(nxg, legacy,),).toBe(true,)
+	})
 })
 
 describe('adoptLegacyConfigFields', () => {
@@ -104,6 +119,26 @@ describe('adoptLegacyConfigFields', () => {
 		expect(reasons[0]!.id,).toMatch(/^[a-z0-9]{8}$/,)
 		expect(reasons[0]!.id,).not.toBe('reason02',)
 		expect(adopted.modMacros[0]!.id,).toBe('macro001',)
+	})
+
+	it('carries the NXG-only suggestedReasons over when adopting 6.x reason edits', () => {
+		const nxg = makeConfig({
+			removalReasons: {
+				reasons: [{id: 'reason01', title: 'Spam', text: 'no spam',},],
+				suggestedReasons: [{id: 'sug00001', pattern: 'meta post', reasonIds: ['reason01',], oneClick: true,},],
+			},
+		},)
+		// 6.x edited a reason on the legacy mirror (which never carries suggestedReasons).
+		const legacy = makeConfig({
+			removalReasons: {reasons: [{title: 'Spam', text: 'no spam at all',},],},
+		},)
+
+		const adopted = adoptLegacyConfigFields(nxg, legacy,)
+
+		expect(adopted.removalReasons.reasons[0]!.text,).toBe('no spam at all',)
+		expect(adopted.removalReasons.suggestedReasons,).toEqual([
+			{id: 'sug00001', pattern: 'meta post', reasonIds: ['reason01',], oneClick: true,},
+		],)
 	})
 
 	it('does not reuse one NXG id for duplicated legacy content', () => {

@@ -13,6 +13,7 @@ import {
 	getEntry,
 	getThingByFullname,
 	getThingFromDescendant,
+	getThingFullname,
 	getThingRemovedBy,
 	getThings,
 	getThingSubredditName,
@@ -24,8 +25,8 @@ import {
 	getQueueItemSubreddit,
 	getQueueItemTextBodyEl,
 } from '../../dom/shreddit/queue'
-import {collectMatches,} from '../../dom/shreddit/things'
-import {comments,} from '../../framework/moduleIds'
+import {collectMatches, flatListThingContainer, getThingContext,} from '../../dom/shreddit/things'
+import {comments, removalReasons,} from '../../framework/moduleIds'
 import createLogger from '../../util/infra/logging'
 import {isCommentsPage, isMod, isModpage,} from '../../util/reddit/pageContext'
 import {cleanSubredditName, stringToColor,} from '../../util/reddit/reddit-domain'
@@ -35,8 +36,10 @@ import {getSettingAsync,} from '../../util/persistence/settings'
 import {mountToTarget,} from '../../util/ui/reactMount'
 import type {ModViewEnhancementsSettings,} from './settings'
 
+import {getOneClickSuggestionsForItem,} from '../removalreasons/suggestedRemovalApplier'
 import {iconBot,} from './botIcon'
 import {AutomodActionReason,} from './components/AutomodActionReason'
+import {SuggestedRemovalButton,} from './components/SuggestedRemovalButton'
 
 const log = createLogger('ModViewEnhancements',)
 
@@ -128,6 +131,70 @@ export function createModViewEnhancementsHandlers ({
 	// single failed settings read can't propagate to (and break) every later `await`/`.then` site.
 	const highlightEnabledPromise = getSettingAsync(comments, 'highlighted', [] as string[],)
 		.catch(() => [] as string[])
+
+	// Personal opt-in (off by default) for the one-click suggested-removal button. Lives on the
+	// removalreasons module since it belongs to that feature; read once and shared.
+	const suggestedRemovalEnabledPromise = isMod
+		? getSettingAsync(removalReasons, 'showSuggestedRemovalButton', false,).catch(() => false)
+		: Promise.resolve(false,)
+
+	/**
+	 * Mounts the one-click suggested-removal button for a queue item when its report matches a
+	 * `oneClick` mapping. `anchor`/`position` control where the button is inserted relative to the
+	 * item's content. A no-op when the setting is off, the item lacks identifying attributes, or no
+	 * mapping matches. Guarded by a marker class so it injects at most once per item.
+	 */
+	async function maybeInjectSuggestedRemoval (
+		item: Element,
+		subreddit: string,
+		thingId: string,
+		isComment: boolean,
+		anchor: Element,
+		position: 'after' | 'append',
+	) {
+		if (item.classList.contains('toolbox-suggested-removal-processed',)) { return }
+		// Don't mark processed until the identifying attributes are present, so an item that's
+		// still rendering (no fullname/subreddit yet) can be retried on a later mutation pass.
+		if (!subreddit || !thingId) { return }
+		// Mark before the awaits below so concurrent passes can't double-inject.
+		item.classList.add('toolbox-suggested-removal-processed',)
+		if (!(await suggestedRemovalEnabledPromise)) { return }
+		const reasonIds = await getOneClickSuggestionsForItem(subreddit, item, isComment,)
+		if (!reasonIds.length) { return }
+		const container = document.createElement('div',)
+		container.className = 'toolbox-suggested-removal-container'
+		if (position === 'after') { anchor.after(container,) }
+		else { anchor.appendChild(container,) }
+		mountToTarget(
+			<SuggestedRemovalButton
+				thingID={thingId}
+				thingSubreddit={subreddit}
+				isComment={isComment}
+				reasonIds={reasonIds}
+			/>,
+			container,
+			{shadow: false,},
+		)
+	}
+
+	/** Injects the suggested-removal button on every old-Reddit queue thing not yet processed. */
+	function injectOldRedditSuggestedRemovals () {
+		getThings().filter((t,) => !t.classList.contains('toolbox-suggested-removal-processed',)).forEach((thing,) => {
+			const fullname = getThingFullname(thing,) ?? ''
+			const subreddit = cleanSubredditName(getThingSubredditName(thing,) ?? '',)
+			const anchor = getEntry(thing,) ?? thing
+			void maybeInjectSuggestedRemoval(
+				thing,
+				subreddit,
+				fullname,
+				fullname.startsWith('t1_',),
+				anchor,
+				anchor === thing ? 'append' : 'after',
+			)
+		},)
+	}
+
+	if (isModpage) { injectOldRedditSuggestedRemovals() }
 
 	function colorSubreddits (element: Element,) {
 		const subredditName = cleanSubredditName(getThingSubredditName(element,) ?? '',)
@@ -270,6 +337,9 @@ export function createModViewEnhancementsHandlers ({
 			if (shouldHighlightMatches) {
 				void highlightedMatches()
 			}
+			if (isModpage) {
+				injectOldRedditSuggestedRemovals()
+			}
 		},
 
 		handleExpando (expandoButton: Element,) {
@@ -349,6 +419,21 @@ export function createModViewEnhancementsHandlers ({
 						},)
 					}
 				}
+			}
+
+			const ctx = getThingContext(item,)
+			if (ctx) {
+				// Append into the thing's default-slot container (where the proven-clickable domain-tag
+				// button renders) rather than as a sibling of the slotted text body, which Shreddit
+				// would not project.
+				void maybeInjectSuggestedRemoval(
+					item,
+					cleanSubredditName(ctx.subreddit,),
+					ctx.thingId,
+					ctx.isComment,
+					flatListThingContainer(item,),
+					'append',
+				)
 			}
 		},
 

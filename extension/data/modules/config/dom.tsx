@@ -27,6 +27,7 @@ import {BanMacroTab,} from '../modbutton/components/BanMacroTab'
 import {TrainingSettingsTab,} from '../proposals/components/TrainingSettingsTab'
 import {RemovalReasonList,} from '../removalreasons/components/RemovalReasonList'
 import {RemovalSettingsTab,} from '../removalreasons/components/RemovalSettingsTab'
+import {SuggestedReasonsTab,} from '../removalreasons/components/SuggestedReasonsTab'
 import {saveRemovalConfig,} from '../removalreasons/moduleapi'
 import {UsernotesSettingsTab,} from '../usernotes/components/UsernotesSettingsTab'
 import {UsernoteTypeList, UsernoteTypeListFooter,} from '../usernotes/components/UsernoteTypeList'
@@ -118,6 +119,7 @@ function buildConfigTabs (
 		domainTagsImport: {current: null,} as SaveRef,
 		banMacro: {current: null,} as SaveRef,
 		addRemovalReason: {current: null,} as SaveRef,
+		suggestedReasons: {current: null,} as SaveRef,
 		addModMacro: {current: null,} as SaveRef,
 		rawConfig: {current: null,} as SaveRef,
 		rawUsernote: {current: null,} as SaveRef,
@@ -241,6 +243,18 @@ function buildConfigTabs (
 					/>
 				</>
 			),
+		},
+		{
+			title: 'Suggested reasons',
+			tooltip: 'Map report reasons to removal reasons for pre-selection and one-click removal.',
+			contentNode: <SuggestedReasonsTab
+				state={state}
+				saveRef={save.suggestedReasons}
+				onSave={(config, reason,) => saveRemovalConfig(state.subreddit!, config, reason,)}
+			/>,
+			footer: <ActionButton primary type="button" onClick={() => save.suggestedReasons.current?.()}>
+				Save suggested reasons
+			</ActionButton>,
 		},
 		{
 			title: 'Edit mod macros',

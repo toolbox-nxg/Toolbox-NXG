@@ -1,7 +1,7 @@
 /** Config schema version constants, default config object, version validation, and migration infrastructure. */
 import type {MacroConfig,} from '../../../../modules/macros/schema'
 import type {BanMacros,} from '../../../../modules/modbutton/schema'
-import type {RemovalReasonsConfig,} from '../../../../modules/removalreasons/schema'
+import type {RemovalReasonsConfig, SuggestedReasonMapping,} from '../../../../modules/removalreasons/schema'
 import {tbDecode,} from '../../../data/encoding'
 import createLogger from '../../../infra/logging'
 import {PROPOSED_ACTION_KINDS,} from '../proposals/schema'
@@ -155,7 +155,11 @@ export function generateConfigId (): string {
  */
 export function ensureStableIds (config: ToolboxConfig,): void {
 	const seen = new Set<string>()
-	const lists: Array<Array<{id?: string}>> = [config.removalReasons.reasons, config.modMacros,]
+	const lists: Array<Array<{id?: string}>> = [
+		config.removalReasons.reasons,
+		config.modMacros,
+		config.removalReasons.suggestedReasons ?? [],
+	]
 	for (const list of lists) {
 		for (const entry of list) {
 			if (!entry || typeof entry !== 'object') { continue }
@@ -201,6 +205,49 @@ function coerceSelectDefinitions (reason: {selects?: unknown},): void {
 		reason.selects = cleaned
 	} else {
 		delete reason.selects
+	}
+}
+
+/**
+ * Sanitizes the `removalReasons.suggestedReasons` mapping list so hand-edited or
+ * legacy wiki pages can't crash the matcher: a non-array becomes absent, and each
+ * entry must have a non-empty `pattern` and at least one non-empty `reasonIds`
+ * string. `matchType` keeps only an explicit `'regex'` (absent ⇒ substring);
+ * `reporter` is kept only when a non-empty string; the boolean flags are stored
+ * only when true. An empty result drops the field entirely.
+ * @param config The config whose `removalReasons.suggestedReasons` to coerce, mutated in-place.
+ */
+function coerceSuggestedReasons (config: ToolboxConfig,): void {
+	const raw = (config.removalReasons as {suggestedReasons?: unknown}).suggestedReasons
+	if (raw === undefined) { return }
+	if (!Array.isArray(raw,)) {
+		delete config.removalReasons.suggestedReasons
+		return
+	}
+	const cleaned: SuggestedReasonMapping[] = []
+	for (const entry of raw) {
+		if (!entry || typeof entry !== 'object') { continue }
+		const {id, pattern, matchType, reporter, includeUserReports, reasonIds, oneClick,} = entry as Record<
+			string,
+			unknown
+		>
+		if (typeof pattern !== 'string' || pattern === '') { continue }
+		const ids = Array.isArray(reasonIds,)
+			? reasonIds.filter((value,): value is string => typeof value === 'string' && value !== '')
+			: []
+		if (ids.length === 0) { continue }
+		const mapping: SuggestedReasonMapping = {pattern, reasonIds: ids,}
+		if (typeof id === 'string' && id !== '') { mapping.id = id }
+		if (matchType === 'regex') { mapping.matchType = 'regex' }
+		if (typeof reporter === 'string' && reporter !== '') { mapping.reporter = reporter }
+		if (includeUserReports === true) { mapping.includeUserReports = true }
+		if (oneClick === true) { mapping.oneClick = true }
+		cleaned.push(mapping,)
+	}
+	if (cleaned.length > 0) {
+		config.removalReasons.suggestedReasons = cleaned
+	} else {
+		delete config.removalReasons.suggestedReasons
 	}
 }
 
@@ -331,6 +378,8 @@ export function normalizeConfig (config: any,): asserts config is ToolboxConfig 
 	}
 	// bantitle was written by 6.1.25 and is no longer used
 	delete config.removalReasons.bantitle
+	// suggestedReasons: NXG-only report→reason mapping list; sanitize hand-edited/legacy shapes.
+	coerceSuggestedReasons(config as ToolboxConfig,)
 
 	// Array fields: coerce legacy empty-string (and any other non-array) to []
 	if (!Array.isArray(config.modMacros,)) { config.modMacros = [] }

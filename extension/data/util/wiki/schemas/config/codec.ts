@@ -76,6 +76,10 @@ export function encodeClassicConfig (
 	delete classic.guardedActions
 	delete classic.proposalRetentionDays
 
+	// NXG-only report→reason mapping; 6.x has no concept of it, so keep it off the
+	// legacy mirror entirely.
+	delete classic.removalReasons?.suggestedReasons
+
 	// Guarded throughout: callers normally pass a normalized config, but the
 	// down-convert must never throw on a partial object (e.g. a config a mod
 	// hand-edited on the wiki between normalize and save).

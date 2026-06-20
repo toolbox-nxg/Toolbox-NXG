@@ -118,6 +118,13 @@ interface RemovalReasonsOverlayProps {
 	 */
 	seededFromIntent?: RemovalReasonsOverlayPreseed
 	/**
+	 * Persistent reason ids to pre-check when the overlay opens, from a suggested-reason
+	 * mapping matching the item's report. Unlike {@link seededFromIntent} this only seeds
+	 * the initial selection (capture/proposal flow is unaffected) and is ignored while
+	 * seeding from a captured intent.
+	 */
+	suggestedReasonIds?: string[]
+	/**
 	 * For Edit & Accept (`bypassCapture`): an atomic gate run immediately before the
 	 * removal is performed, so two reviewers accepting the same proposal can't both
 	 * perform it. Returns `{ok: false, message}` to abort the perform (the message is
@@ -167,6 +174,7 @@ export function RemovalReasonsOverlay ({
 	settings,
 	usernoteRequire = {type: false, text: true, link: false,},
 	seededFromIntent,
+	suggestedReasonIds,
 	beforePerform,
 	onPerformError,
 	onRemoved,
@@ -260,6 +268,23 @@ export function RemovalReasonsOverlay ({
 		return {positionalIds, overrides,}
 	}, [seededFromIntent, renderedReasons,],)
 
+	// Suggested-reason pre-selection: map the matched persistent reason ids onto the
+	// overlay's positional ids, skipping any reason not currently visible. Ignored
+	// while seeding from a captured intent (that path drives its own selection).
+	const suggestedPositionalIds = useMemo(() => {
+		if (seededFromIntent || !suggestedReasonIds?.length) { return [] }
+		const positionalByReasonId = new Map<string, string>()
+		renderedReasons.forEach((r,) => {
+			if (r.reason.id) { positionalByReasonId.set(r.reason.id, r.id,) }
+		},)
+		const ids: string[] = []
+		for (const reasonId of suggestedReasonIds) {
+			const pos = positionalByReasonId.get(reasonId,)
+			if (pos) { ids.push(pos,) }
+		}
+		return ids
+	}, [seededFromIntent, suggestedReasonIds, renderedReasons,],)
+
 	const [reasonOrder, setReasonOrder,] = useState<string[]>(() => {
 		const natural = renderedReasons.map((r,) => r.id)
 		if (!seeded || seeded.positionalIds.length === 0) { return natural }
@@ -272,7 +297,9 @@ export function RemovalReasonsOverlay ({
 		return reasonOrder.map((id,) => byId.get(id,)).filter(Boolean,) as RenderedReason[]
 	}, [renderedReasons, reasonOrder,],)
 
-	const [selected, setSelected,] = useState<Set<string>>(() => new Set(seeded?.positionalIds ?? [],))
+	const [selected, setSelected,] = useState<Set<string>>(
+		() => new Set(seeded?.positionalIds ?? suggestedPositionalIds,),
+	)
 	const [reasonType, setReasonType,] = useState<ReasonType>(
 		seededFromIntent ? seededFromIntent.reasonType as ReasonType : initialReasonType,
 	)
@@ -332,7 +359,10 @@ export function RemovalReasonsOverlay ({
 	// -driven effects below would clobber the pre-filled usernote/ban on their first
 	// (mount) run. Each effect gets its OWN ref so whichever runs first can't consume a
 	// shared flag and leave the others exposed. Cleared after the first skipped run.
-	const reasonResetSeedConsumed = useRef(!!seededFromIntent,)
+	// Also guard the mount reset when we've pre-selected suggested reasons, so the suggested
+	// pre-fill survives the first render the same way a seeded intent does (otherwise the reset
+	// effect below wipes `selected` immediately).
+	const reasonResetSeedConsumed = useRef(!!seededFromIntent || suggestedPositionalIds.length > 0,)
 	const usernoteSeedConsumed = useRef(!!seededFromIntent,)
 	const banSeedConsumed = useRef(!!seededFromIntent,)
 	const banNoteSeedConsumed = useRef(!!seededFromIntent,)

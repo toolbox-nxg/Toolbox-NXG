@@ -120,6 +120,17 @@ describe('encodeClassicConfig', () => {
 		expect(classic,).not.toHaveProperty('usernoteRequirementOption',)
 	})
 
+	it('strips the NXG-only suggestedReasons mapping from the legacy mirror', () => {
+		const classic = encodeClassicConfig(v2Config({
+			removalReasons: {
+				reasons: [],
+				suggestedReasons: [{id: 's1', pattern: 'spam', reasonIds: ['r1',],},],
+			} as any,
+		},),)
+
+		expect(classic.removalReasons,).not.toHaveProperty('suggestedReasons',)
+	})
+
 	it('strips NXG-only training-mode fields from the legacy mirror', () => {
 		const classic = encodeClassicConfig(v2Config({
 			trainingMods: ['rookie',],
