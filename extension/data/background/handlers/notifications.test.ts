@@ -17,6 +17,7 @@ const tabs = vi.hoisted(() => ({query: vi.fn(), sendMessage: vi.fn(), create: vi
 const alarms = vi.hoisted(() => ({create: vi.fn(), onAlarm: {addListener: vi.fn(),},}))
 const windows = vi.hoisted(() => ({getLastFocused: vi.fn(),}))
 const runtime = vi.hoisted(() => ({getURL: vi.fn((path: string,) => `chrome-extension://fake/${path}`),}))
+const contextualIdentities = vi.hoisted(() => ({get: vi.fn(),}))
 
 vi.mock('webextension-polyfill', () => ({
 	default: {
@@ -26,6 +27,7 @@ vi.mock('webextension-polyfill', () => ({
 		alarms,
 		windows,
 		runtime,
+		contextualIdentities,
 	},
 }),)
 vi.mock('../messageHandling', () => ({registerMessageHandler,}),)
@@ -38,6 +40,11 @@ const details = {
 	title: 'Title',
 	body: 'Body',
 	url: 'https://old.reddit.com/r/test',
+}
+
+/** Builds a message sender, optionally in a specific Firefox container. */
+function sender (cookieStoreId?: string,) {
+	return {tab: {url: details.url, ...(cookieStoreId ? {cookieStoreId,} : {}),},} as any
 }
 
 beforeEach(() => {
@@ -56,6 +63,7 @@ beforeEach(() => {
 	alarms.create.mockReset().mockResolvedValue(undefined,)
 	alarms.onAlarm.addListener.mockClear()
 	windows.getLastFocused.mockReset().mockResolvedValue({id: 5,},)
+	contextualIdentities.get.mockReset().mockResolvedValue({name: 'Container',},)
 	vi.stubGlobal('crypto', {randomUUID: vi.fn(() => 'uuid'),},)
 },)
 
@@ -63,7 +71,9 @@ describe('notification handlers', () => {
 	it('creates native notifications and stores metadata', async () => {
 		registerNotificationHandlers()
 
-		await expect(handlerFor('toolbox-notification',)({native: true, details,},),).resolves.toBe('native-id',)
+		await expect(handlerFor('toolbox-notification',)({native: true, details,}, sender(),),).resolves.toBe(
+			'native-id',
+		)
 
 		expect(notifications.create,).toHaveBeenCalledWith('uuid', {
 			type: 'basic',
@@ -80,7 +90,7 @@ describe('notification handlers', () => {
 	it('creates page notifications on reddit tabs', async () => {
 		registerNotificationHandlers()
 
-		await expect(handlerFor('toolbox-notification',)({native: false, details,},),).resolves.toBe('uuid',)
+		await expect(handlerFor('toolbox-notification',)({native: false, details,}, sender(),),).resolves.toBe('uuid',)
 
 		expect(storageSession.set,).toHaveBeenCalledWith({
 			'notifmeta-uuid': {type: 'page', url: details.url,},
@@ -89,6 +99,45 @@ describe('notification handlers', () => {
 		expect(tabs.sendMessage,).toHaveBeenCalledWith(1, {
 			action: 'toolbox-show-page-notification',
 			details: {id: 'uuid', title: 'Title', body: 'Body',},
+		},)
+	})
+
+	it('labels native notifications with the container and stores its cookie store', async () => {
+		contextualIdentities.get.mockResolvedValue({name: 'Work',},)
+		registerNotificationHandlers()
+
+		await handlerFor('toolbox-notification',)({native: true, details,}, sender('firefox-container-1',),)
+
+		expect(contextualIdentities.get,).toHaveBeenCalledWith('firefox-container-1',)
+		expect(notifications.create,).toHaveBeenCalledWith('uuid', expect.objectContaining({title: 'Title (Work)',},),)
+		expect(storageSession.set,).toHaveBeenCalledWith({
+			'notifmeta-native-id': {type: 'native', url: details.url, cookieStoreId: 'firefox-container-1',},
+		},)
+	})
+
+	it('scopes page notifications to the originating container', async () => {
+		registerNotificationHandlers()
+
+		await handlerFor('toolbox-notification',)({native: false, details,}, sender('firefox-container-1',),)
+
+		expect(tabs.query,).toHaveBeenCalledWith({
+			url: 'https://*.reddit.com/*',
+			cookieStoreId: 'firefox-container-1',
+		},)
+	})
+
+	it('opens the click-through tab in the originating container', async () => {
+		storageSession.get.mockResolvedValue({
+			'notifmeta-page-id': {type: 'page', ...details, cookieStoreId: 'firefox-container-1',},
+		},)
+		registerNotificationHandlers()
+
+		await handlerFor('toolbox-page-notification-click',)({id: 'page-id',},)
+
+		expect(tabs.create,).toHaveBeenCalledWith({
+			url: details.url,
+			windowId: 5,
+			cookieStoreId: 'firefox-container-1',
 		},)
 	})
 
@@ -171,7 +220,9 @@ describe('notification handlers', () => {
 		alarms.create.mockRejectedValue(new Error('alarm failed',),)
 		registerNotificationHandlers()
 
-		await expect(handlerFor('toolbox-notification',)({native: true, details,},),).resolves.toBe('native-id',)
+		await expect(handlerFor('toolbox-notification',)({native: true, details,}, sender(),),).resolves.toBe(
+			'native-id',
+		)
 		await Promise.resolve()
 
 		expect(error,).toHaveBeenCalledWith(

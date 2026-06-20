@@ -7,9 +7,12 @@ import {mockJwtCookie,} from './test-helpers'
 const registerMessageHandler = vi.hoisted(() => vi.fn())
 const cookies = vi.hoisted(() => ({get: vi.fn(),}))
 const storageLocal = vi.hoisted(() => ({get: vi.fn(), set: vi.fn(),}))
+// Presence of webRequest.onBeforeSendHeaders makes the Firefox cookie-rewrite path
+// active, so requests with a non-default cookieStoreId get tagged with the temp header.
+const webRequest = vi.hoisted(() => ({onBeforeSendHeaders: {addListener: vi.fn(),},}))
 
 vi.mock('webextension-polyfill', () => ({
-	default: {cookies, storage: {local: storageLocal,},},
+	default: {cookies, storage: {local: storageLocal,}, webRequest,},
 }),)
 vi.mock('../messageHandling', () => ({registerMessageHandler,}),)
 
@@ -357,7 +360,7 @@ describe('webrequest message handler', () => {
 		registerWebrequestHandlers()
 		const handler = registerMessageHandler.mock.calls[0]![1]
 
-		const result = await handler({endpoint: '/api/test',},)
+		const result = await handler({endpoint: '/api/test',}, {},)
 
 		expect(result,).toEqual({
 			response: [JSON.stringify({ok: true,},), expect.objectContaining({status: 200,},),],
@@ -369,12 +372,39 @@ describe('webrequest message handler', () => {
 		registerWebrequestHandlers()
 		const handler = registerMessageHandler.mock.calls[0]![1]
 
-		const result = await handler({endpoint: '/api/test', okOnly: true,},)
+		const result = await handler({endpoint: '/api/test', okOnly: true,}, {},)
 
 		expect(result,).toEqual({
 			error: true,
 			message: 'Response returned non-2xx status code',
 			response: ['nope', expect.objectContaining({status: 500, statusText: 'Server Error',},),],
 		},)
+	})
+
+	it('tags the request with the sender tab cookie store', async () => {
+		registerWebrequestHandlers()
+		const handler = registerMessageHandler.mock.calls[0]![1]
+
+		await handler({endpoint: '/api/test',}, {tab: {cookieStoreId: 'firefox-container-1',},},)
+
+		expect(fetch,).toHaveBeenCalledWith(
+			'https://old.reddit.com/api/test',
+			expect.objectContaining({
+				headers: expect.objectContaining({'x-toolbox-tmp-cookiestore': 'firefox-container-1',},),
+			},),
+		)
+	})
+
+	it('ignores a spoofed cookieStoreId in the message payload', async () => {
+		registerWebrequestHandlers()
+		const handler = registerMessageHandler.mock.calls[0]![1]
+
+		await handler(
+			{endpoint: '/api/test', cookieStoreId: 'evil-store',},
+			{tab: {cookieStoreId: 'firefox-container-1',},},
+		)
+
+		const headers = (fetch as any).mock.calls[0]![1].headers
+		expect(headers['x-toolbox-tmp-cookiestore'],).toBe('firefox-container-1',)
 	})
 })

@@ -14,8 +14,9 @@ export function registerGlobalMessageHandlers () {
 			payload: request.payload,
 		}
 
-		// Send to all tabs
-		await broadcastToRedditTabs(message, 'toolbox-global', sender.tab?.id,)
+		// Send to all tabs in the same container as the sender, so global events
+		// (e.g. toolbar counters) don't leak across Firefox containers.
+		await broadcastToRedditTabs(message, 'toolbox-global', sender.tab?.id, sender.tab?.cookieStoreId,)
 
 		// Also send to the background page, unless it only applies to tabs
 		if (!request.excludeBackground) {

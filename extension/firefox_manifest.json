@@ -27,7 +27,10 @@
         "unlimitedStorage",
         "notifications",
         "webNavigation",
-        "alarms"
+        "alarms",
+        "webRequest",
+        "webRequestBlocking",
+        "contextualIdentities"
     ],
     "icons": {
         "16": "data/images/icon16.png",

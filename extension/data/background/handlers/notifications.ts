@@ -21,15 +21,45 @@ interface NotificationMetaData {
 	type: 'native' | 'page'
 	/** URL to open when the notification is clicked. */
 	url: string
+	/**
+	 * Cookie store of the tab that triggered the notification, so click-through and
+	 * dismissal stay in the originating Firefox container. Absent off Firefox.
+	 */
+	cookieStoreId?: string | undefined
 }
 
 /** Stores and retrieves per-notification metadata in session storage. */
 const notificationMetaStore = new KeyedStore<NotificationMetaData>('session', 'notifmeta',)
 
+/** Firefox's default cookie store, which needs no container-specific handling. */
+const DEFAULT_STORE_ID = 'firefox-default'
+
+/**
+ * Returns the human-readable name of the Firefox container identified by
+ * `cookieStoreId`, or `undefined` when there is no distinct container to label
+ * (default store, non-Firefox, or lookup failure). Used to tell notifications
+ * from different containers apart.
+ */
+async function containerLabel (cookieStoreId: string | undefined,): Promise<string | undefined> {
+	if (!cookieStoreId || cookieStoreId === DEFAULT_STORE_ID || !browser.contextualIdentities) {
+		return undefined
+	}
+	try {
+		const identity = await browser.contextualIdentities.get(cookieStoreId,)
+		return identity?.name ?? undefined
+	} catch (error) {
+		log.warn('Failed to look up container identity:', cookieStoreId, error,)
+		return undefined
+	}
+}
+
 /**
  * Raises a native OS/browser notification.
  */
-async function sendNativeNotification ({title, body, url,}: TbNotificationDetails,): Promise<string> {
+async function sendNativeNotification (
+	{title, body, url,}: TbNotificationDetails,
+	cookieStoreId?: string,
+): Promise<string> {
 	// If we have the getPermissionLevel function, check if we have permission
 	// to send notifications. This function doesn't currently exist on Firefox
 	// for some reason. (https://bugzilla.mozilla.org/show_bug.cgi?id=1213455)
@@ -39,23 +69,29 @@ async function sendNativeNotification ({title, body, url,}: TbNotificationDetail
 			throw new Error('No permission to send native notifications',)
 		}
 	}
+	// Differentiate notifications coming from different containers, since the user
+	// may be logged into a different account in each.
+	const label = await containerLabel(cookieStoreId,)
 	const notificationID = await browser.notifications.create(crypto.randomUUID(), {
 		type: 'basic',
 		iconUrl: browser.runtime.getURL('data/images/icon48.png',),
-		title,
+		title: label ? `${title} (${label})` : title,
 		message: body,
 	},)
 
-	await notificationMetaStore.set(notificationID, {type: 'native', url,},)
+	await notificationMetaStore.set(notificationID, {type: 'native', url, cookieStoreId,},)
 	return notificationID
 }
 
 /**
  * Pushes an in-page notification to every open Reddit tab.
  */
-async function sendPageNotification ({title, body, url,}: TbNotificationDetails,): Promise<string> {
+async function sendPageNotification (
+	{title, body, url,}: TbNotificationDetails,
+	cookieStoreId?: string,
+): Promise<string> {
 	const notificationID = crypto.randomUUID()
-	await notificationMetaStore.set(notificationID, {type: 'page', url,},)
+	await notificationMetaStore.set(notificationID, {type: 'page', url, cookieStoreId,},)
 	const message = {
 		action: 'toolbox-show-page-notification',
 		details: {
@@ -64,7 +100,9 @@ async function sendPageNotification ({title, body, url,}: TbNotificationDetails,
 			body,
 		},
 	}
-	await broadcastToRedditTabs(message, 'toolbox-show-page-notification',)
+	// Only show in tabs of the originating container so notifications don't appear
+	// in tabs logged into a different account.
+	await broadcastToRedditTabs(message, 'toolbox-show-page-notification', undefined, cookieStoreId,)
 	return notificationID
 }
 
@@ -85,7 +123,7 @@ async function clearNotification (notificationID: string,) {
 			action: 'toolbox-clear-page-notification',
 			id: notificationID,
 		}
-		await broadcastToRedditTabs(message, 'toolbox-clear-page-notification',)
+		await broadcastToRedditTabs(message, 'toolbox-clear-page-notification', undefined, metadata.cookieStoreId,)
 	}
 	await notificationMetaStore.delete(notificationID,)
 }
@@ -102,6 +140,9 @@ async function onClickNotification (notificationID: string,) {
 	await browser.tabs.create({
 		url: metadata.url,
 		...(window.id !== undefined ? {windowId: window.id,} : {}),
+		// Open in the same container the notification came from, so the thread
+		// loads as the right account. Ignored where containers aren't supported.
+		...(metadata.cookieStoreId ? {cookieStoreId: metadata.cookieStoreId,} : {}),
 	},)
 
 	// fire-and-forget: cleanup is best-effort
@@ -122,9 +163,9 @@ export function registerNotificationHandlers () {
 		}
 	},)
 
-	registerMessageHandler('toolbox-notification', async (request,) => {
+	registerMessageHandler('toolbox-notification', async (request, sender,) => {
 		const sendNotification = request.native ? sendNativeNotification : sendPageNotification
-		const notificationID = await sendNotification(request.details,)
+		const notificationID = await sendNotification(request.details, sender.tab?.cookieStoreId,)
 		// Notification dismissal is handled by a tab-side setTimeout, but tabs can
 		// close before it fires. The alarm acts as a background failsafe for that case.
 		// (The Alarms API only supports minute granularity, hence the 1-minute backup.)

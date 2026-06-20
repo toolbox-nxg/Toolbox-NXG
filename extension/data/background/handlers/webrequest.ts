@@ -8,6 +8,7 @@ import browser from 'webextension-polyfill'
 
 import createLogger from '../../util/infra/logging'
 import {registerMessageHandler,} from '../messageHandling'
+import {tmpStoreHeaders,} from './cookieStore'
 import {getCookieWithFPIFallback, getRedditSessionJTI, isAllowedRedditHost,} from './tabUtils'
 
 const log = createLogger('TBWebrequest',)
@@ -99,14 +100,17 @@ interface TokenData {
 
 /**
  * Fetches an OAuth token from the /svc/shreddit/token endpoint.
+ * @param cookieStoreId Cookie store of the originating tab, so the token is minted
+ * from and cached against the correct Firefox container's session.
  * @param tries Number of tries to get the token (recursive)
  */
-async function getOAuthTokens (tries = 1,): Promise<TokenData> {
+async function getOAuthTokens (cookieStoreId?: string, tries = 1,): Promise<TokenData> {
 	// Attempt to use cached token if it hasn't expired
 
 	// make currently-logged-in user part of the storage key so we don't
-	// accidentally use the wrong access token after switching accounts
-	const currentUserID = await getRedditSessionJTI()
+	// accidentally use the wrong access token after switching accounts (or
+	// containers)
+	const currentUserID = await getRedditSessionJTI(cookieStoreId,)
 	const storageKey = `toolbox-accessToken-${currentUserID}`
 	// browser.storage.local.get returns { [key]: value } rather than the value directly
 	const cachedToken = (await browser.storage.local.get(storageKey,))[storageKey] as TokenData | undefined
@@ -116,13 +120,17 @@ async function getOAuthTokens (tries = 1,): Promise<TokenData> {
 
 	// No luck, fetch new token
 
-	// Grab the csrf_token cookie
-	const csrfToken = await getCookieWithFPIFallback({url: 'https://sh.reddit.com', name: 'csrf_token',},)
+	// Grab the csrf_token cookie from the originating container
+	const csrfToken = await getCookieWithFPIFallback({
+		url: 'https://sh.reddit.com',
+		name: 'csrf_token',
+		...(cookieStoreId ? {storeId: cookieStoreId,} : {}),
+	},)
 
 	// If we have a valid cookie, exchange CSRF token for OAuth token and return
 	if (csrfToken) {
 		const response = await fetch('https://www.reddit.com/svc/shreddit/token', {
-			headers: {'Content-Type': 'application/json',},
+			headers: {'Content-Type': 'application/json', ...tmpStoreHeaders(cookieStoreId,),},
 			method: 'POST',
 			body: JSON.stringify({csrf_token: csrfToken.value,},),
 		},)
@@ -148,8 +156,9 @@ async function getOAuthTokens (tries = 1,): Promise<TokenData> {
 		await makeRequest({
 			endpoint: 'https://sh.reddit.com/not_found',
 			absolute: true,
+			cookieStoreId,
 		},)
-		return getOAuthTokens(tries + 1,)
+		return getOAuthTokens(cookieStoreId, tries + 1,)
 	} else {
 		throw new Error('error getting CSRF token',)
 	}
@@ -265,6 +274,12 @@ export interface MakeRequestOptions {
 	okOnly?: boolean | undefined
 	/** If `true`, treats `endpoint` as a fully-qualified URL. Must target a reddit.com origin. */
 	absolute?: boolean | undefined
+	/**
+	 * Cookie store of the tab that originated the request, used to send the right
+	 * Firefox container's cookies. Derived from the trusted message `sender`, never
+	 * from content-script-supplied payload data.
+	 */
+	cookieStoreId?: string | undefined
 }
 
 /** An `Error` that may carry the failed `Response` for `okOnly` errors. */
@@ -283,6 +298,7 @@ export async function makeRequest ({
 	oauth,
 	okOnly,
 	absolute,
+	cookieStoreId,
 }: MakeRequestOptions,): Promise<Response> {
 	// Construct the request URL
 	const normalizedMethod = normalizeMethod(method,)
@@ -327,12 +343,19 @@ export async function makeRequest ({
 	// If requested, fetch OAuth tokens and add `Authorization` header
 	if (oauth) {
 		try {
-			const tokens = await getOAuthTokens()
+			const tokens = await getOAuthTokens(cookieStoreId,)
 			fetchOptions.headers = {...fetchOptions.headers, Authorization: `Bearer ${tokens.accessToken}`,}
 		} catch (error) {
 			log.error('getOAuthTokens: ', error,)
 			throw error
 		}
+	}
+
+	// Tag the request so the Firefox cookie-rewrite listener swaps in the
+	// originating container's cookies. No-op off Firefox or for the default store.
+	const storeHeaders = tmpStoreHeaders(cookieStoreId,)
+	if (storeHeaders) {
+		fetchOptions.headers = {...fetchOptions.headers, ...storeHeaders,}
 	}
 
 	async function performFetch (failureMessage: string,): Promise<Response> {
@@ -375,8 +398,10 @@ export async function makeRequest ({
 
 /** Registers the `toolbox-request` message handler that proxies fetch calls. */
 export function registerWebrequestHandlers () {
-	registerMessageHandler('toolbox-request', (request,) =>
-		makeRequest(request,).then(
+	registerMessageHandler('toolbox-request', (request, sender,) =>
+		// cookieStoreId comes only from the trusted sender and is assigned after the
+		// request fields so a spoofed payload value cannot override it.
+		makeRequest({...request, cookieStoreId: sender.tab?.cookieStoreId,},).then(
 			async (response,) => ({response: await serializeResponse(response,),}),
 			async (error: RequestError,) => ({
 				error: true as const,

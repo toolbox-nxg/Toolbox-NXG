@@ -44,6 +44,19 @@ describe('global message handler', () => {
 		expect(handleMessage,).toHaveBeenCalledWith(message, sender,)
 	})
 
+	it('scopes the broadcast to the sender container', async () => {
+		registerGlobalMessageHandlers()
+		const handler = registerMessageHandler.mock.calls[0]![1]
+		const sender = {tab: {id: 1, cookieStoreId: 'firefox-container-1',},} as any
+
+		await handler({globalEvent: 'TBGlobal', excludeBackground: true,}, sender,)
+
+		expect(tabs.query,).toHaveBeenCalledWith({
+			url: 'https://*.reddit.com/*',
+			cookieStoreId: 'firefox-container-1',
+		},)
+	})
+
 	it('can skip the background handler', async () => {
 		registerGlobalMessageHandlers()
 		const handler = registerMessageHandler.mock.calls[0]![1]
