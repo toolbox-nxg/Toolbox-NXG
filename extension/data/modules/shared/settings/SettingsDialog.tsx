@@ -46,8 +46,8 @@ function AboutTab () {
 			<h3>Privacy</h3>
 			The toolbox development team highly values privacy. <br />
 			The toolbox privacy policy can be{' '}
-			<a href="" target="_blank" rel="noreferrer">
-				found in the documentation
+			<a href="https://github.com/toolbox-nxg/Toolbox-NXG/blob/main/PRIVACY.md" target="_blank" rel="noreferrer">
+				found in the github repository
 			</a>.
 			<h3>Made and maintained by:</h3>
 			<p>
