@@ -63,13 +63,20 @@ export function sendTabMessageSilently (
 
 /**
  * Sends a message to every open Reddit tab, optionally excluding one tab by ID.
+ * When `cookieStoreId` is given, only tabs in that Firefox container receive the
+ * message, so events stay scoped to the container they originated from. Omitting
+ * it preserves the all-containers behavior.
  */
 export async function broadcastToRedditTabs (
 	message: unknown,
 	label: string,
 	excludeTabId?: number,
+	cookieStoreId?: string,
 ): Promise<void> {
-	const tabs = await browser.tabs.query({url: 'https://*.reddit.com/*',},)
+	const tabs = await browser.tabs.query({
+		url: 'https://*.reddit.com/*',
+		...(cookieStoreId ? {cookieStoreId,} : {}),
+	},)
 	for (const tab of tabs) {
 		if (tab.id == null || tab.id === excludeTabId) {
 			continue
@@ -121,10 +128,16 @@ export async function getRedditSessionUserID (sender: browser.Runtime.MessageSen
 /**
  * Returns the `jti` (JWT ID) claim from the `reddit_session` cookie, which
  * changes on account switch and is used to namespace cached OAuth tokens per
- * session. Returns `'noSessionFallback'` when no session cookie is present.
+ * session. When `storeId` is given, reads from that Firefox container's cookie
+ * store so tokens are namespaced per container.
+ * Returns `'noSessionFallback'` when no session cookie is present.
  */
-export async function getRedditSessionJTI (): Promise<string> {
-	const cookie = await getCookieWithFPIFallback({url: 'https://reddit.com', name: 'reddit_session',},)
+export async function getRedditSessionJTI (storeId?: string,): Promise<string> {
+	const cookie = await getCookieWithFPIFallback({
+		url: 'https://reddit.com',
+		name: 'reddit_session',
+		...(storeId ? {storeId,} : {}),
+	},)
 	if (cookie) {
 		const payload = safeDecodeJWTPayload(cookie.value,)
 		if (typeof payload?.jti === 'string') {

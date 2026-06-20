@@ -111,6 +111,26 @@ describe('tabUtils', () => {
 		expect(cookies.get,).not.toHaveBeenCalled()
 	})
 
+	it('reads the session jti from the given cookie store', async () => {
+		cookies.get.mockResolvedValue(mockJwtCookie({jti: 'session-id',},),)
+
+		await expect(getRedditSessionJTI('firefox-store',),).resolves.toBe('session-id',)
+
+		expect(cookies.get,).toHaveBeenCalledWith({
+			url: 'https://reddit.com',
+			name: 'reddit_session',
+			storeId: 'firefox-store',
+		},)
+	})
+
+	it('reads the session jti without a store id by default', async () => {
+		cookies.get.mockResolvedValue(mockJwtCookie({jti: 'session-id',},),)
+
+		await expect(getRedditSessionJTI(),).resolves.toBe('session-id',)
+
+		expect(cookies.get,).toHaveBeenCalledWith({url: 'https://reddit.com', name: 'reddit_session',},)
+	})
+
 	it('broadcasts to reddit tabs while optionally excluding a tab', async () => {
 		tabs.query.mockResolvedValue([{id: 1,}, {id: 2,}, {},],)
 
@@ -119,6 +139,15 @@ describe('tabUtils', () => {
 		expect(tabs.query,).toHaveBeenCalledWith({url: 'https://*.reddit.com/*',},)
 		expect(tabs.sendMessage,).toHaveBeenCalledOnce()
 		expect(tabs.sendMessage,).toHaveBeenCalledWith(2, {action: 'ping',},)
+	})
+
+	it('scopes the broadcast to a container when given a cookie store id', async () => {
+		tabs.query.mockResolvedValue([{id: 5,},],)
+
+		await broadcastToRedditTabs({action: 'ping',}, 'test-broadcast', undefined, 'firefox-store',)
+
+		expect(tabs.query,).toHaveBeenCalledWith({url: 'https://*.reddit.com/*', cookieStoreId: 'firefox-store',},)
+		expect(tabs.sendMessage,).toHaveBeenCalledWith(5, {action: 'ping',},)
 	})
 
 	it('logs unexpected tab message errors but ignores missing receivers', async () => {
