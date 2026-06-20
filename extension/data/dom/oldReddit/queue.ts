@@ -68,6 +68,11 @@ export function getModReports (container: Element | Document = document,): Eleme
 	return Array.from(container.querySelectorAll('.report-reasons .mod-report',),)
 }
 
+/** Returns `.report-reasons .user-report` elements (free-text user reports), optionally scoped to a container. */
+export function getUserReports (container: Element | Document = document,): Element[] {
+	return Array.from(container.querySelectorAll('.report-reasons .user-report',),)
+}
+
 /** Returns all `.entry .collapsed a.expand` expand buttons on the page. */
 export function getCollapsedExpandButtons (): Element[] {
 	return Array.from(document.querySelectorAll('.entry .collapsed a.expand',),)

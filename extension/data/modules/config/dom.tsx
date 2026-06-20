@@ -27,6 +27,7 @@ import {BanMacroTab,} from '../modbutton/components/BanMacroTab'
 import {TrainingSettingsTab,} from '../proposals/components/TrainingSettingsTab'
 import {RemovalReasonList,} from '../removalreasons/components/RemovalReasonList'
 import {RemovalSettingsTab,} from '../removalreasons/components/RemovalSettingsTab'
+import {SuggestedReasonsTab,} from '../removalreasons/components/SuggestedReasonsTab'
 import {saveRemovalConfig,} from '../removalreasons/moduleapi'
 import {UsernotesSettingsTab,} from '../usernotes/components/UsernotesSettingsTab'
 import {UsernoteTypeList, UsernoteTypeListFooter,} from '../usernotes/components/UsernoteTypeList'
@@ -118,6 +119,7 @@ function buildConfigTabs (
 		domainTagsImport: {current: null,} as SaveRef,
 		banMacro: {current: null,} as SaveRef,
 		addRemovalReason: {current: null,} as SaveRef,
+		addSuggestedReason: {current: null,} as SaveRef,
 		addModMacro: {current: null,} as SaveRef,
 		rawConfig: {current: null,} as SaveRef,
 		rawUsernote: {current: null,} as SaveRef,
@@ -126,6 +128,7 @@ function buildConfigTabs (
 	}
 	const disabled = {
 		addRemovalReason: {current: null,} as DisabledRef,
+		addSuggestedReason: {current: null,} as DisabledRef,
 		addModMacro: {current: null,} as DisabledRef,
 	}
 	const revisionNote = {
@@ -240,6 +243,23 @@ function buildConfigTabs (
 						disabledRef={disabled.addRemovalReason}
 					/>
 				</>
+			),
+		},
+		{
+			title: 'Suggested removal reasons',
+			tooltip: 'Map report reasons to removal reasons for pre-selection in the removal overlay.',
+			contentNode: <SuggestedReasonsTab
+				state={state}
+				addRef={save.addSuggestedReason}
+				disabledRef={disabled.addSuggestedReason}
+				onSave={(config, reason,) => saveRemovalConfig(state.subreddit!, config, reason,)}
+			/>,
+			footer: (
+				<AddNewButton
+					label="Add new suggestion"
+					triggerRef={save.addSuggestedReason}
+					disabledRef={disabled.addSuggestedReason}
+				/>
 			),
 		},
 		{

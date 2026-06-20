@@ -139,6 +139,13 @@ interface RemovalReasonsOverlayProps {
 	 */
 	seededFromIntent?: RemovalReasonsOverlayPreseed
 	/**
+	 * Persistent reason ids to pre-check when the overlay opens, from a suggested-reason
+	 * mapping matching the item's report. Unlike {@link seededFromIntent} this only seeds
+	 * the initial selection (capture/proposal flow is unaffected) and is ignored while
+	 * seeding from a captured intent.
+	 */
+	suggestedReasonIds?: string[]
+	/**
 	 * For Edit & Accept: the claim/release gate. When present, the overlay performs the
 	 * removal directly (never re-capturing it as a new proposal) and brackets the perform
 	 * with the claim so two reviewers can't both apply it. Omit for normal removals.
@@ -184,6 +191,7 @@ export function RemovalReasonsOverlay ({
 	settings,
 	usernoteRequire = {type: false, text: true, link: false,},
 	seededFromIntent,
+	suggestedReasonIds,
 	acceptGate,
 	onRemoved,
 	onClose,
@@ -276,6 +284,24 @@ export function RemovalReasonsOverlay ({
 		return {positionalIds, overrides,}
 	}, [seededFromIntent, renderedReasons,],)
 
+	// Suggested-reason pre-selection: map the matched persistent reason ids onto the
+	// overlay's positional ids, skipping any reason not currently visible. Ignored
+	// while seeding from a captured intent (that path drives its own selection).
+	const suggestedPositionalIds = useMemo(() => {
+		if (seededFromIntent || !suggestedReasonIds?.length) { return [] }
+		const positionalByReasonId = new Map<string, string>()
+		renderedReasons.forEach((r,) => {
+			if (r.reason.id) { positionalByReasonId.set(r.reason.id, r.id,) }
+		},)
+		const ids: string[] = []
+		for (const reasonId of suggestedReasonIds) {
+			const pos = positionalByReasonId.get(reasonId,)
+			if (pos) { ids.push(pos,) }
+		}
+		return ids
+	}, [seededFromIntent, suggestedReasonIds, renderedReasons,],)
+	const suggestedIdSet = useMemo(() => new Set(suggestedPositionalIds,), [suggestedPositionalIds,],)
+
 	const [reasonOrder, setReasonOrder,] = useState<string[]>(() => {
 		const natural = renderedReasons.map((r,) => r.id)
 		if (!seeded || seeded.positionalIds.length === 0) { return natural }
@@ -288,7 +314,9 @@ export function RemovalReasonsOverlay ({
 		return reasonOrder.map((id,) => byId.get(id,)).filter(Boolean,) as RenderedReason[]
 	}, [renderedReasons, reasonOrder,],)
 
-	const [selected, setSelected,] = useState<Set<string>>(() => new Set(seeded?.positionalIds ?? [],))
+	const [selected, setSelected,] = useState<Set<string>>(
+		() => new Set(seeded?.positionalIds ?? suggestedPositionalIds,),
+	)
 	const [reasonType, setReasonType,] = useState<ReasonType>(
 		seededFromIntent ? seededFromIntent.reasonType as ReasonType : initialReasonType,
 	)
@@ -355,7 +383,10 @@ export function RemovalReasonsOverlay ({
 	// -driven effects below would clobber the pre-filled usernote/ban on their first
 	// (mount) run. Each effect gets its OWN ref so whichever runs first can't consume a
 	// shared flag and leave the others exposed. Cleared after the first skipped run.
-	const reasonResetSeedConsumed = useRef(!!seededFromIntent,)
+	// Also guard the mount reset when we've pre-selected suggested reasons, so the suggested
+	// pre-fill survives the first render the same way a seeded intent does (otherwise the reset
+	// effect below wipes `selected` immediately).
+	const reasonResetSeedConsumed = useRef(!!seededFromIntent || suggestedPositionalIds.length > 0,)
 	const usernoteSeedConsumed = useRef(!!seededFromIntent,)
 	const banSeedConsumed = useRef(!!seededFromIntent,)
 	const banNoteSeedConsumed = useRef(!!seededFromIntent,)
@@ -960,6 +991,29 @@ export function RemovalReasonsOverlay ({
 					</div>
 				)}
 
+				{suggestedPositionalIds.length > 0 && (
+					<div className={css.suggestedNotice}>
+						<span>
+							{suggestedPositionalIds.length} reason{suggestedPositionalIds.length === 1 ? '' : 's'}{' '}
+							pre-selected from this item's reports.
+						</span>
+						{suggestedPositionalIds.some((id,) => selected.has(id,)) && (
+							<button
+								type="button"
+								className={css.suggestedClear}
+								onClick={() =>
+									setSelected((prev,) => {
+										const next = new Set(prev,)
+										for (const id of suggestedPositionalIds) { next.delete(id,) }
+										return next
+									},)}
+							>
+								Clear suggested
+							</button>
+						)}
+					</div>
+				)}
+
 				<div
 					className={`${css.reasonPicker} ${errorFields.has('reasonTable',) ? css.errorHighlight : ''}`}
 				>
@@ -979,6 +1033,7 @@ export function RemovalReasonsOverlay ({
 										item={reason}
 										position={reasonIndex}
 										selected={selected.has(reason.id,)}
+										suggested={suggestedIdSet.has(reason.id,)}
 										onToggle={() => toggleSelected(reason.id,)}
 										isEditing={editingId === reason.id}
 										editDraft={editDraft}

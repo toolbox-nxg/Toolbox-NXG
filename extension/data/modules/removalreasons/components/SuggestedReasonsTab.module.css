@@ -1,0 +1,165 @@
+.root {
+	composes: columngaplarge from "../../../css/Base.module.css";
+}
+
+.intro {
+	margin: 0 0 var(--toolbox-sp-8);
+	opacity: 0.85;
+}
+
+/* Card list, mirroring the removal-reason / mod-macro editors. */
+.cardList {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-6);
+	margin: var(--toolbox-sp-4) 0;
+}
+
+.card {
+	border: 1px solid var(--toolbox-surface-border);
+	border-radius: 3px;
+	background: var(--toolbox-action-bg);
+	overflow: hidden;
+}
+
+.addCard {
+	margin-top: var(--toolbox-sp-6);
+	background: var(--toolbox-selected-bg);
+	border-color: var(--toolbox-input-focus);
+}
+
+.cardHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: var(--toolbox-sp-6) var(--toolbox-sp-8);
+	background: var(--toolbox-selected-bg);
+	border-bottom: 1px solid var(--toolbox-surface-border);
+	gap: var(--toolbox-sp-8);
+}
+
+.cardTitle {
+	composes: cardtitle from "../../../css/Base.module.css";
+}
+
+.cardActions {
+	composes: cardactions from "../../../css/Base.module.css";
+}
+
+.iconButton {
+	composes: inlineiconbutton from "../../../css/Base.module.css";
+}
+
+.iconButtonActive {
+	color: var(--toolbox-accent-color);
+}
+
+.untitled {
+	composes: untitled from "../../../css/Base.module.css";
+}
+
+/* Collapsed summary shown when a mapping card is not being edited. */
+.summary {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-3);
+	padding: var(--toolbox-sp-6) var(--toolbox-sp-8);
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-text-body);
+}
+
+.summaryRow {
+	display: flex;
+	gap: var(--toolbox-sp-6);
+}
+
+.summaryLabel {
+	flex-shrink: 0;
+	min-width: 70px;
+	font-weight: bold;
+	color: var(--toolbox-text-secondary);
+}
+
+.cardBody {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-8);
+	padding: var(--toolbox-sp-8);
+}
+
+.editButtons {
+	display: flex;
+	gap: var(--toolbox-sp-6);
+}
+
+.field {
+	display: block;
+}
+
+.automodNote {
+	margin: 0 0 var(--toolbox-sp-7);
+	padding: var(--toolbox-sp-5) var(--toolbox-sp-7);
+	border-radius: 3px;
+	background: var(--toolbox-selected-bg);
+	font-size: var(--toolbox-sp-11);
+	opacity: 0.9;
+}
+
+/* "When a report contains" input + AutoMod pick-list, side by side. */
+.patternRow {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--toolbox-sp-6);
+	align-items: center;
+}
+
+.patternRow input[type="text"] {
+	flex: 1 1 12em;
+	min-width: 0;
+}
+
+.automodSelect {
+	flex-shrink: 0;
+	max-width: 100%;
+}
+
+.fieldLabel {
+	display: block;
+	margin-bottom: var(--toolbox-sp-2);
+	font-size: var(--toolbox-sp-11);
+	font-weight: bold;
+	color: var(--toolbox-text-body);
+}
+
+.fieldHint {
+	margin: calc(-1 * var(--toolbox-sp-5)) 0 0;
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-text-secondary);
+	font-style: italic;
+}
+
+.reasonListLabel {
+	font-size: var(--toolbox-sp-11);
+	font-weight: bold;
+	color: var(--toolbox-text-body);
+	margin-bottom: calc(-1 * var(--toolbox-sp-4));
+}
+
+/* Single column of reason checkboxes; the CheckboxInput label is inline-flex, so a
+   flex column stacks each on its own line. */
+.reasonList {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var(--toolbox-sp-4);
+	padding: var(--toolbox-sp-7);
+	border: 1px solid var(--toolbox-surface-border);
+	border-radius: 3px;
+	max-height: 180px;
+	overflow-y: auto;
+}
+
+.empty {
+	opacity: 0.7;
+	font-style: italic;
+}

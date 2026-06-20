@@ -132,6 +132,57 @@ describe('normalizeConfig', () => {
 		expect(configData.modMacros[0].id,).toMatch(/^[a-z0-9]{8}$/,)
 	})
 
+	it('keeps valid suggestedReasons mappings, assigns stable ids, and minimizes optional fields', () => {
+		const configData: any = {
+			removalReasons: {
+				reasons: [],
+				suggestedReasons: [
+					{
+						pattern: 'low effort',
+						includeUserReports: true,
+						reasonIds: ['r1', '', 'r2',],
+					},
+					{pattern: 'plain', reasonIds: ['r3',],},
+				],
+			},
+		}
+
+		normalizeConfig(configData,)
+
+		const [first, second,] = configData.removalReasons.suggestedReasons
+		expect(first.pattern,).toBe('low effort',)
+		expect(first.includeUserReports,).toBe(true,)
+		expect(first.reasonIds,).toEqual(['r1', 'r2',],)
+		expect(first.id,).toMatch(/^[a-z0-9]{8}$/,)
+		// Absent optional fields stay absent.
+		expect(second,).not.toHaveProperty('includeUserReports',)
+	})
+
+	it('drops suggestedReasons entries without a pattern or any reason ids, and an empty list entirely', () => {
+		const configData: any = {
+			removalReasons: {
+				reasons: [],
+				suggestedReasons: [
+					{pattern: '', reasonIds: ['r1',],},
+					{pattern: 'x', reasonIds: [],},
+					{pattern: 'x', reasonIds: ['',],},
+				],
+			},
+		}
+
+		normalizeConfig(configData,)
+
+		expect(configData.removalReasons,).not.toHaveProperty('suggestedReasons',)
+	})
+
+	it('drops a non-array suggestedReasons field', () => {
+		const configData: any = {removalReasons: {reasons: [], suggestedReasons: 'nope',},}
+
+		normalizeConfig(configData,)
+
+		expect(configData.removalReasons,).not.toHaveProperty('suggestedReasons',)
+	})
+
 	it('removes domainTags from config (domain tags now live on a dedicated wiki page)', () => {
 		const configData: any = {domainTags: [{name: 'example.com', color: 'red',},],}
 

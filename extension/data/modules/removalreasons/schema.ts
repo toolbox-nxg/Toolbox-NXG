@@ -60,6 +60,28 @@ export interface RemovalReasonsConfig {
 	typeLockThread?: boolean
 	/** When true, moderators may edit reason text before sending. */
 	editableReasonsEnabled?: boolean
+	/**
+	 * Mappings from a report reason to removal reason(s), so a matching report
+	 * pre-selects (and optionally one-click applies) those reasons in the queue.
+	 * NXG-only; stripped from the legacy v1 mirror in `encodeClassicConfig`.
+	 */
+	suggestedReasons?: SuggestedReasonMapping[]
+}
+
+/**
+ * Maps a report reason to one or more removal reasons. When a queue item carries a
+ * report whose text matches {@link pattern}, the referenced reasons are pre-selected
+ * in the removal overlay.
+ */
+export interface SuggestedReasonMapping {
+	/** Stable identifier (assigned by `ensureStableIds`); optional because hand-edited configs may omit it. */
+	id?: string
+	/** The report-reason text to look for, matched as a case-insensitive substring. */
+	pattern: string
+	/** When true, user reports are also matched; otherwise only mod/bot reports are considered. */
+	includeUserReports?: boolean
+	/** Stable ids of the removal reasons to suggest. */
+	reasonIds: string[]
 }
 
 /** A single configured removal reason. */

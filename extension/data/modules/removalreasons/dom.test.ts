@@ -106,6 +106,7 @@ const handlerSettings: RemovalReasonsSettings = {
 	actionLock: false,
 	actionLockComment: false,
 	disableRemoveButton: false,
+	preselectSuggestedReasons: true,
 }
 
 function setRemovalConfig () {

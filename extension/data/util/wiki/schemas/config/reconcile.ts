@@ -48,8 +48,12 @@ function deepEqualIgnoringIds (a: unknown, b: unknown,): boolean {
 		return a.every((item, i,) => deepEqualIgnoringIds(item, b[i],))
 	}
 	if (a && b && typeof a === 'object' && typeof b === 'object') {
-		const aKeys = Object.keys(a,).filter((key,) => key !== 'id')
-		const bKeys = Object.keys(b,).filter((key,) => key !== 'id')
+		// `suggestedReasons` is an NXG-only mapping that the legacy mirror never carries, so it must
+		// not count as a difference (otherwise the NXG config always "differs" from the mirror and the
+		// reconcile fires on every read, clobbering it). `id`s are stripped by the legacy round-trip.
+		const ignored = (key: string,) => key === 'id' || key === 'suggestedReasons'
+		const aKeys = Object.keys(a,).filter((key,) => !ignored(key,))
+		const bKeys = Object.keys(b,).filter((key,) => !ignored(key,))
 		if (aKeys.length !== bKeys.length) { return false }
 		return aKeys.every((key,) =>
 			Object.prototype.hasOwnProperty.call(b, key,)
@@ -105,6 +109,12 @@ export function adoptLegacyConfigFields (nxg: ToolboxConfig, legacy: ToolboxConf
 	const adopted: ToolboxConfig = {...nxg,}
 	for (const field of LEGACY_OWNED_FIELDS) {
 		;(adopted as unknown as Record<string, unknown>)[field] = structuredClone(legacy[field],)
+	}
+	// `suggestedReasons` lives inside the legacy-owned `removalReasons` block but is NXG-only and
+	// stripped from the mirror, so the wholesale replace above would drop it. Carry it back over
+	// from the NXG config so 6.x edits to the reasons themselves don't erase the report→reason map.
+	if (nxg.removalReasons.suggestedReasons) {
+		adopted.removalReasons.suggestedReasons = structuredClone(nxg.removalReasons.suggestedReasons,)
 	}
 	preserveIdsByContent(adopted.removalReasons.reasons, nxg.removalReasons.reasons,)
 	preserveIdsByContent(adopted.modMacros, nxg.modMacros,)

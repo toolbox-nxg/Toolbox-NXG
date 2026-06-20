@@ -362,6 +362,30 @@ describe('RemovalReasonsOverlay', () => {
 			)
 	})
 
+	it('pre-selects suggested reasons by persistent id and keeps them through the mount reset', () => {
+		const r1: RemovalReason = {...reason, id: 'reasonAAA', title: 'Meta', text: 'meta',}
+		const r2: RemovalReason = {...reason, id: 'reasonBBB', title: 'Spam', text: 'spam',}
+		act(() => {
+			root.render(
+				<RemovalReasonsOverlay
+					data={{...data, reasons: [r1, r2,],}}
+					visibleReasons={[r1, r2,]}
+					displayMode="Popup"
+					settings={settings}
+					suggestedReasonIds={['reasonBBB',]}
+					onClose={onClose}
+				/>,
+			)
+		},)
+
+		// The matching reason (card 2) is checked; the other stays unchecked. Before the fix, the
+		// mount reset effect wiped the pre-selection and both were unchecked.
+		expect(container.querySelector<HTMLInputElement>('input[aria-label="Select removal reason 1"]',)!.checked,)
+			.toBe(false,)
+		expect(container.querySelector<HTMLInputElement>('input[aria-label="Select removal reason 2"]',)!.checked,)
+			.toBe(true,)
+	})
+
 	it('expands selected titled reasons while keeping unselected titled reasons compact', async () => {
 		renderOverlay({}, 'Popup', [
 			{...reason, text: 'First reason', title: 'First',},

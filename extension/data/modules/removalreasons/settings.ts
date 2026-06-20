@@ -107,6 +107,13 @@ export const settings = defineSettings(
 			description: 'Disable the remove button after removing an item.',
 		},
 		{
+			id: 'preselectSuggestedReasons',
+			type: 'boolean' as const,
+			default: true,
+			description:
+				'Pre-select removal reasons suggested by an item\'s reports, and flag matching items with "(suggestions)" on the remove button.',
+		},
+		{
 			id: 'customRemovalReason',
 			type: 'text' as const,
 			default:

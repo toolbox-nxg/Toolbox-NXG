@@ -15,6 +15,8 @@ interface SortableReasonCardProps {
 	/** Zero-based display position; shown as a 1-based number badge. */
 	position: number
 	selected: boolean
+	/** Whether this reason was pre-selected from the item's report (shows a "Suggested" badge). */
+	suggested?: boolean
 	onToggle: () => void
 	/** Receives the rendered-content element so the parent can read user input values. */
 	setContentRef: (element: HTMLDivElement | null,) => void
@@ -34,6 +36,7 @@ export function SortableReasonCard ({
 	item,
 	position,
 	selected,
+	suggested,
 	onToggle,
 	setContentRef,
 	isEditing,
@@ -112,6 +115,11 @@ export function SortableReasonCard ({
 				<div className={css.reasonCardTitle}>
 					{hasTitle ? item.reason.title : <em className={css.untitled}>Untitled</em>}
 				</div>
+				{suggested && (
+					<div className={css.contextBadges}>
+						<span className={css.contextBadge}>Suggested</span>
+					</div>
+				)}
 				{flairBadges.length > 0 && (
 					<div className={css.contextBadges}>
 						{flairBadges.map((badge,) => (
