@@ -63,14 +63,6 @@ vi.mock('./components/RemovalReasonsOverlay', () => ({
 	showRemovalReasonsOverlay,
 }),)
 
-// Stub the headless one-click removal feature: these tests don't exercise the suggested-removal
-// apply path, and mocking it keeps the heavy submitRemoval/proposalAdapter chain (which eagerly
-// loads the current-user fetch in api/resources/me) out of this DOM handler test's module graph.
-vi.mock('./features/headlessRemoval', () => ({
-	composeHeadlessRemoval: vi.fn(),
-	submitOrProposeRemoval: vi.fn(),
-}),)
-
 // Synchronous stub: immediately renders React elements as plain DOM so tests can
 // inspect the result without needing act() or awaiting microtasks.
 vi.mock('../../dom/uiLocations', () => ({
@@ -114,6 +106,7 @@ const handlerSettings: RemovalReasonsSettings = {
 	actionLock: false,
 	actionLockComment: false,
 	disableRemoveButton: false,
+	preselectSuggestedReasons: true,
 }
 
 function setRemovalConfig () {

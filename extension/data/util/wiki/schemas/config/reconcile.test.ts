@@ -76,7 +76,7 @@ describe('legacyOwnedFieldsEqual', () => {
 		const nxg = makeConfig({
 			removalReasons: {
 				reasons: [{id: 'reason01', title: 'Spam', text: 'no spam',},],
-				suggestedReasons: [{id: 'sug00001', pattern: 'meta post', reasonIds: ['reason01',], oneClick: true,},],
+				suggestedReasons: [{id: 'sug00001', pattern: 'meta post', reasonIds: ['reason01',],},],
 			},
 		},)
 		const legacy = makeConfig({
@@ -125,7 +125,7 @@ describe('adoptLegacyConfigFields', () => {
 		const nxg = makeConfig({
 			removalReasons: {
 				reasons: [{id: 'reason01', title: 'Spam', text: 'no spam',},],
-				suggestedReasons: [{id: 'sug00001', pattern: 'meta post', reasonIds: ['reason01',], oneClick: true,},],
+				suggestedReasons: [{id: 'sug00001', pattern: 'meta post', reasonIds: ['reason01',],},],
 			},
 		},)
 		// 6.x edited a reason on the legacy mirror (which never carries suggestedReasons).
@@ -137,7 +137,7 @@ describe('adoptLegacyConfigFields', () => {
 
 		expect(adopted.removalReasons.reasons[0]!.text,).toBe('no spam at all',)
 		expect(adopted.removalReasons.suggestedReasons,).toEqual([
-			{id: 'sug00001', pattern: 'meta post', reasonIds: ['reason01',], oneClick: true,},
+			{id: 'sug00001', pattern: 'meta post', reasonIds: ['reason01',],},
 		],)
 	})
 

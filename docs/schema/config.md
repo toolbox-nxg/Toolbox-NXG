@@ -72,25 +72,26 @@ Domain tags and usernote type colors were previously stored here as `domainTags:
 }
 ```
 
-| Field                    | Required | Type    | Description                                                                     |
-| ------------------------ | -------- | ------- | ------------------------------------------------------------------------------- |
-| `reasons`                | yes      | array   | List of configured removal reasons                                              |
-| `header`                 | no       | string  | Markdown prepended to every removal message                                     |
-| `footer`                 | no       | string  | Markdown appended to every removal message                                      |
-| `getfrom`                | no       | string  | Name of another subreddit whose removal reasons to use instead                  |
-| `pmsubject`              | no       | string  | Subject line template for removal PMs; supports substitution tokens             |
-| `logsub`                 | no       | string  | Subreddit to post the removal log to                                            |
-| `logtitle`               | no       | string  | Title template for the removal log post; supports substitution tokens           |
-| `logreason`              | no       | string  | Default reason text pre-filled in the log post; supports substitution tokens    |
-| `removalOption`          | no       | string  | How delivery settings apply to other mods: `"suggest"`, `"force"`, or `"leave"` |
-| `typeReply`              | no       | string  | Default reply type: `"reply"`, `"pm"`, `"both"`, `"none"`, etc.                 |
-| `typeStickied`           | no       | boolean | Whether the reply is stickied by default                                        |
-| `typeLockComment`        | no       | boolean | Whether the reply locks the removed comment by default                          |
-| `typeCommentAsSubreddit` | no       | boolean | Whether the reply is sent as the subreddit by default                           |
-| `typeAsSub`              | no       | boolean | Whether the removal message is sent via modmail as the subreddit by default     |
-| `autoArchive`            | no       | boolean | Whether modmail threads are auto-archived after sending by default              |
-| `typeLockThread`         | no       | boolean | Whether the target thread is locked after removal by default                    |
-| `editableReasonsEnabled` | no       | boolean | When true, moderators may edit reason text before sending                       |
+| Field                    | Required | Type                       | Description                                                                                                                                                                              |
+| ------------------------ | -------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `reasons`                | yes      | array                      | List of configured removal reasons                                                                                                                                                       |
+| `header`                 | no       | string                     | Markdown prepended to every removal message                                                                                                                                              |
+| `footer`                 | no       | string                     | Markdown appended to every removal message                                                                                                                                               |
+| `getfrom`                | no       | string                     | Name of another subreddit whose removal reasons to use instead                                                                                                                           |
+| `pmsubject`              | no       | string                     | Subject line template for removal PMs; supports substitution tokens                                                                                                                      |
+| `logsub`                 | no       | string                     | Subreddit to post the removal log to                                                                                                                                                     |
+| `logtitle`               | no       | string                     | Title template for the removal log post; supports substitution tokens                                                                                                                    |
+| `logreason`              | no       | string                     | Default reason text pre-filled in the log post; supports substitution tokens                                                                                                             |
+| `removalOption`          | no       | string                     | How delivery settings apply to other mods: `"suggest"`, `"force"`, or `"leave"`                                                                                                          |
+| `typeReply`              | no       | string                     | Default reply type: `"reply"`, `"pm"`, `"both"`, `"none"`, etc.                                                                                                                          |
+| `typeStickied`           | no       | boolean                    | Whether the reply is stickied by default                                                                                                                                                 |
+| `typeLockComment`        | no       | boolean                    | Whether the reply locks the removed comment by default                                                                                                                                   |
+| `typeCommentAsSubreddit` | no       | boolean                    | Whether the reply is sent as the subreddit by default                                                                                                                                    |
+| `typeAsSub`              | no       | boolean                    | Whether the removal message is sent via modmail as the subreddit by default                                                                                                              |
+| `autoArchive`            | no       | boolean                    | Whether modmail threads are auto-archived after sending by default                                                                                                                       |
+| `typeLockThread`         | no       | boolean                    | Whether the target thread is locked after removal by default                                                                                                                             |
+| `editableReasonsEnabled` | no       | boolean                    | When true, moderators may edit reason text before sending                                                                                                                                |
+| `suggestedReasons`       | no       | `SuggestedReasonMapping[]` | NXG-only. Maps report text to removal reasons that are pre-selected in the removal overlay when a queue item's report matches. Dropped entirely when empty; stripped from the v1 mirror. |
 
 ### `RemovalReason`
 
@@ -137,6 +138,26 @@ Stored in `RemovalReason.selects`; referenced from reason text as `{select:name}
 | `name`    | yes      | string     | Slug-safe name (`[\w-]+`), unique within the reason; used as the `{select:name}` reference |
 | `prompt`  | no       | string     | Optional label shown above the choices; omitted (never `""`) when empty                    |
 | `options` | yes      | `string[]` | Choice texts; each is both the visible label and the value inserted into the message       |
+
+### `SuggestedReasonMapping`
+
+NXG-only. Stored in `RemovalReasonsConfig.suggestedReasons`; stripped from the v1 mirror. Each mapping links report text to one or more removal reasons. When a queue item carries a report whose text **contains** the mapping's `pattern` (case-insensitive substring), the referenced reasons are pre-selected when the moderator opens the removal overlay. Reports filed by any moderator or bot are matched by default; user reports are matched only when `includeUserReports` is set. See [Removal Reasons → Suggested removal reasons](../user-guide/modules/removal-reasons.md#suggested-removal-reasons).
+
+```json
+{
+    "id": "sug00001",
+    "pattern": "low effort post",
+    "includeUserReports": true,
+    "reasonIds": ["abc12345"]
+}
+```
+
+| Field                | Required | Type       | Description                                                                                                                          |
+| -------------------- | -------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `id`                 | no       | string     | Stable 8-character base-36 identifier; assigned by NXG, may be absent in hand-edited configs                                         |
+| `pattern`            | yes      | string     | Report text to look for, matched as a case-insensitive substring; an entry with an empty pattern is dropped                          |
+| `includeUserReports` | no       | boolean    | When `true`, user reports are matched too; otherwise only moderator/bot reports are considered. Stored only when `true`              |
+| `reasonIds`          | yes      | `string[]` | Ids of the `RemovalReason` entries (`RemovalReason.id`) to pre-select; empty entries are dropped, and a mapping with none is dropped |
 
 ### `MacroConfig`
 

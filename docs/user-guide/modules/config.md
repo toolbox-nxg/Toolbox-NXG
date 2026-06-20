@@ -14,6 +14,8 @@ Each subreddit's configuration is independent. Toolbox-NXG stores it at `toolbox
 
 **Removal Reasons** — add, edit, reorder, and delete removal reasons. Each reason has a title, message text (with support for substitution tokens and interactive brace tokens), and reply-type settings. See [Removal Reasons](removal-reasons.md) for the token format.
 
+**Suggested removal reasons** — map report text to removal reasons so they're pre-selected in the removal overlay when an item's report matches. See [Suggested removal reasons](removal-reasons.md#suggested-removal-reasons).
+
 **Mod Macros** — manage mod macros: pre-written messages with optional attached actions (remove, approve, ban, flair, distinguish, lock, sticky, archive modmail, and more). Macros appear in a dropdown inside reply areas. See [Mod Macros](macros.md) for details.
 
 **Usernote Types** — configure the note type labels, colors, and dark-mode colors shown in the usernotes popup. Each type can optionally have an auto-ban duration and an auto-archive threshold. Built-in defaults are used when this list is empty.

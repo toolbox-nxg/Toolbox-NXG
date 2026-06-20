@@ -119,7 +119,7 @@ function buildConfigTabs (
 		domainTagsImport: {current: null,} as SaveRef,
 		banMacro: {current: null,} as SaveRef,
 		addRemovalReason: {current: null,} as SaveRef,
-		suggestedReasons: {current: null,} as SaveRef,
+		addSuggestedReason: {current: null,} as SaveRef,
 		addModMacro: {current: null,} as SaveRef,
 		rawConfig: {current: null,} as SaveRef,
 		rawUsernote: {current: null,} as SaveRef,
@@ -128,6 +128,7 @@ function buildConfigTabs (
 	}
 	const disabled = {
 		addRemovalReason: {current: null,} as DisabledRef,
+		addSuggestedReason: {current: null,} as DisabledRef,
 		addModMacro: {current: null,} as DisabledRef,
 	}
 	const revisionNote = {
@@ -245,16 +246,21 @@ function buildConfigTabs (
 			),
 		},
 		{
-			title: 'Suggested reasons',
-			tooltip: 'Map report reasons to removal reasons for pre-selection and one-click removal.',
+			title: 'Suggested removal reasons',
+			tooltip: 'Map report reasons to removal reasons for pre-selection in the removal overlay.',
 			contentNode: <SuggestedReasonsTab
 				state={state}
-				saveRef={save.suggestedReasons}
+				addRef={save.addSuggestedReason}
+				disabledRef={disabled.addSuggestedReason}
 				onSave={(config, reason,) => saveRemovalConfig(state.subreddit!, config, reason,)}
 			/>,
-			footer: <ActionButton primary type="button" onClick={() => save.suggestedReasons.current?.()}>
-				Save suggested reasons
-			</ActionButton>,
+			footer: (
+				<AddNewButton
+					label="Add new suggestion"
+					triggerRef={save.addSuggestedReason}
+					disabledRef={disabled.addSuggestedReason}
+				/>
+			),
 		},
 		{
 			title: 'Edit mod macros',

@@ -41,7 +41,7 @@ describe('extractReportReasons', () => {
 
 		expect(extractReportReasons(thing,),).toEqual([
 			{source: 'mod', reporter: 'AutoModerator', text: 'low effort post',},
-			// The trailing aggregate count "(3)" is stripped so regex anchors behave.
+			// The trailing aggregate count "(3)" is stripped so it doesn't block substring matches.
 			{source: 'user', reporter: '', text: 'spam',},
 		],)
 	})
@@ -54,11 +54,10 @@ describe('extractReportReasons', () => {
 		],)
 	})
 
-	it('lets a $-anchored regex mapping match a user report after the count is stripped', () => {
+	it('lets a mapping match a user report after the trailing count is stripped', () => {
 		const thing = oldRedditThing([], ['spam (3)',],)
 		const mapping: SuggestedReasonMapping = {
-			pattern: '^spam$',
-			matchType: 'regex',
+			pattern: 'spam',
 			includeUserReports: true,
 			reasonIds: ['r1',],
 		}
@@ -98,20 +97,6 @@ describe('matchSuggestedReasons', () => {
 
 	it('matches case-insensitive substrings', () => {
 		expect(matchSuggestedReasons(reports, [mapping({},),],),).toEqual(['r1',],)
-	})
-
-	it('matches regex patterns and ignores invalid ones safely', () => {
-		expect(
-			matchSuggestedReasons(reports, [mapping({pattern: '^low\\s+effort', matchType: 'regex',},),],),
-		).toEqual(['r1',],)
-		expect(
-			matchSuggestedReasons(reports, [mapping({pattern: '(', matchType: 'regex',},),],),
-		).toEqual([],)
-	})
-
-	it('restricts matching to the named reporter when set', () => {
-		expect(matchSuggestedReasons(reports, [mapping({reporter: 'AutoModerator',},),],),).toEqual(['r1',],)
-		expect(matchSuggestedReasons(reports, [mapping({reporter: 'OtherBot',},),],),).toEqual([],)
 	})
 
 	it('only matches user reports when includeUserReports is set', () => {

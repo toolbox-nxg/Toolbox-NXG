@@ -284,6 +284,7 @@ export function RemovalReasonsOverlay ({
 		}
 		return ids
 	}, [seededFromIntent, suggestedReasonIds, renderedReasons,],)
+	const suggestedIdSet = useMemo(() => new Set(suggestedPositionalIds,), [suggestedPositionalIds,],)
 
 	const [reasonOrder, setReasonOrder,] = useState<string[]>(() => {
 		const natural = renderedReasons.map((r,) => r.id)
@@ -930,6 +931,29 @@ export function RemovalReasonsOverlay ({
 					</div>
 				)}
 
+				{suggestedPositionalIds.length > 0 && (
+					<div className={css.suggestedNotice}>
+						<span>
+							{suggestedPositionalIds.length} reason{suggestedPositionalIds.length === 1 ? '' : 's'}{' '}
+							pre-selected from this item's reports.
+						</span>
+						{suggestedPositionalIds.some((id,) => selected.has(id,)) && (
+							<button
+								type="button"
+								className={css.suggestedClear}
+								onClick={() =>
+									setSelected((prev,) => {
+										const next = new Set(prev,)
+										for (const id of suggestedPositionalIds) { next.delete(id,) }
+										return next
+									},)}
+							>
+								Clear suggested
+							</button>
+						)}
+					</div>
+				)}
+
 				<div
 					className={`${css.reasonPicker} ${errorFields.has('reasonTable',) ? css.errorHighlight : ''}`}
 				>
@@ -949,6 +973,7 @@ export function RemovalReasonsOverlay ({
 										item={reason}
 										position={reasonIndex}
 										selected={selected.has(reason.id,)}
+										suggested={suggestedIdSet.has(reason.id,)}
 										onToggle={() => toggleSelected(reason.id,)}
 										isEditing={editingId === reason.id}
 										editDraft={editDraft}

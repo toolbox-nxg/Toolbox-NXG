@@ -139,10 +139,7 @@ describe('normalizeConfig', () => {
 				suggestedReasons: [
 					{
 						pattern: 'low effort',
-						matchType: 'regex',
-						reporter: 'AutoModerator',
 						includeUserReports: true,
-						oneClick: true,
 						reasonIds: ['r1', '', 'r2',],
 					},
 					{pattern: 'plain', reasonIds: ['r3',],},
@@ -154,17 +151,11 @@ describe('normalizeConfig', () => {
 
 		const [first, second,] = configData.removalReasons.suggestedReasons
 		expect(first.pattern,).toBe('low effort',)
-		expect(first.matchType,).toBe('regex',)
-		expect(first.reporter,).toBe('AutoModerator',)
 		expect(first.includeUserReports,).toBe(true,)
-		expect(first.oneClick,).toBe(true,)
 		expect(first.reasonIds,).toEqual(['r1', 'r2',],)
 		expect(first.id,).toMatch(/^[a-z0-9]{8}$/,)
-		// A substring mapping stores no matchType, and absent optional flags stay absent.
-		expect(second.matchType,).toBeUndefined()
-		expect(second,).not.toHaveProperty('reporter',)
+		// Absent optional fields stay absent.
 		expect(second,).not.toHaveProperty('includeUserReports',)
-		expect(second,).not.toHaveProperty('oneClick',)
 	})
 
 	it('drops suggestedReasons entries without a pattern or any reason ids, and an empty list entirely', () => {

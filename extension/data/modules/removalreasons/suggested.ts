@@ -2,21 +2,18 @@
  * Report-reason → removal-reason matching for "suggested removal reasons".
  *
  * Reads the reports attached to a queue item (mod/bot reports and, when a mapping
- * opts in, free-text user reports) and resolves which configured removal reasons a
- * subreddit's {@link SuggestedReasonMapping} list suggests for that item. AutoMod is
- * just the common case - any reporter's text can drive a suggestion.
+ * opts in, user reports) and resolves which configured removal reasons a subreddit's
+ * {@link SuggestedReasonMapping} list suggests for that item. AutoMod is just the
+ * common case - any reporter's text can drive a suggestion.
  */
 
 import {getModReports, getUserReports,} from '../../dom/oldReddit/queue'
 import {getQueueItemReasons,} from '../../dom/shreddit/queue'
-import createLogger from '../../util/infra/logging'
 import type {SuggestedReasonMapping,} from './schema'
-
-const log = createLogger('SuggestedReasons',)
 
 /** A single report extracted from a queue item, tagged by where it came from. */
 export interface ExtractedReport {
-	/** `'mod'` for a moderator/bot report, `'user'` for a free-text user report. */
+	/** `'mod'` for a moderator/bot report, `'user'` for a user report. */
 	source: 'mod' | 'user'
 	/** The reporting mod/bot's name, or `''` when unknown (user reports, anonymized). */
 	reporter: string
@@ -64,32 +61,23 @@ export function extractReportReasons (thingElement: Element | null | undefined,)
 	}
 	for (const el of getUserReports(thing,)) {
 		// Old Reddit appends the aggregate report count, e.g. "spam (3)"; drop it so the matched
-		// text is the reason itself (regex patterns anchored with `$` then behave).
+		// text is the reason itself and the trailing count can't block a substring match.
 		const text = (el.textContent ?? '').trim().replace(/\s*\(\d+\)$/, '',).trim()
 		if (text) { reports.push({source: 'user', reporter: '', text,},) }
 	}
 	return reports
 }
 
-/** Returns true when a mapping's pattern matches the given report text. */
+/** Returns true when a mapping's pattern is a (case-insensitive) substring of the report text. */
 function patternMatches (mapping: SuggestedReasonMapping, text: string,): boolean {
-	if (mapping.matchType === 'regex') {
-		try {
-			return new RegExp(mapping.pattern, 'i',).test(text,)
-		} catch (error) {
-			log.warn(`Ignoring invalid suggested-reason regex ${JSON.stringify(mapping.pattern,)}:`, error,)
-			return false
-		}
-	}
 	return text.toLowerCase().includes(mapping.pattern.toLowerCase(),)
 }
 
 /**
  * Resolves which removal reason ids a subreddit's mappings suggest for a set of
- * extracted reports. For each mapping, user reports are skipped unless it opts in,
- * an optional `reporter` restricts which reports are considered, and the pattern is
- * tested per the mapping's match type. Returns de-duplicated reason ids in mapping
- * order (and reason order within each mapping).
+ * extracted reports. Reports from any mod/bot are considered; user reports are skipped
+ * unless the mapping opts in, and the pattern is matched as a case-insensitive substring.
+ * Returns de-duplicated reason ids in mapping order (and reason order within each mapping).
  * @param reports The reports extracted from the queue item.
  * @param mappings The subreddit's configured suggested-reason mappings.
  */
@@ -102,13 +90,7 @@ export function matchSuggestedReasons (
 	const seen = new Set<string>()
 	for (const mapping of mappings) {
 		if (!mapping.pattern || !mapping.reasonIds?.length) { continue }
-		const candidates = reports.filter((report,) => {
-			if (report.source === 'user' && !mapping.includeUserReports) { return false }
-			if (mapping.reporter && report.reporter.toLowerCase() !== mapping.reporter.toLowerCase()) {
-				return false
-			}
-			return true
-		},)
+		const candidates = reports.filter((report,) => report.source !== 'user' || mapping.includeUserReports)
 		if (!candidates.some((report,) => patternMatches(mapping, report.text,))) { continue }
 		for (const id of mapping.reasonIds) {
 			if (!seen.has(id,)) {

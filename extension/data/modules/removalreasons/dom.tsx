@@ -14,7 +14,7 @@ import {provideLocation, renderAtLocation,} from '../../dom/uiLocations'
 import {createLifecycle,} from '../../framework/lifecycle'
 import {usernotes,} from '../../framework/moduleIds'
 import {FlatListAction,} from '../../shared/controls/FlatListAction'
-import {negativeTextFeedback, positiveTextFeedback,} from '../../store/feedback'
+import {negativeTextFeedback,} from '../../store/feedback'
 import {htmlEncode,} from '../../util/data/encoding'
 import createLogger from '../../util/infra/logging'
 import {isOldReddit, RedditPlatform,} from '../../util/infra/platform'
@@ -26,7 +26,6 @@ import {proposeOrRemove,} from '../shared/proposals/gateway'
 import {resolveUsernoteRequirements, subUsernoteRequireFromConfig,} from '../shared/usernotes/requireRules'
 import {MountEffect,} from './components/MountEffect'
 import {type RemovalReasonsOverlayPreseed, showRemovalReasonsOverlay,} from './components/RemovalReasonsOverlay'
-import {composeHeadlessRemoval, submitOrProposeRemoval,} from './features/headlessRemoval'
 import {getRemovalReasons,} from './moduleapi'
 import {setRemovalOverlayOpener,} from './overlayOpener'
 import {
@@ -40,7 +39,6 @@ import {
 } from './schema'
 import {RemovalReasonsSettings,} from './settings'
 import {extractReportReasons, matchSuggestedReasons,} from './suggested'
-import {setOneClickSuggestionResolver, setSuggestedRemovalApplier,} from './suggestedRemovalApplier'
 
 const log = createLogger('RReasons',)
 
@@ -388,6 +386,7 @@ export function createRemovalReasonsHandlers ({
 	actionLock: actionLockSetting,
 	actionLockComment: actionLockCommentSetting,
 	disableRemoveButton,
+	preselectSuggestedReasons,
 }: RemovalReasonsSettings,): RemovalReasonsHandlers {
 	const lifecycle = createLifecycle()
 	const openOverlays = new Map<string, OpenOverlay>()
@@ -418,7 +417,12 @@ export function createRemovalReasonsHandlers ({
 				pendingRemoveButton.textContent = originalRemoveButtonText
 			}
 		}
-		if (pendingRemoveButton && originalRemoveButtonText.trim().toLowerCase() === 'remove') {
+		// The label is "remove" or, when the item has suggested reasons, "remove (suggestions)".
+		const normalizedRemoveText = originalRemoveButtonText.trim().toLowerCase()
+		if (
+			pendingRemoveButton
+			&& (normalizedRemoveText === 'remove' || normalizedRemoveText === 'remove (suggestions)')
+		) {
 			pendingRemoveButton.textContent = 'pending'
 		}
 
@@ -536,17 +540,16 @@ export function createRemovalReasonsHandlers ({
 			return
 		}
 
-		// Pre-select reasons suggested by the item's report (AutoMod/other bot/mod reports). Several
-		// open paths (the cross-module opener, some old-Reddit/Shreddit button routes) don't pass the
-		// thing element, so fall back to locating it by fullname - old Reddit tags `.thing` with
-		// `data-fullname`, Shreddit tags `shreddit-post` with `id` - the same fallback `onRemoved` uses.
+		// Pre-select reasons suggested by the item's report (AutoMod/other bot/mod reports), unless the
+		// mod has opted out. Several open paths (the cross-module opener, some old-Reddit/Shreddit button
+		// routes) don't pass the thing element, so fall back to locating it by fullname - old Reddit tags
+		// `.thing` with `data-fullname`, Shreddit tags `shreddit-post` with `id` - same as `onRemoved`.
 		const reportSource = thingElement
 			?? document.querySelector<HTMLElement>(`[data-fullname="${thingID}"]`,)
 			?? document.querySelector<HTMLElement>(`shreddit-post[id="${thingID}"]`,)
-		const suggestedReasonIds = matchSuggestedReasons(
-			extractReportReasons(reportSource,),
-			response.suggestedReasons,
-		)
+		const suggestedReasonIds = preselectSuggestedReasons
+			? matchSuggestedReasons(extractReportReasons(reportSource,), response.suggestedReasons,)
+			: []
 
 		log.debug('Showing removal reasons overlay',)
 		const previousBodyOverflow = document.body.style.overflow
@@ -651,118 +654,26 @@ export function createRemovalReasonsHandlers ({
 	},)
 	lifecycle.mount(() => setRemovalOverlayOpener(null,))
 
-	// Personal delivery defaults, applied by the headless one-click path when the subreddit
-	// leaves delivery options up to each mod (same resolution the overlay uses).
-	const headlessDeliverySettings = {
-		reasonTypeSetting,
-		reasonAsSubSetting,
-		reasonAutoArchiveSetting,
-		reasonStickySetting,
-		reasonCommentAsSubredditSetting,
-		actionLockSetting,
-		actionLockCommentSetting,
-	}
-
 	/**
-	 * Performs (or, in training mode, captures) a one-click suggested removal for a thing,
-	 * applying the mapped reasons with no overlay. Returns whether it succeeded and whether it
-	 * was captured for review.
+	 * Resolves whether a queue item has at least one applicable suggested removal reason, using the
+	 * same matching the overlay's pre-select uses (report match + visibility for the item's kind), so
+	 * the remove button only advertises "(suggestions)" when reasons would actually be pre-selected.
 	 */
-	async function applySuggestedRemoval ({
-		thingID,
-		thingSubreddit,
-		isComment,
-		reasonIds,
-	}: {
-		thingID: string
-		thingSubreddit: string
-		isComment: boolean
-		reasonIds: string[]
-	},) {
-		let info: any
-		try {
-			info = await getApiThingInfo(thingSubreddit, thingID, false,)
-		} catch (error) {
-			log.error(`Unable to fetch context for suggested removal of ${thingID}:`, error,)
-			return {ok: false,}
-		}
-		const response = await getRemovalReasons(thingSubreddit,)
-		if (!response || response.reasons.length < 1) { return {ok: false,} }
-
-		const data = buildOverlayData({
-			subreddit: info.subreddit,
-			fullname: info.fullname,
-			id: info.id,
-			author: info.user,
-			title: info.title,
-			kind: info.kind,
-			mod: info.mod,
-			url: info.permalink,
-			link: info.postlink,
-			domain: info.domain,
-			body: info.body,
-			raw_body: info.raw_body,
-			uri_body: info.uri_body || encodeURIComponent(info.body,),
-			uri_title: info.uri_title || encodeURIComponent(info.title,),
-		}, response,)
-
-		const visible = selectVisibleReasons(data.reasons, isComment, commentReasons,)
-		const byId = new Map(visible.filter((r,) => r.id).map((r,) => [r.id as string, r,]),)
-		// Preserve suggestion order from the matched reason ids.
-		const selectedReasons = reasonIds.map((id,) => byId.get(id,)).filter(Boolean,) as typeof visible
-		if (!selectedReasons.length) {
-			// The resolver already filters by kind, so this is a defensive backstop (e.g. config
-			// changed between the button rendering and the click). Surface it rather than no-op.
-			negativeTextFeedback('No applicable suggested removal reason',)
-			return {ok: false,}
-		}
-
-		const composed = composeHeadlessRemoval(data, selectedReasons, headlessDeliverySettings,)
-		if (!composed) { return {ok: false,} }
-
-		try {
-			const outcome = await submitOrProposeRemoval(composed.params, composed.selection, {
-				subreddit: thingSubreddit,
-				itemId: thingID,
-				itemKind: isComment ? 'comment' : 'post',
-				...(info.permalink ? {link: info.permalink,} : {}),
-			},)
-			if (outcome.status === 'captured') {
-				positiveTextFeedback('Removal sent for review',)
-				return {ok: true, captured: true,}
-			}
-			if (outcome.result.ok) { return {ok: true, captured: false,} }
-			negativeTextFeedback(outcome.result.error,)
-			return {ok: false,}
-		} catch (error) {
-			log.error(`Suggested removal failed for ${thingID}:`, error,)
-			negativeTextFeedback('Suggested removal failed',)
-			return {ok: false,}
-		}
-	}
-
-	setSuggestedRemovalApplier(applySuggestedRemoval,)
-	lifecycle.mount(() => setSuggestedRemovalApplier(null,))
-
-	// Expose the one-click suggestion resolver so the modview queue button can resolve matches
-	// without importing the removalreasons config stack. Filtered to reasons applicable to the
-	// item's kind (using the same visibility rule as the apply path) so the button is never shown
-	// for a reason that the removal would silently drop.
-	setOneClickSuggestionResolver(async (subreddit, thingElement, isComment,) => {
+	async function hasVisibleSuggestedReasons (subreddit: string, thingId: string,): Promise<boolean> {
+		if (!preselectSuggestedReasons) { return false }
 		const response = await getRemovalReasons(subreddit,).catch(() => undefined)
-		if (!response) { return [] }
-		const oneClickMappings = response.suggestedReasons?.filter((mapping,) => mapping.oneClick) ?? []
-		if (!oneClickMappings.length) { return [] }
-		const matchedIds = matchSuggestedReasons(extractReportReasons(thingElement,), oneClickMappings,)
-		if (!matchedIds.length) { return [] }
+		if (!response || !response.suggestedReasons?.length) { return false }
+		const reportSource = document.querySelector<HTMLElement>(`[data-fullname="${thingId}"]`,)
+			?? document.querySelector<HTMLElement>(`shreddit-post[id="${thingId}"]`,)
+		const matchedIds = matchSuggestedReasons(extractReportReasons(reportSource,), response.suggestedReasons,)
+		if (!matchedIds.length) { return false }
 		const visibleIds = new Set(
-			selectVisibleReasons(response.reasons, isComment, commentReasons,)
+			selectVisibleReasons(response.reasons, thingId.startsWith('t1_',), commentReasons,)
 				.map((reason,) => reason.id)
 				.filter((id,): id is string => !!id),
 		)
-		return matchedIds.filter((id,) => visibleIds.has(id,))
-	},)
-	lifecycle.mount(() => setOneClickSuggestionResolver(null,))
+		return matchedIds.some((id,) => visibleIds.has(id,))
+	}
 
 	renderAtLocation(
 		'thingNativeActionReplacement',
@@ -779,8 +690,18 @@ export function createRemovalReasonsHandlers ({
 			const className = detail.bigModButton
 				? 'toolbox-removal-reason-remove pretty-button access-required neutral'
 				: 'toolbox-removal-reason-remove'
+			// Render "remove" immediately, then relabel to "remove (suggestions)" once the async
+			// match resolves - done via a ref (not React state) so the label survives the imperative
+			// textContent swaps the click handler does ("pending"/"removed") without a competing render.
+			const markSuggestions = (el: HTMLAnchorElement | null,) => {
+				if (!el) { return }
+				void hasVisibleSuggestedReasons(detail.subredditName, detail.thingId,).then((has,) => {
+					if (has && el.textContent === 'remove') { el.textContent = 'remove (suggestions)' }
+				},)
+			}
 			return (
 				<a
+					ref={markSuggestions}
 					className={className}
 					data-id={detail.thingId}
 					data-subreddit={detail.subredditName}

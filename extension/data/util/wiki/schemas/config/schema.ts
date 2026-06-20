@@ -212,9 +212,8 @@ function coerceSelectDefinitions (reason: {selects?: unknown},): void {
  * Sanitizes the `removalReasons.suggestedReasons` mapping list so hand-edited or
  * legacy wiki pages can't crash the matcher: a non-array becomes absent, and each
  * entry must have a non-empty `pattern` and at least one non-empty `reasonIds`
- * string. `matchType` keeps only an explicit `'regex'` (absent ⇒ substring);
- * `reporter` is kept only when a non-empty string; the boolean flags are stored
- * only when true. An empty result drops the field entirely.
+ * string. The boolean flags are stored only when true. An empty result drops the
+ * field entirely.
  * @param config The config whose `removalReasons.suggestedReasons` to coerce, mutated in-place.
  */
 function coerceSuggestedReasons (config: ToolboxConfig,): void {
@@ -227,7 +226,7 @@ function coerceSuggestedReasons (config: ToolboxConfig,): void {
 	const cleaned: SuggestedReasonMapping[] = []
 	for (const entry of raw) {
 		if (!entry || typeof entry !== 'object') { continue }
-		const {id, pattern, matchType, reporter, includeUserReports, reasonIds, oneClick,} = entry as Record<
+		const {id, pattern, includeUserReports, reasonIds,} = entry as Record<
 			string,
 			unknown
 		>
@@ -238,10 +237,7 @@ function coerceSuggestedReasons (config: ToolboxConfig,): void {
 		if (ids.length === 0) { continue }
 		const mapping: SuggestedReasonMapping = {pattern, reasonIds: ids,}
 		if (typeof id === 'string' && id !== '') { mapping.id = id }
-		if (matchType === 'regex') { mapping.matchType = 'regex' }
-		if (typeof reporter === 'string' && reporter !== '') { mapping.reporter = reporter }
 		if (includeUserReports === true) { mapping.includeUserReports = true }
-		if (oneClick === true) { mapping.oneClick = true }
 		cleaned.push(mapping,)
 	}
 	if (cleaned.length > 0) {
