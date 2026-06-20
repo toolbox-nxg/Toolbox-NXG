@@ -34,6 +34,17 @@ vi.mock('../../../api/resources/things', () => ({
 vi.mock('../../../api/resources/comments', () => ({postComment,}),)
 vi.mock('../../../api/resources/submissions', () => ({postLink: vi.fn(),}),)
 
+// Wrap the real captureGuard but expose runInReplay as a controllable spy. Its default
+// passthrough matches the real no-op authorization for non-trainees; the gate tests override
+// it once to simulate the perform pipeline throwing.
+const runInReplay = vi.hoisted(() => vi.fn((fn: () => unknown,) => fn()))
+vi.mock('../../../util/infra/captureGuard', async () => {
+	const actual = await vi.importActual<typeof import('../../../util/infra/captureGuard')>(
+		'../../../util/infra/captureGuard',
+	)
+	return {...actual, runInReplay,}
+},)
+
 vi.mock('../../../util/persistence/cache', () => ({
 	getCache: vi.fn((_namespace: string, _key: string, fallback: unknown,) => Promise.resolve(fallback,)),
 	setCache: vi.fn(),
@@ -77,7 +88,11 @@ vi.mock('@dnd-kit/sortable', async () => {
 },)
 
 import type {RemovalReason, RemovalReasonsData, RemovalReasonsOverlaySettings,} from '../schema'
-import {RemovalReasonsOverlay, type RemovalReasonsOverlayPreseed,} from './RemovalReasonsOverlay'
+import {
+	type RemovalAcceptGate,
+	RemovalReasonsOverlay,
+	type RemovalReasonsOverlayPreseed,
+} from './RemovalReasonsOverlay'
 
 const settings: RemovalReasonsOverlaySettings = {
 	reasonTypeSetting: 'reply_with_a_comment_to_the_item_that_is_removed',
@@ -167,6 +182,7 @@ beforeEach(() => {
 	document.body.appendChild(container,)
 	root = createRoot(container,)
 	onClose = vi.fn()
+	runInReplay.mockImplementation((fn: () => unknown,) => fn())
 	removeThing.mockResolvedValue({},)
 	flairPost.mockResolvedValue({},)
 	postComment.mockResolvedValue({id: 'reply', fullname: 't1_reply',},)
@@ -515,7 +531,10 @@ describe('RemovalReasonsOverlay (seeded from a proposal)', () => {
 		flairTemplateID: '',
 	}
 
-	async function renderSeeded (seededFromIntent: RemovalReasonsOverlayPreseed,) {
+	async function renderSeeded (
+		seededFromIntent: RemovalReasonsOverlayPreseed,
+		acceptGate?: RemovalAcceptGate,
+	) {
 		await act(async () => {
 			root.render(
 				<RemovalReasonsOverlay
@@ -524,6 +543,7 @@ describe('RemovalReasonsOverlay (seeded from a proposal)', () => {
 					displayMode="Popup"
 					settings={settings}
 					seededFromIntent={seededFromIntent}
+					{...(acceptGate ? {acceptGate,} : {})}
 					onClose={onClose}
 				/>,
 			)
@@ -545,8 +565,7 @@ describe('RemovalReasonsOverlay (seeded from a proposal)', () => {
 			reasonType: 'reply',
 			usernote: {text: 'seeded note', type: 'spamwatch',},
 			ban: {permanent: false, days: 3, note: 'seeded ban',},
-			bypassCapture: true,
-		},)
+		}, {claim: vi.fn(), release: vi.fn(),},)
 
 		// The reason is pre-selected...
 		const reasonCheckbox = container.querySelector<HTMLInputElement>(
@@ -569,11 +588,117 @@ describe('RemovalReasonsOverlay (seeded from a proposal)', () => {
 		await renderSeeded({
 			reasons: [{id: 'gone', text: 'whatever',},],
 			reasonType: 'reply',
-			bypassCapture: true,
-		},)
+		}, {claim: vi.fn(), release: vi.fn(),},)
 
 		expect(
 			container.querySelector<HTMLInputElement>('input[aria-label="Select removal reason 1"]',)?.checked,
 		).toBe(false,)
+	})
+})
+
+describe('RemovalReasonsOverlay (accept gate)', () => {
+	function renderWithGate (
+		acceptGate: RemovalAcceptGate,
+		dataOverride: Partial<RemovalReasonsData> = {},
+	) {
+		act(() => {
+			root.render(
+				<RemovalReasonsOverlay
+					data={{...data, ...dataOverride,}}
+					visibleReasons={[reason,]}
+					displayMode="Popup"
+					settings={settings}
+					acceptGate={acceptGate}
+					onClose={onClose}
+				/>,
+			)
+		},)
+	}
+
+	function selectReasonAndSend () {
+		return act(async () => {
+			container.querySelector<HTMLInputElement>('input[aria-label="Select removal reason 1"]',)!.click()
+			getButton('Send',).click()
+		},)
+	}
+
+	it('aborts the perform and shows the gate message when the claim is rejected', async () => {
+		const claim = vi.fn().mockResolvedValue({ok: false, message: 'Already resolved by another moderator',},)
+		const release = vi.fn()
+		renderWithGate({claim, release,},)
+
+		await selectReasonAndSend()
+
+		expect(claim,).toHaveBeenCalledOnce()
+		expect(removeThing,).not.toHaveBeenCalled()
+		expect(release,).not.toHaveBeenCalled()
+		expect(container.textContent,).toContain('Already resolved by another moderator',)
+		expect(onClose,).not.toHaveBeenCalled()
+		// Send is re-enabled so the reviewer can retry.
+		expect(getButton('Send',).disabled,).toBe(false,)
+	})
+
+	it('releases the claim and surfaces an error when the perform returns a failure', async () => {
+		removeThing.mockRejectedValueOnce(new Error('nope',),)
+		const claim = vi.fn().mockResolvedValue({ok: true,},)
+		const release = vi.fn()
+		renderWithGate({claim, release,},)
+
+		await selectReasonAndSend()
+
+		expect(claim,).toHaveBeenCalledOnce()
+		expect(removeThing,).toHaveBeenCalledWith('t3_post', false,)
+		expect(release,).toHaveBeenCalledOnce()
+		expect(container.textContent,).toContain('failed to remove item',)
+		expect(onClose,).not.toHaveBeenCalled()
+		expect(getButton('Send',).disabled,).toBe(false,)
+	})
+
+	it('releases the claim and recovers when the perform pipeline throws', async () => {
+		// The whole regression: a thrown perform must not leave the overlay stuck or the claim leaked.
+		runInReplay.mockRejectedValueOnce(new Error('boom',),)
+		const claim = vi.fn().mockResolvedValue({ok: true,},)
+		const release = vi.fn()
+		renderWithGate({claim, release,},)
+
+		await selectReasonAndSend()
+
+		expect(claim,).toHaveBeenCalledOnce()
+		expect(release,).toHaveBeenCalledOnce()
+		expect(container.textContent,).toContain('failed to remove item',)
+		expect(onClose,).not.toHaveBeenCalled()
+		// Not stuck: Send is usable again.
+		expect(getButton('Send',).disabled,).toBe(false,)
+	})
+
+	it('performs and closes without releasing the claim on success', async () => {
+		const claim = vi.fn().mockResolvedValue({ok: true,},)
+		const release = vi.fn()
+		renderWithGate({claim, release,},)
+
+		await selectReasonAndSend()
+
+		expect(claim,).toHaveBeenCalledOnce()
+		expect(removeThing,).toHaveBeenCalledWith('t3_post', false,)
+		expect(release,).not.toHaveBeenCalled()
+		expect(onClose,).toHaveBeenCalledOnce()
+	})
+
+	it('ignores a second concurrent submit (synchronous re-entrancy guard)', async () => {
+		const claim = vi.fn().mockResolvedValue({ok: true,},)
+		const release = vi.fn()
+		renderWithGate({claim, release,},)
+
+		await act(async () => {
+			container.querySelector<HTMLInputElement>('input[aria-label="Select removal reason 1"]',)!.click()
+			const send = getButton('Send',)
+			send.click()
+			send.click()
+		},)
+
+		// Without the ref guard the second click would pass the still-false `saving` state and
+		// claim/perform a second time.
+		expect(claim,).toHaveBeenCalledOnce()
+		expect(removeThing,).toHaveBeenCalledOnce()
 	})
 })

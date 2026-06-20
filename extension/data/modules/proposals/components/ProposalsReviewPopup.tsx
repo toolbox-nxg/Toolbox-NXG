@@ -368,34 +368,35 @@ function ProposalsReviewPopup ({currentSubreddit, onClose,}: Props,) {
 			...(intent.ban
 				? {ban: {permanent: intent.ban.permanent, days: intent.ban.days, note: intent.ban.note,},}
 				: {}),
-			bypassCapture: true,
 		}
 		const result = await openRemovalOverlayForProposal({
 			subreddit: at.subreddit,
 			fullname: at.proposal.itemId,
 			isComment: at.proposal.itemKind === 'comment',
 			seededFromIntent: preseed,
-			// Claim the proposal atomically right before the overlay performs the removal -
-			// the same compare-and-set the plain Accept path uses - so two reviewers editing
+			// Claim/release gate: passing it puts the overlay in direct-perform mode (never
+			// re-capturing) and brackets the perform with the claim, so two reviewers editing
 			// the same proposal can't both perform it. The claim is placed at perform time
 			// (not when the overlay opens), so an in-progress edit never holds it.
-			beforePerform: async () => {
-				const claim = await claimProposalForReplay(at.subreddit, at.proposal.id, currentUser,)
-				if (claim.ok) { return {ok: true,} }
-				return {
-					ok: false,
-					message: claim.reason === 'already-resolved'
-						? 'Already resolved by another moderator'
-						: claim.reason === 'in-progress'
-						? 'Another moderator is currently accepting this proposal'
-						: claim.reason === 'irreversible-retry'
-						? 'A previous attempt already applied part of this action; resolve it manually instead.'
-						: 'Could not start the accept; the proposal may have been resolved.',
-				}
-			},
-			// The removal failed after we claimed; release the claim so it can be retried.
-			onPerformError: () => {
-				void releaseProposalClaim(at.subreddit, at.proposal.id, currentUser,)
+			acceptGate: {
+				claim: async () => {
+					const claim = await claimProposalForReplay(at.subreddit, at.proposal.id, currentUser,)
+					if (claim.ok) { return {ok: true,} }
+					return {
+						ok: false,
+						message: claim.reason === 'already-resolved'
+							? 'Already resolved by another moderator'
+							: claim.reason === 'in-progress'
+							? 'Another moderator is currently accepting this proposal'
+							: claim.reason === 'irreversible-retry'
+							? 'A previous attempt already applied part of this action; resolve it manually instead.'
+							: 'Could not start the accept; the proposal may have been resolved.',
+					}
+				},
+				// The removal failed after we claimed; release the claim so it can be retried.
+				release: () => {
+					void releaseProposalClaim(at.subreddit, at.proposal.id, currentUser,)
+				},
 			},
 			onAccepted: () => {
 				void finalizeEditAccept(at,)

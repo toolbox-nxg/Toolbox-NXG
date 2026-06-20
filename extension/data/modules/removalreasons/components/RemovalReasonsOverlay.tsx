@@ -24,6 +24,7 @@ import {Window,} from '../../../shared/window/Window'
 import {positiveTextFeedback,} from '../../../store/feedback'
 import {replaceTokens,} from '../../../util/data/string'
 import {runInReplay,} from '../../../util/infra/captureGuard'
+import createLogger from '../../../util/infra/logging'
 import {getCache, setCache,} from '../../../util/persistence/cache'
 import {classes, mountPopup,} from '../../../util/ui/reactMount'
 import type {
@@ -65,11 +66,32 @@ import css from './RemovalReasonsOverlay.module.css'
 import {SortableReasonCard,} from './SortableReasonCard'
 
 /**
+ * The claim/release gate for Edit & Accept. Bundling both halves in one object means a
+ * caller cannot supply a claim without its matching release. When an overlay receives an
+ * `acceptGate` it performs the removal directly (never re-capturing it) and brackets the
+ * perform with {@link claim}/{@link release}; its absence means a normal removal.
+ */
+export interface RemovalAcceptGate {
+	/**
+	 * Atomic gate run immediately before the removal is performed, so two reviewers
+	 * accepting the same proposal can't both perform it. Returns `{ok: false, message}` to
+	 * abort the perform (the message is shown as the overlay status).
+	 */
+	claim: () => Promise<{ok: true} | {ok: false; message: string}>
+	/**
+	 * Called when the removal fails (returned error OR thrown) *after* {@link claim}
+	 * succeeded, so the caller can release the claim and allow a retry.
+	 */
+	release: () => void
+}
+
+/**
  * Pre-fill for re-opening the overlay to accept-with-edit a captured proposal. Mirrors
  * the structured fields of a `FrozenRemovalIntent` (minus the composed text/subject) so
  * the reviewer sees exactly what the trainee selected and can adjust any of it. When
- * present, the overlay seeds its state from this instead of the configured defaults and
- * suppresses re-capture (`bypassCapture`).
+ * present, the overlay seeds its state from this instead of the configured defaults.
+ * Seeding the form is independent of perform mode: the direct-perform behavior is driven
+ * by {@link RemovalReasonsOverlayProps.acceptGate}, not by this pre-seed.
  */
 export interface RemovalReasonsOverlayPreseed {
 	/** Selected reasons (persistent id + resolved body) in display order. */
@@ -91,8 +113,6 @@ export interface RemovalReasonsOverlayPreseed {
 	usernote?: {text: string; type?: string; includeLink?: boolean; includeMessage?: boolean}
 	/** Ban to issue (presence ⇒ issue a ban). */
 	ban?: {permanent: boolean; days: number; note: string}
-	/** When true, the overlay performs the removal directly and never re-captures it. */
-	bypassCapture?: boolean
 }
 
 /** Props for the RemovalReasonsOverlay component. */
@@ -114,27 +134,24 @@ interface RemovalReasonsOverlayProps {
 	usernoteRequire?: UsernoteRequireFlags
 	/**
 	 * Pre-fill captured from a proposal, for Edit & Accept. When set, the overlay seeds
-	 * its selection/usernote/ban/delivery from it and performs the removal directly.
+	 * its selection/usernote/ban/delivery from it. Direct-perform mode is driven by
+	 * {@link acceptGate}, not by the presence of this pre-seed.
 	 */
 	seededFromIntent?: RemovalReasonsOverlayPreseed
 	/**
-	 * For Edit & Accept (`bypassCapture`): an atomic gate run immediately before the
-	 * removal is performed, so two reviewers accepting the same proposal can't both
-	 * perform it. Returns `{ok: false, message}` to abort the perform (the message is
-	 * shown as the overlay status); omit for non-accept removals.
+	 * For Edit & Accept: the claim/release gate. When present, the overlay performs the
+	 * removal directly (never re-capturing it as a new proposal) and brackets the perform
+	 * with the claim so two reviewers can't both apply it. Omit for normal removals.
 	 */
-	beforePerform?: () => Promise<{ok: true} | {ok: false; message: string}>
-	/**
-	 * For Edit & Accept: called when the removal fails *after* {@link beforePerform}
-	 * claimed the proposal, so the caller can release the claim and allow a retry.
-	 */
-	onPerformError?: () => void
+	acceptGate?: RemovalAcceptGate
 	/** Called after a successful removal, before the overlay closes. */
 	onRemoved?: () => void
 	onClose: () => void
 }
 
 export type {RemovalReasonsDisplayMode,}
+
+const log = createLogger('RemovalOverlay',)
 
 const drawerWidthPx = 420
 const drawerPushMediaQuery = '(min-width: 900px)'
@@ -167,8 +184,7 @@ export function RemovalReasonsOverlay ({
 	settings,
 	usernoteRequire = {type: false, text: true, link: false,},
 	seededFromIntent,
-	beforePerform,
-	onPerformError,
+	acceptGate,
 	onRemoved,
 	onClose,
 }: RemovalReasonsOverlayProps,) {
@@ -305,6 +321,13 @@ export function RemovalReasonsOverlay ({
 	const [status, setStatus,] = useState('',)
 	const [errorFields, setErrorFields,] = useState<Set<string>>(new Set(),)
 	const [saving, setSaving,] = useState(false,)
+	/**
+	 * Synchronous re-entrancy guard for the async submit handlers. `saving` (React state)
+	 * only updates on the next render, so two clicks in the same tick could both pass an
+	 * `if (saving)` check; this ref flips immediately and is cleared in each handler's
+	 * `finally`.
+	 */
+	const savingRef = useRef(false,)
 	const [reasonOverrides, setReasonOverrides,] = useState<Map<string, string>>(() =>
 		new Map(seeded?.overrides ?? [],)
 	)
@@ -567,7 +590,8 @@ export function RemovalReasonsOverlay ({
 	const clearErrors = () => setErrorFields(new Set(),)
 
 	const handleNoReason = async () => {
-		if (saving) { return }
+		if (savingRef.current) { return }
+		savingRef.current = true
 		setSaving(true,)
 		setStatus(statusDefaultText,)
 		const ctx = {
@@ -576,13 +600,25 @@ export function RemovalReasonsOverlay ({
 			itemKind: (data.kind === 'comment' ? 'comment' : 'post') as 'comment' | 'post',
 			link: data.url,
 		}
+		// Whether we hold an accept claim that must be released if the perform fails. Only set
+		// after a successful claim, so a throw out of claim() (the CAS never committed) leaves
+		// it false and we don't release a claim we never placed.
+		let claimed = false
 		try {
 			// On the accept surface (Edit-&-Accept) always perform the removal - never
 			// re-capture it as a new proposal, even if the accepting reviewer is themselves
 			// a trainee in this subreddit (which would otherwise orphan the original
-			// proposal and create a duplicate).
-			if (seededFromIntent?.bypassCapture) {
+			// proposal and create a duplicate). Claim first so two reviewers can't both
+			// silently-remove the same proposal.
+			if (acceptGate) {
+				const gate = await acceptGate.claim()
+				if (!gate.ok) {
+					setStatus(gate.message,)
+					return
+				}
+				claimed = true
 				await performRemoval(ctx, false,)
+				claimed = false
 			} else {
 				const outcome = await proposeOrRemove(ctx, false,)
 				if (outcome === 'captured') {
@@ -594,9 +630,13 @@ export function RemovalReasonsOverlay ({
 			requestCounterRefresh()
 			onRemoved?.()
 			onClose()
-		} catch {
+		} catch (err) {
+			log.error('silent removal failed', err,)
 			setStatus(removeError,)
+		} finally {
+			if (claimed) { acceptGate?.release() }
 			setSaving(false,)
+			savingRef.current = false
 		}
 	}
 
@@ -695,70 +735,88 @@ export function RemovalReasonsOverlay ({
 	})
 
 	const handleSave = async () => {
-		if (saving) { return }
+		if (savingRef.current) { return }
+		savingRef.current = true
 		clearErrors()
 		setStatus(statusDefaultText,)
 		const composed = composeParams()
-		if (!composed) { return }
+		if (!composed) {
+			savingRef.current = false
+			return
+		}
 		const {params, selection,} = composed
 
 		setSaving(true,)
-		// A reviewer accepting an edited proposal performs the removal directly; never
-		// re-capture it as a new proposal (the overlay is the accept surface here).
-		if (!seededFromIntent?.bypassCapture) {
-			// Training mode: capture the fully-composed removal as a proposal for review
-			// instead of performing it (freezeRemovalParams snapshots the resolved intent).
-			const captured = await maybePropose(
-				{type: 'removal-reason', intent: freezeRemovalParams(params, selection,),},
-				proposalCtx(false,),
-			)
-			if (captured) {
-				setSaving(false,)
-				positiveTextFeedback('Removal sent for review',)
+		// Whether we hold an accept claim that must be released if the perform fails (returned
+		// error OR thrown). Only set after a successful claim, so a throw out of claim() - whose
+		// CAS never committed - leaves it false and we don't release a claim we never placed.
+		let claimed = false
+		try {
+			if (!acceptGate) {
+				// Training mode: capture the fully-composed removal as a proposal for review
+				// instead of performing it (freezeRemovalParams snapshots the resolved intent).
+				const captured = await maybePropose(
+					{type: 'removal-reason', intent: freezeRemovalParams(params, selection,),},
+					proposalCtx(false,),
+				)
+				if (captured) {
+					positiveTextFeedback('Removal sent for review',)
+					onClose()
+					return
+				}
+			} else {
+				// Edit & Accept: claim the proposal in one atomic write before performing, so a
+				// second reviewer accepting the same proposal can't double-apply the removal.
+				const gate = await acceptGate.claim()
+				if (!gate.ok) {
+					setStatus(gate.message,)
+					return
+				}
+				claimed = true
+			}
+
+			// Perform path: either a non-trainee, or a trainee whose sub doesn't guard
+			// `removal-reason`. Run the whole composite pipeline (its inner removeThing + message
+			// primitives) in an authorized replay window so the fail-closed capture backstop lets
+			// it through regardless of whether plain `remove` is independently guarded. The accept
+			// surface likewise performs here. A no-op authorization for non-trainees.
+			const result = await runInReplay(() => submitRemoval(params, setStatus,))
+
+			if (result.ok) {
+				claimed = false // success: keep the claim consumed, never release it
+				requestCounterRefresh()
+				onRemoved?.()
 				onClose()
-				return
+			} else {
+				// claimed stays true ⇒ the finally releases it so this failed accept doesn't
+				// block a retry (a no-op for non-accept removals, which have no gate).
+				if (result.errorField) { setError(result.errorField,) }
+				setStatus(result.error,)
 			}
-		} else if (beforePerform) {
-			// Edit & Accept: claim the proposal in one atomic write before performing, so a
-			// second reviewer accepting the same proposal can't double-apply the removal.
-			const gate = await beforePerform()
-			if (!gate.ok) {
-				setSaving(false,)
-				setStatus(gate.message,)
-				return
-			}
-		}
-
-		// Perform path: either a non-trainee, or a trainee whose sub doesn't guard
-		// `removal-reason`. Run the whole composite pipeline (its inner removeThing + message
-		// primitives) in an authorized replay window so the fail-closed capture backstop lets
-		// it through regardless of whether plain `remove` is independently guarded. The accept
-		// surface (bypassCapture) likewise performs here. A no-op authorization for non-trainees.
-		const result = await runInReplay(() => submitRemoval(params, setStatus,))
-
-		if (result.ok) {
+		} catch (err) {
+			// maybePropose / claim / submitRemoval threw: surface an error and let the finally
+			// reset `saving` and release any held claim instead of leaving the overlay stuck.
+			log.error('removal perform failed', err,)
+			setStatus(removeError,)
+		} finally {
+			if (claimed) { acceptGate?.release() }
 			setSaving(false,)
-			requestCounterRefresh()
-			onRemoved?.()
-			onClose()
-		} else {
-			setSaving(false,)
-			// Release any claim placed by beforePerform so this failed accept doesn't block a
-			// retry (a no-op for non-accept removals, which pass no handler).
-			onPerformError?.()
-			if (result.errorField) { setError(result.errorField,) }
-			setStatus(result.error,)
+			savingRef.current = false
 		}
 	}
 
 	/** Explicitly captures the composed removal for a second opinion (force review),
 	 *  even when the current moderator is not in training mode. */
 	const handleRequestReview = async () => {
-		if (saving) { return }
+		if (savingRef.current) { return }
+		savingRef.current = true
 		clearErrors()
 		setStatus(statusDefaultText,)
 		const composed = composeParams()
-		if (!composed) { return }
+		if (!composed) {
+			savingRef.current = false
+			return
+		}
 		const {params, selection,} = composed
 
 		setSaving(true,)
@@ -770,8 +828,10 @@ export function RemovalReasonsOverlay ({
 			positiveTextFeedback('Sent for a second opinion',)
 			onClose()
 		} catch {
-			setSaving(false,)
 			setStatus('Could not send for review',)
+		} finally {
+			savingRef.current = false
+			setSaving(false,)
 		}
 	}
 
@@ -841,7 +901,7 @@ export function RemovalReasonsOverlay ({
 				{status}
 			</span>
 			<ActionButton primary onClick={handleSave} disabled={saving || usernoteRequirementUnmet}>Send</ActionButton>
-			{!seededFromIntent?.bypassCapture && (
+			{!acceptGate && (
 				<ActionButton
 					onClick={handleRequestReview}
 					disabled={saving || usernoteRequirementUnmet}

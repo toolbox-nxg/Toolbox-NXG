@@ -25,7 +25,11 @@ import {getConfig,} from '../config/moduleapi'
 import {proposeOrRemove,} from '../shared/proposals/gateway'
 import {resolveUsernoteRequirements, subUsernoteRequireFromConfig,} from '../shared/usernotes/requireRules'
 import {MountEffect,} from './components/MountEffect'
-import {type RemovalReasonsOverlayPreseed, showRemovalReasonsOverlay,} from './components/RemovalReasonsOverlay'
+import {
+	type RemovalAcceptGate,
+	type RemovalReasonsOverlayPreseed,
+	showRemovalReasonsOverlay,
+} from './components/RemovalReasonsOverlay'
 import {getRemovalReasons,} from './moduleapi'
 import {setRemovalOverlayOpener,} from './overlayOpener'
 import {
@@ -138,9 +142,9 @@ const inertOverlaySettings: RemovalReasonsOverlaySettings = {
 /**
  * Opens the removal-reasons overlay off-page to **accept-with-edit** a captured proposal:
  * re-fetches the thing + the subreddit's reasons, seeds the overlay from the proposal's
- * captured selection/usernote/ban/delivery, and performs the removal directly (the
- * overlay's `bypassCapture` prevents re-capturing it). `onAccepted` fires after a
- * successful removal so the caller can mark the proposal accepted.
+ * captured selection/usernote/ban/delivery, and performs the removal directly (passing an
+ * `acceptGate` puts the overlay in direct-perform mode and prevents re-capturing it).
+ * `onAccepted` fires after a successful removal so the caller can mark the proposal accepted.
  * @returns `{ok:true, close}` when the overlay opened, or a typed failure.
  */
 export async function openRemovalOverlayForProposal ({
@@ -148,18 +152,15 @@ export async function openRemovalOverlayForProposal ({
 	fullname,
 	isComment,
 	seededFromIntent,
-	beforePerform,
-	onPerformError,
+	acceptGate,
 	onAccepted,
 }: {
 	subreddit: string
 	fullname: string
 	isComment: boolean
 	seededFromIntent: RemovalReasonsOverlayPreseed
-	/** Atomic gate run just before the removal performs (see the overlay prop of the same name). */
-	beforePerform?: () => Promise<{ok: true} | {ok: false; message: string}>
-	/** Called when the removal fails after {@link beforePerform} claimed the proposal. */
-	onPerformError?: () => void
+	/** Claim/release gate placing the overlay in direct-perform mode (see the overlay prop). */
+	acceptGate?: RemovalAcceptGate
 	onAccepted: () => void
 },): Promise<{ok: true; close: () => void} | {ok: false; reason: 'no-reasons' | 'error'}> {
 	let info: any
@@ -197,8 +198,7 @@ export async function openRemovalOverlayForProposal ({
 		visibleReasons,
 		settings: inertOverlaySettings,
 		seededFromIntent,
-		...(beforePerform ? {beforePerform,} : {}),
-		...(onPerformError ? {onPerformError,} : {}),
+		...(acceptGate ? {acceptGate,} : {}),
 		onRemoved: onAccepted,
 	},)
 	return {ok: true, close,}
