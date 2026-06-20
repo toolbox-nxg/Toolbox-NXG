@@ -29,5 +29,5 @@ export function navigateToSubredditPage (
 	subreddit: string,
 	page: 'banned' | 'muted' | 'flair',
 ): void {
-	window.location.href = `https://www.reddit.com/r/${subreddit}/about/${page}/`
+	window.location.href = `https://www.reddit.com/r/${encodeURIComponent(subreddit,)}/about/${page}/`
 }

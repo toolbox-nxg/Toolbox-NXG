@@ -60,7 +60,10 @@ function formatTimestamp (time: number,): string {
 }
 
 function getWikiUrl (subreddit: string, notePrefix: string, slug: string,): string {
-	return `/r/${subreddit}/wiki/${notePrefix}${slug}`
+	// Encode the dynamic segments so untrusted text (the subreddit can derive from the page URL)
+	// can't break out of the path or inject a different URL. notePrefix is a trusted constant that
+	// intentionally contains path separators, so it is left intact.
+	return `/r/${encodeURIComponent(subreddit,)}/wiki/${notePrefix}${encodeURIComponent(slug,)}`
 }
 
 /**

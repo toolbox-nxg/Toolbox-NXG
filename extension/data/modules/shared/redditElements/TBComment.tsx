@@ -51,8 +51,19 @@ export function TBComment ({comment, options = {}, subredditColorSalt,}: TBComme
 	let parentBlock: React.ReactNode = null
 	if (options.overviewData) {
 		let linkUrl = c.link_url
-		if (linkUrl?.startsWith('https://old.reddit.com',)) {
-			linkUrl = link(linkUrl.replace('https://old.reddit.com', '',),)
+		// Rewrite absolute old.reddit.com links to relative so they stay in-context. Compare the
+		// parsed hostname exactly - a `startsWith('https://old.reddit.com')` prefix check also
+		// matches lookalike hosts (`old.reddit.com.evil.com`, `old.reddit.com@evil.com`) and would
+		// leave an attacker-controlled remainder in the href.
+		if (linkUrl) {
+			try {
+				const parsed = new URL(linkUrl,)
+				if (parsed.hostname === 'old.reddit.com') {
+					linkUrl = link(parsed.pathname + parsed.search + parsed.hash,)
+				}
+			} catch {
+				// Not a parseable absolute URL (e.g. already relative); leave it untouched.
+			}
 		}
 		parentBlock = (
 			<div className="toolbox-parent">

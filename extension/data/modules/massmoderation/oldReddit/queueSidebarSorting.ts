@@ -87,7 +87,7 @@ export function createSidebarSortHandlers () {
 
 						if (elem.parentElement) {
 							const countA = document.createElement('a',)
-							countA.href = link(`/r/${sr}/about/${page}`,)
+							countA.href = link(`/r/${encodeURIComponent(sr,)}/about/${page}`,)
 							countA.setAttribute('count', String(data[0],),)
 							countA.className = 'toolbox-subreddit-item-count'
 							countA.textContent = String(data[0],)
@@ -107,7 +107,9 @@ export function createSidebarSortHandlers () {
 									`[${items},${new Date().valueOf()}]`,
 								)
 								;(getSubscriptionBox()?.querySelectorAll(
-									`a[href$="/r/${subName}/about/${page}"]`,
+									// Keep this suffix in sync with the encoded href written above so the
+									// selector still matches the anchor we created for this subreddit.
+									`a[href$="/r/${encodeURIComponent(subName,)}/about/${page}"]`,
 								) ?? []).forEach((a: Element,) => {
 									a.textContent = String(d.data.children.length,)
 									a.setAttribute('count', String(d.data.children.length,),)

@@ -17,14 +17,14 @@ describe('matchesGlob', () => {
 	})
 
 	it('escapes regex metacharacters in the literal parts', () => {
-		expect(matchesGlob('a.b.com', 'a.b.com',),).toBe(true,)
-		expect(matchesGlob('axbxcom', 'a.b.com',),).toBe(false,)
+		expect(matchesGlob('a.b.com', 'a.b.com',),).toBe(true,) // codeql[js/incomplete-hostname-regexp] -- test fixture; matchesGlob escapes the dot (matching.ts:17)
+		expect(matchesGlob('axbxcom', 'a.b.com',),).toBe(false,) // codeql[js/incomplete-hostname-regexp] -- this very assertion proves the dot is escaped, not a wildcard
 	})
 })
 
 describe('findTagForDomain', () => {
 	it('prefers an exact match over glob and suffix', () => {
-		const tags = [tag('*.imgur.com',), tag('imgur.com',), tag('i.imgur.com',),]
+		const tags = [tag('*.imgur.com',), tag('imgur.com',), tag('i.imgur.com',),] // codeql[js/incomplete-hostname-regexp] -- test fixture; matchesGlob escapes the dot (matching.ts:17)
 		expect(findTagForDomain('i.imgur.com', tags,)?.name,).toBe('i.imgur.com',)
 	})
 
@@ -40,12 +40,12 @@ describe('findTagForDomain', () => {
 	it('matches a legacy www-prefixed tag against the now-www-less lookup domain', () => {
 		// A tag created on Shreddit before domains were normalized may be stored as `www.example.com`;
 		// the www-less lookup must still find it (and increment its stat counters).
-		expect(findTagForDomain('example.com', [tag('www.example.com',),],)?.name,).toBe('www.example.com',)
+		expect(findTagForDomain('example.com', [tag('www.example.com',),],)?.name,).toBe('www.example.com',) // codeql[js/incomplete-hostname-regexp] -- test fixture; matchesGlob escapes the dot (matching.ts:17)
 	})
 
 	it('does not broaden a www-prefixed tag to subdomains of the bare domain', () => {
 		// `www.imgur.com` should match only `imgur.com` (its www-less self), not `i.imgur.com`.
-		expect(findTagForDomain('i.imgur.com', [tag('www.imgur.com',),],),).toBeNull()
-		expect(findTagForDomain('imgur.com', [tag('www.imgur.com',),],)?.name,).toBe('www.imgur.com',)
+		expect(findTagForDomain('i.imgur.com', [tag('www.imgur.com',),],),).toBeNull() // codeql[js/incomplete-hostname-regexp] -- test fixture; matchesGlob escapes the dot (matching.ts:17)
+		expect(findTagForDomain('imgur.com', [tag('www.imgur.com',),],)?.name,).toBe('www.imgur.com',) // codeql[js/incomplete-hostname-regexp] -- test fixture; matchesGlob escapes the dot (matching.ts:17)
 	})
 })
