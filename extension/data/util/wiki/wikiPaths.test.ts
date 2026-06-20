@@ -109,16 +109,23 @@ describe('resolveWikiLayout', () => {
 		)
 	})
 
-	it('falls open and resolves normally when the mod-status lookup throws', async () => {
-		// A transient isModSub failure must never hide a real moderator's config.
+	it('fails closed to notModerated (no reads) when the mod-status lookup throws', async () => {
+		// A transient isModSub failure must not read mod-only wiki pages at a sub the viewer
+		// may not moderate (which 403 and trips a false training-mode icon downstream).
 		mockWikiPages({'toolbox-nxg': {'Toolbox.Utils.compatibilityWrites': true,},},)
 		isModSub.mockRejectedValue(new Error('network',),)
 
 		const layout = await resolveWikiLayout('sub',)
 
-		expect(layout,).toMatchObject({state: 'nxg', compatibilityWrites: true,},)
-		expect(layout.notModerated,).toBeUndefined()
-		expect(readFromWiki,).toHaveBeenCalledWith('sub', 'toolbox-nxg', true,)
+		expect(layout,).toMatchObject({state: 'nxg', compatibilityWrites: false, notModerated: true,},)
+		// No wiki reads fired for a sub whose mod status we couldn't confirm.
+		expect(readFromWiki,).not.toHaveBeenCalled()
+		// Not cached, so the next resolution retries once the mod-subs list recovers.
+		expect(setCache,).not.toHaveBeenCalledWith(
+			'utils',
+			'wikiLayoutCache',
+			expect.objectContaining({sub: expect.anything(),},),
+		)
 	})
 
 	it('with allowNonModerated, classifies a non-mod sub with no legacy pages as nxg after probing usernotes', async () => {

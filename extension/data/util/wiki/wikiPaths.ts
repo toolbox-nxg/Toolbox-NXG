@@ -134,17 +134,24 @@ async function doResolveWikiLayout (
 	// `legacyFallback/notMod` entries left by older builds. `isModSub` is in-memory
 	// cached after its first call, so this costs nothing on subsequent resolutions.
 	if (!options.allowNonModerated) {
-		let moderates = true // fail-open on lookup error: never hide a real mod's config
+		const notModerated: WikiLayout = {subreddit, state: 'nxg', compatibilityWrites: false, notModerated: true,}
+		let moderates: boolean
 		try {
 			moderates = await isModSub(subreddit,)
 		} catch (error) {
-			log.warn(`Could not determine mod status for /r/${subreddit}; resolving normally:`, error,)
+			// Mod-status lookup failed: we can't tell whether the viewer moderates this sub.
+			// Fail closed - never read mod-only wiki pages at a sub the viewer may not mod,
+			// which 403 and would surface as a spurious read error (and, via the trainee
+			// path, a false training-mode icon). Returned WITHOUT caching so the next
+			// resolution retries once the mod-subs list recovers, rather than hiding a real
+			// mod's config for the rest of the session.
+			log.warn(`Could not determine mod status for /r/${subreddit}; treating as not moderated:`, error,)
+			return notModerated
 		}
 		if (!moderates) {
-			const layout: WikiLayout = {subreddit, state: 'nxg', compatibilityWrites: false, notModerated: true,}
 			// Session-only: getting modded later re-resolves on the next page session.
-			await setCachedWikiLayout(layout, false,)
-			return layout
+			await setCachedWikiLayout(notModerated, false,)
+			return notModerated
 		}
 	}
 
