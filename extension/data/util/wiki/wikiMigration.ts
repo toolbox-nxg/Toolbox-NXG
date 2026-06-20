@@ -393,7 +393,7 @@ export async function migrateSubredditToNxg (
 	}
 
 	let index: SubredditNoteIndex | null
-	let writeIndex = true
+	let writeIndex: boolean
 	if (storedNxgIndex && legacyIndex) {
 		const merged = mergeLegacyIndex(storedNxgIndex, legacyIndex,)
 		index = merged.index

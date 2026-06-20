@@ -17,7 +17,7 @@ export async function getUserInfo (user: string,): Promise<UserInfo> {
 }
 
 // Matches http(s) URLs; excludes trailing punctuation that isn't part of the URL.
-const urlRegex = /https?:\/\/[^\s\])"()\[\]<>]+/g
+const urlRegex = /https?:\/\/[^\s"()\[\]<>]+/g
 
 function extractExternalLinkDomains (text: string,): string[] {
 	const matches = text.match(urlRegex,) ?? []

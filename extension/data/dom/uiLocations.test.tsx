@@ -1,7 +1,5 @@
 /** Tests for renderAtLocation. */
 
-import {act, createElement, useEffect, useReducer,} from 'react'
-import {createRoot,} from 'react-dom/client'
 import {afterEach, beforeEach, describe, expect, it, vi,} from 'vitest'
 
 const mockMountToTarget = vi.hoisted(() => vi.fn(() => vi.fn()))
@@ -259,9 +257,6 @@ describe('renderer subscription', () => {
 	it('renderer added after provideLocation notifies the mounted component', () => {
 		// Use a real subscription listener to verify the notification mechanism
 		// without needing to render React (mountToTarget is mocked).
-		const notified = vi.fn()
-		let unsubscribe: (() => void) | null = null
-
 		mockMountToTarget.mockImplementationOnce((_content: unknown, _target: unknown, _opts: unknown,) => {
 			// Capture the subscription call from the LocationRenderers component
 			// by hooking into the module-level listener registration.

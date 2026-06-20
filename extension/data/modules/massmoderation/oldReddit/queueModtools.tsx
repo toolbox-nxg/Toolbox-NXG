@@ -320,7 +320,7 @@ export function createModtoolsHandlers (
 			let hide = false
 
 			// Reports threshold (not applicable on spam queues)
-			if (!hide && !viewingspam) {
+			if (!viewingspam) {
 				const stamp = getReportedStamp(thing,)
 				if (stamp) {
 					const match = stamp.textContent?.match(/-?\d+/,)

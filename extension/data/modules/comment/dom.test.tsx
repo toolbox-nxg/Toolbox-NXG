@@ -29,9 +29,7 @@ vi.mock('../../util/ui/highlight', () => ({highlight,}),)
 vi.mock('./components/ContextPopup', () => ({showContextPopup,}),)
 vi.mock('./components/FlatViewOverlay', () => ({showFlatViewOverlay,}),)
 
-import {applyHighlight, createFlatViewHandlers, createHighlightHandlers, openCommentContextPopup,} from './dom'
-
-const mockLifecycle = {mount: vi.fn(),} as any
+import {applyHighlight, createFlatViewHandlers, openCommentContextPopup,} from './dom'
 
 beforeEach(() => {
 	document.body.innerHTML = ''

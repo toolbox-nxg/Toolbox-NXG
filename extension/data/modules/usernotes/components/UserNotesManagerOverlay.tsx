@@ -593,10 +593,10 @@ function UserNotesManagerOverlay ({
 								{archivingAvailable && (
 									<div className={css.archivedToggle}>
 										<span>Archived</span>
-										<ToggleGroup<ArchivedMode>
+										<ToggleGroup
 											ariaLabel="Show archived notes"
 											value={prefs.archived ?? 'exclude'}
-											onChange={(archived,) => updatePrefs({archived,},)}
+											onChange={(archived: ArchivedMode,) => updatePrefs({archived,},)}
 											options={[
 												{value: 'exclude', label: 'Hide',},
 												{value: 'include', label: 'Show',},

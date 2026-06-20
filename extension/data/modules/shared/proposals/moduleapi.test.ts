@@ -92,7 +92,6 @@ function fakeWiki () {
 function makeProposal (overrides: Partial<Proposal> = {},): Proposal {
 	const id = overrides.id ?? createProposalId()
 	return {
-		id,
 		itemId: 't3_abc',
 		itemKind: 'post',
 		action: {type: 'remove', spam: false,},

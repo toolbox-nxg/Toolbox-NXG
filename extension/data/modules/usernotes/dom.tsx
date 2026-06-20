@@ -647,7 +647,6 @@ export function createNotesManager ({unManagerLink,}: UserNotesSettings,): Notes
 										message: `Nearing API rate limit. Pausing for ${reset} seconds...`,
 									},)
 									await new Promise((resolve,) => setTimeout(resolve, (reset + 1) * 1000,))
-									rateLimitInfo = await getRatelimit().catch(() => null)
 								}
 							}
 

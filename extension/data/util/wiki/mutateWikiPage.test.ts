@@ -142,7 +142,7 @@ describe('mutateWikiPage', () => {
 	})
 
 	it('skips the write and runs onNoop when the mutator declines', async () => {
-		const wiki = fakeWiki()
+		fakeWiki()
 		const onNoop = vi.fn()
 		const result = await mutateWikiPage(config<string>(
 			() => ({write: false, result: 'noop',}),

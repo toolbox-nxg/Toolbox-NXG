@@ -33,7 +33,7 @@ describe('settingsSlice', () => {
 		getSettings.mockResolvedValue({modbar: {enabled: true,},},)
 		const dispatch = vi.fn()
 
-		await loadSettings()(dispatch, () => ({}), undefined,)
+		await loadSettings()(dispatch,)
 
 		expect(dispatch,).toHaveBeenCalledWith({
 			type: 'settings/settingsLoaded',
@@ -45,7 +45,7 @@ describe('settingsSlice', () => {
 	it('dispatches settings updates from local tbsettings storage changes', async () => {
 		getSettings.mockResolvedValue({},)
 		const dispatch = vi.fn()
-		await loadSettings()(dispatch, () => ({}), undefined,)
+		await loadSettings()(dispatch,)
 		const listener = addListener.mock.calls[0]![0]
 
 		listener({tbsettings: {newValue: {notifier: {enabled: false,},},},}, 'local',)
@@ -63,7 +63,7 @@ describe('settingsSlice', () => {
 		getSettings.mockRejectedValue(new Error('boom',),)
 		const dispatch = vi.fn()
 
-		await loadSettings()(dispatch, () => ({}), undefined,)
+		await loadSettings()(dispatch,)
 
 		expect(logError,).toHaveBeenCalled()
 		expect(dispatch,).toHaveBeenCalledWith({type: 'settings/settingsLoadFailed', payload: undefined,},)
