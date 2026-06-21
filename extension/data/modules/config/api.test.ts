@@ -315,8 +315,8 @@ describe('normalizeConfig', () => {
 		normalizeConfig(configData,)
 
 		expect(configData.ver,).toBe(2,)
-		expect(configData.removalReasons.reasons[0].text,).toBe('Pick {select:r}',)
-		expect(configData.removalReasons.reasons[0].selects,).toEqual([{name: 'r', options: ['a',],},],)
+		expect(configData.removalReasons.reasons[0].text,).toBe('Pick\n\n{choice#r}\n- a',)
+		expect(configData.removalReasons.reasons[0].selects,).toBeUndefined()
 		expect(configData.removalReasons.header,).toBe('hello there',)
 	})
 
@@ -335,8 +335,31 @@ describe('normalizeConfig', () => {
 
 		normalizeConfig(configData,)
 
-		expect(configData.removalReasons.reasons[0].text,).toBe('Pick {select:r}',)
-		expect(configData.removalReasons.reasons[0].selects,).toEqual([{name: 'r', options: ['a',],},],)
+		expect(configData.removalReasons.reasons[0].text,).toBe('Pick\n\n{choice#r}\n- a',)
+		expect(configData.removalReasons.reasons[0].selects,).toBeUndefined()
+	})
+
+	it('migrates the older v2 separate-definitions shape to an inline {choice} block', () => {
+		const configData: any = {
+			ver: 2,
+			removalReasons: {
+				reasons: [{
+					text: 'Pick {select:rule}',
+					selects: [{name: 'rule', prompt: 'Which rule?', options: ['Rule 1', 'Rule 2',],},],
+				},],
+			},
+		}
+
+		normalizeConfig(configData,)
+
+		expect(configData.removalReasons.reasons[0].text,)
+			.toBe('Pick\n\nWhich rule?\n\n{choice#rule}\n- Rule 1\n- Rule 2',)
+		expect(configData.removalReasons.reasons[0].selects,).toBeUndefined()
+
+		// Idempotent: a second normalize leaves the migrated text unchanged.
+		const once = configData.removalReasons.reasons[0].text
+		normalizeConfig(configData,)
+		expect(configData.removalReasons.reasons[0].text,).toBe(once,)
 	})
 
 	it('does not URI-decode v2 configs', () => {
@@ -650,8 +673,7 @@ describe('saveToolboxConfig', () => {
 			removalReasons: {
 				reasons: [{
 					id: 'r1idr1id',
-					text: 'Pick {select:r}',
-					selects: [{name: 'r', options: ['a',],},],
+					text: '{choice#r}\n- a',
 				},],
 			},
 			modMacros: [],
@@ -666,16 +688,14 @@ describe('saveToolboxConfig', () => {
 		const legacyReason = (legacyWrite[2] as any).removalReasons.reasons[0]
 		expect((legacyWrite[2] as any).ver,).toBe(1,)
 		expect(legacyReason.id,).toBeUndefined()
-		expect(legacyReason.selects,).toBeUndefined()
 		// eslint-disable-next-line no-restricted-globals
-		expect(unescape(legacyReason.text,),).toBe('Pick <select id="r"><option>a</option></select>',)
+		expect(unescape(legacyReason.text,),).toBe('<select id="r"><option>a</option></select>',)
 		// The NXG copy keeps the v2 shape untouched.
 		const nxgReason = (nxgWrite[2] as any).removalReasons.reasons[0]
 		expect((nxgWrite[2] as any).ver,).toBe(2,)
 		expect(nxgReason,).toEqual({
 			id: 'r1idr1id',
-			text: 'Pick {select:r}',
-			selects: [{name: 'r', options: ['a',],},],
+			text: '{choice#r}\n- a',
 		},)
 	})
 

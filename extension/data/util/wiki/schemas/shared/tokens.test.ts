@@ -2,11 +2,13 @@
 
 import {describe, expect, it,} from 'vitest'
 import {
+	canonicalizeChoiceBlocks,
 	decodeHtmlAngleBrackets,
 	htmlFieldsToTokens,
 	htmlSimpleFieldsToTokens,
+	inlineSelectDefinitions,
+	type LegacySelectDefinition,
 	parseReasonSegments,
-	type SelectDefinition,
 	serializeToken,
 	substituteTokenValues,
 	tokensToHtmlFields,
@@ -39,54 +41,59 @@ describe('parseReasonSegments', () => {
 		],)
 	})
 
-	it('parses ids, textareas, and select references', () => {
-		const selects: SelectDefinition[] = [
-			{name: 'rule', prompt: 'Which rule?', options: ['Rule 1', 'Rule 2',],},
-		]
-		const segments = parseReasonSegments(
-			'{textarea#details: More details}{select:rule}',
-			selects,
+	it('parses ids and textareas', () => {
+		const segments = parseReasonSegments('{textarea#details: More details}',)
+		expect(segments,).toEqual([
+			{type: 'token', token: {kind: 'textarea', id: 'details', placeholder: 'More details', options: [],},},
+		],)
+	})
+
+	it('parses a choice block with an id, capturing the list below as options', () => {
+		const segments = parseReasonSegments('{choice#rule}\n- Rule 1\n- Rule 2',)
+		expect(segments,).toEqual([
+			{type: 'token', token: {kind: 'choice', id: 'rule', placeholder: '', options: ['Rule 1', 'Rule 2',],},},
+		],)
+	})
+
+	it('parses an id-less choice block', () => {
+		const segments = parseReasonSegments('{choice}\n- a\n- b',)
+		expect(segments,).toEqual([
+			{type: 'token', token: {kind: 'choice', placeholder: '', options: ['a', 'b',],},},
+		],)
+	})
+
+	it('keeps text before and after the block, ending options at the blank line', () => {
+		const segments = parseReasonSegments('Pick a rule:\n\n{choice#r}\n- a\n- b\n\nThanks.',)
+		expect(segments,).toEqual([
+			{type: 'text', text: 'Pick a rule:\n\n',},
+			{type: 'token', token: {kind: 'choice', id: 'r', placeholder: '', options: ['a', 'b',],},},
+			{type: 'text', text: '\n\nThanks.',},
+		],)
+	})
+
+	it('accepts *, +, and ordered list markers for options', () => {
+		const segments = parseReasonSegments('{choice}\n* a\n+ b\n1. c\n2) d',)
+		expect(segments[0],).toEqual(
+			{type: 'token', token: {kind: 'choice', placeholder: '', options: ['a', 'b', 'c', 'd',],},},
 		)
+	})
+
+	it('stops at the first non-list line', () => {
+		const segments = parseReasonSegments('{choice}\n- a\n- b\nnot an option\n- c',)
 		expect(segments,).toEqual([
-			{
-				type: 'token',
-				token: {kind: 'textarea', id: 'details', placeholder: 'More details', options: [],},
-			},
-			{
-				type: 'token',
-				token: {kind: 'select', id: 'rule', placeholder: 'Which rule?', options: ['Rule 1', 'Rule 2',],},
-			},
+			{type: 'token', token: {kind: 'choice', placeholder: '', options: ['a', 'b',],},},
+			{type: 'text', text: '\nnot an option\n- c',},
 		],)
 	})
 
-	it('resolves a select definition without a prompt to an empty placeholder', () => {
-		const segments = parseReasonSegments('{select:rule}', [{name: 'rule', options: ['a', 'b',],},],)
-		expect(segments,).toEqual([
-			{type: 'token', token: {kind: 'select', id: 'rule', placeholder: '', options: ['a', 'b',],},},
-		],)
+	it('leaves a marker with no list line below it as literal text', () => {
+		const segments = parseReasonSegments('{choice#rule}\n\n- a',)
+		expect(segments,).toEqual([{type: 'text', text: '{choice#rule}\n\n- a',},],)
 	})
 
-	it('allows whitespace around the reference name', () => {
-		const segments = parseReasonSegments('{select: rule }', [{name: 'rule', options: ['a',],},],)
-		expect(segments,).toEqual([
-			{type: 'token', token: {kind: 'select', id: 'rule', placeholder: '', options: ['a',],},},
-		],)
-	})
-
-	it('leaves an unresolved select reference in the surrounding text', () => {
-		const segments = parseReasonSegments(
-			'Pick {select:missing} then {input: why}',
-			[{name: 'other', options: ['a',],},],
-		)
-		expect(segments,).toEqual([
-			{type: 'text', text: 'Pick {select:missing} then ',},
-			{type: 'token', token: {kind: 'input', placeholder: 'why', options: [],},},
-		],)
-	})
-
-	it('leaves all select references as text when no definitions are passed', () => {
-		const segments = parseReasonSegments('Pick {select:rule} now',)
-		expect(segments,).toEqual([{type: 'text', text: 'Pick {select:rule} now',},],)
+	it('leaves an inline (not own-line) choice marker as literal text', () => {
+		const segments = parseReasonSegments('Pick {choice#rule} now\n- a',)
+		expect(segments,).toEqual([{type: 'text', text: 'Pick {choice#rule} now\n- a',},],)
 	})
 
 	it('leaves substitution tokens and unknown braces in the text', () => {
@@ -96,46 +103,19 @@ describe('parseReasonSegments', () => {
 		],)
 	})
 
-	it('leaves inline select option syntax as text', () => {
-		const segments = parseReasonSegments('{select: a | b}', [{name: 'a', options: ['x',],},],)
-		expect(segments,).toEqual([{type: 'text', text: '{select: a | b}',},],)
-	})
-
-	it('leaves select tokens with inline ids as text', () => {
-		const segments = parseReasonSegments('{select#choice: a | b}',)
-		expect(segments,).toEqual([{type: 'text', text: '{select#choice: a | b}',},],)
-	})
-
-	it('leaves block select syntax as text', () => {
-		const segments = parseReasonSegments(
-			'{select#rule: Pick the rule that applies}\n'
-				+ '{option} Rule 1 | see [the rules](https://example.com)\n'
-				+ '{option} Rule 2\n'
-				+ '{/select}',
-		)
-		expect(segments,).toEqual([
-			{
-				type: 'text',
-				text: '{select#rule: Pick the rule that applies}\n'
-					+ '{option} Rule 1 | see [the rules](https://example.com)\n'
-					+ '{option} Rule 2\n'
-					+ '{/select}',
-			},
+	it('parses two choice blocks separated by text', () => {
+		const segments = parseReasonSegments('{choice#a}\n- 1\n\nand\n\n{choice#b}\n- 2',)
+		expect(segments.filter((s,) => s.type === 'token'),).toEqual([
+			{type: 'token', token: {kind: 'choice', id: 'a', placeholder: '', options: ['1',],},},
+			{type: 'token', token: {kind: 'choice', id: 'b', placeholder: '', options: ['2',],},},
 		],)
-	})
-
-	it('resolves the same reference name used twice', () => {
-		const selects: SelectDefinition[] = [{name: 'rule', options: ['a', 'b',],},]
-		const segments = parseReasonSegments('{select:rule} and {select:rule}', selects,)
-		expect(segments.filter((s,) => s.type === 'token'),).toHaveLength(2,)
 	})
 })
 
 describe('serializeToken', () => {
-	it('round-trips through parseReasonSegments', () => {
-		const text = '{input#flight: Flight number} and {select:choice} and {textarea: Notes}'
-		const selects: SelectDefinition[] = [{name: 'choice', options: ['Yes', 'No',],},]
-		const reserialized = parseReasonSegments(text, selects,)
+	it('round-trips inline tokens through parseReasonSegments', () => {
+		const text = '{input#flight: Flight number} and {textarea: Notes}'
+		const reserialized = parseReasonSegments(text,)
 			.map((s,) => s.type === 'text' ? s.text : serializeToken(s.token,))
 			.join('',)
 		expect(reserialized,).toBe(text,)
@@ -146,148 +126,103 @@ describe('serializeToken', () => {
 			.toBe('{input: a (b) c}',)
 	})
 
-	it('serializes a select to its reference only', () => {
-		const token = {kind: 'select' as const, id: 'rule', placeholder: 'Pick one', options: ['a', 'b',],}
-		expect(serializeToken(token,),).toBe('{select:rule}',)
+	it('serializes a choice to its marker-and-list block', () => {
+		const token = {kind: 'choice' as const, id: 'rule', placeholder: '', options: ['a', 'b',],}
+		expect(serializeToken(token,),).toBe('{choice#rule}\n- a\n- b',)
+	})
+})
+
+describe('canonicalizeChoiceBlocks', () => {
+	it('surrounds a block with exactly one blank line and is idempotent', () => {
+		const messy = 'Heading\n{choice#r}\n- a\n- b\nBody'
+		const canonical = 'Heading\n\n{choice#r}\n- a\n- b\n\nBody'
+		expect(canonicalizeChoiceBlocks(messy,),).toBe(canonical,)
+		expect(canonicalizeChoiceBlocks(canonical,),).toBe(canonical,)
+	})
+
+	it('leaves text with no choice block untouched', () => {
+		const text = 'Just {input: why} and a\n\n\ntriple gap'
+		expect(canonicalizeChoiceBlocks(text,),).toBe(text,)
 	})
 })
 
 describe('substituteTokenValues', () => {
 	it('replaces tokens with values in document order', () => {
-		const text = 'Pick {select:choice}, write {input: x}, done'
-		const selects: SelectDefinition[] = [{name: 'choice', options: ['a', 'b',],},]
-		expect(substituteTokenValues(text, ['B', 'hello',], selects,),).toBe('Pick B, write hello, done',)
+		const text = 'Pick:\n\n{choice}\n- a\n- b\n\nwrite {input: x}, done'
+		expect(substituteTokenValues(text, ['B', 'hello',],),).toBe('Pick:\n\nB\n\nwrite hello, done',)
 	})
 
 	it('uses empty string for missing values and keeps substitution tokens', () => {
 		expect(substituteTokenValues('{input: x} {author}', [],),).toBe(' {author}',)
 	})
-
-	it('never substitutes an unresolved select reference', () => {
-		expect(substituteTokenValues('Pick {select:missing} and {input: x}', ['typed',],),)
-			.toBe('Pick {select:missing} and typed',)
-	})
-
-	it('does not substitute inline select syntax', () => {
-		expect(substituteTokenValues('Pick {select: a | b} and {input: x}', ['b', 'typed',],),)
-			.toBe('Pick {select: a | b} and b',)
-	})
-
-	it('does not substitute block select syntax', () => {
-		const text = 'Pick:\n\n{select: Why?}\n{option} a\n{option} b\n{/select}\n\ndone'
-		expect(substituteTokenValues(text, ['b',],),).toBe(text,)
-	})
 })
 
 describe('htmlFieldsToTokens', () => {
-	it('extracts a select with an id into a definition and leaves a reference', () => {
-		expect(
-			htmlFieldsToTokens('Pick: <select id="rule"><option>Rule 1</option><option>Rule 2</option></select>',),
-		).toEqual({
-			text: 'Pick: {select:rule}',
-			selects: [{name: 'rule', options: ['Rule 1', 'Rule 2',],},],
-		},)
+	it('rewrites a select with an id into an inline choice block', () => {
+		const html = 'Pick: <select id="rule"><option>Rule 1</option><option>Rule 2</option></select>'
+		expect(canonicalizeChoiceBlocks(htmlFieldsToTokens(html,),),)
+			.toBe('Pick:\n\n{choice#rule}\n- Rule 1\n- Rule 2',)
 	})
 
-	it('numbers id-less selects sequentially in document order', () => {
-		expect(
-			htmlFieldsToTokens(
-				'<select><option>a</option></select> then <select><option>b</option></select>',
-			),
-		).toEqual({
-			text: '{select:select-1} then {select:select-2}',
-			selects: [
-				{name: 'select-1', options: ['a',],},
-				{name: 'select-2', options: ['b',],},
-			],
-		},)
+	it('drops a missing or non-slug-safe id to a bare choice', () => {
+		expect(canonicalizeChoiceBlocks(htmlFieldsToTokens('<select><option>a</option></select>',),),)
+			.toBe('{choice}\n- a',)
+		expect(canonicalizeChoiceBlocks(htmlFieldsToTokens('<select id="not valid!"><option>a</option></select>',),),)
+			.toBe('{choice}\n- a',)
 	})
 
-	it('skips a generated number only when that name is taken', () => {
-		const existing: SelectDefinition[] = [{name: 'select-1', options: ['x',],},]
-		expect(
-			htmlFieldsToTokens('<select><option>a</option></select>', existing,),
-		).toEqual({
-			text: '{select:select-2}',
-			selects: [{name: 'select-2', options: ['a',],},],
-		},)
-	})
-
-	it('falls back to numbering when the id is taken or not slug-safe', () => {
-		const result = htmlFieldsToTokens(
-			'<select id="rule"><option>a</option></select>'
-				+ '<select id="rule"><option>b</option></select>'
-				+ '<select id="not valid!"><option>c</option></select>',
-		)
-		expect(result,).toEqual({
-			text: '{select:rule}{select:select-1}{select:select-2}',
-			selects: [
-				{name: 'rule', options: ['a',],},
-				{name: 'select-1', options: ['b',],},
-				{name: 'select-2', options: ['c',],},
-			],
-		},)
-	})
-
-	it('recovers the prompt from a label attribute, omitting it when absent', () => {
-		const result = htmlFieldsToTokens(
-			'<select id="r" label="Pick one"><option>a</option></select>',
-		)
-		expect(result.selects,).toEqual([{name: 'r', prompt: 'Pick one', options: ['a',],},],)
-		const bare = htmlFieldsToTokens('<select id="r"><option>a</option></select>',)
-		expect(bare.selects[0],).not.toHaveProperty('prompt',)
+	it('turns a label attribute into a markdown line above the block', () => {
+		const html = '<select id="r" label="Pick one"><option>a</option></select>'
+		expect(canonicalizeChoiceBlocks(htmlFieldsToTokens(html,),),)
+			.toBe('Pick one\n\n{choice#r}\n- a',)
 	})
 
 	it('prefers an explicit option value attribute over the text', () => {
-		expect(
-			htmlFieldsToTokens('<select><option value="short">A much longer label</option></select>',).selects[0]!
-				.options,
-		).toEqual(['short',],)
+		expect(canonicalizeChoiceBlocks(
+			htmlFieldsToTokens('<select><option value="short">A much longer label</option></select>',),
+		),).toBe('{choice}\n- short',)
 	})
 
 	it('recovers the trailing ) of a markdown link inside an option', () => {
-		expect(
-			htmlFieldsToTokens('<select><option>[see rules](https://example.com/rules\\))</option></select>',)
-				.selects[0]!
-				.options,
-		).toEqual(['[see rules](https://example.com/rules)',],)
+		expect(canonicalizeChoiceBlocks(
+			htmlFieldsToTokens('<select><option>[see rules](https://example.com/rules\\))</option></select>',),
+		),).toBe('{choice}\n- [see rules](https://example.com/rules)',)
 	})
 
 	it('tolerates a misspelled </option> closer without merging options', () => {
-		expect(
-			htmlFieldsToTokens('<select><option>Rule 1</optiom><option>Rule 2</option></select>',).selects[0]!.options,
-		).toEqual(['Rule 1', 'Rule 2',],)
+		expect(canonicalizeChoiceBlocks(
+			htmlFieldsToTokens('<select><option>Rule 1</optiom><option>Rule 2</option></select>',),
+		),).toBe('{choice}\n- Rule 1\n- Rule 2',)
 	})
 
 	it('strips v1 markdown escapes from option text so links render in token form', () => {
-		expect(
+		expect(canonicalizeChoiceBlocks(
 			htmlFieldsToTokens(
 				'<select><option>**No slurs.** \\[See the rule.\\]\\(https://example.com/rule\\)</option></select>',
-			).selects[0]!.options,
-		).toEqual(['**No slurs.** [See the rule.](https://example.com/rule)',],)
+			),
+		),).toBe('{choice}\n- **No slurs.** [See the rule.](https://example.com/rule)',)
 	})
 
 	it('converts inputs and textareas with id and placeholder', () => {
 		expect(htmlFieldsToTokens('<input id="num" placeholder="Flight number">',),)
-			.toEqual({text: '{input#num: Flight number}', selects: [],},)
+			.toBe('{input#num: Flight number}',)
 		expect(htmlFieldsToTokens('<textarea id="why" placeholder="Tell us why"></textarea>',),)
-			.toEqual({text: '{textarea#why: Tell us why}', selects: [],},)
+			.toBe('{textarea#why: Tell us why}',)
 	})
 
 	it('uses textarea inner text as the placeholder fallback', () => {
-		expect(htmlFieldsToTokens('<textarea>Enter Custom reason</textarea>',).text,)
+		expect(htmlFieldsToTokens('<textarea>Enter Custom reason</textarea>',),)
 			.toBe('{textarea: Enter Custom reason}',)
 	})
 
 	it('converts <br> variants to paragraph breaks', () => {
-		expect(htmlFieldsToTokens('one<br>two<br/>three<br />four',).text,)
+		expect(htmlFieldsToTokens('one<br>two<br/>three<br />four',),)
 			.toBe('one\n\ntwo\n\nthree\n\nfour',)
 	})
 
-	it('passes token-form and plain text through unchanged (idempotent)', () => {
-		const text = 'Hi {author}, {input: reason}, pick {select:rule} — *markdown* stays'
-		expect(htmlFieldsToTokens(text, [{name: 'rule', options: ['a',],},],),)
-			.toEqual({text, selects: [],},)
+	it('passes token-form and plain text through unchanged', () => {
+		const text = 'Hi {author}, {input: reason} — *markdown* stays'
+		expect(htmlFieldsToTokens(text,),).toBe(text,)
 	})
 })
 
@@ -301,76 +236,67 @@ describe('htmlSimpleFieldsToTokens', () => {
 	})
 })
 
+describe('inlineSelectDefinitions', () => {
+	it('rewrites a {select:name} reference into an inline choice block from its definition', () => {
+		const selects: LegacySelectDefinition[] = [{name: 'rule', options: ['Rule 1', 'Rule 2',],},]
+		expect(canonicalizeChoiceBlocks(inlineSelectDefinitions('Pick {select:rule} please', selects,),),)
+			.toBe('Pick\n\n{choice#rule}\n- Rule 1\n- Rule 2\n\nplease',)
+	})
+
+	it('puts the definition prompt above the marker', () => {
+		const selects: LegacySelectDefinition[] = [{name: 'r', prompt: 'Which rule?', options: ['a',],},]
+		expect(canonicalizeChoiceBlocks(inlineSelectDefinitions('{select:r}', selects,),),)
+			.toBe('Which rule?\n\n{choice#r}\n- a',)
+	})
+
+	it('leaves a reference with no matching (or empty) definition untouched', () => {
+		expect(inlineSelectDefinitions('Pick {select:missing}', [{name: 'other', options: ['a',],},],),)
+			.toBe('Pick {select:missing}',)
+		expect(inlineSelectDefinitions('Pick {select:r}', [{name: 'r', options: [],},],),)
+			.toBe('Pick {select:r}',)
+	})
+})
+
 describe('tokenToLegacyHtml / tokensToHtmlFields', () => {
 	it('serializes each token kind to the legacy element', () => {
 		expect(tokenToLegacyHtml({kind: 'input', id: 'x', placeholder: 'P', options: [],},),)
 			.toBe('<input id="x" placeholder="P">',)
 		expect(tokenToLegacyHtml({kind: 'textarea', placeholder: 'P "q"', options: [],},),)
 			.toBe('<textarea placeholder="P &quot;q&quot;"></textarea>',)
-		expect(tokenToLegacyHtml({kind: 'select', id: 's', placeholder: '', options: ['a', 'b',],},),)
+		expect(tokenToLegacyHtml({kind: 'choice', id: 's', placeholder: '', options: ['a', 'b',],},),)
 			.toBe('<select id="s"><option>a</option><option>b</option></select>',)
 	})
 
-	it('expands a select reference from its definition and leaves the rest alone', () => {
-		expect(
-			tokensToHtmlFields('Pick {select:choice} then {author}', [{name: 'choice', options: ['a', 'b',],},],),
-		).toBe('Pick <select id="choice"><option>a</option><option>b</option></select> then {author}',)
+	it('expands a choice block into a <select> and leaves the rest alone', () => {
+		expect(tokensToHtmlFields('Pick:\n\n{choice#choice}\n- a\n- b\n\nthen {author}',),)
+			.toBe('Pick:\n\n<select id="choice"><option>a</option><option>b</option></select>\n\nthen {author}',)
 	})
 
-	it('leaves an unresolved reference literal on the mirror', () => {
-		expect(tokensToHtmlFields('Pick {select:missing}',),).toBe('Pick {select:missing}',)
+	it('round-trips a canonical choice block through the legacy mirror and back', () => {
+		const text = 'Pick:\n\n{choice#rule}\n- Rule 1\n- Rule 2\n\nWhy: {input#why: reason}'
+		expect(canonicalizeChoiceBlocks(htmlFieldsToTokens(tokensToHtmlFields(text,),),),).toBe(text,)
 	})
 
-	it('round-trips legacy HTML through tokens and back', () => {
-		const html = 'Pick: <select id="rule"><option>Rule 1</option><option>Rule 2</option></select>\n\n'
-			+ 'Why: <input id="why" placeholder="reason">'
-		const {text, selects,} = htmlFieldsToTokens(html,)
-		expect(tokensToHtmlFields(text, selects,),).toBe(html,)
-	})
-
-	it('round-trips an id-less legacy select, gaining the generated id on the mirror', () => {
-		const html = 'Pick: <select><option>a</option><option>b</option></select>'
-		const {text, selects,} = htmlFieldsToTokens(html,)
-		expect(tokensToHtmlFields(text, selects,),)
-			.toBe('Pick: <select id="select-1"><option>a</option><option>b</option></select>',)
-		// Re-converting the mirror yields the same definitions (reconcile converges).
-		expect(htmlFieldsToTokens(tokensToHtmlFields(text, selects,),),).toEqual({text, selects,},)
+	it('round-trips an id-less choice block', () => {
+		const text = '{choice}\n- a\n- b'
+		expect(canonicalizeChoiceBlocks(htmlFieldsToTokens(tokensToHtmlFields(text,),),),).toBe(text,)
 	})
 
 	it('escapes markdown link characters in option text for the v1 mirror, except )', () => {
 		expect(
-			tokensToHtmlFields('{select:r}', [
-				{name: 'r', options: ['[See the rule.](https://example.com/rule)', 'b',],},
-			],),
+			tokensToHtmlFields('{choice#r}\n- [See the rule.](https://example.com/rule)\n- b',),
 		).toBe(
 			'<select id="r"><option>\\[See the rule.\\]\\(https://example.com/rule)</option><option>b</option></select>',
 		)
 	})
 
-	it('does not double-escape already-escaped option text and drops a needless \\)', () => {
-		expect(
-			tokensToHtmlFields('{select:r}', [{name: 'r', options: ['a \\[rule\\]', 'b \\)',],},],),
-		).toBe('<select id="r"><option>a \\[rule\\]</option><option>b )</option></select>',)
-	})
-
 	it('round-trips an option containing a markdown link through the v1 mirror', () => {
-		const selects: SelectDefinition[] = [
-			{name: 'r', options: ['**No slurs.** [See the rule.](https://example.com/rule)', 'Other',],},
-		]
-		const mirror = tokensToHtmlFields('{select:r}', selects,)
-		expect(htmlFieldsToTokens(mirror,),).toEqual({text: '{select:r}', selects,},)
-	})
-
-	it('round-trips a select prompt through the label attribute', () => {
-		const selects: SelectDefinition[] = [{name: 'r', prompt: 'Pick one', options: ['a', 'b',],},]
-		const mirror = tokensToHtmlFields('{select:r}', selects,)
-		expect(mirror,).toBe('<select id="r" label="Pick one"><option>a</option><option>b</option></select>',)
-		expect(htmlFieldsToTokens(mirror,),).toEqual({text: '{select:r}', selects,},)
+		const text = '{choice#r}\n- **No slurs.** [See the rule.](https://example.com/rule)\n- Other'
+		expect(canonicalizeChoiceBlocks(htmlFieldsToTokens(tokensToHtmlFields(text,),),),).toBe(text,)
 	})
 
 	it('collapses multi-line option text on the legacy mirror', () => {
-		expect(
-			tokensToHtmlFields('{select:r}', [{name: 'r', options: ['line one\nline two',],},],),
-		).toBe('<select id="r"><option>line one line two</option></select>',)
+		expect(tokenToLegacyHtml({kind: 'choice', id: 'r', placeholder: '', options: ['line one\nline two',],},),)
+			.toBe('<select id="r"><option>line one line two</option></select>',)
 	})
 })

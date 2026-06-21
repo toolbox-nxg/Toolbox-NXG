@@ -442,12 +442,11 @@ describe('RemovalReasonsOverlay', () => {
 		expect(onClose,).toHaveBeenCalledOnce()
 	})
 
-	it('renders a defined select as radios and sends the chosen option in the message', async () => {
+	it('renders a {choice} block as radios and sends the chosen option in the message', async () => {
 		renderOverlay({}, 'Popup', [{
 			...reason,
-			text: 'Broke {select:rule} - sorry',
+			text: 'Broke a rule:\n\n{choice#rule}\n- Rule 1\n- Rule 2',
 			title: 'Rules',
-			selects: [{name: 'rule', options: ['Rule 1', 'Rule 2',],},],
 		},],)
 
 		await act(async () => {
@@ -464,8 +463,9 @@ describe('RemovalReasonsOverlay', () => {
 		},)
 
 		const sentMessage = postComment.mock.calls[0]![1] as string
-		expect(sentMessage,).toContain('Broke Rule 2 - sorry',)
-		expect(sentMessage,).not.toContain('{select:rule}',)
+		expect(sentMessage,).toContain('Broke a rule:',)
+		expect(sentMessage,).toContain('Rule 2',)
+		expect(sentMessage,).not.toContain('{choice#rule}',)
 		expect(onClose,).toHaveBeenCalledOnce()
 	})
 

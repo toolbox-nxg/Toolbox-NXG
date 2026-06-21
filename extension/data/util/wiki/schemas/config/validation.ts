@@ -66,74 +66,6 @@ class DiagnosticCollector {
 }
 
 /** Validates the toolbox subreddit config shape (works for both schema v1 and v2). */
-/**
- * Validates a removal reason's `selects` definitions and the `{select:name}`
- * references in its text: shape checks per definition, duplicate names within
- * the reason, and references that match no definition. All warnings -
- * `normalizeConfig` coerces bad shapes and an unresolved reference just
- * renders literally.
- */
-function validateReasonSelects (
-	reason: Record<string, unknown>,
-	path: string,
-	index: number,
-	collector: DiagnosticCollector,
-) {
-	const label = `reason #${index + 1}`
-	const definedNames = new Set<string>()
-	if (reason.selects !== undefined && collector.expectArray(reason.selects, `${path}.selects`, `${label} selects`,)) {
-		reason.selects.forEach((definition, i,) => {
-			const definitionPath = `${path}.selects.${i}`
-			if (!collector.expectObject(definition, definitionPath, `${label} select #${i + 1}`,)) { return }
-			collector.expectString(definition.name, `${definitionPath}.name`, `${label} select #${i + 1} name`,)
-			if (definition.prompt !== undefined) {
-				collector.expectString(
-					definition.prompt,
-					`${definitionPath}.prompt`,
-					`${label} select #${i + 1} prompt`,
-				)
-			}
-			if (
-				collector.expectArray(
-					definition.options,
-					`${definitionPath}.options`,
-					`${label} select #${i + 1} options`,
-				)
-			) {
-				definition.options.forEach((option, j,) => {
-					collector.expectString(
-						option,
-						`${definitionPath}.options.${j}`,
-						`${label} select #${i + 1} option #${j + 1}`,
-					)
-				},)
-			}
-			if (typeof definition.name === 'string' && definition.name !== '') {
-				if (definedNames.has(definition.name,)) {
-					collector.warn(
-						`${definitionPath}.name`,
-						`${label} has more than one select named "${definition.name}"`,
-					)
-				}
-				definedNames.add(definition.name,)
-			}
-		},)
-	}
-	if (typeof reason.text === 'string') {
-		const referenced = new Set(
-			[...reason.text.matchAll(/\{select\s*:\s*([\w-]+)\s*\}/g,),].map((match,) => match[1]!),
-		)
-		for (const name of referenced) {
-			if (!definedNames.has(name,)) {
-				collector.warn(
-					`${path}.text`,
-					`${label} references {select:${name}} but defines no select named "${name}"`,
-				)
-			}
-		}
-	}
-}
-
 function validateToolboxConfig (parsed: PositionalJsonResult, collector: DiagnosticCollector,) {
 	const config = parsed.value as Record<string, unknown>
 
@@ -149,7 +81,6 @@ function validateToolboxConfig (parsed: PositionalJsonResult, collector: Diagnos
 				if (!collector.expectObject(reason, path, `reason #${i + 1}`,)) { return }
 				collector.expectString(reason.text, `${path}.text`, `reason #${i + 1} text`,)
 				collector.expectString(reason.title, `${path}.title`, `reason #${i + 1} title`,)
-				validateReasonSelects(reason, path, i, collector,)
 			},)
 		}
 		collector.expectString(config.removalReasons.header, 'removalReasons.header', 'removalReasons.header',)

@@ -1,7 +1,5 @@
 /** Shared types and constants for the removal reasons module. */
 
-import type {SelectDefinition,} from '../../util/wiki/schemas/shared/tokens'
-
 /** Default Modmail subject line when none is configured, supports token substitution. */
 export const defaultSubject = 'Your {kind} was removed from /r/{subreddit}'
 /** Default log-post title, supports token substitution. */
@@ -94,17 +92,11 @@ export interface RemovalReason {
 	/**
 	 * Markdown body of the removal message. May contain substitution tokens
 	 * (`{subreddit}`, ...) and interactive fill-in tokens (`{input: ...}`,
-	 * `{textarea: ...}`, and `{select:name}` references into {@link selects}).
+	 * `{textarea: ...}`, and a `{choice}` block whose options are the markdown
+	 * list below the marker).
 	 */
 	text: string
 	title: string
-	/**
-	 * Named select definitions referenced from {@link text} as `{select:name}`.
-	 * Edited in the reason editor's select builder; expanded to legacy
-	 * `<select>` HTML on the classic v1 mirror. Omitted when the reason has
-	 * none.
-	 */
-	selects?: SelectDefinition[]
 	/** When false, this reason is hidden for posts. */
 	removePosts?: boolean
 	/**

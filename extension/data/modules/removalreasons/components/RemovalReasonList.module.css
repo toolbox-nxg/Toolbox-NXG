@@ -227,6 +227,16 @@
 	color: var(--toolbox-error-color);
 }
 
+/* Helper row under the message-text field: insert button + a short hint */
+.fieldHint {
+	display: flex;
+	align-items: center;
+	gap: var(--toolbox-sp-6);
+	margin-top: var(--toolbox-sp-8);
+	font-size: var(--toolbox-sp-11);
+	opacity: 0.8;
+}
+
 .noteTypeChips {
 	display: flex;
 	flex-wrap: wrap;

@@ -1,7 +1,6 @@
 /** Tests for the removal-reasons overlay helpers, especially the token-to-control rendering pipeline. */
 
 import {describe, expect, it,} from 'vitest'
-import type {SelectDefinition,} from '../../../util/wiki/schemas/shared/tokens'
 import {getRemovalReasonParser,} from '../../shared/removalReasons/parser'
 import {
 	composeReasonText,
@@ -43,10 +42,8 @@ describe('renderReasonHtml', () => {
 		expect(html,).toContain('<strong>bold</strong>',)
 	})
 
-	it('converts select references to radio groups with a hidden tracking input', () => {
-		const html = renderReasonHtml(parser, 'Pick one: {select:pick}', [
-			{name: 'pick', options: ['first', 'second',],},
-		],)
+	it('converts a {choice} block to a radio group with a hidden tracking input', () => {
+		const html = renderReasonHtml(parser, 'Pick one:\n\n{choice#pick}\n- first\n- second',)
 		expect(html,).toContain('toolbox-radio-group',)
 		expect(html,).toContain('type="radio"',)
 		expect(html,).toContain('type="hidden"',)
@@ -67,40 +64,27 @@ describe('renderReasonHtml', () => {
 		expect(html,).toContain('value="first"',)
 	})
 
-	it('renders inline select option syntax literally', () => {
-		const html = renderReasonHtml(parser, 'Pick one: {select: first | second}',)
+	it('renders an inline (not own-line) choice marker literally', () => {
+		const html = renderReasonHtml(parser, 'Pick one: {choice#x} now',)
 		expect(html,).not.toContain('toolbox-radio-group',)
-		expect(html,).toContain('{select: first | second}',)
+		expect(html,).toContain('{choice#x}',)
 	})
 
-	it('renders block select syntax literally', () => {
+	it('renders a choice marker with no list below it literally', () => {
+		const html = renderReasonHtml(parser, '{choice#rule}\n\nnot a list',)
+		expect(html,).not.toContain('toolbox-radio-group',)
+		expect(html,).toContain('{choice#rule}',)
+	})
+
+	it('renders text above the block as markdown and option markdown inside it', () => {
 		const html = renderReasonHtml(
 			parser,
-			'{select#rule: Pick one}\n{option} Rule 1 | [details](https://example.com)\n{option} Rule 2\n{/select}',
+			'Pick the *applicable* rule\n\n{choice}\n- Rule 1 | [details](https://example.com)\n- Rule 2',
 		)
-		expect(html,).not.toContain('toolbox-radio-group',)
-		expect(html,).toContain('{select#rule: Pick one}',)
-		expect(html,).toContain('{option} Rule 1 |',)
-		expect(html,).toContain('{/select}',)
-	})
-
-	it('renders a select definition prompt above the choices', () => {
-		const html = renderReasonHtml(parser, '{select:rule}', [{
-			name: 'rule',
-			prompt: 'Pick the *applicable* rule',
-			options: ['Rule 1 | [details](https://example.com)', 'Rule 2',],
-		},],)
-		expect(html,).toContain('toolbox-radio-group-prompt',)
 		expect(html,).toContain('<em>applicable</em>',)
 		// Pipes inside an option are plain text, and option markdown still renders.
 		expect(html,).toContain('value="Rule 1 | [details](https://example.com)"',)
 		expect(html,).toContain('<a href="https://example.com">details</a>',)
-	})
-
-	it('renders an unresolved select reference literally', () => {
-		const html = renderReasonHtml(parser, 'Pick {select:missing} now',)
-		expect(html,).not.toContain('toolbox-radio-group',)
-		expect(html,).toContain('{select:missing}',)
 	})
 
 	it('renders input and textarea tokens inline as form fields', () => {
@@ -110,12 +94,8 @@ describe('renderReasonHtml', () => {
 		expect(html,).toMatch(/<p>Reason: <input[^>]*> please<\/p>/,)
 	})
 
-	it('renders markdown around the select normally', () => {
-		const html = renderReasonHtml(
-			parser,
-			'before *emphasis*\n\n{select:s}\n\nafter',
-			[{name: 's', options: ['opt',],},],
-		)
+	it('renders markdown around the block normally', () => {
+		const html = renderReasonHtml(parser, 'before *emphasis*\n\n{choice}\n- opt\n\nafter',)
 		expect(html,).toContain('<em>emphasis</em>',)
 		expect(html,).toContain('after',)
 		expect(html,).toContain('toolbox-radio-group',)
@@ -127,12 +107,10 @@ describe('composeReasonText', () => {
 		id: string,
 		markdown: string,
 		reasonExtra: Record<string, string> = {},
-		selects: SelectDefinition[] = [],
 	): RenderedReason {
 		return {
 			id,
 			markdown,
-			selects,
 			html: '',
 			reason: {text: markdown, title: '', flairText: '', flairCSS: '', flairTemplateID: '', ...reasonExtra,},
 		}
@@ -147,22 +125,13 @@ describe('composeReasonText', () => {
 		expect(result.reason,).toBe('edited text\n\n',)
 	})
 
-	it('substitutes input values for tokens in document order', () => {
+	it('substitutes input and choice values for tokens in document order', () => {
 		const result = composeReasonText(
-			[rendered('a', 'Choose {select:x} then {input: why} end', {}, [{name: 'x', options: ['o',],},],),],
+			[rendered('a', 'Choose:\n\n{choice}\n- o\n\nthen {input: why} end',),],
 			() => undefined,
 			() => ['picked', 'because',],
 		)
-		expect(result.reason,).toBe('Choose picked then because end',)
-	})
-
-	it('leaves an unresolved select reference in the composed text', () => {
-		const result = composeReasonText(
-			[rendered('a', 'Choose {select:missing} then {input: why} end',),],
-			() => undefined,
-			() => ['because',],
-		)
-		expect(result.reason,).toBe('Choose {select:missing} then because end',)
+		expect(result.reason,).toBe('Choose:\n\npicked\n\nthen because end',)
 	})
 
 	it('accumulates flair from all selected reasons', () => {

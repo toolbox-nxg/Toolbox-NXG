@@ -54,15 +54,14 @@ describe('validateWikiEditorJson', () => {
 		expect(text.slice(verDiagnostic.from, verDiagnostic.to,),).toBe('"two"',)
 	})
 
-	it('accepts a reason with well-formed select definitions and references', () => {
+	it('accepts a reason with an inline {choice} block', () => {
 		const config = {
 			ver: 2,
 			removalReasons: {
 				reasons: [{
 					id: 'abc',
-					text: 'Pick {select:rule}',
+					text: 'Which rule?\n\n{choice#rule}\n- a\n- b',
 					title: 't',
-					selects: [{name: 'rule', prompt: 'Which rule?', options: ['a', 'b',],},],
 				},],
 			},
 			modMacros: [],
@@ -71,39 +70,6 @@ describe('validateWikiEditorJson', () => {
 			banMacros: null,
 		}
 		expect(validateWikiEditorJson(JSON.stringify(config, null, 4,), 'toolbox',),).toEqual([],)
-	})
-
-	it('warns about malformed selects, duplicate names, and dangling references', () => {
-		const config = {
-			ver: 2,
-			removalReasons: {
-				reasons: [
-					{text: 'Pick {select:missing}', title: 't', selects: 'nope',},
-					{
-						text: 'hello',
-						title: 't',
-						selects: [
-							{name: 'rule', options: ['a', 5,],},
-							{name: 'rule', options: ['b',],},
-							{name: 7, options: 'x',},
-						],
-					},
-				],
-			},
-		}
-
-		const diagnostics = validateWikiEditorJson(JSON.stringify(config, null, 4,), 'toolbox',)
-
-		const messages = diagnostics.map((d,) => d.message)
-		expect(messages,).toContain('reason #1 selects should be an array',)
-		expect(messages,).toContain(
-			'reason #1 references {select:missing} but defines no select named "missing"',
-		)
-		expect(messages,).toContain('reason #2 select #1 option #2 should be a string',)
-		expect(messages,).toContain('reason #2 has more than one select named "rule"',)
-		expect(messages,).toContain('reason #2 select #3 name should be a string',)
-		expect(messages,).toContain('reason #2 select #3 options should be an array',)
-		expect(diagnostics.every((d,) => d.severity === 'warning'),).toBe(true,)
 	})
 
 	it('warns when the page is not a JSON object', () => {

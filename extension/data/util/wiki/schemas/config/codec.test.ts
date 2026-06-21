@@ -63,8 +63,7 @@ describe('encodeClassicConfig', () => {
 		const config = v2Config({
 			removalReasons: {
 				reasons: [{
-					text: 'Pick {select:rule} and explain {input: why}',
-					selects: [{name: 'rule', options: ['Rule 1', 'Rule 2',],},],
+					text: 'Pick:\n\n{choice#rule}\n- Rule 1\n- Rule 2\n\nexplain {input: why}',
 					title: '',
 					flairText: '',
 					flairCSS: '',
@@ -77,13 +76,9 @@ describe('encodeClassicConfig', () => {
 
 		// eslint-disable-next-line no-restricted-globals
 		expect(unescape(classic.removalReasons.reasons[0].text,),).toBe(
-			'Pick <select id="rule"><option>Rule 1</option><option>Rule 2</option></select> '
-				+ 'and explain <input placeholder="why">',
+			'Pick:\n\n<select id="rule"><option>Rule 1</option><option>Rule 2</option></select>\n\n'
+				+ 'explain <input placeholder="why">',
 		)
-		// The structured definitions are an NXG-only shape; the mirror carries
-		// only the expanded HTML.
-		expect(classic.removalReasons.reasons[0],).not.toHaveProperty('selects',)
-		expect(config.removalReasons.reasons[0]!.selects,).toHaveLength(1,)
 	})
 
 	it('strips stable ids and NXG layout metadata', () => {

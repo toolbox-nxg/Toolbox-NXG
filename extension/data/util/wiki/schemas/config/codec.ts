@@ -24,18 +24,16 @@ import {legacyEscape, unescapeJSON,} from '../../../data/encoding'
 import {purifyObject,} from '../../../data/purify'
 import {stripLayoutMetadata,} from '../../wikiConstants'
 import type {DomainTag,} from '../domaintags/schema'
-import {type SelectDefinition, tokensToHtmlFields,} from '../shared/tokens'
+import {tokensToHtmlFields,} from '../shared/tokens'
 import type {UserNoteColor,} from '../usernotes/schema'
 import {configSchema, normalizeConfig, type ToolboxConfig,} from './schema'
 
 /**
- * Down-converts one reason/header/footer text: tokens -> legacy HTML, then
- * escape()-encoded. Reason text passes its select definitions so
- * `{select:name}` references expand into full `<select>` elements;
- * header/footer have none.
+ * Down-converts one reason/header/footer text: tokens -> legacy HTML (each
+ * `{choice}` block becomes a `<select>`), then escape()-encoded.
  */
-function encodeClassicText (text: string, selects?: SelectDefinition[],): string {
-	return legacyEscape(tokensToHtmlFields(text, selects,),)
+function encodeClassicText (text: string,): string {
+	return legacyEscape(tokensToHtmlFields(text,),)
 }
 
 /**
@@ -86,14 +84,11 @@ export function encodeClassicConfig (
 	if (Array.isArray(classic.removalReasons?.reasons,)) {
 		for (const reason of classic.removalReasons.reasons) {
 			if (typeof reason.text === 'string') {
-				reason.text = encodeClassicText(
-					reason.text,
-					Array.isArray(reason.selects,) ? reason.selects : undefined,
-				)
+				reason.text = encodeClassicText(reason.text,)
 			}
-			// The classic mirror carries only the expanded HTML; NXG-only
-			// structures are stripped like the stable ids below.
-			delete reason.selects
+			// A pre-migration object may still carry the old separate-definitions
+			// shape; it's NXG-only and folded into the text, so drop it defensively.
+			delete (reason as {selects?: unknown}).selects
 			delete reason.id
 		}
 	}

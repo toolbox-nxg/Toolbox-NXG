@@ -10,31 +10,39 @@
  *
  * - `{input: placeholder text}` - a single-line text field
  * - `{textarea: placeholder text}` - a multi-line text field
- * - `{select:name}` - a pick-one choice, referencing a named definition
+ * - `{choice}` / `{choice#id}` followed by a markdown list - a pick-one field
  *
- * Unlike inputs and textareas, a select's choices are not written inline in
- * the text. They live in a {@link SelectDefinition} stored alongside the
- * reason (`RemovalReason.selects`), built in the reason editor's select
- * builder, and the text carries only the compact `{select:name}` reference.
- * A reference whose name matches no definition is left in the text untouched
- * - it renders literally and is never substituted, so a typo'd or deleted
- * name fails visibly instead of silently dropping content.
+ * Inputs and textareas are inline: everything they need is in the token. A
+ * choice is a block: the marker sits on its own line and the consecutive
+ * markdown list items immediately below it are its options. It renders as a
+ * radio group (pick one), so it's named "choice" rather than after the
+ * dropdown `<select>` widget 6.x produced:
  *
- * Input/textarea tokens may carry an optional stable id
- * (`{input#flightnum: Flight number}`) used to persist the entered value
- * between overlay opens; for selects the definition name plays that role.
- * Both round-trip to the `id` attribute of the legacy HTML form for 6.x.
+ *     Which rule was broken?
  *
- * Substitution tokens are always a bare `{word}` with no colon, so the
- * `kind:` prefix here can never collide with them; unknown brace content is
+ *     {choice#rule}
+ *     - Rule 1
+ *     - Rule 2
+ *
+ *     ...normal body text after the blank line...
+ *
+ * A choice's options live inline in the text, like an input's placeholder -
+ * there is no separate definition to reference. The optional `#id` (slug-safe,
+ * `[\w-]+`) persists the chosen value between overlay opens and round-trips as
+ * the `id` attribute of the legacy `<select>`. A marker with no list line below
+ * it isn't a choice and renders literally, so a half-typed field fails visibly.
+ *
+ * Substitution tokens are always a bare `{word}` with no colon, so neither the
+ * `kind:` prefix nor `{choice}` can collide with them; unknown brace content is
  * left untouched by both systems.
  *
- * This module is the only code that knows both representations: it parses
- * token text into segments for rendering, and converts between tokens and
- * the legacy HTML form for the classic (v1) wiki mirror. The v1 -> v2
- * up-convert extracts each legacy `<select>` into a definition and leaves a
- * reference behind; the v2 -> v1 down-convert expands references back into
- * full `<select>` HTML using the reason's definitions.
+ * This module is the only code that knows both representations: it parses token
+ * text into segments for rendering, and converts between tokens and the legacy
+ * HTML form for the classic (v1) wiki mirror. The v1 -> v2 up-convert rewrites
+ * each legacy `<select>` into an inline `{choice}` block; the v2 -> v1
+ * down-convert expands a `{choice}` block back into `<select>` HTML so 6.x can
+ * read it. {@link inlineSelectDefinitions} migrates the older v2 shape (a
+ * `{select:name}` reference into a separate definition) into the inline form.
  */
 
 /**
@@ -93,48 +101,22 @@ export function pickSubstitutionTokens (tokens: string[],): SubstitutionTokenInf
 	return substitutionTokens.filter(({token,},) => tokens.includes(token,))
 }
 
-/**
- * A named pick-one choice defined on a removal reason and referenced from its
- * text as `{select:name}`. Built in the reason editor's select builder and
- * stored on `RemovalReason.selects`; expanded to a legacy `<select>` element
- * on the classic v1 wiki mirror.
- */
-export interface SelectDefinition {
-	/**
-	 * Slug-safe name (`[\w-]+`), unique within the reason. Doubles as the
-	 * stable id for persisting the chosen value between overlay opens and
-	 * round-trips as the `id` attribute on the legacy mirror.
-	 */
-	name: string
-	/**
-	 * Optional prompt rendered above the choices. Round-trips as the legacy
-	 * `label` attribute. Omitted (never `''`) when empty so the wiki JSON and
-	 * legacy-reconcile equality checks stay stable.
-	 */
-	prompt?: string
-	/** Choice texts; each is both the visible (markdown) label and the inserted value. */
-	options: string[]
-}
-
 /** The kinds of interactive fill-in fields supported in reason text. */
-export type InteractiveTokenKind = 'input' | 'textarea' | 'select'
+export type InteractiveTokenKind = 'input' | 'textarea' | 'choice'
 
 /** A parsed interactive token from removal reason text. */
 export interface InteractiveToken {
 	kind: InteractiveTokenKind
 	/**
-	 * Optional stable id (`{input#someid: ...}`) for input/textarea tokens, used
-	 * to persist entered values between overlay opens and preserved as the
-	 * HTML `id` attribute on the classic mirror. For select tokens this is the
-	 * definition name and is always present on a resolved token.
+	 * Optional stable id, used to persist the entered/chosen value between
+	 * overlay opens and preserved as the HTML `id` attribute on the classic
+	 * mirror. Written as `{input#someid: ...}` for inputs/textareas and
+	 * `{choice#someid}` for choices.
 	 */
 	id?: string
-	/**
-	 * Placeholder text for `input`/`textarea` tokens. For `select` tokens this
-	 * is the definition's prompt shown above the choices ('' when none).
-	 */
+	/** Placeholder text for `input`/`textarea` tokens; always '' for `choice`. */
 	placeholder: string
-	/** The choice texts for `select` tokens; empty for the other kinds. */
+	/** The option texts for `choice` tokens; empty for the other kinds. */
 	options: string[]
 }
 
@@ -144,15 +126,31 @@ export type ReasonSegment =
 	| {type: 'token'; token: InteractiveToken}
 
 /**
- * Matches any interactive token. Groups: 1-3 are an input/textarea's kind,
- * id, and content; 4 is a select reference's definition name. Input/textarea
- * content cannot contain `}` - serialization sanitizes braces out of
- * user-facing text so every serialized token re-parses.
+ * Matches an inline interactive token (`{input...}` / `{textarea...}`). Groups:
+ * 1 is the kind, 2 the optional id, 3 the placeholder content. Content cannot
+ * contain `}` - serialization sanitizes braces out of user-facing text so every
+ * serialized token re-parses.
  */
-const TOKEN_START_RE = /\{(input|textarea)(?:#([\w-]+))?\s*:([^}]*)\}|\{select\s*:\s*([\w-]+)\s*\}/gi
+const INLINE_TOKEN_RE = /\{(input|textarea)(?:#([\w-]+))?\s*:([^}]*)\}/gi
 
-/** Matches a whole valid select definition name. */
-const SELECT_NAME_RE = /^[\w-]+$/
+/** Matches a choice marker line (`{choice}` or `{choice#id}`) on its own line; group 1 is the id. */
+const CHOICE_MARKER_RE = /^[ \t]*\{choice(?:#([\w-]+))?\}[ \t]*\r?$/
+
+/** Matches a markdown list item line; group 1 is the option text (trailing whitespace trimmed). */
+const CHOICE_OPTION_RE = /^[ \t]*(?:[-*+]|\d+[.)])[ \t]+(.+?)[ \t]*\r?$/
+
+/** Matches a whole slug-safe id/name. */
+const SLUG_RE = /^[\w-]+$/
+
+/** Escapes a string for safe literal use inside a RegExp. */
+function escapeRegExp (value: string,): string {
+	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&',)
+}
+
+/** Collapses a multi-line string to a single trimmed line (options/placeholders are single-line). */
+function collapseToLine (text: string,): string {
+	return text.replace(/\s*\r?\n\s*/g, ' ',).trim()
+}
 
 /**
  * Removes characters from one-line token content (placeholders) that would
@@ -160,22 +158,28 @@ const SELECT_NAME_RE = /^[\w-]+$/
  * spaces.
  */
 function sanitizeSingleLine (text: string,): string {
-	return text
-		.replace(/\{/g, '(',)
-		.replace(/\}/g, ')',)
-		.replace(/\s*\r?\n\s*/g, ' ',)
-		.trim()
+	return collapseToLine(text.replace(/\{/g, '(',).replace(/\}/g, ')',),)
 }
 
 /**
- * Serializes an interactive token back to its text form. A select serializes
- * to its `{select:name}` reference - the options live in the definition, not
- * the text - so the token must carry its definition name in `id`.
+ * Builds a `{choice}` block: the marker line followed by one `- option` line per
+ * option (each collapsed to a single line). No surrounding blank lines - callers
+ * that splice it into running text add those.
+ */
+function choiceBlock (id: string | undefined, options: string[],): string {
+	const marker = id ? `{choice#${id}}` : '{choice}'
+	const lines = options.map((option,) => `- ${collapseToLine(option,)}`)
+	return [marker, ...lines,].join('\n',)
+}
+
+/**
+ * Serializes an interactive token back to its text form. A choice serializes to
+ * its block (marker + option list); inputs/textareas to their inline token.
  * @param token The token to serialize.
  */
 export function serializeToken (token: InteractiveToken,): string {
-	if (token.kind === 'select') {
-		return `{select:${token.id ?? ''}}`
+	if (token.kind === 'choice') {
+		return choiceBlock(token.id, token.options,)
 	}
 	const idPart = token.id ? `#${token.id}` : ''
 	return `{${token.kind}${idPart}: ${sanitizeSingleLine(token.placeholder,)}}`
@@ -183,77 +187,164 @@ export function serializeToken (token: InteractiveToken,): string {
 
 /**
  * Splits reason text into literal-text and interactive-token segments, in
- * document order. A `{select:name}` reference resolves against the given
- * definitions; one that matches no definition stays in the surrounding text
- * untouched, like any other unknown brace content (substitution tokens such
- * as `{subreddit}` likewise pass through in the text segments).
+ * document order. Inline `{input}`/`{textarea}` tokens are matched anywhere; a
+ * `{choice}` marker is recognized only on its own line and consumes the
+ * consecutive markdown list lines immediately below it as its options (stopping
+ * at the first blank or non-list line). A marker with no list line below it is
+ * left as literal text, like any other unknown brace content.
  * @param text The reason text to parse.
- * @param selects The reason's select definitions, used to resolve references.
  */
-export function parseReasonSegments (text: string, selects?: SelectDefinition[],): ReasonSegment[] {
+export function parseReasonSegments (text: string,): ReasonSegment[] {
 	const segments: ReasonSegment[] = []
-	let lastIndex = 0
-	TOKEN_START_RE.lastIndex = 0
-	let match: RegExpExecArray | null
-	// eslint-disable-next-line no-cond-assign
-	while ((match = TOKEN_START_RE.exec(text,)) !== null) {
-		const [, fieldKind, fieldId, fieldContent, selectName,] = match
-		let token: InteractiveToken
-
-		if (fieldKind !== undefined) {
-			token = {
-				kind: fieldKind.toLowerCase() as InteractiveTokenKind,
-				placeholder: fieldContent!.replace(/\s*\r?\n\s*/g, ' ',).trim(),
+	let buffer = ''
+	// Flush accumulated plain text, splitting out any inline input/textarea tokens.
+	const flush = () => {
+		if (!buffer) { return }
+		let lastIndex = 0
+		INLINE_TOKEN_RE.lastIndex = 0
+		let match: RegExpExecArray | null
+		// eslint-disable-next-line no-cond-assign
+		while ((match = INLINE_TOKEN_RE.exec(buffer,)) !== null) {
+			const [, kind, id, content,] = match
+			if (match.index > lastIndex) {
+				segments.push({type: 'text', text: buffer.slice(lastIndex, match.index,),},)
+			}
+			const token: InteractiveToken = {
+				kind: kind!.toLowerCase() as InteractiveTokenKind,
+				placeholder: collapseToLine(content!,),
 				options: [],
 			}
-			if (fieldId) { token.id = fieldId }
-		} else {
-			const definition = selects?.find((d,) => d.name === selectName)
-			if (!definition) {
-				// Unresolved reference: leave it in the running text. lastIndex is
-				// not advanced, so the literal token lands in the next text segment.
+			if (id) { token.id = id }
+			segments.push({type: 'token', token,},)
+			lastIndex = match.index + match[0].length
+		}
+		if (lastIndex < buffer.length) {
+			segments.push({type: 'text', text: buffer.slice(lastIndex,),},)
+		}
+		buffer = ''
+	}
+
+	let i = 0
+	const n = text.length
+	while (i < n) {
+		const nl = text.indexOf('\n', i,)
+		const lineEnd = nl === -1 ? n : nl
+		const nextLineStart = nl === -1 ? n : nl + 1
+		const marker = CHOICE_MARKER_RE.exec(text.slice(i, lineEnd,),)
+		if (marker) {
+			const options: string[] = []
+			let scan = nextLineStart
+			let optionsEnd = -1
+			while (scan < n) {
+				const nl2 = text.indexOf('\n', scan,)
+				const le2 = nl2 === -1 ? n : nl2
+				const optionMatch = CHOICE_OPTION_RE.exec(text.slice(scan, le2,),)
+				if (!optionMatch) { break }
+				options.push(optionMatch[1]!,)
+				optionsEnd = le2
+				scan = nl2 === -1 ? n : nl2 + 1
+			}
+			if (options.length > 0) {
+				flush()
+				const token: InteractiveToken = {kind: 'choice', placeholder: '', options,}
+				if (marker[1]) { token.id = marker[1] }
+				segments.push({type: 'token', token,},)
+				// Exclude the last option line's trailing newline so it stays with the
+				// following text segment - this keeps down-convert / up-convert exact.
+				i = optionsEnd
 				continue
 			}
-			token = {
-				kind: 'select',
-				id: definition.name,
-				placeholder: definition.prompt ?? '',
-				options: definition.options,
-			}
 		}
-
-		if (match.index > lastIndex) {
-			segments.push({type: 'text', text: text.slice(lastIndex, match.index,),},)
-		}
-		segments.push({type: 'token', token,},)
-		lastIndex = match.index + match[0].length
+		buffer += text.slice(i, nextLineStart,)
+		i = nextLineStart
 	}
-	if (lastIndex < text.length) {
-		segments.push({type: 'text', text: text.slice(lastIndex,),},)
-	}
+	flush()
 	return segments
 }
 
 /**
+ * Rewrites every `{choice}` block in the text to its canonical form: each block
+ * separated from surrounding content by exactly one blank line, options on
+ * single `- ` lines. Idempotent, so normalizing the NXG text and the
+ * up-converted legacy mirror both land on the same string and config reconcile
+ * sees no spurious difference. Text with no choice block is returned unchanged.
+ * @param text The reason text to canonicalize.
+ */
+export function canonicalizeChoiceBlocks (text: string,): string {
+	if (!text.includes('{choice',)) { return text }
+	const segments = parseReasonSegments(text,)
+	if (!segments.some((segment,) => segment.type === 'token' && segment.token.kind === 'choice')) {
+		return text
+	}
+	let out = ''
+	for (const segment of segments) {
+		if (segment.type === 'text') {
+			out += segment.text
+		} else if (segment.token.kind === 'choice') {
+			out += `\n\n${serializeToken(segment.token,)}\n\n`
+		} else {
+			out += serializeToken(segment.token,)
+		}
+	}
+	// Collapse every blank-line gap (2+ newlines, plus any horizontal whitespace
+	// hugging it) to a single blank line. Touching only 2+ newline runs leaves
+	// single-newline markdown hard breaks intact, and the spaces around a
+	// paragraph break are insignificant - so this just tidies the seams the
+	// block splicing above left behind.
+	return out.replace(/[ \t]*\n{2,}[ \t]*/g, '\n\n',).replace(/^\n+/, '',).replace(/\n+$/, '',)
+}
+
+/**
  * Replaces each interactive token in reason text with the corresponding
- * user-entered value, in document order. Used when composing the final
- * removal message; values map 1:1 to the rendered controls because the
- * overlay renders them in the same order, resolving references against the
- * same definitions. An unresolved `{select:name}` is a text segment and is
- * never substituted away.
+ * user-entered value, in document order. Used when composing the final removal
+ * message; values map 1:1 to the rendered controls because the overlay renders
+ * them in the same order.
  * @param text The token-form reason text.
  * @param values The entered values, in token order. Missing values become ''.
- * @param selects The reason's select definitions, used to resolve references.
  */
-export function substituteTokenValues (
-	text: string,
-	values: string[],
-	selects?: SelectDefinition[],
-): string {
+export function substituteTokenValues (text: string, values: string[],): string {
 	let index = 0
-	return parseReasonSegments(text, selects,)
+	return parseReasonSegments(text,)
 		.map((segment,) => segment.type === 'text' ? segment.text : values[index++] ?? '')
 		.join('',)
+}
+
+/**
+ * A legacy `<select>` definition the older v2 schema stored separately and
+ * referenced from text as `{select:name}`. Only used by
+ * {@link inlineSelectDefinitions} to migrate such configs to the inline form.
+ */
+export interface LegacySelectDefinition {
+	name: string
+	prompt?: string
+	options: string[]
+}
+
+/**
+ * Migrates the older v2 shape - a `{select:name}` reference resolving to a
+ * separate definition - into the inline `{choice}` form. Each reference is
+ * replaced by a block built from its definition: the prompt (if any) as a
+ * markdown line above the marker, and the options as a list below it. A
+ * reference whose definition is missing or empty is left untouched (it renders
+ * literally). Idempotent: text with no `{select:name}` references is unchanged.
+ * @param text The reason text containing `{select:name}` references.
+ * @param selects The reason's legacy select definitions.
+ */
+export function inlineSelectDefinitions (text: string, selects: LegacySelectDefinition[],): string {
+	let out = text
+	for (const definition of selects) {
+		if (!definition || typeof definition.name !== 'string' || definition.name === '') { continue }
+		const options = Array.isArray(definition.options,)
+			? definition.options.filter((option,): option is string => typeof option === 'string')
+			: []
+		if (options.length === 0) { continue }
+		const id = SLUG_RE.test(definition.name,) ? definition.name : undefined
+		const block = choiceBlock(id, options,)
+		const withPrompt = definition.prompt ? `${definition.prompt}\n\n${block}` : block
+		const reference = new RegExp(`\\{select\\s*:\\s*${escapeRegExp(definition.name,)}\\s*\\}`, 'g',)
+		out = out.replace(reference, `\n\n${withPrompt}\n\n`,)
+	}
+	return out
 }
 
 // --- Legacy HTML conversion ------------------------------------------------
@@ -271,40 +362,36 @@ function getAttr (tag: string, name: string,): string | undefined {
 }
 
 /**
- * Converts one legacy `<select>...</select>` block to a select definition (the
- * name is settled later by the caller, which knows which names are taken).
- * Mirrors the quirks the old radio-group renderer handled: a `)` directly
- * after `</option>` belongs to a markdown link inside the option (with the
- * `\)` escape that protected it stripped), and an explicit `value` attribute
- * wins over the option text because the value is what the legacy pipeline
- * inserted into the removal message. A `label` attribute (written by the
- * down-convert for select prompts; ignored visually by 6.x) becomes the
- * prompt again.
+ * Converts one legacy `<select>...</select>` block to an inline `{choice}`
+ * block. A slug-safe `id` attribute is kept as `{choice#id}`; anything else
+ * drops to a bare `{choice}` (the options carry the content, so no id is
+ * needed). A `label` attribute (the old prompt, written by the down-convert and
+ * invisible in 6.x) becomes a markdown line above the marker.
  *
- * Backslash escapes before `[`, `]`, `(`, and `)` are stripped from option
- * text: 6.x ran the whole reason through markdown before extracting the
- * select, so mods had to escape link syntax inside options to keep it from
- * being eaten. Token-form options aren't markdown-mangled, so the clean
- * `[text](url)` renders as a real link in the overlay. The down-convert
- * re-adds the escapes for `[`, `]`, and `(` (see `escapeOptionMarkdown`; `)`
- * needs none), so v1 mirrors round-trip.
+ * Mirrors the quirks the old radio-group renderer handled: a `)` directly after
+ * `</option>` belongs to a markdown link inside the option (with the `\)`
+ * escape that protected it stripped), and an explicit `value` attribute wins
+ * over the option text because the value is what the legacy pipeline inserted
+ * into the removal message. Backslash escapes before `[`, `]`, `(`, and `)` are
+ * stripped: 6.x ran the whole reason through markdown before extracting the
+ * select, so mods escaped link syntax inside options; token-form options aren't
+ * markdown-mangled, so the clean `[text](url)` renders as a real link.
  *
- * Option text runs to the next `<option>` or `</select>` rather than
- * requiring a well-formed `</option>` closer: real v1 configs contain
- * hand-typed closers like `</optiom>`, which 6.x's DOM-based parser silently
- * forgave - requiring the exact closer here would merge adjacent options.
+ * Option text runs to the next `<option>` or `</select>` rather than requiring a
+ * well-formed `</option>` closer: real v1 configs contain hand-typed closers
+ * like `</optiom>`, which 6.x's DOM-based parser silently forgave.
  */
-function selectHtmlToDefinition (selectHtml: string,): {id?: string} & Omit<SelectDefinition, 'name'> {
+function selectHtmlToChoiceBlock (selectHtml: string,): string {
 	const openTag = selectHtml.match(/^<select\b[^>]*>/i,)?.[0] ?? ''
-	const id = getAttr(openTag, 'id',)
+	const rawId = getAttr(openTag, 'id',)
+	const id = rawId && SLUG_RE.test(rawId,) ? rawId : undefined
 	const options: string[] = []
 	const optionRe = /<option(\s[^>]*)?>([^]*?)(?=<option\b|<\/select\b|$)/gi
 	let match: RegExpExecArray | null
 	// eslint-disable-next-line no-cond-assign
 	while ((match = optionRe.exec(selectHtml,)) !== null) {
 		const attrs = match[1] ?? ''
-		// Strip the (possibly misspelled) closing tag, keeping a markdown
-		// link's `)` that directly follows it.
+		// Strip the (possibly misspelled) closing tag, keeping a markdown link's `)`.
 		const text = match[2]!
 			.replace(/<\/[a-z][\w-]*\s*>(\))?\s*$/i, '$1',)
 			.replace(/\\\)\)/g, ')',)
@@ -313,11 +400,8 @@ function selectHtmlToDefinition (selectHtml: string,): {id?: string} & Omit<Sele
 		options.push(value !== undefined ? value : text,)
 	}
 	const prompt = getAttr(openTag, 'label',)
-	return {
-		...(id ? {id,} : {}),
-		...(prompt ? {prompt,} : {}),
-		options,
-	}
+	const block = choiceBlock(id, options,)
+	return prompt ? `${prompt}\n\n${block}` : block
 }
 
 /** Converts one legacy `<input>` or `<textarea>` tag to the equivalent token. */
@@ -336,67 +420,30 @@ function fieldHtmlToToken (html: string,): InteractiveToken {
 	return token
 }
 
-/** Result of up-converting v1 HTML: token-form text plus the select definitions extracted from it. */
-export interface HtmlUpconvertResult {
-	/** The text with legacy form elements replaced by tokens / references. */
-	text: string
-	/** Definitions extracted from legacy `<select>` elements, in document order. */
-	selects: SelectDefinition[]
-}
-
 /**
  * Up-converts legacy (schema v1) reason text to token form: `<input>` and
- * `<textarea>` elements become inline tokens, `<br>` becomes a paragraph
- * break, and each `<select>` is extracted into a {@link SelectDefinition}
- * with a `{select:name}` reference left in its place.
+ * `<textarea>` elements become inline tokens, `<br>` becomes a paragraph break,
+ * and each `<select>` becomes an inline `{choice}` block (spliced in between
+ * blank lines so the block marker lands on its own line; the caller's
+ * {@link canonicalizeChoiceBlocks} pass tidies the spacing).
  *
- * Legacy selects don't need an `id` attribute. One with a valid, untaken id
- * keeps it as the definition name; all others are numbered sequentially
- * (`select-1`, `select-2`, ...) in document order, skipping a number only when
- * that exact name is taken. The numbering is deterministic, so re-converting
- * the same HTML always yields the same names and reconcile equality between
- * the NXG config and the legacy mirror converges.
- *
- * Token-form text passes through unchanged with no extracted definitions, so
- * this is safe (and idempotent) to apply to any reason text regardless of
- * origin. The input must already have entity-encoded angle brackets decoded
- * (see `decodeHtmlAngleBrackets`).
+ * Token-form text passes through unchanged, so this is safe (and idempotent) to
+ * apply to any reason text regardless of origin. The input must already have
+ * entity-encoded angle brackets decoded (see {@link decodeHtmlAngleBrackets}).
  * @param text The reason text to up-convert.
- * @param existingSelects Definitions the reason already has; their names are
- * reserved so extraction can't mint a colliding name. Not included in the
- * returned `selects` - the caller merges.
  */
-export function htmlFieldsToTokens (
-	text: string,
-	existingSelects?: SelectDefinition[],
-): HtmlUpconvertResult {
-	const taken = new Set((existingSelects ?? []).map((d,) => d.name),)
-	const selects: SelectDefinition[] = []
-	let counter = 0
-	const converted = text.replace(LEGACY_HTML_RE, (matched,) => {
+export function htmlFieldsToTokens (text: string,): string {
+	return text.replace(LEGACY_HTML_RE, (matched,) => {
 		if (/^<br/i.test(matched,)) { return '\n\n' }
-		if (/^<select/i.test(matched,)) {
-			const {id, ...definition} = selectHtmlToDefinition(matched,)
-			let name = id
-			if (!name || !SELECT_NAME_RE.test(name,) || taken.has(name,)) {
-				do {
-					name = `select-${++counter}`
-				} while (taken.has(name,))
-			}
-			taken.add(name,)
-			selects.push({name, ...definition,},)
-			return `{select:${name}}`
-		}
+		if (/^<select/i.test(matched,)) { return `\n\n${selectHtmlToChoiceBlock(matched,)}\n\n` }
 		return serializeToken(fieldHtmlToToken(matched,),)
 	},)
-	return {text: converted, selects,}
 }
 
 /**
  * Up-converts only the inline legacy fields - `<input>`, `<textarea>`, and
- * `<br>` - leaving any `<select>` HTML untouched. Used for the removal
- * message header and footer, which have no owning reason to hold select
- * definitions (and where selects were never functional fill-ins anyway).
+ * `<br>` - leaving any `<select>` HTML untouched. Used for the removal message
+ * header and footer, which display no interactive choice controls.
  * @param text The header/footer text to up-convert.
  */
 export function htmlSimpleFieldsToTokens (text: string,): string {
@@ -420,9 +467,8 @@ function escapeAttr (value: string,): string {
  * A close parenthesis needs no escape - with the opening characters escaped a
  * lone `)` can't form link syntax, and escaping it leaves a stray backslash
  * visible in 6.x. Already-escaped characters are normalized rather than
- * double-escaped (including stripping a `\)`, which the up-convert would
- * remove anyway), and the up-convert strips these escapes again on the way
- * back (see `selectHtmlToDefinition`).
+ * double-escaped (including stripping a `\)`, which the up-convert would remove
+ * anyway), and the up-convert strips these escapes again on the way back.
  */
 function escapeOptionMarkdown (text: string,): string {
 	return text
@@ -432,23 +478,19 @@ function escapeOptionMarkdown (text: string,): string {
 
 /**
  * Serializes an interactive token to the legacy HTML element 6.x understands.
- * A select's definition name becomes the `id` attribute and its prompt a
- * `label` attribute (whitelisted by the reason parser, invisible in 6.x, and
- * recovered by the up-convert). Option line breaks collapse to spaces because
- * v1 options are single-line, and markdown link characters are
- * backslash-escaped to survive 6.x's markdown pass.
+ * A choice's id becomes the `<select>` `id` attribute; its options become
+ * `<option>`s with markdown link characters backslash-escaped to survive 6.x's
+ * markdown pass. The choice's prompt is plain text above the block, not part of
+ * the token, so no `label` attribute is written.
  */
 export function tokenToLegacyHtml (token: InteractiveToken,): string {
 	const idAttr = token.id ? ` id="${escapeAttr(token.id,)}"` : ''
 	switch (token.kind) {
-		case 'select': {
-			const labelAttr = token.placeholder
-				? ` label="${escapeAttr(token.placeholder,)}"`
-				: ''
+		case 'choice': {
 			const options = token.options
-				.map((option,) => `<option>${escapeOptionMarkdown(option.replace(/\s*\r?\n\s*/g, ' ',),)}</option>`)
+				.map((option,) => `<option>${escapeOptionMarkdown(collapseToLine(option,),)}</option>`)
 				.join('',)
-			return `<select${idAttr}${labelAttr}>${options}</select>`
+			return `<select${idAttr}>${options}</select>`
 		}
 		case 'textarea': {
 			const placeholder = token.placeholder ? ` placeholder="${escapeAttr(token.placeholder,)}"` : ''
@@ -462,17 +504,15 @@ export function tokenToLegacyHtml (token: InteractiveToken,): string {
 }
 
 /**
- * Down-converts token-form reason text to the legacy HTML form for the
- * classic (schema v1) wiki mirror: inline tokens become HTML form elements
- * and `{select:name}` references are expanded into full `<select>` elements
- * from the given definitions. An unresolved reference is a text segment and
- * so stays literal on the mirror. Literal text - including paragraph breaks,
- * which 6.x handles fine as newlines - passes through unchanged.
+ * Down-converts token-form reason text to the legacy HTML form for the classic
+ * (schema v1) wiki mirror: inline tokens become HTML form elements and each
+ * `{choice}` block becomes a `<select>` element. Literal text - including
+ * paragraph breaks, which 6.x handles fine as newlines - passes through
+ * unchanged.
  * @param text The token-form reason text.
- * @param selects The reason's select definitions, used to expand references.
  */
-export function tokensToHtmlFields (text: string, selects?: SelectDefinition[],): string {
-	return parseReasonSegments(text, selects,)
+export function tokensToHtmlFields (text: string,): string {
+	return parseReasonSegments(text,)
 		.map((segment,) => segment.type === 'text' ? segment.text : tokenToLegacyHtml(segment.token,))
 		.join('',)
 }

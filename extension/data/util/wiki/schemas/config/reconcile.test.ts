@@ -212,21 +212,17 @@ describe('reconcileConfigFromLegacy', () => {
 		expect(result.config,).toBe(nxg,)
 	})
 
-	it('treats NXG select definitions and the equivalent mirror HTML as equal (no false positives)', async () => {
-		// The mirror carries the expanded <select> HTML; normalization extracts
-		// it back into the same definitions, so nothing is adopted. The prompt
-		// must round-trip as absent-or-non-empty and generated names must be
-		// deterministic, or this comparison would diverge forever.
+	it('treats an NXG {choice} block and the equivalent mirror <select> as equal (no false positives)', async () => {
+		// The mirror carries the expanded <select> HTML; normalization rewrites it
+		// back into the same inline {choice} block (the prompt is plain text above
+		// the marker), so the two normalize to the same string and nothing is
+		// adopted.
 		const nxg = makeConfig({
 			removalReasons: {
 				reasons: [{
 					id: 'reason01',
 					title: 'Rules',
-					text: 'Pick {select:rule} and {select:select-1}',
-					selects: [
-						{name: 'rule', prompt: 'Which rule?', options: ['Rule 1', 'Rule 2',],},
-						{name: 'select-1', options: ['a', 'b',],},
-					],
+					text: 'Which rule?\n\n{choice#rule}\n- Rule 1\n- Rule 2',
 				},],
 			},
 		},)
@@ -239,8 +235,7 @@ describe('reconcileConfigFromLegacy', () => {
 						title: 'Rules',
 						// eslint-disable-next-line no-restricted-globals
 						text: escape(
-							'Pick <select id="rule" label="Which rule?"><option>Rule 1</option><option>Rule 2</option>'
-								+ '</select> and <select><option>a</option><option>b</option></select>',
+							'Which rule?\n\n<select id="rule"><option>Rule 1</option><option>Rule 2</option></select>',
 						),
 					},],
 				},
@@ -253,14 +248,13 @@ describe('reconcileConfigFromLegacy', () => {
 		expect(result.config,).toBe(nxg,)
 	})
 
-	it('adopts a 6.x edit to a select option', async () => {
+	it('adopts a 6.x edit to a choice option', async () => {
 		const nxg = makeConfig({
 			removalReasons: {
 				reasons: [{
 					id: 'reason01',
 					title: 'Rules',
-					text: 'Pick {select:rule}',
-					selects: [{name: 'rule', options: ['Rule 1', 'Rule 2',],},],
+					text: '{choice#rule}\n- Rule 1\n- Rule 2',
 				},],
 			},
 		},)
@@ -273,7 +267,7 @@ describe('reconcileConfigFromLegacy', () => {
 						title: 'Rules',
 						// eslint-disable-next-line no-restricted-globals
 						text: escape(
-							'Pick <select id="rule"><option>Rule 1 (edited)</option><option>Rule 2</option></select>',
+							'<select id="rule"><option>Rule 1 (edited)</option><option>Rule 2</option></select>',
 						),
 					},],
 				},
@@ -283,10 +277,7 @@ describe('reconcileConfigFromLegacy', () => {
 		const result = await reconcileConfigFromLegacy('sub', nxg,)
 
 		expect(result.changed,).toBe(true,)
-		expect(result.config.removalReasons.reasons[0]!.selects,).toEqual([
-			{name: 'rule', options: ['Rule 1 (edited)', 'Rule 2',],},
-		],)
-		expect(result.config.removalReasons.reasons[0]!.text,).toBe('Pick {select:rule}',)
+		expect(result.config.removalReasons.reasons[0]!.text,).toBe('{choice#rule}\n- Rule 1 (edited)\n- Rule 2',)
 	})
 
 	it('adopts 6.x edits when the mirror diverges', async () => {

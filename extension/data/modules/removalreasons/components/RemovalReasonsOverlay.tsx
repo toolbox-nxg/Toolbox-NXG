@@ -251,15 +251,12 @@ export function RemovalReasonsOverlay ({
 		return visibleReasons.map((reason, reasonIndex,) => {
 			// Normalize to token form up front (decoding entity-encoded angle brackets
 			// first, so legacy &lt;select&gt; configs convert too): display rendering and
-			// the value substitution in handleSave then both work from the same tokens,
-			// resolved against the same merged select definitions.
-			const {text: markdown, selects: extracted,} = htmlFieldsToTokens(
-				decodeHtmlAngleBrackets(`${reason.text}\n\n`,),
-				reason.selects ?? [],
-			)
-			const selects = [...reason.selects ?? [], ...extracted,]
-			const html = renderReasonHtml(parser, replaceTokens(tokenSource, markdown,), selects,)
-			return {id: `reason-${reasonIndex}`, reason, markdown, selects, html,}
+			// the value substitution in handleSave then both work from the same tokens.
+			const markdown = htmlFieldsToTokens(decodeHtmlAngleBrackets(`${reason.text}\n\n`,),)
+			const reasonId = `reason-${reasonIndex}`
+			// Pass the reason's stable positional id so id-less {choice} blocks get persistent ids.
+			const html = renderReasonHtml(parser, replaceTokens(tokenSource, markdown,), reasonId,)
+			return {id: reasonId, reason, markdown, html,}
 		},)
 	}, [visibleReasons, parser, tokenSource,],)
 
@@ -1041,7 +1038,6 @@ export function RemovalReasonsOverlay ({
 											? renderReasonHtml(
 												parser,
 												replaceTokens(tokenSource, reasonOverrides.get(reason.id,)!,),
-												reason.selects,
 											)
 											: undefined}
 										onEdit={() => handleReasonEdit(reason.id,)}

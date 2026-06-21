@@ -6,10 +6,12 @@ import {tbDecode,} from '../../../data/encoding'
 import createLogger from '../../../infra/logging'
 import {PROPOSED_ACTION_KINDS,} from '../proposals/schema'
 import {
+	canonicalizeChoiceBlocks,
 	decodeHtmlAngleBrackets,
 	htmlFieldsToTokens,
 	htmlSimpleFieldsToTokens,
-	type SelectDefinition,
+	inlineSelectDefinitions,
+	type LegacySelectDefinition,
 } from '../shared/tokens'
 
 const log = createLogger('TBConfig',)
@@ -20,8 +22,9 @@ const log = createLogger('TBConfig',)
  * **v2** (the NXG schema, stored on the `toolbox-nxg` page):
  * - Every string is stored as plain text - no `escape()`/URI encoding anywhere.
  * - Removal reason text, header, and footer use brace tokens for interactive
- *   fill-in fields (`{input: ...}`, `{textarea: ...}`, `{select: a | b}`) instead
- *   of the limited-HTML form elements v1 allowed.
+ *   fill-in fields (`{input: ...}`, `{textarea: ...}`, and a `{choice}` block
+ *   followed by a markdown list) instead of the limited-HTML form elements v1
+ *   allowed.
  * - Removal reasons and mod macros carry a stable `id`, so future reordering
  *   and cross-references don't depend on array position.
  *
@@ -174,41 +177,6 @@ export function ensureStableIds (config: ToolboxConfig,): void {
 }
 
 /**
- * Coerces a removal reason's `selects` field to a clean shape so hand-edited
- * wiki pages can't crash the render paths: a non-array becomes absent, and
- * entries without a string name or an array of string options are dropped.
- * A missing prompt stays missing and an empty-string prompt is removed -
- * definitions must store the prompt as absent-or-non-empty so reconcile
- * equality with the legacy mirror (where an empty `label` is never written)
- * holds.
- * @param reason The reason whose `selects` field to coerce, mutated in-place.
- */
-function coerceSelectDefinitions (reason: {selects?: unknown},): void {
-	if (reason.selects === undefined) { return }
-	if (!Array.isArray(reason.selects,)) {
-		delete reason.selects
-		return
-	}
-	const cleaned: SelectDefinition[] = []
-	for (const entry of reason.selects) {
-		if (!entry || typeof entry !== 'object') { continue }
-		const {name, prompt, options,} = entry as Record<string, unknown>
-		if (typeof name !== 'string' || name === '' || !Array.isArray(options,)) { continue }
-		const definition: SelectDefinition = {
-			name,
-			options: options.filter((option,): option is string => typeof option === 'string'),
-		}
-		if (typeof prompt === 'string' && prompt !== '') { definition.prompt = prompt }
-		cleaned.push(definition,)
-	}
-	if (cleaned.length > 0) {
-		reason.selects = cleaned
-	} else {
-		delete reason.selects
-	}
-}
-
-/**
  * Sanitizes the `removalReasons.suggestedReasons` mapping list so hand-edited or
  * legacy wiki pages can't crash the matcher: a non-array becomes absent, and each
  * entry must have a non-empty `pattern` and at least one non-empty `reasonIds`
@@ -251,10 +219,13 @@ function coerceSuggestedReasons (config: ToolboxConfig,): void {
  * Converts legacy limited-HTML form elements (`<select>`, `<input>`,
  * `<textarea>`) in removal reason text, header, and footer to brace tokens,
  * first decoding any number of layers of HTML-entity-escaped angle brackets.
- * Each legacy `<select>` in reason text is extracted into a structured
- * definition on `reason.selects`, leaving a `{select:name}` reference in the
- * text. Idempotent on token-form text: no HTML remains, so no new
- * definitions are extracted on later passes.
+ * Each legacy `<select>` in reason text becomes an inline `{choice}` block.
+ * Reasons carrying the older v2 shape (a `selects` array referenced from the
+ * text as `{select:name}`) are migrated to the inline form too, after which the
+ * field is dropped. Every reason's text is then run through
+ * {@link canonicalizeChoiceBlocks} so the NXG text and the down-converted legacy
+ * mirror normalize to the same string (config reconcile compares them).
+ * Idempotent on already-inline text.
  *
  * This is the v1 -> v2 text conversion, but it runs on every normalize (not
  * just the migration) so it doubles as healing: v2 pages written by earlier
@@ -267,19 +238,20 @@ function coerceSuggestedReasons (config: ToolboxConfig,): void {
 function upconvertReasonHtml (config: ToolboxConfig,): void {
 	for (const reason of config.removalReasons.reasons) {
 		if (!reason || typeof reason !== 'object') { continue }
-		coerceSelectDefinitions(reason,)
-		if (typeof reason.text !== 'string') { continue }
-		const {text, selects,} = htmlFieldsToTokens(
-			decodeHtmlAngleBrackets(reason.text,),
-			reason.selects ?? [],
-		)
-		reason.text = text
-		if (selects.length > 0) {
-			reason.selects = [...reason.selects ?? [], ...selects,]
+		const legacySelects = (reason as {selects?: unknown}).selects
+		if (typeof reason.text === 'string') {
+			let text = htmlFieldsToTokens(decodeHtmlAngleBrackets(reason.text,),)
+			if (Array.isArray(legacySelects,) && legacySelects.length > 0) {
+				text = inlineSelectDefinitions(text, legacySelects as LegacySelectDefinition[],)
+			}
+			reason.text = canonicalizeChoiceBlocks(text,)
 		}
+		// The separate definitions are folded into the text above; the field is
+		// an NXG-only legacy shape and never kept past normalize.
+		delete (reason as {selects?: unknown}).selects
 	}
-	// Header and footer have no owning reason to hold select definitions, so
-	// only the inline fields are up-converted there.
+	// Header and footer display no interactive choice controls, so only the
+	// inline fields are up-converted there (any `<select>` is left literal).
 	if (typeof config.removalReasons.header === 'string') {
 		config.removalReasons.header = htmlSimpleFieldsToTokens(
 			decodeHtmlAngleBrackets(config.removalReasons.header,),

@@ -29,11 +29,7 @@ import {SortModeRef, useSortMode,} from '../../../shared/controls/SortToggleButt
 import {TextareaInput,} from '../../../shared/controls/TextareaInput'
 import {TokenChips,} from '../../../shared/controls/TokenChips'
 import {type ConfigState, generateConfigId,} from '../../../util/wiki/schemas/config/schema'
-import {
-	decodeHtmlAngleBrackets,
-	type SelectDefinition,
-	substitutionTokens,
-} from '../../../util/wiki/schemas/shared/tokens'
+import {decodeHtmlAngleBrackets, substitutionTokens,} from '../../../util/wiki/schemas/shared/tokens'
 import type {UserNoteColor,} from '../../../util/wiki/schemas/usernotes/schema'
 import {reloadConfigFromWiki,} from '../../config/moduleapi'
 import {getRemovalReasonParser,} from '../../shared/removalReasons/parser'
@@ -41,7 +37,6 @@ import {getSubredditColors,} from '../../shared/usernotes/moduleapi'
 import {noteTypeColorStyle,} from '../../shared/usernotes/noteTypeColorStyle'
 import css from './RemovalReasonList.module.css'
 import {renderReasonHtml,} from './RemovalReasonsOverlay.helpers'
-import {SelectBuilder,} from './SelectBuilder'
 
 /** A single removal reason entry as stored in the toolbox wiki config. */
 interface Reason {
@@ -49,8 +44,6 @@ interface Reason {
 	id?: string
 	text: string
 	title?: string
-	/** Named select definitions referenced from the text as `{select:name}`. */
-	selects?: SelectDefinition[]
 	/** Whether the reason applies to posts (defaults to true when undefined). */
 	removePosts?: boolean
 	/**
@@ -84,7 +77,6 @@ interface FlairTemplate {
 interface ReasonFormValues {
 	title?: string
 	text?: string
-	selects?: SelectDefinition[]
 	removePosts?: boolean
 	removeComments?: boolean
 	flairText?: string
@@ -131,8 +123,7 @@ function ReasonForm ({
 }: ReasonFormProps,) {
 	const [title, setTitle,] = useState(initialValues.title ?? '',)
 	const [text, setText,] = useState(initialValues.text ?? '',)
-	const [selects, setSelects,] = useState<SelectDefinition[]>(initialValues.selects ?? [],)
-	/** The message textarea, for inserting `{select:name}` references at the cursor. */
+	/** The message textarea, for inserting a `{choice}` starter block at the cursor. */
 	const textRef = useRef<HTMLTextAreaElement>(null,)
 	const [removePosts, setRemovePosts,] = useState(initialValues.removePosts !== false,)
 	const [removeComments, setRemoveComments,] = useState(!!initialValues.removeComments,)
@@ -165,55 +156,27 @@ function ReasonForm ({
 		}
 	}
 
-	/** Splices a `{select:name}` reference into the message text at the cursor. */
-	const handleInsertReference = (name: string,) => {
-		const reference = `{select:${name}}`
+	/** Splices a `{choice}` starter block into the message text at the cursor. */
+	const handleInsertChoice = () => {
 		const textarea = textRef.current
 		const at = textarea?.selectionStart ?? text.length
-		setText((prev,) => prev.slice(0, at,) + reference + prev.slice(at,))
-		// Restore focus with the caret placed after the inserted reference.
+		// Lead with blank lines so the marker lands on its own line wherever the
+		// caret is; the parser needs the marker and its list on fresh lines.
+		const template = '\n\n{choice}\n- Option 1\n- Option 2\n\n'
+		const caret = at + template.indexOf('Option 1',)
+		setText((prev,) => prev.slice(0, at,) + template + prev.slice(at,))
+		// Restore focus with the caret placed on the first option's text.
 		requestAnimationFrame(() => {
 			textarea?.focus()
-			textarea?.setSelectionRange(at + reference.length, at + reference.length,)
+			textarea?.setSelectionRange(caret, caret + 'Option 1'.length,)
 		},)
 	}
 
-	// Non-blocking diagnostics: references in the text with no matching
-	// definition, and definitions the text never references. A definition
-	// with no non-blank options is incomplete (it's dropped on save below),
-	// so references to it count as dangling rather than resolved.
-	const referencedNames = new Set(
-		[...text.matchAll(/\{select\s*:\s*([\w-]+)\s*\}/g,),].map((match,) => match[1]!),
-	)
-	const definedNames = new Set(
-		selects
-			.filter((definition,) => definition.options.some((option,) => option.trim() !== ''))
-			.map((definition,) => definition.name)
-			.filter(Boolean,),
-	)
-	const danglingNames = [...referencedNames,].filter((name,) => !definedNames.has(name,))
-	const unusedNames = [...definedNames,].filter((name,) => !referencedNames.has(name,))
-
 	const handleSave = () => {
-		// Drop blank option rows, nameless definitions, and definitions left
-		// with no options at all - persisting an empty select would render an
-		// empty control and silently substitute '' into the sent message,
-		// while a dropped definition leaves the reference dangling, which the
-		// diagnostics above surface. Store the prompt only when non-empty so
-		// the wiki JSON matches what the legacy mirror round-trips (an empty
-		// label attribute is never written).
-		const cleanedSelects = selects
-			.map((definition,) => ({
-				name: definition.name,
-				...(definition.prompt?.trim() ? {prompt: definition.prompt.trim(),} : {}),
-				options: definition.options.map((option,) => option.trim()).filter((option,) => option !== ''),
-			}))
-			.filter((definition,) => definition.name !== '' && definition.options.length > 0)
 		onSave(
 			{
 				text,
 				title,
-				...(cleanedSelects.length > 0 ? {selects: cleanedSelects,} : {}),
 				removePosts,
 				// Only ever write `true` - an unchecked box omits the key instead of
 				// writing `false`. An absent flag means "defer to the mod's 'enable
@@ -256,28 +219,18 @@ function ReasonForm ({
 						onChange={(e,) => setText(e.target.value,)}
 					/>
 				</TokenChips>
-				{danglingNames.length > 0 && (
-					<span className={css.fieldWarning}>
-						No select named {danglingNames.map((name,) => `"${name}"`).join(', ',)}{' '}
-						is defined below; the reference will appear literally in the message.
+				<div className={css.fieldHint}>
+					<ActionButton
+						type="button"
+						title="Insert a pick-one choice field at the cursor"
+						onClick={handleInsertChoice}
+					>
+						Insert {'{choice}'} field
+					</ActionButton>
+					<span>
+						A {'{choice}'} on its own line, followed by a {'- '} list, becomes a pick-one control.
 					</span>
-				)}
-			</div>
-			<div className={css.editField}>
-				<span className={css.editFieldLabel}>Selects</span>
-				<SelectBuilder
-					value={selects}
-					onChange={setSelects}
-					onInsertReference={handleInsertReference}
-					idPrefix={idPrefix}
-				/>
-				{unusedNames.length > 0 && (
-					<span className={css.fieldWarning}>
-						{unusedNames.map((name,) => `"${name}"`).join(', ',)} {unusedNames.length === 1 ? 'is' : 'are'}
-						{' '}
-						not referenced from the message text.
-					</span>
-				)}
+				</div>
 			</div>
 			<div className={css.editField}>
 				<span className={css.editFieldLabel}>Use for</span>
@@ -423,11 +376,11 @@ function ReasonCard ({
 	}
 
 	const rawText = reason.text
-	// Full token-aware rendering so fill-in fields ({input: ...}, {select:name})
-	// preview as the controls mods will actually see, not as literal tokens.
+	// Full token-aware rendering so fill-in fields ({input: ...}, {choice}) preview
+	// as the controls mods will actually see, not as literal tokens.
 	const previewHtml = useMemo(
-		() => rawText ? renderReasonHtml(parser, decodeHtmlAngleBrackets(rawText,), reason.selects,) : '',
-		[rawText, reason.selects, parser,],
+		() => rawText ? renderReasonHtml(parser, decodeHtmlAngleBrackets(rawText,),) : '',
+		[rawText, parser,],
 	)
 
 	useEffect(() => {

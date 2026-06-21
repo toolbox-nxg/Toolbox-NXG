@@ -1,14 +1,14 @@
 /**
  * Pure helpers for the removal-reasons overlay: wiki-text-to-UI rendering
- * (including the `{select:name}` -> radio-group pipeline), reason-text
+ * (including the `{choice}` block -> radio-group pipeline), reason-text
  * composition, and small mapping utilities.
  *
  * Reason text is the schema v2 token form (`{input: ...}`, `{textarea: ...}`,
- * and `{select:name}` references into the reason's select definitions).
+ * and `{choice}` blocks whose options are the markdown list below the marker).
  * Legacy limited-HTML text is accepted too - it is up-converted to tokens
- * (extracting `<select>`s into definitions) before rendering - so unmigrated
- * `getfrom` targets and stale caches keep working. The rendered controls are
- * unchanged from the legacy pipeline, so existing configs display
+ * (rewriting `<select>`s into `{choice}` blocks) before rendering - so
+ * unmigrated `getfrom` targets and stale caches keep working. The rendered
+ * controls are unchanged from the legacy pipeline, so existing configs display
  * identically.
  */
 
@@ -16,7 +16,6 @@ import {
 	htmlFieldsToTokens,
 	InteractiveToken,
 	parseReasonSegments,
-	SelectDefinition,
 	substituteTokenValues,
 	tokenToLegacyHtml,
 } from '../../../util/wiki/schemas/shared/tokens'
@@ -25,6 +24,9 @@ import {RemovalReason,} from '../schema'
 
 /** Counter for generating unique radio group `name` attributes across all rendered reason cards. */
 let radioGroupCounter = 0
+
+/** Default id prefix for an id-less `{choice}` block; overridden per-reason so ids stay stable. */
+const DEFAULT_ANON_CHOICE_PREFIX = 'toolbox-anon-choice'
 
 /** How the removal reason message will be delivered to the author. */
 export type ReasonType = 'reply' | 'pm' | 'both' | 'none'
@@ -36,12 +38,6 @@ export interface RenderedReason {
 	reason: RemovalReason
 	/** Raw markdown string with a trailing newline, healed to token form. */
 	markdown: string
-	/**
-	 * The reason's select definitions merged with any extracted from legacy
-	 * HTML during healing; resolves the `{select:name}` references in
-	 * {@link markdown}.
-	 */
-	selects: SelectDefinition[]
 	/** Pre-rendered HTML for display. */
 	html: string
 }
@@ -65,35 +61,33 @@ export const usernoteError = 'failed to save usernote'
 export const banError = 'failed to issue ban'
 
 /**
- * Renders a `{select}` token as a radio button group.
+ * Renders a `{choice}` token as a radio button group.
  * Each option string is both the inserted value and the visible label; labels
- * are rendered as markdown so options can contain links and emphasis. The
- * token's optional prompt is rendered as markdown above the choices.
+ * are rendered as markdown so options can contain links and emphasis. Any
+ * prompt is plain markdown text above the block, rendered as normal markdown
+ * rather than by this function.
  * A `<input type="hidden">` inside the wrapper tracks the selected value for the save logic.
  * @param parser SnuOwnd parser instance for rendering option markdown labels.
- * @param token The parsed select token.
+ * @param token The parsed choice token.
+ * @param anonId Stable id to use when the choice has no explicit `#id`. Derived from the reason's
+ *   position and the choice's position so the selection persists across overlay reopens (a mutable
+ *   counter would change each render and orphan the cached value).
  * @returns HTML string containing a `.toolbox-radio-group` div with a hidden input inside.
  */
-export function selectTokenToRadioGroup (
+export function choiceTokenToRadioGroup (
 	parser: ReturnType<typeof getRemovalReasonParser>,
 	token: InteractiveToken,
+	anonId: string,
 ): string {
 	const doc = new DOMParser().parseFromString('', 'text/html',)
 
-	const selectId = token.id || `toolbox-anon-select-${radioGroupCounter}`
+	const selectId = token.id || anonId
+	// The `name` only groups radios within one block; it needs page-uniqueness, not stability, so the
+	// mutable counter is fine here (unlike `selectId`, which keys the persisted selection).
 	const groupName = `toolbox-rg-${selectId}-${radioGroupCounter++}`
 
 	const wrapper = doc.createElement('div',)
 	wrapper.className = 'toolbox-radio-group'
-
-	if (token.placeholder) {
-		const prompt = doc.createElement('div',)
-		prompt.className = 'toolbox-radio-group-prompt'
-		let promptHtml = parser.render(token.placeholder,).trim()
-		promptHtml = promptHtml.replace(/^<p>([\s\S]+)<\/p>$/, '$1',)
-		prompt.innerHTML = promptHtml || token.placeholder
-		wrapper.appendChild(prompt,)
-	}
 
 	token.options.forEach((option, optionIdx,) => {
 		const label = doc.createElement('label',)
@@ -136,31 +130,33 @@ export function selectTokenToRadioGroup (
 /**
  * Renders a removal reason text field to HTML.
  * The text is first normalized to token form (legacy limited-HTML configs are
- * up-converted on the fly), then split into segments: `{select: ...}` tokens
- * become radio groups, `{input: ...}`/`{textarea: ...}` tokens become inline form
+ * up-converted on the fly), then split into segments: `{choice}` blocks become
+ * radio groups, `{input: ...}`/`{textarea: ...}` tokens become inline form
  * elements carried through the markdown render via the parser's element
  * whitelist, and everything else renders as markdown.
  * @param parser SnuOwnd parser instance.
  * @param text Reason text in token form or legacy HTML form (already decoded
  *   via `decodeHtmlAngleBrackets`).
- * @param selects The reason's select definitions, used to resolve
- *   `{select:name}` references; an unresolved reference renders literally.
+ * @param idPrefix Stable prefix for id-less `{choice}` blocks (e.g. the reason's positional id).
+ *   Each id-less choice gets `${idPrefix}-${n}` by its position, so its selection persists across
+ *   reopens. Callers rendering a single reason in isolation (e.g. previews) can omit it.
  * @returns Rendered HTML with form controls in place of the interactive tokens.
  */
 export function renderReasonHtml (
 	parser: ReturnType<typeof getRemovalReasonParser>,
 	text: string,
-	selects?: SelectDefinition[],
+	idPrefix: string = DEFAULT_ANON_CHOICE_PREFIX,
 ): string {
-	// Heal legacy-HTML text on the fly (a no-op for token-form text), resolving
-	// references against the reason's definitions plus any just extracted.
-	const {text: healed, selects: extracted,} = htmlFieldsToTokens(text, selects ?? [],)
-	const resolved = [...selects ?? [], ...extracted,]
+	// Heal legacy-HTML text on the fly (a no-op for token-form text): any
+	// `<select>` becomes an inline `{choice}` block, inputs/textareas inline tokens.
+	const healed = htmlFieldsToTokens(text,)
 
 	const parts: string[] = []
-	// Markdown accumulated until the next select token; inline field tokens are
+	// Markdown accumulated until the next choice block; inline field tokens are
 	// embedded into it as whitelisted HTML so they stay inside their paragraph.
 	let pending = ''
+	// Position of the next id-less choice within this reason, for a stable fallback id.
+	let anonChoiceIndex = 0
 	const flush = () => {
 		if (pending) {
 			parts.push(parser.render(pending,),)
@@ -168,14 +164,14 @@ export function renderReasonHtml (
 		}
 	}
 
-	for (const segment of parseReasonSegments(healed, resolved,)) {
+	for (const segment of parseReasonSegments(healed,)) {
 		if (segment.type === 'text') {
 			pending += segment.text
-		} else if (segment.token.kind === 'select') {
-			// SnuOwnd HTML-escapes <select> even when whitelisted, so selects are
+		} else if (segment.token.kind === 'choice') {
+			// SnuOwnd HTML-escapes <select> even when whitelisted, so choices are
 			// spliced in as pre-rendered radio groups between markdown chunks.
 			flush()
-			parts.push(selectTokenToRadioGroup(parser, segment.token,),)
+			parts.push(choiceTokenToRadioGroup(parser, segment.token, `${idPrefix}-${anonChoiceIndex++}`,),)
 		} else {
 			pending += tokenToLegacyHtml(segment.token,)
 		}
@@ -277,7 +273,7 @@ export function composeReasonText (
 			body = override
 			reason += `${override}\n\n`
 		} else {
-			body = substituteTokenValues(r.markdown, getInputValues(r.id,), r.selects,)
+			body = substituteTokenValues(r.markdown, getInputValues(r.id,),)
 			reason += body
 		}
 		// Capture the resolved body keyed by the persistent reason id, so Edit & Accept
