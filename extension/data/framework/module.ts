@@ -199,6 +199,13 @@ export interface ModuleOptions {
 	name: string
 	/** Unique identifier; defaults to `name` with whitespace removed. */
 	id?: string
+	/**
+	 * Slug for this module's documentation page under the Toolbox-NXG docs site
+	 * (https://toolbox-nxg.github.io/Toolbox-NXG/user-guide/modules/). Defaults to the
+	 * lowercased id. Set to an empty string for modules that have no documentation page,
+	 * which suppresses the help link in the settings UI.
+	 */
+	docSlug?: string
 	/** Whether the module is enabled when the user hasn't configured it yet. */
 	enabledByDefault?: boolean
 	/** When true, the module cannot be disabled by the user. */
@@ -234,6 +241,8 @@ export function buildPolicyMap (modules: ReadonlyArray<Module<any>>,): Record<st
 export class Module<TSettings extends Record<string, any> = Record<string, any>,> {
 	name: string
 	id: string
+	/** Slug for this module's documentation page on the Toolbox-NXG docs site. */
+	docSlug: string
 	enabledByDefault: boolean
 	alwaysEnabled: boolean
 	/** If true, the module will only show up when debug mode is enabled */
@@ -250,6 +259,7 @@ export class Module<TSettings extends Record<string, any> = Record<string, any>,
 		{
 			name,
 			id = name.replace(/\s/g, '',),
+			docSlug = id.toLowerCase(),
 			enabledByDefault = false,
 			alwaysEnabled = false,
 			debug = false,
@@ -261,6 +271,7 @@ export class Module<TSettings extends Record<string, any> = Record<string, any>,
 	) {
 		this.name = name
 		this.id = id
+		this.docSlug = docSlug
 		this.enabledByDefault = enabledByDefault
 		this.alwaysEnabled = alwaysEnabled
 		this.debugMode = debug

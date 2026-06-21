@@ -9,6 +9,7 @@ import {type OldRedditSettings, settings,} from './settings'
 const self = new Module<OldRedditSettings>({
 	name: 'Old Reddit',
 	id: oldReddit,
+	docSlug: 'oldreddit',
 	alwaysEnabled: true,
 	oldReddit: true,
 	settings,

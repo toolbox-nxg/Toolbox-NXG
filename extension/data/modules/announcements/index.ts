@@ -9,6 +9,7 @@ import {type AnnouncementsSettings, settings,} from './settings'
 const self = new Module<AnnouncementsSettings>({
 	name: 'Announcements',
 	id: 'Announcements',
+	docSlug: '', // No dedicated documentation page; suppresses the help link.
 	enabledByDefault: true,
 	settings,
 }, async function init () {

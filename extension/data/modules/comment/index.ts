@@ -20,6 +20,7 @@ import {CommentsSettings, settings,} from './settings'
 export default new Module<CommentsSettings>({
 	name: 'Comments',
 	id: 'Comments',
+	docSlug: 'comments',
 	enabledByDefault: true,
 	settings,
 }, ({

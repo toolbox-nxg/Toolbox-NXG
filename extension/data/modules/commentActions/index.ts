@@ -14,6 +14,7 @@ import {createCommentActionsSlot,} from './dom'
 export default new Module({
 	name: 'Comment Actions',
 	id: commentActions,
+	docSlug: 'comment-actions',
 	enabledByDefault: true,
 	shreddit: true,
 }, () => {

@@ -19,6 +19,7 @@ registerReplayHandler('removal-reason', (subreddit, proposal, overrides,) => {
 const self = new Module<RemovalReasonsSettings>({
 	name: 'Removal Reasons',
 	id: 'RemovalReasons',
+	docSlug: 'removal-reasons',
 	enabledByDefault: true,
 	settings,
 }, (s: RemovalReasonsSettings,) => {

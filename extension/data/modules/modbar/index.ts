@@ -20,6 +20,7 @@ export const modbarExists = new Promise<void>((resolve,) => {
 const self = new Module<ModbarSettings>({
 	name: 'Modbar',
 	id: modbar,
+	docSlug: 'modbar',
 	alwaysEnabled: true,
 	settings,
 }, async (s: ModbarSettings,) => {

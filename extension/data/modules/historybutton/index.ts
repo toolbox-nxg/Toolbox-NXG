@@ -11,6 +11,7 @@ const log = createLogger('HistoryButton',)
 export default new Module<HistoryButtonSettings>({
 	name: 'History Button',
 	id: 'HistoryButton',
+	docSlug: 'historybutton',
 	enabledByDefault: true,
 	settings,
 }, async () => {

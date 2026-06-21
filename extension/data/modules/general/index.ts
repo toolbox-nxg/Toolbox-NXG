@@ -5,6 +5,7 @@ import {GenSettings, settings,} from './settings'
 const self = new Module<GenSettings>({
 	name: 'General Settings',
 	id: 'GenSettings',
+	docSlug: 'general',
 	alwaysEnabled: true,
 	settings,
 },)

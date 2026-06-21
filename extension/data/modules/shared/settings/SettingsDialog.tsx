@@ -4,6 +4,7 @@ import {useCallback, useMemo, useRef, useState,} from 'react'
 import {buildPolicyMap,} from '../../../framework/module'
 import {ActionButton,} from '../../../shared/controls/ActionButton'
 import {CheckboxInput,} from '../../../shared/controls/CheckboxInput'
+import {Icon,} from '../../../shared/controls/Icon'
 import {TextInput,} from '../../../shared/controls/NormalInput'
 import {NumberInput,} from '../../../shared/controls/NumberInput'
 import {SettingRow,} from '../../../shared/window/SettingRow'
@@ -447,6 +448,34 @@ function CoreSettingsTab ({
 
 // ----- Per-module settings tab -----
 
+/**
+ * Help link to a module's documentation page on the Toolbox-NXG docs site. Renders
+ * nothing for modules whose `docSlug` is empty (i.e. modules with no docs page).
+ */
+function ModuleDocsLink ({module,}: {module: any},) {
+	if (!module.docSlug) { return null }
+	const href = `https://toolbox-nxg.github.io/Toolbox-NXG/user-guide/modules/${module.docSlug}`
+	return (
+		<a
+			className={css.moduleDocsLink}
+			href={href}
+			target="_blank"
+			rel="noreferrer"
+			title={`Open the ${module.name} documentation`}
+			aria-label={`Open the ${module.name} documentation`}
+			onClick={(e,) => {
+				// Plain click opens the docs in a floating popup window. Let modified clicks
+				// fall through so users can still open the docs in a new tab/window.
+				if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) { return }
+				e.preventDefault()
+				window.open(href, '', 'scrollbars=1,width=500,height=600,location=0,menubar=0,top=100,left=100',)
+			}}
+		>
+			<Icon icon="help" />
+		</a>
+	)
+}
+
 function ModuleSettingsTab ({
 	module,
 	localValues,
@@ -464,6 +493,10 @@ function ModuleSettingsTab ({
 
 	return (
 		<div className={css.settingsContent}>
+			<div className={css.moduleHeader}>
+				<h2 className={css.moduleTitle}>{module.name}</h2>
+				<ModuleDocsLink module={module} />
+			</div>
 			{!enabled && (
 				<p className={css.moduleDisabledWarning}>
 					This module is not active. Use the toggle next to its name in the sidebar to enable it.
@@ -709,7 +742,10 @@ export function SettingsDialog ({
 								else { sectionRefs.current.delete(m.id,) }
 							}}
 						>
-							<div className={css.searchResultModule}>{m.name}</div>
+							<div className={css.searchResultModule}>
+								<span>{m.name}</span>
+								<ModuleDocsLink module={m} />
+							</div>
 							<fieldset className={css.settingFieldset}>
 								{settings.map((s: any,) => {
 									const storageKey = `Toolbox.${m.id}.${s.id}`

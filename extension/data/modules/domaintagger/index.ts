@@ -12,6 +12,7 @@ import {DomainTaggerSettings, settings,} from './settings'
 export default new Module<DomainTaggerSettings>({
 	name: 'Domain Tagger',
 	id: domainTagger,
+	docSlug: 'domaintagger',
 	enabledByDefault: true,
 	settings,
 }, (s,) => {

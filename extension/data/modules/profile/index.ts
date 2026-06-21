@@ -14,6 +14,7 @@ const log = createLogger('Profile',)
 export default new Module<ProfileSettings>({
 	name: 'Profile Pro',
 	id: profile,
+	docSlug: 'profile',
 	enabledByDefault: true,
 	settings,
 }, async (s: ProfileSettings,) => {

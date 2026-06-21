@@ -29,6 +29,9 @@
 .settingLink {
 	background: none;
 	border: none;
+	/* Set an explicit themed color: as a <button>, this would otherwise fall back to the
+	   UA default (black) instead of inheriting the theme text color in dark mode. */
+	color: var(--toolbox-text-secondary);
 	padding: var(--toolbox-sp-2);
 	cursor: pointer;
 	text-decoration: none;

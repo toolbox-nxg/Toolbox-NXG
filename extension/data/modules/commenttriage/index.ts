@@ -12,6 +12,7 @@ import {CommentTriageSettings, settings,} from './settings'
 export default new Module<CommentTriageSettings>({
 	name: 'Comment Triage',
 	id: commentTriage,
+	docSlug: 'commenttriage',
 	oldReddit: true,
 	settings,
 }, (s,) => {

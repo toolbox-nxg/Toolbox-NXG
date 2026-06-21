@@ -8,6 +8,7 @@ import {settings, UserNotesSettings,} from './settings'
 const self = new Module<UserNotesSettings>({
 	name: 'Usernotes',
 	id: 'UserNotes',
+	docSlug: 'usernotes',
 	enabledByDefault: true,
 	settings,
 }, async function init (initialSettings: UserNotesSettings,) {

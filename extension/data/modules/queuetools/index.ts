@@ -11,6 +11,7 @@ import type {QueueToolsSettings,} from './settings'
 const self: Module<QueueToolsSettings> = new Module({
 	name: 'Queue Tools',
 	id: 'QueueTools',
+	docSlug: 'queue-tools',
 	enabledByDefault: true,
 	settings,
 }, init,)

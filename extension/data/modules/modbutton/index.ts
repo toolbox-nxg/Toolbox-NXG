@@ -9,6 +9,7 @@ import {ModButtonSettings, settings,} from './settings'
 const self = new Module<ModButtonSettings>({
 	name: 'Mod Button',
 	id: modButton,
+	docSlug: 'modbutton',
 	enabledByDefault: true,
 	settings,
 }, function init (s: ModButtonSettings,) {

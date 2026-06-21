@@ -9,6 +9,7 @@ import {settings, type ShredditSettings,} from './settings'
 const self = new Module<ShredditSettings>({
 	name: 'Shreddit',
 	id: 'Shreddit',
+	docSlug: 'shreddit',
 	enabledByDefault: true,
 	shreddit: true,
 	settings,

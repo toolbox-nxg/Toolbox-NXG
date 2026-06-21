@@ -12,6 +12,7 @@ import {createModActionsSlot,} from './dom'
 export default new Module({
 	name: 'Mod Actions',
 	id: modActions,
+	docSlug: 'mod-actions',
 	enabledByDefault: true,
 	shreddit: true,
 }, () => {

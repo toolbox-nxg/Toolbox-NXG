@@ -9,6 +9,7 @@ import {type ConfigSettings, settings,} from './settings'
 export default new Module<ConfigSettings>({
 	name: 'Toolbox-NXG Config',
 	id: 'Config',
+	docSlug: 'config',
 	enabledByDefault: true,
 	settings,
 }, async () => {
@@ -19,7 +20,6 @@ export default new Module<ConfigSettings>({
 	lifecycle.on(window, 'TBNewPage', openHandlers.handleNewPage,)
 	lifecycle.delegate(document.body, 'click', '#toolbox-config-link', openHandlers.handleConfigLinkClick,)
 	lifecycle.on(document, 'tb:mysubs-open-config', openHandlers.handleOpenConfigEvent,)
-	lifecycle.delegate(document.body, 'click', '#toolbox-config-help', openHandlers.handleConfigHelpClick,)
 
 	return lifecycle.cleanup
 },)

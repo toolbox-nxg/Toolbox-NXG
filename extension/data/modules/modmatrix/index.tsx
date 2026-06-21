@@ -15,6 +15,7 @@ const log = createLogger(modMatrix,)
 export default new Module<ModMatrixSettings>({
 	name: 'Mod Log Matrix',
 	id: modMatrix,
+	docSlug: 'modmatrix',
 	enabledByDefault: true,
 	settings,
 }, function init () {

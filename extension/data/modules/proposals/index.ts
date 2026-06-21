@@ -20,6 +20,7 @@ import {
 export default new Module({
 	name: 'Proposals',
 	id: proposals,
+	docSlug: 'proposals',
 	enabledByDefault: true,
 }, () => {
 	if (isEmbedded) {

@@ -10,6 +10,7 @@ import './nukecomments.css'
 export default new Module<NukeCommentsSettings>({
 	name: 'Comment Nuke',
 	id: nukeComments,
+	docSlug: 'nukecomments',
 	enabledByDefault: false,
 	settings,
 }, (s,) => {

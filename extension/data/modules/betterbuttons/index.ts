@@ -16,6 +16,7 @@ import {BetterButtonsSettings, settings,} from './settings'
 export default new Module<BetterButtonsSettings>({
 	name: 'Better Buttons',
 	id: betterButtons,
+	docSlug: 'betterbuttons',
 	enabledByDefault: true,
 	oldReddit: true,
 	settings,

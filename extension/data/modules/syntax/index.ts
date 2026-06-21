@@ -9,6 +9,7 @@ import {settings, type SyntaxSettings,} from './settings'
 export default new Module<SyntaxSettings>({
 	name: 'Syntax Highlighter',
 	id: 'Syntax',
+	docSlug: 'syntax',
 	enabledByDefault: true,
 	oldReddit: true,
 	settings,

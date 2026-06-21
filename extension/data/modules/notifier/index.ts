@@ -12,6 +12,7 @@ import {NotifierSettings, settings,} from './settings'
 export default new Module<NotifierSettings>({
 	name: 'Notifier',
 	id: 'Notifier',
+	docSlug: 'notifier',
 	enabledByDefault: true,
 	settings,
 }, async function init (this: Module<NotifierSettings>, {

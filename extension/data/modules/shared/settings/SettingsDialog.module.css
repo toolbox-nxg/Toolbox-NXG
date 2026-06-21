@@ -2,6 +2,37 @@
 	padding: var(--toolbox-sp-4) 0;
 }
 
+.moduleHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--toolbox-sp-4);
+	margin-bottom: var(--toolbox-sp-6);
+}
+
+.moduleTitle {
+	margin: 0;
+	font-size: var(--toolbox-sp-13);
+	font-weight: bold;
+	color: var(--toolbox-text-body);
+}
+
+.moduleDocsLink {
+	display: inline-flex;
+	align-items: center;
+	flex: none;
+	padding: var(--toolbox-sp-2);
+	border-radius: 2px;
+	color: var(--toolbox-text-secondary);
+	text-decoration: none;
+	line-height: 1;
+}
+
+.moduleDocsLink:hover {
+	background: var(--toolbox-hover-overlay);
+	color: var(--toolbox-accent-color);
+}
+
 .settingItem {
 	composes: baserow from "../../../css/Base.module.css";
 }
@@ -187,6 +218,10 @@
 }
 
 .searchResultModule {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--toolbox-sp-4);
 	font-size: var(--toolbox-sp-10);
 	font-weight: bold;
 	text-transform: uppercase;

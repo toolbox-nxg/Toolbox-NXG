@@ -10,6 +10,7 @@ import {ModmailSettings, settings,} from './settings'
 const self = new Module<ModmailSettings>({
 	name: 'Modmail',
 	id: modmail,
+	docSlug: 'modmail',
 	enabledByDefault: true,
 	shreddit: true,
 	settings,

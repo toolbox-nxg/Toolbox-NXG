@@ -47,8 +47,6 @@ export interface ConfigOpenHandlers {
 	handleNewPage: (event: CustomEvent<TBPageContext>,) => Promise<void>
 	/** Opens the config overlay for the subreddit stored in the clicked element's `data-subreddit` attribute. */
 	handleConfigLinkClick: (element: Element,) => void
-	/** Opens the Toolbox live-docs wiki page for the module stored in the clicked element's `data-module` attribute. */
-	handleConfigHelpClick: (element: Element,) => void
 	/** Opens the config overlay for the subreddit specified in the event detail. */
 	handleOpenConfigEvent: (event: Event,) => void
 	/** Loads the wiki config and opens the config overlay for `subreddit`. */
@@ -507,15 +505,6 @@ export function createConfigOpenHandlers (unManager: boolean,): ConfigOpenHandle
 			const subreddit = element.getAttribute('data-subreddit',)
 			if (!subreddit) { return }
 			openConfigForSubreddit(subreddit,)
-		},
-		handleConfigHelpClick: (element,) => {
-			const module = element.getAttribute('data-module',)
-			if (!module) { return }
-			window.open(
-				`https://old.reddit.com/r/toolbox/wiki/livedocs/${module}`,
-				'',
-				'scrollbars=1,width=500,height=600,location=0,menubar=0,top=100,left=100',
-			)
 		},
 		handleOpenConfigEvent: (event,) => {
 			const {subreddit,} = (event as CustomEvent<{subreddit: string}>).detail

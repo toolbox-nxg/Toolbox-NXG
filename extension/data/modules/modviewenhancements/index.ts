@@ -14,6 +14,7 @@ import type {ModViewEnhancementsSettings,} from './settings'
 const self: Module<ModViewEnhancementsSettings> = new Module({
 	name: 'Mod View Enhancements',
 	id: modViewEnhancements,
+	docSlug: 'mod-view-enhancements',
 	enabledByDefault: true,
 	settings,
 }, init,)

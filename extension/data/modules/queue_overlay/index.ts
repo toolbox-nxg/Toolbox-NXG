@@ -12,6 +12,7 @@ import {QueueOverlaySettings, settings,} from './settings'
 export default new Module<QueueOverlaySettings>({
 	name: 'Queue Overlay',
 	id: queueOverlay,
+	docSlug: 'queue-overlay',
 	enabledByDefault: true,
 	settings,
 }, async ({overlayFromBarRedesign, overlayFromBarOld,},) => {

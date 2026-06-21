@@ -9,6 +9,7 @@ import {DevToolsSettings, settings,} from './settings'
 export default new Module<DevToolsSettings>({
 	name: 'Developer Tools',
 	id: devtools,
+	docSlug: 'devtools',
 	enabledByDefault: true,
 	debug: true,
 	settings,

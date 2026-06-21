@@ -11,6 +11,7 @@ import {settings, type SupportSettings,} from './settings'
 export default new Module<SupportSettings>({
 	name: 'Support Module',
 	id: 'Support',
+	docSlug: 'support',
 	alwaysEnabled: true,
 	settings,
 }, async () => {

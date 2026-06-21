@@ -13,6 +13,7 @@ import {MacrosSettings, settings,} from './settings'
 export default new Module<MacrosSettings>({
 	name: 'Mod Macros',
 	id: macros,
+	docSlug: 'macros',
 	enabledByDefault: true,
 	settings,
 }, async (s,) => {

@@ -12,6 +12,7 @@ import type {MassModerationSettings,} from './settings'
 const self: Module<MassModerationSettings> = new Module({
 	name: 'Mass Moderation',
 	id: 'MassModeration',
+	docSlug: 'massmoderation',
 	enabledByDefault: true,
 	oldReddit: true,
 	settings,

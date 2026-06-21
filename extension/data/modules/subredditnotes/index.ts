@@ -12,6 +12,7 @@ const log = createLogger('SubredditNotes',)
 export default new Module<SubredditNotesSettings>({
 	name: 'Subreddit Notes',
 	id: subredditNotes,
+	docSlug: 'subredditnotes',
 	enabledByDefault: false,
 	settings,
 }, (s: SubredditNotesSettings,) => {
