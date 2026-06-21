@@ -125,6 +125,17 @@ function ReasonForm ({
 	const [text, setText,] = useState(initialValues.text ?? '',)
 	/** The message textarea, for inserting a `{choice}` starter block at the cursor. */
 	const textRef = useRef<HTMLTextAreaElement>(null,)
+	// Live "what this renders to" preview, toggled from the Message text label row.
+	// Reuses the overlay's token-aware renderer so {input}/{textarea}/{choice} fields
+	// preview as the actual controls, not literal tokens.
+	const [showPreview, setShowPreview,] = useState(false,)
+	const previewParser = useMemo(() => getRemovalReasonParser(), [],)
+	// Only render the preview while it's actually shown - it defaults hidden, so otherwise every
+	// keystroke would run the full token-aware render to build HTML that's never mounted.
+	const previewHtml = useMemo(
+		() => showPreview && text.trim() ? renderReasonHtml(previewParser, decodeHtmlAngleBrackets(text,),) : '',
+		[showPreview, text, previewParser,],
+	)
 	const [removePosts, setRemovePosts,] = useState(initialValues.removePosts !== false,)
 	const [removeComments, setRemoveComments,] = useState(!!initialValues.removeComments,)
 	const [flairText, setFlairText,] = useState(initialValues.flairText ?? '',)
@@ -208,29 +219,57 @@ function ReasonForm ({
 				/>
 			</div>
 			<div className={css.editField}>
-				<label className={css.editFieldLabel} htmlFor={`${idPrefix}-text`}>Message text</label>
-				<TokenChips tokens={substitutionTokens} inputRef={textRef} onChange={setText}>
-					<TextareaInput
-						id={`${idPrefix}-text`}
-						ref={textRef}
-						rows={5}
-						placeholder={textPlaceholder}
-						value={text}
-						onChange={(e,) => setText(e.target.value,)}
-					/>
-				</TokenChips>
-				<div className={css.fieldHint}>
-					<ActionButton
+				<div className={css.fieldLabelRow}>
+					<label className={css.editFieldLabel} htmlFor={`${idPrefix}-text`}>Message text</label>
+					<button
 						type="button"
-						title="Insert a pick-one choice field at the cursor"
-						onClick={handleInsertChoice}
+						className={css.previewToggle}
+						aria-pressed={showPreview}
+						onClick={() => setShowPreview((shown,) => !shown)}
 					>
-						Insert {'{choice}'} field
-					</ActionButton>
-					<span>
-						A {'{choice}'} on its own line, followed by a {'- '} list, becomes a pick-one control.
-					</span>
+						{showPreview ? 'Edit' : 'Preview'}
+					</button>
 				</div>
+				{showPreview
+					? (
+						<div className={`${css.previewWrap} ${css.editPreview}`}>
+							{previewHtml
+								? (
+									<div
+										className={css.previewFull}
+										dangerouslySetInnerHTML={{__html: previewHtml,}}
+									/>
+								)
+								: <span className={css.previewEmpty}>Nothing to preview yet.</span>}
+						</div>
+					)
+					: (
+						<>
+							<TokenChips tokens={substitutionTokens} inputRef={textRef} onChange={setText}>
+								<TextareaInput
+									id={`${idPrefix}-text`}
+									ref={textRef}
+									rows={5}
+									placeholder={textPlaceholder}
+									value={text}
+									onChange={(e,) => setText(e.target.value,)}
+								/>
+							</TokenChips>
+							<div className={css.fieldHint}>
+								<ActionButton
+									type="button"
+									title="Insert a pick-one choice field at the cursor"
+									onClick={handleInsertChoice}
+								>
+									Insert {'{choice}'} field
+								</ActionButton>
+								<span>
+									A {'{choice}'} on its own line, followed by a {'- '}{' '}
+									list, becomes a pick-one control.
+								</span>
+							</div>
+						</>
+					)}
 			</div>
 			<div className={css.editField}>
 				<span className={css.editFieldLabel}>Use for</span>

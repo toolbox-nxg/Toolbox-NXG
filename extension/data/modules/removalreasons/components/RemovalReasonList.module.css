@@ -227,6 +227,44 @@
 	color: var(--toolbox-error-color);
 }
 
+/* Field label with a control (e.g. the Edit/Preview toggle) floated to the right */
+.fieldLabelRow {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--toolbox-sp-6);
+}
+
+.previewToggle {
+	background: none;
+	border: none;
+	padding: 0;
+	font-size: var(--toolbox-sp-11);
+	font-weight: bold;
+	color: var(--toolbox-action-text);
+	cursor: pointer;
+}
+
+.previewToggle:hover {
+	text-decoration: underline;
+}
+
+/* Rendered-markdown preview standing in for the message textarea while toggled on */
+.editPreview {
+	box-sizing: border-box;
+	width: 100%;
+	min-height: 7.5em;
+	max-height: 18em;
+	overflow-y: auto;
+	border: 1px solid var(--toolbox-input-border);
+	border-radius: 3px;
+}
+
+.previewEmpty {
+	font-size: var(--toolbox-sp-11);
+	opacity: 0.7;
+}
+
 /* Helper row under the message-text field: insert button + a short hint */
 .fieldHint {
 	display: flex;

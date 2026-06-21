@@ -215,3 +215,50 @@ describe('RemovalReasonList reason form flags', () => {
 		expect(state.config.removalReasons.reasons[0]!.removeComments,).toBe(true,)
 	})
 })
+
+describe('RemovalReasonList message preview toggle', () => {
+	const reasonText = 'Broke a rule:\n\n{choice#rule}\n- Rule 1\n- Rule 2'
+
+	it('swaps the textarea for the rendered controls and back, preserving the text', async () => {
+		const state = makeState([{
+			id: 'abcd1234',
+			text: reasonText,
+			title: 'A reason',
+			removePosts: true,
+			flairText: '',
+			flairCSS: '',
+			flairTemplateID: '',
+		},],)
+		renderList(state,)
+
+		const editButton = container.querySelector<HTMLButtonElement>('button[title="Edit"]',)
+		await act(async () => editButton!.click())
+
+		// Edit mode: the textarea holds the text and nothing is rendered yet.
+		expect(container.querySelector<HTMLTextAreaElement>('textarea',)?.value,).toBe(reasonText,)
+		expect(container.querySelector('.toolbox-radio-group',),).toBeNull()
+
+		// Preview mode: the textarea is replaced by the token-aware render, so the
+		// {choice} block shows as a radio group rather than literal token text.
+		act(() => getButton('Preview',).click())
+		expect(container.querySelector('textarea',),).toBeNull()
+		expect(container.querySelector('.toolbox-radio-group',),).toBeTruthy()
+		expect(container.textContent,).toContain('Rule 1',)
+		expect(container.textContent,).toContain('Rule 2',)
+		expect(container.textContent,).not.toContain('{choice#rule}',)
+
+		// Back to edit: the textarea returns with the text untouched.
+		act(() => getButton('Edit',).click())
+		expect(container.querySelector<HTMLTextAreaElement>('textarea',)?.value,).toBe(reasonText,)
+	})
+
+	it('shows an empty-state message when previewing a blank reason', async () => {
+		const addRef = renderList(makeState([],),)
+		await act(async () => addRef.current!())
+
+		act(() => getButton('Preview',).click())
+
+		expect(container.textContent,).toContain('Nothing to preview yet.',)
+		expect(container.querySelector('.toolbox-radio-group',),).toBeNull()
+	})
+})
