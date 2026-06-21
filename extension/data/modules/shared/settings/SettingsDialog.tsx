@@ -189,6 +189,7 @@ function CoreSettingsTab ({
 	onSave,
 	onExport,
 	onImport,
+	onReset,
 	modules,
 }: {
 	localValues: Record<string, unknown>
@@ -200,6 +201,7 @@ function CoreSettingsTab ({
 	onSave: () => Promise<void>
 	onExport: (subreddit: string,) => Promise<void>
 	onImport: (subreddit: string,) => Promise<void>
+	onReset: () => Promise<void>
 	modules: any[]
 },) {
 	const settingSub = (localValues['Toolbox.Utils.settingSub'] ?? '') as string
@@ -215,6 +217,7 @@ function CoreSettingsTab ({
 
 	const [confirmingRestore, setConfirmingRestore,] = useState(false,)
 	const [confirmingUnsavedBackup, setConfirmingUnsavedBackup,] = useState(false,)
+	const [confirmingReset, setConfirmingReset,] = useState(false,)
 	const [showRaw, setShowRaw,] = useState(false,)
 	const [rawText, setRawText,] = useState('',)
 	const [copied, setCopied,] = useState(false,)
@@ -420,6 +423,24 @@ function CoreSettingsTab ({
 					</div>
 				)}
 			</div>
+			<div className={`${css.settingItem} ${css.dangerZone}`}>
+				<label className={css.fieldLabel}>Danger zone</label>
+				{confirmingReset
+					? (
+						<>
+							<ActionButton type="button" onClick={onReset}>Confirm reset</ActionButton>
+							<ActionButton type="button" onClick={() => setConfirmingReset(false,)}>Cancel</ActionButton>
+							<span className={css.backupNote}>
+								⚠ This erases all Toolbox settings and reloads the page!
+							</span>
+						</>
+					)
+					: (
+						<ActionButton type="button" onClick={() => setConfirmingReset(true,)}>
+							Reset all settings
+						</ActionButton>
+					)}
+			</div>
 		</div>
 	)
 }
@@ -515,6 +536,15 @@ export function SettingsDialog ({
 		if (clearCacheOnSave) { clearCache() }
 		await writeSettings(localValues,)
 	}, [clearCacheOnSave, localValues,],)
+
+	/** Wipes all Toolbox settings and cache, then reloads the page. */
+	const onReset = useCallback(async () => {
+		// Await the cache clear so its background message isn't dropped by the reload below - a reset
+		// advertises wiping everything, so stale cache must not survive it.
+		await clearCache()
+		await writeSettings({},) // empty object == cleared settings (getSettings returns {})
+		reloadPage(1000,)
+	}, [],)
 
 	const handleSave = async (andReload = !devMode,) => {
 		if (clearCacheOnSave) { clearCache() }
@@ -623,6 +653,7 @@ export function SettingsDialog ({
 					onSave={saveSettingsOnly}
 					onExport={onExport}
 					onImport={onImport}
+					onReset={onReset}
 					modules={modules}
 				/>
 			),

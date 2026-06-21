@@ -1,46 +1,12 @@
-/** Pre-flight checks run during Toolbox initialization: settings reset detection and load condition validation. */
+/** Pre-flight checks run during Toolbox initialization: load condition validation. */
 
 import browser from 'webextension-polyfill'
 
 import {getUserDetails,} from '../api/resources/me'
 import {delay,} from '../util/data/async'
 import {isUserLoggedInQuick,} from '../util/infra/platform'
-import {clearCache,} from '../util/persistence/cache'
 import {getSettingAsync, setSettingAsync,} from '../util/persistence/settings'
-import {navigateTo,} from '../util/ui/navigation'
 import {utils,} from './moduleIds'
-
-/**
- * Detects the settings-reset trigger; resolves `true` when a reset is underway
- * and the rest of Toolbox's init process should be cancelled.
- */
-export async function checkReset () {
-	// Toolbox resets your settings if you open this one specific post
-	if (!window.location.href.includes('/r/tb_reset/comments/26jwfh',)) {
-		return false
-	}
-
-	// Confirm with the user before proceeding
-	if (!confirm('This will reset all your toolbox settings. Would you like to proceed?',)) {
-		return false
-	}
-
-	// Clear local extension storage if we have access to extension storage
-	await browser.storage.local.remove('tbsettings',)
-
-	// Clear background page localStorage (stores cache information)
-	await clearCache()
-
-	// Delay for one second to be extra sure everything has been processed
-	await delay(1000,)
-
-	// Send the user to the confirmation page
-	navigateTo('/r/tb_reset/comments/26jwpl/your_toolbox_settings_have_been_reset/',)
-
-	// This should theoretically never be reached, but in case it is, cancel all
-	// other init behaviors
-	return true
-}
 
 /**
  * Decides whether Toolbox should keep loading: confirms a user is logged in,

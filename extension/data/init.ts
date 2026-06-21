@@ -12,7 +12,7 @@ import AppRoot from './shared/app/AppRoot'
 
 import {initProposalsRuntime,} from './modules/shared/proposals/setup'
 
-import {checkLoadConditions, checkReset,} from './framework/loadConditions'
+import {checkLoadConditions,} from './framework/loadConditions'
 import TBModule from './framework/moduleRegistry'
 import createLogger from './util/infra/logging'
 import {isOldReddit,} from './util/infra/platform'
@@ -72,11 +72,6 @@ if (isOldReddit) {
 }
 
 ;(async () => {
-	// Handle settings reset and return early if we're doing that
-	if (await checkReset()) {
-		return
-	}
-
 	// Ensure that other conditions are met, and return early if not
 	try {
 		await checkLoadConditions()

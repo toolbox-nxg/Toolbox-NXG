@@ -42,6 +42,23 @@
 	font-weight: bold;
 }
 
+/* Destructive actions, visually set apart at the bottom of Core Settings */
+.dangerZone {
+	margin-top: var(--toolbox-sp-5);
+	padding-top: var(--toolbox-sp-5);
+	border-top: 2px solid var(--toolbox-error-text);
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: var(--toolbox-sp-8);
+}
+
+.dangerZone .fieldLabel {
+	flex-basis: 100%;
+	color: var(--toolbox-error-text);
+	margin-bottom: 0;
+}
+
 /* Advanced settings group */
 .advancedGroup {
 	border-left: 2px solid var(--toolbox-input-border);
