@@ -47,7 +47,7 @@ export function IgnoredReportsRenderer (
 				const {topPosition, leftPosition,} = drawPosition(e.nativeEvent,)
 				showQueuetoolsReportsPopup({
 					initialPosition: {top: topPosition, left: leftPosition,},
-					title: `Old reports on ${author}'s ${kind === 'comment' ? 'comment' : 'post'}`,
+					title: `Reports on ${author}'s ${kind === 'comment' ? 'comment' : 'post'}`,
 					modReports: reportData.modReports,
 					userReports: reportData.userReports,
 				},)

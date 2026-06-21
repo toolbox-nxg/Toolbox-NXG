@@ -11,7 +11,7 @@
 import {useEffect, useMemo, useRef, useState,} from 'react'
 
 import {ActionButton,} from '../../../shared/controls/ActionButton'
-import {getApiThingInfo, ThingNotFoundError,} from '../../../util/reddit/thingInfo'
+import {getApiThingInfo, isInfoRemoved, ThingNotFoundError,} from '../../../util/reddit/thingInfo'
 import {classes,} from '../../../util/ui/reactMount'
 import {markProposalObsolete,} from '../../shared/proposals/moduleapi'
 import {isOpen, type ProposalAt,} from '../../shared/proposals/selectors'
@@ -110,7 +110,7 @@ function LoadedTargetPreview ({info,}: {info: ThingInfo},) {
 	const [expanded, setExpanded,] = useState(false,)
 	const parser = useMemo(() => getRemovalReasonParser(), [],)
 	const isPost = info.kind === 'submission'
-	const removed = !!info.ham || !!info.spam || !!info.banned_by
+	const removed = isInfoRemoved(info,)
 	const reportCount = (info.userReports?.length ?? 0) + (info.modReports?.length ?? 0)
 	const body = info.raw_body.trim()
 	const bodyHtml = useMemo(() => (body ? parser.render(body,) : ''), [parser, body,],)

@@ -32,6 +32,16 @@ function fullnameToId (fullname: string,): string {
 }
 
 /**
+ * Whether a thing's normalized info (from {@link getApiThingInfo}) indicates it is currently
+ * removed or spammed. `ham` (Reddit's "removed" flag) isn't reliably populated by `/api/info`, so
+ * `spam` and `banned_by` are ORed in to also catch queue-removed/spammed items.
+ * @param info Normalized thing info exposing the `ham`/`spam`/`banned_by` fields.
+ */
+export function isInfoRemoved (info: {ham?: unknown; spam?: unknown; banned_by?: unknown},): boolean {
+	return !!info.ham || !!info.spam || !!info.banned_by
+}
+
+/**
  * Fetches thing info from the Reddit API and normalizes it into a flat object used by modules.
  * @param subreddit Subreddit context for the request.
  * @param fullname Fullname of the thing (e.g. `t3_abc123`).
@@ -98,6 +108,11 @@ export async function getApiThingInfo (subreddit: string, fullname: string, modC
 		mod: await getCurrentUser(),
 		userReports: thingData.user_reports,
 		modReports: thingData.mod_reports,
+		// When a post/comment is removed or its reports are ignored, Reddit moves the reports out
+		// of user_reports/mod_reports and into these *_dismissed arrays (leaving the active arrays
+		// empty), so anything wanting to surface dismissed reports must read these.
+		userReportsDismissed: thingData.user_reports_dismissed,
+		modReportsDismissed: thingData.mod_reports_dismissed,
 		reportsIgnored: thingData.ignore_reports,
 	}
 }

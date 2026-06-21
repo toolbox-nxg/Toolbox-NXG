@@ -7,7 +7,7 @@ import {renderAtLocation,} from '../../dom/uiLocations'
 import {createLifecycle,} from '../../framework/lifecycle'
 import createLogger from '../../util/infra/logging'
 import {isOldReddit,} from '../../util/infra/platform'
-import {getApiThingInfo,} from '../../util/reddit/thingInfo'
+import {getApiThingInfo, isInfoRemoved,} from '../../util/reddit/thingInfo'
 import {ActionTableRenderer,} from './components/ActionTableRenderer'
 import {DismissButtonRenderer,} from './components/DismissButtonRenderer'
 import {IgnoredReportsRenderer,} from './components/IgnoredReportsRenderer'
@@ -18,15 +18,63 @@ function getThingData (thingId: string,): Promise<Record<string, unknown>> {
 	return getInfo(thingId,).then((thing: any,) => thing.data as Record<string, unknown>)
 }
 
-/** Ignored-report data for an item, or `null` when the current user doesn't mod the sub or reports aren't ignored. */
-async function getIgnoredReports (
+/** Normalizes raw Reddit report tuples (which vary in arity) to `[text, author]` string pairs. */
+function normalizeReports (reports: unknown,): Array<[string, string,]> {
+	if (!Array.isArray(reports,)) { return [] }
+	return reports.map((report,) => [String(report?.[0] ?? '',), String(report?.[1] ?? '',),])
+}
+
+/**
+ * Combines an item's active and dismissed reports into one normalized list, reporting whether any
+ * dismissed reports were present (dismissed reports are never shown natively, so they qualify an
+ * item to surface regardless of its removal state).
+ * @param active Raw active report tuples (`user_reports`/`mod_reports`).
+ * @param dismissed Raw dismissed report tuples (`*_reports_dismissed`).
+ */
+function combineReports (
+	active: unknown,
+	dismissed: unknown,
+): {reports: Array<[string, string,]>; hadDismissed: boolean} {
+	const dismissedReports = normalizeReports(dismissed,)
+	return {
+		reports: [...normalizeReports(active,), ...dismissedReports,],
+		hadDismissed: dismissedReports.length > 0,
+	}
+}
+
+/**
+ * Hidden-report data for an item, or `null` when there's nothing to surface.
+ *
+ * Returns reports only when the current user mods the sub and there are reports reddit isn't
+ * already showing natively. Two cases qualify:
+ *  - Dismissed reports (`*_dismissed` arrays) are never shown natively, so they surface on any
+ *    item, including approved posts.
+ *  - Active reports (`user_reports`/`mod_reports`) are normally shown by reddit, so they only
+ *    surface when the item is removed/spammed or its reports are ignored - otherwise the button
+ *    would just duplicate reddit's report stamp.
+ *
+ * Removing an item (or ignoring its reports) moves the reports out of `user_reports`/`mod_reports`
+ * into the `*_dismissed` arrays, so both are combined to capture every report regardless of state.
+ */
+async function getHiddenReports (
 	subreddit: string,
 	thingId: string,
 ): Promise<{modReports: Array<[string, string,]>; userReports: Array<[string, string,]>} | null> {
 	if (!await isModSub(subreddit,)) { return null }
 	const info = await getApiThingInfo(subreddit, thingId, false,)
-	if (!info.reportsIgnored) { return null }
-	return {modReports: info.modReports, userReports: info.userReports,}
+
+	const mod = combineReports(info.modReports, info.modReportsDismissed,)
+	const user = combineReports(info.userReports, info.userReportsDismissed,)
+	if (!mod.reports.length && !user.reports.length) { return null }
+
+	// Active reports are normally shown natively by reddit, so they only qualify when the item is
+	// removed/spammed or its reports are ignored; dismissed reports are never shown natively, so
+	// they qualify on any item.
+	const hasDismissed = mod.hadDismissed || user.hadDismissed
+	const activeHidden = !!info.reportsIgnored || isInfoRemoved(info,)
+	if (!hasDismissed && !activeHidden) { return null }
+
+	return {modReports: mod.reports, userReports: user.reports,}
 }
 
 const log = createLogger('QueueTools',)
@@ -273,10 +321,12 @@ export function createQueueHandlers (
 		},)
 	}
 
-	if (showReportReasons) {
+	// Old Reddit only: new reddit surfaces removed/dismissed reports natively, so the button
+	// would just duplicate that there.
+	if (showReportReasons && isOldReddit) {
 		renderAtLocation('thingActions', {id: 'queuetools.reports', lifecycle: scope,}, ({context,},) => {
 			if (!context.thingId || !context.subreddit) { return null }
-			return <IgnoredReportsRenderer context={context} getReports={getIgnoredReports} />
+			return <IgnoredReportsRenderer context={context} getReports={getHiddenReports} />
 		},)
 	}
 

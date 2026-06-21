@@ -22,8 +22,9 @@ export const settings = defineSettings(
 			id: 'showReportReasons',
 			sharedPolicy: 'raw',
 			type: 'boolean',
-			default: false,
-			description: 'Add button to show reports on posts with ignored reports.',
+			default: true,
+			description:
+				'Add a button on old reddit posts/comments with removed or dismissed reports to view those reports.',
 		},
 		{
 			id: 'queueCreature',
