@@ -16,6 +16,12 @@
 	text-decoration: none;
 }
 
+/* Float the user-page comment controls (hide/show mod actions) to the right of the menuarea,
+   opposite the native sort-dropdown spacer. */
+.menuarea > .toolbox-react-light-host[data-toolbox-mount="toolbox-ui-location-commentThreadControls"] {
+	float: right;
+}
+
 /* Shreddit posts use an `absolute inset-0` anchor overlay to make the whole card clickable.
    Our injected containers must be positioned so they stack above that overlay in z-order. */
 .toolbox-author-slot,

@@ -70,7 +70,6 @@ function HighlightEffect ({target, subreddit, highlighted,}: {
 export function createUserPageCommentControls (): (() => void) | null {
 	const menuarea = getMenuarea()
 	if (!menuarea) { return null }
-	menuarea.append('  ',)
 	return provideLocation('commentThreadControls', menuarea, {
 		platform: RedditPlatform.Old,
 		kind: 'commentThread',

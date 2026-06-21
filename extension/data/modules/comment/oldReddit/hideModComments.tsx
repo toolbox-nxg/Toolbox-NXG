@@ -30,6 +30,13 @@ function HideModCommentsButton ({adapter,}: HideModCommentsButtonProps,) {
 		},)
 	}
 
+	function showActions () {
+		adapter.getModeratorActionElements().forEach((action,) => {
+			const container = adapter.getCommentContainerForAction(action,)
+			if (container) { adapter.setElementVisible(container, true,) }
+		},)
+	}
+
 	// These TBNewThings listeners are intentionally managed by React (useEffect + cleanup return)
 	// rather than the module lifecycle. Both are conditional on React state (hasModActions, hidden)
 	// and drive state updates; binding them at module level would require a callback indirection
@@ -53,18 +60,24 @@ function HideModCommentsButton ({adapter,}: HideModCommentsButtonProps,) {
 		return () => window.removeEventListener('TBNewThings', apply,)
 	}, [hidden,],)
 
-	if (!hasModActions || hidden) { return null }
+	if (!hasModActions) { return null }
 
 	return (
 		<GeneralButton
 			className="toolbox-hide-mod-comments"
 			onClick={() => {
-				log.debug('hiding mod actions',)
-				hideActions()
-				setHidden(true,)
+				if (hidden) {
+					log.debug('showing mod actions',)
+					showActions()
+					setHidden(false,)
+				} else {
+					log.debug('hiding mod actions',)
+					hideActions()
+					setHidden(true,)
+				}
 			}}
 		>
-			hide mod actions
+			{hidden ? 'show mod actions' : 'hide mod actions'}
 		</GeneralButton>
 	)
 }
