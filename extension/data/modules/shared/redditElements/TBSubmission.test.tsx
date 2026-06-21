@@ -4,7 +4,10 @@ import {act,} from 'react'
 import {createRoot, type Root,} from 'react-dom/client'
 import {afterEach, describe, expect, it, vi,} from 'vitest'
 
-const runtime = vi.hoisted(() => ({sendMessage: vi.fn(), getURL: vi.fn(() => ''),}))
+// getURL must echo the path (like the real runtime returns a URL ending in it) so the
+// test-setup stub can short-circuit reactMount's eager `data/bundled.css` fetch; returning
+// '' made that fetch resolve to the happy-dom origin and log a stray ECONNREFUSED.
+const runtime = vi.hoisted(() => ({sendMessage: vi.fn(), getURL: vi.fn((path: string,) => path),}))
 
 vi.mock('webextension-polyfill', () => ({default: {runtime,},}),)
 ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true
