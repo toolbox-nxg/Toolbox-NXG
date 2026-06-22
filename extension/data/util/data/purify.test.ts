@@ -27,19 +27,23 @@ describe('purify', () => {
 describe('purifyHTML', () => {
 	// Note: DOMPurify's tag/attribute stripping is exercised in the real DOM, not
 	// under the happy-dom test environment (where DOMPurify is unreliable). Here we
-	// pin the deterministic behavior the denylist relies on: entity-encoded markup
-	// round-trips untouched, so HTML-markup fields stay encoded for their sink.
+	// pin one deterministic property: entity-encoded markup round-trips untouched,
+	// because DOMPurify sees it as text. That's exactly why a sink must never be
+	// handed an undecoded `*_html` field - purifyObject decodes it to real markup
+	// first, so this sink-side pass actually inspects the tags.
 	it('leaves entity-encoded markup unchanged', () => {
 		expect(purifyHTML('&lt;b&gt;x&lt;/b&gt;',),).toBe('&lt;b&gt;x&lt;/b&gt;',)
 	})
 })
 
 describe('purifyObject', () => {
-	it('decodes plain-text keys but leaves HTML-markup keys entity-encoded', () => {
+	it('decodes every string value to plain text, with no per-key HTML denylist', () => {
 		const input = {details: 'a &lt; b', body_html: '&lt;b&gt;x&lt;/b&gt;',}
 		purifyObject(input,)
 		expect(input.details,).toBe('a < b',)
-		expect(input.body_html,).toBe('&lt;b&gt;x&lt;/b&gt;',)
+		// body_html is decoded like any other field; the innerHTML sinks
+		// (TBComment/TBSubmission) re-sanitize the decoded markup with purifyHTML.
+		expect(input.body_html,).toBe('<b>x</b>',)
 	})
 
 	it('recurses into nested objects', () => {

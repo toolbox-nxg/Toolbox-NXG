@@ -3,6 +3,7 @@
 import {useState,} from 'react'
 
 import {Icon,} from '../../../shared/controls/Icon'
+import {purifyHTML,} from '../../../util/data/purify'
 import {formatRelativeTime,} from '../../../util/data/time'
 import {link,} from '../../../util/reddit/pageContext'
 import {stringToColor,} from '../../../util/reddit/reddit-domain'
@@ -287,7 +288,7 @@ export function TBSubmission ({submission, options, subredditColorSalt,}: TBSubm
 					<div
 						className="toolbox-self-expando"
 						style={{display: selfExpanded ? 'block' : 'none',}}
-						dangerouslySetInnerHTML={{__html: selfTextHtml,}}
+						dangerouslySetInnerHTML={{__html: purifyHTML(selfTextHtml,),}}
 					/>
 				)}
 				<div className="toolbox-submission-slot"></div>

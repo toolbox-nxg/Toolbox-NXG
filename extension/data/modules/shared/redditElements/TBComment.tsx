@@ -4,6 +4,7 @@ import './redditElements.css'
 
 import {useState,} from 'react'
 
+import {purifyHTML,} from '../../../util/data/purify'
 import {escapeHTML, removeLastDirectoryPartOf,} from '../../../util/data/string'
 import {formatRelativeTime,} from '../../../util/data/time'
 import {link,} from '../../../util/reddit/pageContext'
@@ -201,7 +202,7 @@ export function TBComment ({comment, options = {}, subredditColorSalt,}: TBComme
 					<div
 						className="toolbox-comment-body"
 						style={collapsed ? {display: 'none',} : undefined}
-						dangerouslySetInnerHTML={{__html: c.body_html,}}
+						dangerouslySetInnerHTML={{__html: purifyHTML(c.body_html ?? '',),}}
 					/>
 					{(hasControversiality || status !== 'neutral') && (
 						<div

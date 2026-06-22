@@ -5,26 +5,17 @@ import DOMPurify from 'dompurify'
 import {htmlDecode,} from './encoding'
 
 /**
- * Keys whose values are HTML markup rendered via `dangerouslySetInnerHTML`
- * rather than as plain text. Reddit returns these entity-encoded; we leave that
- * encoding intact (so the innerHTML sink decodes it to markup as before) instead
- * of routing them through {@link purify}, which would decode the entities into a
- * raw markup string and defeat the sink's safety. See {@link purify} for why
- * plain-text values are handled differently.
- */
-const HTML_MARKUP_KEYS = new Set([
-	'body_html',
-	'selftext_html',
-	'description_html',
-	'public_description_html',
-	'content_html',
-],)
-
-/**
  * Sanitizes an untrusted string and returns sanitized HTML markup, suitable for
- * `dangerouslySetInnerHTML`. Callers must pass real markup (e.g. locally rendered
- * markdown); entity-encoded input passes through unchanged because DOMPurify sees
- * only text and has nothing to strip.
+ * `dangerouslySetInnerHTML`. This is the sink-side sanitizer: every
+ * `dangerouslySetInnerHTML` consumer of untrusted data should wrap its value
+ * here, so the decision "this becomes live markup" lives next to the sink rather
+ * than being inferred elsewhere.
+ *
+ * Pass real markup. Locally rendered markdown already is. API fields that arrive
+ * entity-encoded (e.g. Reddit's `body_html`) are decoded to real markup by
+ * {@link purifyObject} before they reach a sink, so DOMPurify actually inspects
+ * the tags. (Given raw entity-encoded input, DOMPurify would see only text and
+ * strip nothing - so never hand a sink an undecoded `*_html` field.)
  */
 export function purifyHTML (input: string,): string {
 	return DOMPurify.sanitize(input,) as unknown as string
@@ -42,9 +33,16 @@ export function purify (input: string,): string {
 }
 
 /**
- * Walks an object and sanitizes every string value as untrusted HTML. Strings
- * that parse as JSON objects are decoded, sanitized in place, and serialized
- * back to JSON.
+ * Walks an object and sanitizes every string value, decoding each to display-ready
+ * plain text via {@link purify}. Strings that parse as JSON objects are decoded,
+ * sanitized in place, and re-serialized.
+ *
+ * Every value is treated uniformly - the walker makes no per-key guesses about
+ * whether a field is later rendered as text or as HTML. The few consumers that
+ * render a field via `dangerouslySetInnerHTML` (e.g. Reddit's `body_html` /
+ * `selftext_html`) re-sanitize it with {@link purifyHTML} at the sink; because the
+ * value arrives here as real (decoded) markup, that sink-side DOMPurify pass
+ * actually inspects the tags.
  */
 export function purifyObject (input: any,) {
 	for (const key in input) {
@@ -71,12 +69,9 @@ export function purifyObject (input: any,) {
 						purifyObject(jsonObject,)
 						input[key] = JSON.stringify(jsonObject,)
 					} catch (e) {
-						// Not json. HTML-markup fields stay entity-encoded so their
-						// innerHTML sink decodes them as before; everything else becomes
-						// display-ready plain text.
-						input[key] = HTML_MARKUP_KEYS.has(key,)
-							? purifyHTML(input[key],)
-							: purify(input[key],)
+						// Not json. Decode to display-ready plain text; innerHTML sinks
+						// re-sanitize with purifyHTML at the point of use.
+						input[key] = purify(input[key],)
 					}
 					break
 				case 'function':
