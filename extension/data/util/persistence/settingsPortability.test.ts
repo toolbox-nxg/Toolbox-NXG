@@ -5,6 +5,7 @@ import {beforeEach, describe, expect, it, vi,} from 'vitest'
 const readFromWiki = vi.hoisted(() => vi.fn())
 const postToWiki = vi.hoisted(() => vi.fn())
 const writeSettings = vi.hoisted(() => vi.fn())
+const updateSettings = vi.hoisted(() => vi.fn())
 const getSettings = vi.hoisted(() => vi.fn())
 const purifyObject = vi.hoisted(() => vi.fn((obj,) => obj))
 const getWikiReadPath = vi.hoisted(() => vi.fn().mockResolvedValue('tbsettings',))
@@ -15,7 +16,7 @@ vi.mock('../../api/resources/wiki', () => ({
 	postToWiki,
 }),)
 
-vi.mock('./settings', () => ({getSettings, writeSettings,}),)
+vi.mock('./settings', () => ({getSettings, writeSettings, updateSettings,}),)
 vi.mock('../ui/purify', () => ({purifyObject,}),)
 vi.mock('../wiki/wikiPaths', () => ({getWikiReadPath, getWikiWritePaths,}),)
 
@@ -25,6 +26,7 @@ describe('importSettings', () => {
 	beforeEach(() => {
 		readFromWiki.mockReset()
 		writeSettings.mockReset().mockResolvedValue(undefined,)
+		getSettings.mockReset().mockResolvedValue({},)
 		purifyObject.mockClear()
 	},)
 
@@ -70,6 +72,28 @@ describe('importSettings', () => {
 		expect(written,).toHaveProperty('Toolbox.Utils.advancedMode', true,)
 	})
 
+	it('preserves current values for doNotImport keys instead of dropping them', async () => {
+		getSettings.mockResolvedValue({
+			'Toolbox.oldreddit.enabled': true,
+			'Toolbox.Utils.settingSub': 'mybackupsub',
+		},)
+		readFromWiki.mockResolvedValue({
+			ok: true,
+			data: {
+				'Utils.lastversion': 400,
+				'oldreddit.enabled': false,
+				'Utils.settingSub': 'someothersub',
+				'Utils.advancedMode': true,
+			},
+		},)
+		await importSettings('testsub',)
+		const written = writeSettings.mock.calls[0]![0]
+		// Backed-up doNotImport values are ignored; the current values survive the overwrite.
+		expect(written,).toHaveProperty('Toolbox.oldreddit.enabled', true,)
+		expect(written,).toHaveProperty('Toolbox.Utils.settingSub', 'mybackupsub',)
+		expect(written,).toHaveProperty('Toolbox.Utils.advancedMode', true,)
+	})
+
 	it.each(
 		[
 			{ok: false, reason: 'no_page',},
@@ -86,8 +110,17 @@ describe('importSettings', () => {
 describe('exportSettings', () => {
 	beforeEach(() => {
 		getSettings.mockReset()
+		updateSettings.mockReset().mockResolvedValue(undefined,)
 		postToWiki.mockReset().mockResolvedValue(undefined,)
 	},)
+
+	it('persists the backup sub and a last-export timestamp without overwriting all settings', async () => {
+		getSettings.mockResolvedValue({'Toolbox.Utils.debugMode': true,},)
+		await exportSettings('testsub',)
+		const [persisted,] = updateSettings.mock.calls[0]!
+		expect(persisted,).toHaveProperty('Toolbox.Utils.settingSub', 'testsub',)
+		expect(typeof persisted['Toolbox.Modbar.lastExport'],).toBe('number',)
+	})
 
 	it('strips Toolbox. prefix from exported keys', async () => {
 		getSettings.mockResolvedValue({

@@ -2,9 +2,10 @@
 
 import {postToWiki, readFromWiki,} from '../../api/resources/wiki'
 import {purifyObject,} from '../data/purify'
+import {getTime,} from '../data/time'
 import createLogger from '../infra/logging'
 import {getWikiReadPath, getWikiWritePaths,} from '../wiki/wikiPaths'
-import {getSettings, writeSettings,} from './settings'
+import {getSettings, updateSettings, writeSettings,} from './settings'
 
 const log = createLogger('TBSettingsPortability',)
 
@@ -34,7 +35,10 @@ export async function exportSettings (subreddit: string,): Promise<void> {
 			// refreshes the mirror.
 		}
 	}
-	await writeSettings({'Toolbox.Modbar.lastExport': Date.now(),},)
+	await updateSettings({
+		'Toolbox.Modbar.lastExport': getTime(),
+		'Toolbox.Utils.settingSub': subreddit,
+	},)
 }
 
 /**
@@ -59,13 +63,23 @@ export async function importSettings (subreddit: string,): Promise<void> {
 
 	const doNotImport = [
 		'oldreddit.enabled',
+		'Utils.settingSub',
 	]
 
+	// Restore is a full overwrite, but keys in `doNotImport` must keep their
+	// current stored value rather than being dropped by the overwrite.
+	const current = await getSettings()
 	const newSettings = Object.fromEntries(
 		Object.entries(data,)
 			.filter(([key,],) => !(doNotImport.includes(key,)))
 			.map(([key, value,],) => [`Toolbox.${key}`, value,]),
 	)
+	for (const key of doNotImport) {
+		const fullKey = `Toolbox.${key}`
+		if (current[fullKey] !== undefined) {
+			newSettings[fullKey] = current[fullKey]
+		}
+	}
 
 	await writeSettings(newSettings,)
 }
