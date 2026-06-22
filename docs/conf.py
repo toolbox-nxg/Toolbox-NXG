@@ -26,7 +26,7 @@ html_title = "Moderator Toolbox-NXG"
 html_logo = "../extension/data/images/icon256.png"
 
 html_theme_options = {
-    "source_repository": "https://github.com/toolbox-nxg/moderator-toolbox-nxg",
+    "source_repository": "https://github.com/toolbox-nxg/toolbox-nxg",
     "source_branch": "main",
     "source_directory": "docs/",
 }

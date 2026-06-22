@@ -24,7 +24,7 @@ Updates are delivered automatically by the browser.
 ## Installing a release build manually (advanced)
 
 You can also install a build directly from
-[GitHub Releases](https://github.com/toolbox-nxg/moderator-toolbox-nxg/releases) — useful for
+[GitHub Releases](https://github.com/toolbox-nxg/toolbox-nxg/releases) — useful for
 testing a specific build.
 
 ### Chromium

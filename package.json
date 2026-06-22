@@ -28,7 +28,7 @@
     "homepage": "http://www.reddit.com/r/toolbox_nxg",
     "repository": {
         "type": "git",
-        "url": "https://github.com/toolbox-nxg/moderator-toolbox-nxg.git"
+        "url": "https://github.com/toolbox-nxg/toolbox-nxg.git"
     },
     "engines": {
         "node": ">=24"

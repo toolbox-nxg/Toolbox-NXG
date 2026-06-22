@@ -42,5 +42,5 @@ When reporting, please include as much of the following as you can:
 
 Thank you for helping keep Toolbox-NXG and the moderators who rely on it safe.
 
-[releases]: https://github.com/toolbox-nxg/moderator-toolbox-nxg/releases
-[advisories]: https://github.com/toolbox-nxg/moderator-toolbox-nxg/security/advisories/new
+[releases]: https://github.com/toolbox-nxg/toolbox-nxg/releases
+[advisories]: https://github.com/toolbox-nxg/toolbox-nxg/security/advisories/new

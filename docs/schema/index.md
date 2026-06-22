@@ -40,4 +40,4 @@ All pages are restricted to moderator-only access by wiki page settings (`permle
 
 ## Getting help
 
-If you have questions about integrating with Toolbox-NXG data formats, please [open an issue on GitHub](https://github.com/toolbox-nxg/moderator-toolbox-nxg/issues) or post to [/r/toolbox_nxg](https://www.reddit.com/r/toolbox_nxg).
+If you have questions about integrating with Toolbox-NXG data formats, please [open an issue on GitHub](https://github.com/toolbox-nxg/toolbox-nxg/issues) or post to [/r/toolbox_nxg](https://www.reddit.com/r/toolbox_nxg).

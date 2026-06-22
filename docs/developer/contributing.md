@@ -4,11 +4,11 @@ Thinking about contributing to toolbox? Awesome! We accept a variety of differen
 
 ## Issues and Ideas
 
-We welcome bug reports and feature requests. Please [open an issue on GitHub](https://github.com/toolbox-nxg/moderator-toolbox-nxg/issues) or post to [/r/toolbox_nxg](https://www.reddit.com/r/toolbox_nxg) for general discussion.
+We welcome bug reports and feature requests. Please [open an issue on GitHub](https://github.com/toolbox-nxg/toolbox-nxg/issues) or post to [/r/toolbox_nxg](https://www.reddit.com/r/toolbox_nxg) for general discussion.
 
 ## Documentation
 
-User documentation for Toolbox-NXG is published here. If you'd like to contribute to the docs, the source is in the `docs/` directory of the repository. Feel free to ask questions on [/r/toolbox_nxg](https://www.reddit.com/r/toolbox_nxg) or in a [GitHub issue](https://github.com/toolbox-nxg/moderator-toolbox-nxg/issues).
+User documentation for Toolbox-NXG is published here. If you'd like to contribute to the docs, the source is in the `docs/` directory of the repository. Feel free to ask questions on [/r/toolbox_nxg](https://www.reddit.com/r/toolbox_nxg) or in a [GitHub issue](https://github.com/toolbox-nxg/toolbox-nxg/issues).
 
 Third-party developer documentation (wiki schemas, integration guides) lives in [Schema Reference](../schema/index.md).
 
@@ -22,7 +22,7 @@ Since toolbox is a project that receives contributions from multiple people from
 
 ### Contributing completely new functionality
 
-We welcome new functionality, however it is always possible that someone is already working on something you have thought up or that we have not implemented something deliberately. So if you are considering coding new functionality it is always a good idea to first check. Simply [open an issue on GitHub](https://github.com/toolbox-nxg/moderator-toolbox-nxg/issues) or post to [/r/toolbox_nxg](https://www.reddit.com/r/toolbox_nxg).
+We welcome new functionality, however it is always possible that someone is already working on something you have thought up or that we have not implemented something deliberately. So if you are considering coding new functionality it is always a good idea to first check. Simply [open an issue on GitHub](https://github.com/toolbox-nxg/toolbox-nxg/issues) or post to [/r/toolbox_nxg](https://www.reddit.com/r/toolbox_nxg).
 
 ### API reference and utility functions
 
