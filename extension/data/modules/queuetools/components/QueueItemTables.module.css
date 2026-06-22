@@ -1,0 +1,9 @@
+/* Layout for the combined per-queue-item action/report toggle row and tables. */
+/* This runs inside a shadow root, so no .toolbox-scope prefix is needed. */
+
+.toggles {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	column-gap: var(--toolbox-sp-6);
+}

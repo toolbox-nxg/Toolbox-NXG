@@ -8,12 +8,11 @@ import {createLifecycle,} from '../../framework/lifecycle'
 import createLogger from '../../util/infra/logging'
 import {isOldReddit,} from '../../util/infra/platform'
 import {getApiThingInfo, isInfoRemoved,} from '../../util/reddit/thingInfo'
-import {ActionTableRenderer,} from './components/ActionTableRenderer'
 import {DismissButtonRenderer,} from './components/DismissButtonRenderer'
-import {IgnoredReportsRenderer,} from './components/IgnoredReportsRenderer'
+import {QueueItemTables,} from './components/QueueItemTables'
 import type {QueueToolsSettings,} from './settings'
 
-/** Raw thing data fields the ActionDetails table needs to derive a post's current approval/removal state. */
+/** Raw thing data fields the actions table needs to derive a post's current approval/removal state. */
 function getThingData (thingId: string,): Promise<Record<string, unknown>> {
 	return getInfo(thingId,).then((thing: any,) => thing.data as Record<string, unknown>)
 }
@@ -304,29 +303,24 @@ export function createQueueHandlers (
 		injectCreatureIfEmpty()
 	}
 
-	// Old Reddit only: on Shreddit the ModActions module's inline "Recent actions" button (in the
-	// mod-action row) already surfaces the per-item mod-log, so this near-the-timestamp "show recent
-	// actions" table would only duplicate it.
-	if (showActionReason && isOldReddit) {
-		renderAtLocation('thingDetails', {id: 'queuetools.actions', lifecycle: scope,}, ({context,},) => {
+	// Old Reddit only: the "show recent actions" and "show reports" inline toggles + tables share a
+	// single thingDetails host so they sit on one line. On Shreddit the ModActions module's inline
+	// "Recent actions" button already surfaces the per-item mod-log, and new reddit surfaces
+	// removed/dismissed reports natively, so both halves would only duplicate that there.
+	if ((showActionReason || showReportReasons) && isOldReddit) {
+		renderAtLocation('thingDetails', {id: 'queuetools.itemTables', lifecycle: scope,}, ({context,},) => {
 			if (!context.thingId || !context.subreddit) { return null }
 			return (
-				<ActionTableRenderer
+				<QueueItemTables
 					context={context}
+					showActionReason={showActionReason}
+					showReportReasons={showReportReasons}
 					getActions={getActions}
 					checkIsMod={isModSub}
 					getThingData={getThingData}
+					getReports={getHiddenReports}
 				/>
 			)
-		},)
-	}
-
-	// Old Reddit only: new reddit surfaces removed/dismissed reports natively, so the button
-	// would just duplicate that there.
-	if (showReportReasons && isOldReddit) {
-		renderAtLocation('thingActions', {id: 'queuetools.reports', lifecycle: scope,}, ({context,},) => {
-			if (!context.thingId || !context.subreddit) { return null }
-			return <IgnoredReportsRenderer context={context} getReports={getHiddenReports} />
 		},)
 	}
 

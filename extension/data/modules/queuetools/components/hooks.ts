@@ -1,9 +1,8 @@
-/** React renderer that fetches and displays the ActionDetails table for a queue item. */
+/** Data-fetching hooks for the per-queue-item action and report tables. */
 import {useEffect, useState,} from 'react'
 
 import type {UILocationContext,} from '../../../dom/uiLocations'
 import type {ActionEntry,} from '../schema'
-import {ActionDetails,} from './ActionDetails'
 
 /** Max seconds of skew tolerated between a thing's banned/approved time and the modlog's record of the same action. */
 const ACTION_MATCH_TOLERANCE_SECONDS = 5
@@ -17,6 +16,18 @@ export type GetActions = (
 	fullName: string,
 	callback: (result: Record<string, any> | false,) => void,
 ) => void
+
+/** Mod/user report lists for a queue item whose reports have been ignored. */
+export interface IgnoredReportData {
+	modReports: Array<[string, string,]>
+	userReports: Array<[string, string,]>
+}
+
+/** Resolved recent-actions data for a queue item, ready to render as a table. */
+export interface ItemActions {
+	actions: Record<string, ActionEntry>
+	postStateEntry: ActionEntry | null
+}
 
 /**
  * Builds a synthetic ActionEntry from a post's direct approval/removal fields.
@@ -49,30 +60,31 @@ function getPostStateEntry (data: Record<string, unknown>, kind: UILocationConte
 }
 
 /**
- * Fetches and displays the ActionDetails table for a queue item,
- * but only when the current user moderates the item's subreddit.
- * @param props Component properties.
+ * Loads the recent mod-log actions for a queue item, gated on the current user moderating
+ * the item's subreddit. Returns `null` while loading or when there is nothing to show.
  * @param context UILocationContext for the current queue item.
- * @param getActions Factory-provided function to retrieve cached mod-log actions.
- * @param checkIsMod Factory-provided check for whether the current user moderates a subreddit.
- * @param getThingData Factory-provided fetch for a thing's raw data fields.
+ * @param deps Factory-provided data accessors.
+ * @param enabled Whether the recent-actions feature is enabled; when false the hook does no fetching.
  */
-export function ActionTableRenderer (
-	{context, getActions, checkIsMod, getThingData,}: {
-		context: UILocationContext
+export function useItemActions (
+	context: UILocationContext,
+	{getActions, checkIsMod, getThingData,}: {
 		getActions: GetActions
 		checkIsMod: (subreddit: string,) => Promise<boolean>
 		getThingData: (thingId: string,) => Promise<Record<string, unknown>>
 	},
-) {
+	enabled: boolean,
+): ItemActions | null {
 	const {thingId, subreddit, kind,} = context
 	const [isMod, setIsMod,] = useState<boolean | null>(null,)
 	const [actions, setActions,] = useState<Record<string, ActionEntry> | false | null>(null,)
 	/** undefined = still loading; null = loaded but no current action; ActionEntry = loaded with data */
 	const [postStateEntry, setPostStateEntry,] = useState<ActionEntry | null | undefined>(undefined,)
 
+	// Gate the mod check (and, transitively, the getActions/getThingData effects below, which
+	// early-return until `isMod` resolves) on `enabled` so a disabled feature does zero fetching.
 	useEffect(() => {
-		if (!subreddit) { return }
+		if (!enabled || !subreddit) { return }
 		let alive = true
 		checkIsMod(subreddit,).then((mod,) => {
 			if (alive) { setIsMod(mod,) }
@@ -80,7 +92,7 @@ export function ActionTableRenderer (
 		return () => {
 			alive = false
 		}
-	}, [subreddit, checkIsMod,],)
+	}, [enabled, subreddit, checkIsMod,],)
 
 	useEffect(() => {
 		if (!isMod || !subreddit || !thingId) { return }
@@ -123,6 +135,35 @@ export function ActionTableRenderer (
 	)
 	const deduplicatedPostState = postStateEntry && !isCoveredByModlog ? postStateEntry : null
 
-	const initialShow = document.body.classList.contains('toolbox-show-actions',)
-	return <ActionDetails actions={actions || {}} initialShow={initialShow} postStateEntry={deduplicatedPostState} />
+	return {actions: actions || {}, postStateEntry: deduplicatedPostState,}
+}
+
+/**
+ * Loads the ignored mod/user reports for a queue item. Returns `null` while loading or when
+ * the item has no reports to surface.
+ * @param context UILocationContext for the current queue item.
+ * @param getReports Factory-provided fetch returning ignored-report data, or null when not applicable.
+ * @param enabled Whether the reports feature is enabled; when false the hook does no fetching.
+ */
+export function useItemReports (
+	context: UILocationContext,
+	getReports: (subreddit: string, thingId: string,) => Promise<IgnoredReportData | null>,
+	enabled: boolean,
+): IgnoredReportData | null {
+	const {thingId, subreddit,} = context
+	const [reportData, setReportData,] = useState<IgnoredReportData | null>(null,)
+
+	// Skip the per-item /api/info fetch entirely when the reports feature is disabled.
+	useEffect(() => {
+		if (!enabled || !subreddit || !thingId) { return }
+		let alive = true
+		getReports(subreddit, thingId,).then((data,) => {
+			if (alive) { setReportData(data,) }
+		},).catch(() => {},)
+		return () => {
+			alive = false
+		}
+	}, [enabled, subreddit, thingId, getReports,],)
+
+	return reportData
 }
