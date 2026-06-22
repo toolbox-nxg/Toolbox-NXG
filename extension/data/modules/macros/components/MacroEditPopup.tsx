@@ -4,7 +4,7 @@ import {useEffect, useRef, useState,} from 'react'
 
 import {ActionButton,} from '../../../shared/controls/ActionButton'
 import {Window,} from '../../../shared/window/Window'
-import {purify,} from '../../../util/data/purify'
+import {purifyHTML,} from '../../../util/data/purify'
 import {getMarkdownParser,} from '../../../util/ui/markdown'
 import {mountPopup,} from '../../../util/ui/reactMount'
 
@@ -54,7 +54,7 @@ export function MacroEditPopup ({
 		if (!showMacroPreview) { return }
 		if (debounceTimer.current) { clearTimeout(debounceTimer.current,) }
 		debounceTimer.current = setTimeout(() => {
-			setPreviewHtml(purify(parser.current.render(comment,),),)
+			setPreviewHtml(purifyHTML(parser.current.render(comment,),),)
 		}, 100,)
 		return () => {
 			if (debounceTimer.current) { clearTimeout(debounceTimer.current,) }
@@ -63,7 +63,7 @@ export function MacroEditPopup ({
 	// Initial render of preview
 	useEffect(() => {
 		if (showMacroPreview) {
-			setPreviewHtml(purify(parser.current.render(initialComment,),),)
+			setPreviewHtml(purifyHTML(parser.current.render(initialComment,),),)
 		}
 	}, [showMacroPreview,],)
 
@@ -100,7 +100,7 @@ export function MacroEditPopup ({
 					minHeight: `${editMinHeight}px`,
 				}}
 			/>
-			<div className={css.actionList} dangerouslySetInnerHTML={{__html: purify(actionListHtml,),}} />
+			<div className={css.actionList} dangerouslySetInnerHTML={{__html: purifyHTML(actionListHtml,),}} />
 			{showMacroPreview && (
 				<div className={css.preview}>
 					<h3 className={css.previewHeading}>Preview</h3>

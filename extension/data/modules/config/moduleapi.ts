@@ -4,7 +4,7 @@ import {writeWikiPageConditional,} from '../../api/resources/wikiVersioned'
 import {utils,} from '../../framework/moduleIds'
 import {negativeTextFeedback, neutralTextFeedback, positiveTextFeedback,} from '../../store/feedback'
 import {unescapeJSON, zlibDeflate, zlibInflate,} from '../../util/data/encoding'
-import {purify, purifyObject,} from '../../util/data/purify'
+import {purifyHTML, purifyObject,} from '../../util/data/purify'
 import createLogger from '../../util/infra/logging'
 import {createPerKeyQueue,} from '../../util/infra/perKeyQueue'
 import {clearCache, getCache, setCache,} from '../../util/persistence/cache'
@@ -455,7 +455,7 @@ export async function saveWikiEditorPage (
 					const response = (err as {response: {json(): Promise<any>}}).response
 					const responseJSON = await response.json()
 					const saveError = responseJSON.special_errors?.[0]
-					if (saveError) { automodError = purify(saveError,) }
+					if (saveError) { automodError = purifyHTML(saveError,) }
 				} catch (_) { /* ignore parse errors */ }
 			}
 			return {ok: false, automodError, message: 'Config not saved!',}

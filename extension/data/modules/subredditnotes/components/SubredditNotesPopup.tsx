@@ -9,7 +9,7 @@ import {TextInput,} from '../../../shared/controls/NormalInput'
 import {PushDrawer,} from '../../../shared/window/PushDrawer'
 import {Window,} from '../../../shared/window/Window'
 import {unescapeJSON,} from '../../../util/data/encoding'
-import {purify,} from '../../../util/data/purify'
+import {purifyHTML,} from '../../../util/data/purify'
 
 import {getCurrentUser,} from '../../../api/resources/me'
 import {getModSubs,} from '../../../api/resources/modSubs'
@@ -124,7 +124,7 @@ export function SubredditNotesPopup ({
 	const unsaved = shouldWarnUnsaved(savedValue, editorValue, saving,)
 		|| editTags.length !== savedTags.length || editTags.some((tag, i,) => tag !== savedTags[i])
 		|| isDraftNote
-	const previewHtml = useMemo(() => purify(parser.render(editorValue,),), [parser, editorValue,],)
+	const previewHtml = useMemo(() => purifyHTML(parser.render(editorValue,),), [parser, editorValue,],)
 
 	/** All unique tags across every note (v2 index aggregate), used for tag editor autocomplete. */
 	const allTagSuggestions = index.tags

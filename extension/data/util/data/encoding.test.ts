@@ -1,6 +1,6 @@
 /** Tests for encoding utilities. */
 
-import {describe, expect, it,} from 'vitest'
+import {afterEach, describe, expect, it, vi,} from 'vitest'
 
 import {htmlDecode, htmlEncode, tbDecode, unescapeJSON, zlibDeflate, zlibInflate,} from './encoding'
 
@@ -17,6 +17,21 @@ describe('encoding utilities', () => {
 	it('encodes and decodes HTML with the DOM', () => {
 		expect(htmlEncode('<strong>Tom & Jerry</strong>',),).toBe('&lt;strong&gt;Tom &amp; Jerry&lt;/strong&gt;',)
 		expect(htmlDecode('&lt;strong&gt;Tom &amp; Jerry&lt;/strong&gt;',),).toBe('<strong>Tom & Jerry</strong>',)
+	})
+
+	describe('htmlDecode without a DOM (service worker)', () => {
+		afterEach(() => {
+			vi.unstubAllGlobals()
+		},)
+
+		it('decodes common and numeric entities via the string fallback', () => {
+			vi.stubGlobal('document', undefined,)
+			expect(htmlDecode('Tom &amp; &lt;b&gt;Jerry&lt;/b&gt;',),).toBe('Tom & <b>Jerry</b>',)
+			expect(htmlDecode('it&#39;s &quot;ok&quot;',),).toBe('it\'s "ok"',)
+			expect(htmlDecode('&#x2764;',),).toBe('❤',)
+			// `&amp;` is decoded last so already-escaped entities survive one pass.
+			expect(htmlDecode('&amp;lt;',),).toBe('&lt;',)
+		})
 	})
 
 	it('round-trips zlib-compressed strings', () => {

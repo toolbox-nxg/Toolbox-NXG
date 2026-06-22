@@ -2,11 +2,43 @@
 
 import DOMPurify from 'dompurify'
 
+import {htmlDecode,} from './encoding'
+
 /**
- * Cleans an untrusted HTML string by running it through DOMPurify.
+ * Keys whose values are HTML markup rendered via `dangerouslySetInnerHTML`
+ * rather than as plain text. Reddit returns these entity-encoded; we leave that
+ * encoding intact (so the innerHTML sink decodes it to markup as before) instead
+ * of routing them through {@link purify}, which would decode the entities into a
+ * raw markup string and defeat the sink's safety. See {@link purify} for why
+ * plain-text values are handled differently.
+ */
+const HTML_MARKUP_KEYS = new Set([
+	'body_html',
+	'selftext_html',
+	'description_html',
+	'public_description_html',
+	'content_html',
+],)
+
+/**
+ * Sanitizes an untrusted string and returns sanitized HTML markup, suitable for
+ * `dangerouslySetInnerHTML`. Callers must pass real markup (e.g. locally rendered
+ * markdown); entity-encoded input passes through unchanged because DOMPurify sees
+ * only text and has nothing to strip.
+ */
+export function purifyHTML (input: string,): string {
+	return DOMPurify.sanitize(input,) as unknown as string
+}
+
+/**
+ * Sanitizes an untrusted string and returns display-ready plain text. DOMPurify
+ * strips any dangerous markup; {@link util/data/encoding!htmlDecode} then converts the
+ * entity-encoded output back to literal characters, so values rendered as React
+ * text nodes or `.textContent` show `<` rather than `&lt;`. Values destined for
+ * `dangerouslySetInnerHTML` must use {@link purifyHTML} instead.
  */
 export function purify (input: string,): string {
-	return DOMPurify.sanitize(input,) as unknown as string
+	return htmlDecode(purifyHTML(input,),)
 }
 
 /**
@@ -39,8 +71,12 @@ export function purifyObject (input: any,) {
 						purifyObject(jsonObject,)
 						input[key] = JSON.stringify(jsonObject,)
 					} catch (e) {
-						// Not json, simply purify
-						input[key] = purify(input[key],)
+						// Not json. HTML-markup fields stay entity-encoded so their
+						// innerHTML sink decodes them as before; everything else becomes
+						// display-ready plain text.
+						input[key] = HTML_MARKUP_KEYS.has(key,)
+							? purifyHTML(input[key],)
+							: purify(input[key],)
 					}
 					break
 				case 'function':

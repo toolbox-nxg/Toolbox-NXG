@@ -60,12 +60,27 @@ export function htmlEncode (value: string,): string {
 }
 
 /**
- * Gets the text content of an HTML string.
+ * Gets the text content of an HTML string. Uses the DOM where available (handles
+ * every entity); in a DOM-less context such as the background service worker it
+ * falls back to decoding the entities an HTML serializer emits plus numeric
+ * entities, so callers like {@link util/data/purify!purify} don't throw when
+ * sanitizing API responses off the main thread.
  */
 export function htmlDecode (value: string,): string {
-	const div = document.createElement('div',)
-	div.innerHTML = value
-	return div.textContent ?? ''
+	if (typeof document !== 'undefined') {
+		const div = document.createElement('div',)
+		div.innerHTML = value
+		return div.textContent ?? ''
+	}
+	// `&amp;` must be decoded last so `&amp;lt;` yields `&lt;`, not `<`.
+	return value
+		.replace(/&lt;/g, '<',)
+		.replace(/&gt;/g, '>',)
+		.replace(/&quot;/g, '"',)
+		.replace(/&nbsp;/g, ' ',)
+		.replace(/&#(\d+);/g, (_, code,) => String.fromCodePoint(Number(code,),),)
+		.replace(/&#x([0-9a-f]+);/gi, (_, code,) => String.fromCodePoint(parseInt(code, 16,),),)
+		.replace(/&amp;/g, '&',)
 }
 
 /**

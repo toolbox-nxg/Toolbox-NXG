@@ -82,7 +82,7 @@ export function UserSidebar ({user,}: UserSidebarProps,) {
 				<li>{verifiedMail ? 'Verified mail' : 'No verified mail'}</li>
 			</ul>
 			{publicDescription && (
-				<div className={css.userDescription} dangerouslySetInnerHTML={{__html: publicDescription,}} />
+				<div className={css.userDescription}>{publicDescription}</div>
 			)}
 			{modSubs.length > 0 && (
 				<>

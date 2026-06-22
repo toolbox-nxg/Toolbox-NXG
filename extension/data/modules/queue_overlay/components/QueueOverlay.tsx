@@ -6,7 +6,6 @@ import {Backdrop,} from '../../../shared/window/Backdrop'
 import {Window,} from '../../../shared/window/Window'
 import store from '../../../store'
 import {startSpinner, stopSpinner,} from '../../../store/spinnerSlice'
-import {purify,} from '../../../util/data/purify'
 import {link,} from '../../../util/reddit/pageContext'
 import {mountReactInBody,} from '../../../util/ui/reactMount'
 
@@ -110,7 +109,10 @@ function QueueOverlay ({initialType, initialSubreddit, baseUrls, onClose, instan
 
 	function reloadFromInput (type: QueueType,) {
 		const state = tabStates[type]
-		const multi = purify(state.multiInput,)
+		// This value is spliced into a URL path, so keep only subreddit-name characters and the
+		// multireddit `+` separator. The display sanitizer (`purify`) is wrong here: it now decodes
+		// HTML entities to raw characters rather than producing URL-safe output.
+		const multi = state.multiInput.replace(/[^\w+]/g, '',)
 		const newUrl = `/r/${multi}/about/${type}/`
 		store.dispatch(startSpinner(),)
 		setTabStates((prev,) => ({
