@@ -24,12 +24,13 @@ We generally only change the release name for major or minor bumps. Tradition di
 ## Tagging a New Release
 
 1. Make sure the working directory is clear and you're on the `main` branch.
-2. Update `firefox_manifest.json`'s `strict_min_version` to the latest ESR version of Firefox. [Here's a link to the FF release calendar for reference](https://whattrainisitnow.com/calendar/).
-3. Run `npm run release`. This script will prompt you for the new four-segment version number, then the release name.
+2. `firefox_manifest.json`'s `strict_min_version` is synced automatically by the release script (step 3): it reads the latest ESR from [Mozilla's product-details feed](https://product-details.mozilla.org/1.0/firefox_versions.json) and bumps the floor to that major version. If the latest ESR is _lower_ than the current floor (or the feed can't be reached), the script keeps the existing value and prints a notice -- no manual action needed unless you intend to override the floor. [The FF release calendar is here for reference](https://whattrainisitnow.com/calendar/).
+3. Run `npm run release`. This script will prompt you for the new four-segment version number, then the release name, then the release type.
    - Ensure the major.minor.patch is set correctly. You should only need to update this if the previous release was a stable release.
    - If the previous release was a beta release, increment the build number by 1. If the previous release was a stable release, instead reset the build number _to_ 1.
+   - To run non-interactively, supply any of the values up front via CLI flags or environment variables; whatever you omit is still prompted for. Flags: `npm run release -- --version 8.0.0.4 --name "Forked Phoenix" --type beta`. Equivalent env vars: `RELEASE_VERSION`, `RELEASE_NAME`, `RELEASE_TYPE`. `--type` must be `beta` or `stable`.
 
    The script will then automatically commit and tag the release in your local clone.
-4. Verify that the commit created by the release script contains nothing except changes to the version strings in the manifest files.
+4. Verify that the commit created by the release script contains nothing except changes to the version strings in the manifest files (plus, if the ESR floor moved, Firefox's `strict_min_version`).
 5. Push the commit and tag: `git push && git push --tags`.
 6. Build the release artifacts (`BUILD_TYPE=stable BUILD_SHA=$(git rev-parse HEAD) npm run build`). For `beta` and `stable` builds this also writes a per-platform zip to `build/toolbox-nxg-<platform>-<version>.zip` (e.g. `build/toolbox-nxg-chrome-8.0.0.2.zip`) ready for web store upload; upload these to the respective web stores and attach them to the [GitHub releases page](https://github.com/toolbox-nxg/toolbox-nxg/releases). (The zip step requires the system `zip` command; if it is missing the build prints a warning and skips packaging.)
