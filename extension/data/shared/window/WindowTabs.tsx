@@ -162,7 +162,7 @@ export const WindowTabs = (
 			// Extend an existing scrollable wrapper rather than starting a new one, so
 			// all module sections share one flex container and don't expand unevenly.
 			if (lastSeg?.scrollable) {
-				;(lastSeg as {scrollable: true; items: ScrollableItem[]}).items.push({
+				lastSeg.items.push({
 					kind: 'sectionDivider',
 					label: item.label,
 				},)
@@ -171,7 +171,7 @@ export const WindowTabs = (
 				segments.push({scrollable: true, items: [{kind: 'sectionDivider', label: item.label,},],},)
 			}
 		} else if (lastSeg?.scrollable && !isSection(item,)) {
-			;(lastSeg as {scrollable: true; items: ScrollableItem[]}).items.push(item,)
+			lastSeg.items.push(item,)
 		} else {
 			if (!currentNormal) {
 				const seg: Segment = {scrollable: false, items: [],}

@@ -51,7 +51,7 @@ export function ModeratorFilter ({moderators, modFilter, onChange,}: Props,) {
 
 	const isFiltered = modFilter !== null && modFilter.length < moderators.length
 	const label = isFiltered
-		? `Mods (${modFilter!.length}/${moderators.length})`
+		? `Mods (${modFilter.length}/${moderators.length})`
 		: 'Mods'
 
 	function isChecked (mod: string,) {

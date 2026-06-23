@@ -27,7 +27,7 @@ const self = new Module<RemovalReasonsSettings>({
 	const handlers = createRemovalReasonsHandlers(s,)
 	lifecycle.mount(handlers.cleanup,)
 
-	lifecycle.on(document.body, 'click', handlers.handleClick, {capture: true,},)
+	lifecycle.on(document.body, 'click', (event,) => void handlers.handleClick(event,), {capture: true,},)
 
 	return lifecycle.cleanup
 },)

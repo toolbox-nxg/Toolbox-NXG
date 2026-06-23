@@ -33,7 +33,7 @@ import {
 } from './wikiPaths'
 
 /** Sets up readFromWiki to answer per-page, treating unlisted pages as missing. */
-function mockWikiPages (pages: Record<string, any>,) {
+function mockWikiPages (pages: Record<string, unknown>,) {
 	readFromWiki.mockImplementation((_sub: string, page: string,) =>
 		Promise.resolve(
 			page in pages

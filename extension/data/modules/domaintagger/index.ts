@@ -22,7 +22,12 @@ export default new Module<DomainTaggerSettings>({
 	handlers.applyDisplayClass()
 	lifecycle.mount(handlers.cleanup,)
 
-	lifecycle.delegate<MouseEvent>(document.body, 'click', '.add-domain-tag', handlers.handleTagButtonClick,)
+	lifecycle.delegate<MouseEvent>(
+		document.body,
+		'click',
+		'.add-domain-tag',
+		(target, event,) => void handlers.handleTagButtonClick(target, event,),
+	)
 
 	if (isOldReddit) {
 		handlers.handleNewThings()

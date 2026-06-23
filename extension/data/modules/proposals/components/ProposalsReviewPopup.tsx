@@ -188,7 +188,7 @@ function ProposalsReviewPopup ({currentSubreddit, onClose,}: Props,) {
 
 	useEffect(() => {
 		mountedRef.current = true
-		;(async () => {
+		void (async () => {
 			try {
 				const user = await getCurrentUser()
 				if (mountedRef.current) { setCurrentUser(user,) }
@@ -256,7 +256,7 @@ function ProposalsReviewPopup ({currentSubreddit, onClose,}: Props,) {
 		? (() => {
 			const entry = list.find((e,) => sameSub(e.subreddit, selected.subreddit,))
 			const proposal = entry?.data.proposals[selected.id]
-			return proposal ? {subreddit: entry!.subreddit, proposal,} : null
+			return proposal ? {subreddit: entry.subreddit, proposal,} : null
 		})()
 		: null
 
@@ -571,13 +571,13 @@ function ProposalsReviewPopup ({currentSubreddit, onClose,}: Props,) {
 				rejecting={rejecting}
 				feedbackDraft={feedbackDraft}
 				onFeedbackChange={setFeedbackDraft}
-				onAccept={() => handleAccept(at,)}
+				onAccept={() => void handleAccept(at,)}
 				onStartReject={() => setRejecting(true,)}
-				onConfirmReject={() => handleReject(at,)}
+				onConfirmReject={() => void handleReject(at,)}
 				onCancelReject={() => void cancelReject()}
-				onDismiss={() => handleDismiss(at,)}
+				onDismiss={() => void handleDismiss(at,)}
 				canEditAccept={at.proposal.action.type === 'removal-reason' && !!at.proposal.action.intent.selection}
-				onEditAccept={() => handleEditAccept(at,)}
+				onEditAccept={() => void handleEditAccept(at,)}
 			/>
 		)
 	}
@@ -607,7 +607,6 @@ function ProposalsReviewPopup ({currentSubreddit, onClose,}: Props,) {
 				onClose={onClose}
 			>
 				<div className={css.workspace}>
-					{/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
 					<div className={css.sidebar} onKeyDown={onListKeyDown}>
 						<div className={css.tabs}>
 							<ActionButton

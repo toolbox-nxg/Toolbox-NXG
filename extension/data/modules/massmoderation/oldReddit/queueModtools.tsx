@@ -4,6 +4,7 @@ import {createElement,} from 'react'
 
 import {isModSub,} from '../../../api/resources/modSubs'
 import {getModLog,} from '../../../api/resources/subreddits'
+import type {RedditListing,} from '../../../api/resources/subreddits'
 import {approveThing, ignoreReports, removeThing,} from '../../../api/resources/things'
 import {getQueueTabMenu, getSiteTable,} from '../../../dom/oldReddit/page'
 import {
@@ -170,7 +171,7 @@ export function createMassModerationSetup () {
  * The activated state is held in the factory closure, so `index.ts` needs no guard variable.
  * @returns A function that returns the handler bundle on first call, `null` on subsequent calls.
  */
-export function createModtoolsActivator (module: Module<any>, options: MassModerationSettings,) {
+export function createModtoolsActivator (module: Module<MassModerationSettings>, options: MassModerationSettings,) {
 	let activated = false
 	return function activate () {
 		if (activated) { return null }
@@ -185,7 +186,7 @@ export function createModtoolsActivator (module: Module<any>, options: MassModer
  * @returns An object of event handlers to be wired into the module lifecycle.
  */
 export function createModtoolsHandlers (
-	module: Module<any>,
+	module: Module<MassModerationSettings>,
 	{
 		hideActionedItems,
 		groupCommentsOnModPage,
@@ -249,16 +250,18 @@ export function createModtoolsHandlers (
 
 	function removeUnmoddable () {
 		if (!isModpage && !isSubCommentsPage) {
-			getThings().forEach(async (thing,) => {
-				const subEl = getThingSubredditEl(thing,)
-				if (subEl) {
-					const sub = cleanSubredditName(subEl.textContent ?? '',)
-					const isMod = await isModSub(sub,)
-					if (!isMod) { thing.remove() }
-				} else if (isThingPromotedPost(thing,)) {
-					thing.remove()
-				}
-			},)
+			getThings().forEach((thing,) =>
+				void (async () => {
+					const subEl = getThingSubredditEl(thing,)
+					if (subEl) {
+						const sub = cleanSubredditName(subEl.textContent ?? '',)
+						const isMod = await isModSub(sub,)
+						if (!isMod) { thing.remove() }
+					} else if (isThingPromotedPost(thing,)) {
+						thing.remove()
+					}
+				})()
+			)
 		}
 	}
 
@@ -469,7 +472,6 @@ export function createModtoolsHandlers (
 						return 0
 					}
 					for (const sub of actionedSubs) {
-						// eslint-disable-next-line no-await-in-loop
 						if (await isTrainingCaptureActive(sub,)) {
 							negativeTextFeedback('Mass moderation isn\'t available in training mode',)
 							return 0
@@ -507,18 +509,18 @@ export function createModtoolsHandlers (
 				}}
 				onThresholdChange={(threshold,) => {
 					reportsThreshold = threshold
-					module.set('reportsThreshold', threshold,)
+					void module.set('reportsThreshold', threshold,)
 					applyHidingRules(getThings(),)
 				}}
 				onScoreThresholdChange={(threshold,) => {
 					scoreThreshold = threshold
-					module.set('scoreThreshold', threshold,)
+					void module.set('scoreThreshold', threshold,)
 					applyHidingRules(getThings(),)
 				}}
 				onSortChoice={(order, toggleAsc,) => {
 					if (toggleAsc) { sortAscending = !sortAscending }
-					module.set('reportsAscending', sortAscending,)
-					module.set('reportsOrder', order,)
+					void module.set('reportsAscending', sortAscending,)
+					void module.set('reportsOrder', order as MassModerationSettings['reportsOrder'],)
 					listingOrder = order
 					if (!sortLocked) {
 						sortThings(order, sortAscending, groupCommentsOnModPage,)
@@ -529,7 +531,7 @@ export function createModtoolsHandlers (
 				}}
 				onSortLockChange={(locked,) => {
 					sortLocked = locked
-					module.set('sortLocked', locked,)
+					void module.set('sortLocked', locked,)
 				}}
 				onOpenExpandos={(open,) => {
 					if (open) {
@@ -537,7 +539,7 @@ export function createModtoolsHandlers (
 					} else {
 						closeAllExpandos()
 					}
-					module.set('expandos', open,)
+					void module.set('expandos', open,)
 				}}
 				onGroupBySubreddit={(enabled,) => {
 					isGroupedBySubreddit = enabled
@@ -549,7 +551,7 @@ export function createModtoolsHandlers (
 					}
 				}}
 				onAutoRefreshChange={(enabled,) => {
-					module.set('autoRefresh', enabled,)
+					void module.set('autoRefresh', enabled,)
 				}}
 				onContentTypeFilter={(type,) => {
 					contentTypeFilter = type
@@ -665,13 +667,15 @@ export function createModtoolsHandlers (
 	getThings().filter((t,) => t.matches('.link, .comment',)).forEach((thing,) => provideQueueThingSelection(thing,))
 	document.querySelectorAll('.buttons .pretty-button',).forEach((element,) => element.setAttribute('tabindex', '2',))
 
-	const origRateLimit = (window as any).rate_limit
-	;(window as any).rate_limit = function (action: string,) {
+	// Reddit's old-page global rate limiter; not in the standard Window type.
+	const win = window as unknown as Window & {rate_limit: (action: string,) => boolean}
+	const origRateLimit = win.rate_limit
+	win.rate_limit = function (action: string,) {
 		if (action === 'expando' || action === 'remove' || action === 'approve') { return false }
 		return origRateLimit(action,)
 	}
 	lifecycle.mount(() => {
-		;(window as any).rate_limit = origRateLimit
+		win.rate_limit = origRateLimit
 	},)
 
 	const sidebarSort = createSidebarSortHandlers()
@@ -707,10 +711,11 @@ export function createModtoolsHandlers (
 		modlogSyncing = true
 		let resolved = 0
 		try {
-			let response: any
+			type ModLogChild = {data?: {target_fullname?: string; action?: string; mod?: string}}
+			let response: RedditListing<ModLogChild>
 			try {
 				// postSite is the queue's subreddit, or '' on multi-sub queues - fall back to `mod`.
-				response = await getModLog(postSite || 'mod', {limit: '100', raw_json: '1',},)
+				response = await getModLog<ModLogChild>(postSite || 'mod', {limit: '100', raw_json: '1',},)
 			} catch {
 				return 0
 			}
@@ -721,12 +726,12 @@ export function createModtoolsHandlers (
 				const data = child?.data
 				const fullname: string | undefined = data?.target_fullname
 				if (!fullname || actionsByFullname.has(fullname,)) { continue }
-				const family = actionFamily[data.action]
+				const family = actionFamily[data?.action ?? '']
 				if (family !== 'approval' && family !== 'remove') { continue }
 				actionsByFullname.set(fullname, {
 					family,
-					spam: data.action === 'spamlink' || data.action === 'spamcomment',
-					mod: data.mod ?? '',
+					spam: data?.action === 'spamlink' || data?.action === 'spamcomment',
+					mod: data?.mod ?? '',
 				},)
 			}
 

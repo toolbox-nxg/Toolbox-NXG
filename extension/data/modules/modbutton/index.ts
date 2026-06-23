@@ -16,8 +16,8 @@ const self = new Module<ModButtonSettings>({
 	const lifecycle = createLifecycle()
 	lifecycle.mount(createModButtonHandlers(
 		s,
-		(action,) => self.set('lastAction', action,),
-		(subs,) => self.set('savedSubs', subs,),
+		(action,) => void self.set('lastAction', action,),
+		(subs,) => void self.set('savedSubs', subs,),
 	),)
 	return lifecycle.cleanup
 },)

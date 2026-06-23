@@ -56,7 +56,7 @@ export function ProposalsButton () {
 			setCount(openProposalCountAcross(entries,) + myUnacknowledgedResolvedAcross(entries, user,).length,)
 		}
 
-		;(async () => {
+		void (async () => {
 			;[subs, user,] = await Promise.all([
 				getModSubs().catch(() => [] as string[]),
 				getCurrentUser().catch(() => ''),

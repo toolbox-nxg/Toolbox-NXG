@@ -160,7 +160,7 @@ function getCrossOriginStylesheetHrefs (): string[] {
 		if (!sheet.href) { continue }
 		try {
 			// accessing cssRules throws for cross-origin sheets
-			sheet.cssRules
+			void sheet.cssRules
 		} catch {
 			hrefs.push(sheet.href,)
 		}
@@ -337,22 +337,26 @@ export function createModMatrixSetup (): {
  */
 export function createMatrixButtonRender (onClick: () => void,): () => ReactElement {
 	if (isOldReddit) {
-		return () => (
-			<ActionButton className="toolbox-matrix-toggle" onClick={onClick}>
+		return function MatrixButton () {
+			return (
+				<ActionButton className="toolbox-matrix-toggle" onClick={onClick}>
+					moderation log matrix
+				</ActionButton>
+			)
+		}
+	}
+	return function MatrixButton () {
+		return (
+			<button
+				// @ts-expect-error - rpl is a Reddit design-system attribute, not a standard HTML attribute
+				rpl=""
+				className="ms-sm me-md button-small px-[calc(var(--rem10)-var(--button-border-width,0px))] button-secondary items-center justify-center button inline-flex"
+				onClick={onClick}
+			>
 				moderation log matrix
-			</ActionButton>
+			</button>
 		)
 	}
-	return () => (
-		<button
-			// @ts-ignore - rpl is a Reddit design-system attribute, not a standard HTML attribute
-			rpl=""
-			className="ms-sm me-md button-small px-[calc(var(--rem10)-var(--button-border-width,0px))] button-secondary items-center justify-center button inline-flex"
-			onClick={onClick}
-		>
-			moderation log matrix
-		</button>
-	)
 }
 
 /**

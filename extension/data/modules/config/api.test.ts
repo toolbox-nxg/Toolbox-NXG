@@ -46,7 +46,7 @@ vi.mock('../../util/persistence/cache', () => ({
 vi.mock('../../store', () => ({default: {dispatch: vi.fn(),},}),)
 vi.mock('../../store/textFeedbackSlice', async (importOriginal,) => {
 	const actual = await importOriginal<typeof import('../../store/textFeedbackSlice')>()
-	return {...actual, showTextFeedback: vi.fn((msg: any,) => msg),}
+	return {...actual, showTextFeedback: vi.fn((msg: unknown,) => msg),}
 },)
 vi.mock('../../util/data/purify', () => ({purifyObject: vi.fn(),}),)
 vi.mock('../../util/infra/logging', () => ({
@@ -74,11 +74,13 @@ vi.mock('../../util/wiki/wikiPaths', async (importOriginal,) => {
 },)
 
 import {getWikiRevisions, postToWiki as tbApiPostToWiki, readFromWiki,} from '../../api/resources/wiki'
+import type {WikiReadResult,} from '../../api/resources/wiki'
 import {showTextFeedback, TextFeedbackKind,} from '../../store/textFeedbackSlice'
 import {zlibDeflate, zlibInflate,} from '../../util/data/encoding'
 import {purifyObject,} from '../../util/data/purify'
 import {getCache, setCache,} from '../../util/persistence/cache'
 import {normalizeConfig,} from '../../util/wiki/schemas/config/schema'
+import type {ToolboxConfig,} from '../../util/wiki/schemas/config/schema'
 import {
 	convertUsernotesEditorText,
 	formatWikiEditorText,
@@ -92,7 +94,7 @@ import {
 
 describe('normalizeConfig', () => {
 	it('backfills missing removal reasons config', () => {
-		const configData: any = {}
+		const configData: unknown = {}
 
 		normalizeConfig(configData,)
 
@@ -100,7 +102,7 @@ describe('normalizeConfig', () => {
 	})
 
 	it('normalizes legacy empty-string removal reasons config', () => {
-		const configData: any = {removalReasons: '',}
+		const configData: unknown = {removalReasons: '',}
 
 		normalizeConfig(configData,)
 
@@ -108,7 +110,7 @@ describe('normalizeConfig', () => {
 	})
 
 	it('preserves removal reasons settings while adding a missing reasons list', () => {
-		const configData: any = {removalReasons: {header: 'hi', bantitle: 'unused',},}
+		const configData: unknown = {removalReasons: {header: 'hi', bantitle: 'unused',},}
 
 		normalizeConfig(configData,)
 
@@ -116,7 +118,7 @@ describe('normalizeConfig', () => {
 	})
 
 	it('coerces legacy empty-string modMacros to an empty array', () => {
-		const configData: any = {modMacros: '',}
+		const configData: unknown = {modMacros: '',}
 
 		normalizeConfig(configData,)
 
@@ -124,7 +126,7 @@ describe('normalizeConfig', () => {
 	})
 
 	it('preserves a valid modMacros array and assigns stable ids', () => {
-		const configData: any = {modMacros: [{text: 'hello',},],}
+		const configData: unknown = {modMacros: [{text: 'hello',},],}
 
 		normalizeConfig(configData,)
 
@@ -133,7 +135,7 @@ describe('normalizeConfig', () => {
 	})
 
 	it('keeps valid suggestedReasons mappings, assigns stable ids, and minimizes optional fields', () => {
-		const configData: any = {
+		const configData: unknown = {
 			removalReasons: {
 				reasons: [],
 				suggestedReasons: [
@@ -159,7 +161,7 @@ describe('normalizeConfig', () => {
 	})
 
 	it('drops suggestedReasons entries without a pattern or any reason ids, and an empty list entirely', () => {
-		const configData: any = {
+		const configData: unknown = {
 			removalReasons: {
 				reasons: [],
 				suggestedReasons: [
@@ -176,7 +178,7 @@ describe('normalizeConfig', () => {
 	})
 
 	it('drops a non-array suggestedReasons field', () => {
-		const configData: any = {removalReasons: {reasons: [], suggestedReasons: 'nope',},}
+		const configData: unknown = {removalReasons: {reasons: [], suggestedReasons: 'nope',},}
 
 		normalizeConfig(configData,)
 
@@ -184,7 +186,7 @@ describe('normalizeConfig', () => {
 	})
 
 	it('removes domainTags from config (domain tags now live on a dedicated wiki page)', () => {
-		const configData: any = {domainTags: [{name: 'example.com', color: 'red',},],}
+		const configData: unknown = {domainTags: [{name: 'example.com', color: 'red',},],}
 
 		normalizeConfig(configData,)
 
@@ -192,7 +194,7 @@ describe('normalizeConfig', () => {
 	})
 
 	it('removes usernoteColors from config (usernote types now live on the usernotes wiki page)', () => {
-		const configData: any = {usernoteColors: [{key: 'spam', text: 'Spam', color: 'red',},],}
+		const configData: unknown = {usernoteColors: [{key: 'spam', text: 'Spam', color: 'red',},],}
 
 		normalizeConfig(configData,)
 
@@ -200,7 +202,7 @@ describe('normalizeConfig', () => {
 	})
 
 	it('applies usernote save-requirement defaults when the fields are absent', () => {
-		const configData: any = {}
+		const configData: unknown = {}
 
 		normalizeConfig(configData,)
 
@@ -211,7 +213,7 @@ describe('normalizeConfig', () => {
 	})
 
 	it('coerces garbage usernote save-requirement values to their defaults', () => {
-		const configData: any = {
+		const configData: unknown = {
 			requireUsernoteType: 'yes',
 			requireUsernoteText: 0,
 			requireUsernoteLink: 1,
@@ -226,7 +228,7 @@ describe('normalizeConfig', () => {
 	})
 
 	it('honors explicit usernote save-requirement values', () => {
-		const configData: any = {
+		const configData: unknown = {
 			requireUsernoteType: true,
 			requireUsernoteText: false,
 			requireUsernoteLink: true,
@@ -240,7 +242,7 @@ describe('normalizeConfig', () => {
 	})
 
 	it('coerces legacy empty-string banMacros to null', () => {
-		const configData: any = {banMacros: '',}
+		const configData: unknown = {banMacros: '',}
 
 		normalizeConfig(configData,)
 
@@ -255,7 +257,7 @@ describe('normalizeConfig', () => {
 			defaultBanDuration: 0,
 			banDurationPresets: [],
 		}
-		const configData: any = {banMacros,}
+		const configData: unknown = {banMacros,}
 
 		normalizeConfig(configData,)
 
@@ -263,7 +265,7 @@ describe('normalizeConfig', () => {
 	})
 
 	it('leaves guardedActions absent (absent ⇒ all actions guarded)', () => {
-		const configData: any = {}
+		const configData: unknown = {}
 
 		normalizeConfig(configData,)
 
@@ -271,7 +273,7 @@ describe('normalizeConfig', () => {
 	})
 
 	it('keeps only recognized action types in an explicit guardedActions list', () => {
-		const configData: any = {guardedActions: ['remove', 'approve', 'bogus', 42, 'ban',],}
+		const configData: unknown = {guardedActions: ['remove', 'approve', 'bogus', 42, 'ban',],}
 
 		normalizeConfig(configData,)
 
@@ -279,7 +281,7 @@ describe('normalizeConfig', () => {
 	})
 
 	it('preserves an explicit empty guardedActions array (guard nothing)', () => {
-		const configData: any = {guardedActions: [],}
+		const configData: unknown = {guardedActions: [],}
 
 		normalizeConfig(configData,)
 
@@ -287,7 +289,7 @@ describe('normalizeConfig', () => {
 	})
 
 	it('coerces a non-array guardedActions to an empty array', () => {
-		const configData: any = {guardedActions: 'remove',}
+		const configData: unknown = {guardedActions: 'remove',}
 
 		normalizeConfig(configData,)
 
@@ -295,7 +297,7 @@ describe('normalizeConfig', () => {
 	})
 
 	it('migrates a config with no ver to the current schema version', () => {
-		const configData: any = {}
+		const configData: unknown = {}
 
 		normalizeConfig(configData,)
 
@@ -303,7 +305,7 @@ describe('normalizeConfig', () => {
 	})
 
 	it('migrates v1 escaped text and limited-HTML fields to plain v2 tokens', () => {
-		const configData: any = {
+		const configData: unknown = {
 			ver: 1,
 			removalReasons: {
 				// escape()-encoded, as written by 6.x: 'Pick <select id="r"><option>a</option></select>'
@@ -323,7 +325,7 @@ describe('normalizeConfig', () => {
 	it('heals v2 reason text where entity-escaped legacy HTML survived', () => {
 		// A v2 page whose entity-escaped legacy HTML gained extra &amp; layers
 		// from content_md round trips.
-		const configData: any = {
+		const configData: unknown = {
 			ver: 2,
 			removalReasons: {
 				reasons: [{
@@ -340,7 +342,7 @@ describe('normalizeConfig', () => {
 	})
 
 	it('migrates the older v2 separate-definitions shape to an inline {choice} block', () => {
-		const configData: any = {
+		const configData: unknown = {
 			ver: 2,
 			removalReasons: {
 				reasons: [{
@@ -363,7 +365,7 @@ describe('normalizeConfig', () => {
 	})
 
 	it('does not URI-decode v2 configs', () => {
-		const configData: any = {
+		const configData: unknown = {
 			ver: 2,
 			removalReasons: {reasons: [{text: 'literal %20 stays',},],},
 		}
@@ -374,7 +376,7 @@ describe('normalizeConfig', () => {
 	})
 
 	it('keeps existing stable ids and fills in missing ones', () => {
-		const configData: any = {
+		const configData: unknown = {
 			ver: 2,
 			removalReasons: {reasons: [{id: 'keepthis', text: 'a',}, {text: 'b',},],},
 		}
@@ -472,7 +474,7 @@ describe('getConfig', () => {
 			Promise.resolve(key === 'configCache' ? {sub: cached,} : defaultVal,)
 		)
 		vi.mocked(readFromWiki,).mockResolvedValue({ok: true, data: fresh,},)
-		vi.mocked(getWikiRevisions,).mockResolvedValueOnce([{id: 'rev-fresh',},] as any,)
+		vi.mocked(getWikiRevisions,).mockResolvedValueOnce([{id: 'rev-fresh', timestamp: 0, author: '', reason: '',},],)
 
 		const result = await getConfig('sub',)
 
@@ -515,7 +517,7 @@ describe('getConfig', () => {
 			Promise.resolve(key === 'configCache' ? {} : defaultVal,)
 		)
 		// A fresh read stashes the page revision so the next save can condition on it.
-		vi.mocked(getWikiRevisions,).mockResolvedValueOnce([{id: 'rev-x',},] as any,)
+		vi.mocked(getWikiRevisions,).mockResolvedValueOnce([{id: 'rev-x', timestamp: 0, author: '', reason: '',},],)
 
 		const result = await getConfig('sub',)
 
@@ -555,8 +557,8 @@ describe('getConfig', () => {
 		}
 		vi.mocked(readFromWiki,).mockImplementation(async (_sub: string, page: string,) =>
 			page === 'toolbox-nxg'
-				? {ok: true, data: nxgData,} as any
-				: {ok: true, data: legacyData,} as any
+				? {ok: true, data: nxgData,} as WikiReadResult
+				: {ok: true, data: legacyData,} as WikiReadResult
 		)
 
 		const result = await getConfig('sub',)
@@ -580,8 +582,8 @@ describe('getConfig', () => {
 		const legacyData = {ver: 1, removalReasons: {reasons: [{title: 'Spam', text: 'No spam',},],},}
 		vi.mocked(readFromWiki,).mockImplementation(async (_sub: string, page: string,) =>
 			page === 'toolbox-nxg'
-				? {ok: true, data: nxgData,} as any
-				: {ok: true, data: legacyData,} as any
+				? {ok: true, data: nxgData,} as WikiReadResult
+				: {ok: true, data: legacyData,} as WikiReadResult
 		)
 
 		const result = await getConfig('sub',)
@@ -668,7 +670,7 @@ describe('saveToolboxConfig', () => {
 			{subreddit: 'sub', state: 'nxg', compatibilityWrites: true,},
 		)
 		getWikiWritePaths.mockResolvedValue(['toolbox-nxg', 'toolbox',],)
-		const config: any = {
+		const config: ToolboxConfig = {
 			ver: 2,
 			removalReasons: {
 				reasons: [{
@@ -685,14 +687,14 @@ describe('saveToolboxConfig', () => {
 		// revision-guarded write.
 		const legacyWrite = vi.mocked(tbApiPostToWiki,).mock.calls.find((call,) => call[1] === 'toolbox')!
 		const nxgWrite = writeWikiPageConditional.mock.calls.find((call,) => call[1] === 'toolbox-nxg')!
-		const legacyReason = (legacyWrite[2] as any).removalReasons.reasons[0]
-		expect((legacyWrite[2] as any).ver,).toBe(1,)
+		const legacyReason = (legacyWrite[2] as ToolboxConfig).removalReasons.reasons[0]
+		expect((legacyWrite[2] as ToolboxConfig).ver,).toBe(1,)
 		expect(legacyReason.id,).toBeUndefined()
-		// eslint-disable-next-line no-restricted-globals
+
 		expect(unescape(legacyReason.text,),).toBe('<select id="r"><option>a</option></select>',)
 		// The NXG copy keeps the v2 shape untouched.
-		const nxgReason = (nxgWrite[2] as any).removalReasons.reasons[0]
-		expect((nxgWrite[2] as any).ver,).toBe(2,)
+		const nxgReason = (nxgWrite[2] as ToolboxConfig).removalReasons.reasons[0]
+		expect((nxgWrite[2] as ToolboxConfig).ver,).toBe(2,)
 		expect(nxgReason,).toEqual({
 			id: 'r1idr1id',
 			text: '{choice#r}\n- a',

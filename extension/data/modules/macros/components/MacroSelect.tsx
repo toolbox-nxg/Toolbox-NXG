@@ -58,7 +58,7 @@ export function MacroSelect (
 		setDisabled(false,)
 	}
 
-	const handleChange: React.ChangeEventHandler<HTMLSelectElement> = async (event,) => {
+	const handleChange = async (event: React.ChangeEvent<HTMLSelectElement>,) => {
 		const index = event.target.value
 		if (index === macros) { return }
 
@@ -76,7 +76,7 @@ export function MacroSelect (
 		await onSelectMacro(macro, dropdown, reset,)
 	}
 
-	const macroOptions = (Object.entries(config,) as [string, MacroConfig,][]).filter(
+	const macroOptions = (Object.entries(config,)).filter(
 		([, item,],) => item[context] !== false,
 	)
 
@@ -139,7 +139,7 @@ export function MacroSelect (
 					title={label}
 					value={value}
 					disabled={disabled}
-					onChange={handleChange}
+					onChange={(event,) => void handleChange(event,)}
 					style={{
 						position: 'absolute',
 						inset: 0,
@@ -163,7 +163,7 @@ export function MacroSelect (
 			}}
 			value={value}
 			disabled={disabled}
-			onChange={handleChange}
+			onChange={(event,) => void handleChange(event,)}
 		>
 			{options}
 		</ActionSelect>

@@ -2,6 +2,7 @@
 
 import {useState,} from 'react'
 
+import type {RedditThing, SubmissionData,} from '../../../api/resources/things'
 import {Icon,} from '../../../shared/controls/Icon'
 import {purifyHTML,} from '../../../util/data/purify'
 import {formatRelativeTime,} from '../../../util/data/time'
@@ -14,7 +15,7 @@ import {SubmissionOptions,} from './types'
 /** Props for the TBSubmission component. */
 interface TBSubmissionProps {
 	/** Raw Reddit API submission object (with a `data` property). */
-	submission: any
+	submission: RedditThing<SubmissionData>
 	options?: SubmissionOptions | undefined
 	/** Salt string appended to subreddit names when computing border colors. */
 	subredditColorSalt: string
@@ -32,11 +33,11 @@ export function TBSubmission ({submission, options, subredditColorSalt,}: TBSubm
 	const [selfExpanded, setSelfExpanded,] = useState(false,)
 	const filteredFromQueue = useFilteredFromQueue(s, status,)
 
-	const voteState = getVoteState(s.likes,)
+	const voteState = getVoteState(s.likes ?? null,)
 
 	const {authorStatus, authorAttrs,} = buildAuthorAttrs(s, permalink,)
 
-	const numComments = s.num_comments
+	const numComments = s.num_comments ?? 0
 	let commentsButtonText = 'comment'
 	if (numComments === 1) { commentsButtonText = '1 comment' }
 	else if (numComments > 1) { commentsButtonText = `${numComments} comments` }

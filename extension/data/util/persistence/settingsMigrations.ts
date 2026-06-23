@@ -50,7 +50,7 @@ export async function doSettingsUpdates () {
 		await setCache(settingsName, 'cacheName', currentUser,)
 
 		// Force refresh of timed cache
-		browser.runtime.sendMessage({action: 'toolbox-cache-force-timeout',} satisfies TbCacheForceTimeoutMessage,)
+		void browser.runtime.sendMessage({action: 'toolbox-cache-force-timeout',} satisfies TbCacheForceTimeoutMessage,)
 	}
 
 	// Extra checks on old faults
@@ -59,8 +59,8 @@ export async function doSettingsUpdates () {
 		await setSettingAsync(settingsName, 'lastVersion', lastVersion,)
 	}
 
-	let shortLength = await getSettingAsync(settingsName, 'shortLength', 15,)
-	let longLength = await getSettingAsync(settingsName, 'longLength', 45,)
+	let shortLength = await getSettingAsync(settingsName, 'shortLength', 15,) as number | string
+	let longLength = await getSettingAsync(settingsName, 'longLength', 45,) as number | string
 
 	if (typeof shortLength !== 'number') {
 		shortLength = parseInt(shortLength, 10,)
@@ -131,17 +131,17 @@ export async function doSettingsUpdates () {
 		await updateSettings(Object.fromEntries(keysToDelete.map((key,) => [key, undefined,]),),)
 
 		// Reset selectedTheme if it's a CM5 theme name no longer valid in CM6
-		const storedTheme = await getSettingAsync(syntax, 'selectedTheme', 'dracula',)
-		if (storedTheme && !(syntaxThemes as readonly string[]).includes(storedTheme as string,)) {
+		const storedTheme = await getSettingAsync(syntax, 'selectedTheme', 'dracula',) as string
+		if (storedTheme && !(syntaxThemes as readonly string[]).includes(storedTheme,)) {
 			await setSettingAsync(syntax, 'selectedTheme', 'dracula',)
 		}
 
 		// End: version changes.
 
 		// This is a super extra check to make sure the wiki page for settings export really is private.
-		const settingSubEnabled = await getSettingAsync(utils, 'settingSub', '',)
+		const settingSubEnabled = await getSettingAsync(utils, 'settingSub', '',) as string
 		if (settingSubEnabled) {
-			setWikiPrivate(settingSubEnabled, 'tbsettings', false,)
+			void setWikiPrivate(settingSubEnabled, 'tbsettings', false,)
 		}
 
 		// This should be left for every new release. If there is a new beta feature people want, it should be opt-in, not left to old settings.
@@ -225,7 +225,7 @@ export async function doSettingsUpdates () {
 		}
 	}
 
-	const oldQueueToolsEnabled = allSettings['Toolbox.QueueTools.enabled']
+	const oldQueueToolsEnabled = allSettings['Toolbox.QueueTools.enabled'] as unknown
 	if (oldQueueToolsEnabled !== undefined) {
 		for (const newModule of ['MassModeration', 'ModViewEnhancements',]) {
 			const newKey = `Toolbox.${newModule}.enabled`

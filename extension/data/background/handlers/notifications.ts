@@ -63,8 +63,11 @@ async function sendNativeNotification (
 	// If we have the getPermissionLevel function, check if we have permission
 	// to send notifications. This function doesn't currently exist on Firefox
 	// for some reason. (https://bugzilla.mozilla.org/show_bug.cgi?id=1213455)
-	if (typeof (browser.notifications as any).getPermissionLevel !== 'undefined') {
-		const permission = await (browser.notifications as any).getPermissionLevel()
+	const notifications = browser.notifications as typeof browser.notifications & {
+		getPermissionLevel?: () => Promise<string>
+	}
+	if (typeof notifications.getPermissionLevel !== 'undefined') {
+		const permission = await notifications.getPermissionLevel()
 		if (permission !== 'granted') {
 			throw new Error('No permission to send native notifications',)
 		}
@@ -177,15 +180,11 @@ export function registerNotificationHandlers () {
 		return notificationID
 	},)
 
-	registerMessageHandler('toolbox-page-notification-click', (request,) => {
-		return onClickNotification(request.id,)
-	},)
+	registerMessageHandler('toolbox-page-notification-click', (request,) => onClickNotification(request.id,),)
 
-	registerMessageHandler('toolbox-page-notification-clear', (request,) => {
-		return clearNotification(request.id,)
-	},)
+	registerMessageHandler('toolbox-page-notification-clear', (request,) => clearNotification(request.id,),)
 
-	browser.notifications.onClicked.addListener(onClickNotification,)
+	browser.notifications.onClicked.addListener((id,) => void onClickNotification(id,))
 	browser.notifications.onClosed.addListener((id,) => {
 		// Clearing native notifications is done for us, so we don't need to call
 		// clearNotification, but we do still need to clean up metadata.

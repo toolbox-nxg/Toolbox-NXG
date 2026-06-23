@@ -162,14 +162,21 @@ async function doResolveWikiLayout (
 		return cached
 	}
 
-	const nxgResponse = await readFromWiki<Record<string, any>>(subreddit, NEW_WIKI_PATHS.settings, true,)
+	const nxgResponse = await readFromWiki<Record<string, unknown>>(subreddit, NEW_WIKI_PATHS.settings, true,)
 	if (nxgResponse.ok) {
 		// The NXG page exists -> bootstrapped. The compat flag is written
 		// explicitly on every NXG config save, so absence means external
 		// tampering; fall back on whether a real legacy config exists.
-		let compatibilityWrites = nxgResponse.data[COMPAT_WRITES_KEY]
-		if (typeof compatibilityWrites !== 'boolean') {
-			const legacyResponse = await readFromWiki<Record<string, any>>(subreddit, OLD_WIKI_PATHS.settings, true,)
+		const rawCompat = nxgResponse.data[COMPAT_WRITES_KEY]
+		let compatibilityWrites: boolean
+		if (typeof rawCompat === 'boolean') {
+			compatibilityWrites = rawCompat
+		} else {
+			const legacyResponse = await readFromWiki<Record<string, unknown>>(
+				subreddit,
+				OLD_WIKI_PATHS.settings,
+				true,
+			)
 			compatibilityWrites = legacyResponse.ok && !isTombstone(legacyResponse.data,)
 		}
 		const layout: WikiLayout = {subreddit, state: 'nxg', compatibilityWrites,}
@@ -177,7 +184,7 @@ async function doResolveWikiLayout (
 		return layout
 	}
 
-	const legacyResponse = await readFromWiki<Record<string, any>>(subreddit, OLD_WIKI_PATHS.settings, true,)
+	const legacyResponse = await readFromWiki<Record<string, unknown>>(subreddit, OLD_WIKI_PATHS.settings, true,)
 
 	if (legacyResponse.ok && isTombstone(legacyResponse.data,)) {
 		// The sub was bootstrapped and compat turned off, but toolbox-nxg is
@@ -260,10 +267,11 @@ async function doResolveWikiLayout (
 	log.error(`Could not bootstrap /r/${subreddit} onto the NXG layout: ${failure.page}: ${failure.reason}`,)
 	if (!silent) {
 		negativeTextFeedback(
-			`Could not set up the toolbox-nxg wiki pages for /r/${subreddit} (${failure.reason}). `
-				+ (hasLegacyData
+			`Could not set up the toolbox-nxg wiki pages for /r/${subreddit} (${failure.reason}). ${
+				hasLegacyData
 					? 'Using the legacy pages for now; setup retries automatically.'
-					: 'Setup retries automatically.'),
+					: 'Setup retries automatically.'
+			}`,
 		)
 	}
 	// Session-only degraded states: the next session (or a manual retry from

@@ -80,7 +80,7 @@ export function createSidebarSortHandlers () {
 
 				getCache(massModeration, `${prefix + currentUser}-${sr}`, '[0,0]',).then(
 					(cacheData: unknown,) => {
-						const data = JSON.parse(cacheData as string,)
+						const data = JSON.parse(cacheData as string,) as [number, number,]
 
 						modSubs.push(sr,)
 						positiveTextFeedback(`Getting items for: ${sr}`,)
@@ -98,10 +98,10 @@ export function createSidebarSortHandlers () {
 						}
 
 						function updateModqueueCount (subName: string,) {
-							getSubredditListing(subName, page, {limit: '100',},).then((d: any,) => {
+							getSubredditListing(subName, page, {limit: '100',},).then((d,) => {
 								const items = d.data.children.length
 								log.debug(`  subreddit: ${subName} items: ${items}`,)
-								setCache(
+								void setCache(
 									massModeration,
 									`${prefix + currentUser}-${subName}`,
 									`[${items},${new Date().valueOf()}]`,
@@ -114,10 +114,10 @@ export function createSidebarSortHandlers () {
 									a.textContent = String(d.data.children.length,)
 									a.setAttribute('count', String(d.data.children.length,),)
 								},)
-							},)
+							},).catch((error: unknown,) => log.error(error,))
 						}
 					},
-				)
+				).catch((error: unknown,) => log.error(error,))
 			},
 			() => {
 				window.setTimeout(sortSubreddits, 2000,)

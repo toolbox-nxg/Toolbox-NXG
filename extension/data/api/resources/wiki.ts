@@ -18,6 +18,20 @@ export type WikiReadResult<T = string | object,> =
 	| {ok: true; data: T}
 	| {ok: false; reason: 'no_page' | 'unknown_error' | 'invalid_json'}
 
+/** Minimal shape of a successful wiki-page read response body. */
+interface WikiResponseBody {
+	data?: {
+		/** The page content as raw markdown (HTML-entity escaped by Reddit). */
+		content_md?: string
+	}
+}
+
+/** Minimal shape of a wiki API error response body. */
+interface WikiErrorBody {
+	/** Reddit error code, e.g. `PAGE_NOT_CREATED` or `WIKI_DISABLED`. */
+	reason?: string
+}
+
 /**
  * Updates the content of a wiki page.
  * @param subreddit Subreddit that owns the page.
@@ -121,10 +135,10 @@ export async function readFromWiki<T extends object = Record<string, unknown>,> 
 	page: string,
 	isJSON?: boolean,
 ): Promise<WikiReadResult<T | string>> {
-	let wikiData
+	let wikiData: string | undefined
 	try {
 		const response = await apiOauthGET(`/r/${subreddit}/wiki/${page}.json`,)
-		const data = await response.json()
+		const data = await response.json() as WikiResponseBody
 		// Guard the wrapper shape: an unexpected body (e.g. an error object) reads as a
 		// missing page (`!wikiData` below) rather than throwing into the generic catch,
 		// matching how `readWikiRevision` handles the same case.
@@ -137,7 +151,7 @@ export async function readFromWiki<T extends object = Record<string, unknown>,> 
 		}
 		let reason
 		try {
-			reason = (await response.json()).reason || ''
+			reason = (await response.json() as WikiErrorBody).reason || ''
 		} catch {
 			reason = ''
 		}
@@ -181,8 +195,16 @@ export async function readFromWiki<T extends object = Record<string, unknown>,> 
 
 /** Lists the page names on a subreddit's wiki. */
 export const getWikiPages = (subreddit: string,): Promise<string[]> =>
-	apiOauthGetJSON(`/r/${subreddit}/wiki/pages.json`,)
-		.then((response,) => response.data as string[])
+	apiOauthGetJSON<{data: string[]}>(`/r/${subreddit}/wiki/pages.json`,)
+		.then((response,) => response.data)
+
+/** The raw fields read from a Reddit wiki revision-listing child. */
+interface RawWikiRevision {
+	id?: string
+	timestamp?: number
+	author?: {data?: {name?: string}}
+	reason?: string
+}
 
 /** One entry in a wiki page's revision history. */
 export interface WikiRevision {
@@ -203,11 +225,14 @@ export interface WikiRevision {
  * @param limit Maximum number of revisions to return (Reddit caps at 100).
  */
 export const getWikiRevisions = (subreddit: string, page: string, limit = 25,): Promise<WikiRevision[]> =>
-	apiOauthGetJSON(`/r/${subreddit}/wiki/revisions/${page}.json`, {limit: String(limit,),},)
+	apiOauthGetJSON<{data?: {children?: RawWikiRevision[]}}>(
+		`/r/${subreddit}/wiki/revisions/${page}.json`,
+		{limit: String(limit,),},
+	)
 		.then((response,) =>
-			((response.data?.children ?? []) as any[]).map((revision,): WikiRevision => ({
-				id: revision.id,
-				timestamp: revision.timestamp,
+			(response.data?.children ?? []).map((revision,): WikiRevision => ({
+				id: revision.id ?? '',
+				timestamp: revision.timestamp ?? 0,
 				author: revision.author?.data?.name ?? '[unknown]',
 				reason: revision.reason ?? '',
 			}))
@@ -227,7 +252,7 @@ export async function readWikiRevision (
 ): Promise<WikiReadResult<string>> {
 	try {
 		const response = await apiOauthGET(`/r/${subreddit}/wiki/${page}.json`, {v: revisionId,},)
-		const data = await response.json()
+		const data = await response.json() as WikiResponseBody
 		// Guard the wrapper shape: an unexpected body (e.g. an error object)
 		// reads as a missing page rather than throwing into the generic catch.
 		const content = data?.data?.content_md

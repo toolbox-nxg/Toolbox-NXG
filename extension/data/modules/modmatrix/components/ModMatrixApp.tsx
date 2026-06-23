@@ -78,9 +78,10 @@ function buildCSV (state: MatrixState, sortedMods: string[],): string {
 		return true
 	},)
 
-	const grandTotal = visibleMods.reduce((sum, mod,) => {
-		return sum + visibleActions.reduce((s, a,) => s + (state.subredditModerators[mod]?.[a] ?? 0), 0,)
-	}, 0,)
+	const grandTotal = visibleMods.reduce(
+		(sum, mod,) => sum + visibleActions.reduce((s, a,) => s + (state.subredditModerators[mod]?.[a] ?? 0), 0,),
+		0,
+	)
 
 	const fields = (values: (string | number)[],) => values.map((v,) => String(v,)).join(',',)
 	const header = fields(['Moderator', ...visibleActions.map((a,) => subredditActions[a]?.title ?? a), 'Total', '%',],)
@@ -172,7 +173,7 @@ function reducer (state: MatrixState, action: MatrixAction,): MatrixState {
 		case 'SET_SORT': {
 			const sameCol = state.currentSorting.key === action.key
 			const direction = sameCol
-				? (state.currentSorting.direction === 1 ? -1 : 1) as 1 | -1
+				? (state.currentSorting.direction === 1 ? -1 : 1)
 				: action.key === 'name'
 				? -1
 				: 1
@@ -291,7 +292,7 @@ export function ModMatrixApp (props: Props,) {
 		>
 			<MatrixTable state={state} sortedMods={sortedMods} onSort={handleSort} />
 			<ActionFilter
-				subredditActions={state.subredditActions as Record<string, ActionInfo>}
+				subredditActions={state.subredditActions}
 				actionFilter={state.actionFilter}
 				onChange={(filter,) => dispatch({type: 'SET_ACTION_FILTER', actionFilter: filter,},)}
 			/>

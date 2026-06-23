@@ -10,17 +10,21 @@ import {isOldReddit,} from '../../util/infra/platform'
 import {getApiThingInfo, isInfoRemoved,} from '../../util/reddit/thingInfo'
 import {DismissButtonRenderer,} from './components/DismissButtonRenderer'
 import {QueueItemTables,} from './components/QueueItemTables'
+import type {ActionEntry,} from './schema'
 import type {QueueToolsSettings,} from './settings'
 
 /** Raw thing data fields the actions table needs to derive a post's current approval/removal state. */
 function getThingData (thingId: string,): Promise<Record<string, unknown>> {
-	return getInfo(thingId,).then((thing: any,) => thing.data as Record<string, unknown>)
+	return getInfo(thingId,).then((thing,) => thing.data)
 }
 
 /** Normalizes raw Reddit report tuples (which vary in arity) to `[text, author]` string pairs. */
 function normalizeReports (reports: unknown,): Array<[string, string,]> {
 	if (!Array.isArray(reports,)) { return [] }
-	return reports.map((report,) => [String(report?.[0] ?? '',), String(report?.[1] ?? '',),])
+	return reports.map((report: unknown,) => {
+		const tuple = Array.isArray(report,) ? report as unknown[] : []
+		return [String(tuple[0] ?? '',), String(tuple[1] ?? '',),]
+	},)
 }
 
 /**
@@ -127,7 +131,7 @@ export function createQueueHandlers (
 	/** Per-subreddit modlog cache. Lives in the factory closure to avoid module-level mutable state. */
 	const modlogCache: Record<
 		string,
-		{actions: Record<string, Record<string, any>>; activeFetch: boolean; lastFetch: number}
+		{actions: Record<string, Record<string, ActionEntry>>; activeFetch: boolean; lastFetch: number}
 	> = {}
 	// Disposal scope owned by this factory: tracks renderer registrations and
 	// pending timeouts so everything is cancelled when the module cleans up.
@@ -139,21 +143,23 @@ export function createQueueHandlers (
 	 * @param callback Invoked once the cache has been populated.
 	 */
 	function getModlog (subreddit: string, callback: () => void,) {
-		getModLog(subreddit, {limit: '500',},).then((json: any,) => {
-			json?.data?.children?.forEach((value: any,) => {
-				const fullname = value.data.target_fullname
-				const actionID = value.data.id
-				if (!fullname || !has(modlogCache, subreddit,)) { return }
-				if (!has(modlogCache[subreddit]!.actions, fullname,)) {
-					modlogCache[subreddit]!.actions[fullname] = {}
+		getModLog<{kind: string; data: ActionEntry & {target_fullname?: string}}>(subreddit, {limit: '500',},).then(
+			(json,) => {
+				json.data.children.forEach((value,) => {
+					const fullname = value.data.target_fullname
+					const actionID = value.data.id
+					if (!fullname || !has(modlogCache, subreddit,)) { return }
+					if (!has(modlogCache[subreddit]!.actions, fullname,)) {
+						modlogCache[subreddit]!.actions[fullname] = {}
+					}
+					modlogCache[subreddit]!.actions[fullname]![actionID] = value.data
+				},)
+				if (has(modlogCache, subreddit,)) {
+					modlogCache[subreddit]!.activeFetch = false
 				}
-				modlogCache[subreddit]!.actions[fullname]![actionID] = value.data
-			},)
-			if (has(modlogCache, subreddit,)) {
-				modlogCache[subreddit]!.activeFetch = false
-			}
-			callback()
-		},).catch((error: unknown,) => {
+				callback()
+			},
+		).catch((error: unknown,) => {
 			// On failure, clear the in-flight flag so getActions stops its 100ms retry
 			// poll and a later request can refetch; still invoke the callback so the
 			// caller resolves (checkForActions returns false when nothing was cached).
@@ -171,7 +177,7 @@ export function createQueueHandlers (
 	 * @param fullname Reddit fullname (e.g. `t3_abc123`) of the item to look up.
 	 * @returns A map of action ID to action data, or `false` if the item has no cached actions.
 	 */
-	function checkForActions (subreddit: string, fullname: string,): Record<string, any> | false {
+	function checkForActions (subreddit: string, fullname: string,): Record<string, ActionEntry> | false {
 		// Guard the cache bucket: callers reach here via getModlog's callback after
 		// getActions created the entry, but a cleared/missing bucket must degrade to
 		// "no actions" rather than throwing on the non-null assertion.
@@ -192,7 +198,7 @@ export function createQueueHandlers (
 	function getActions (
 		subreddit: string,
 		fullname: string,
-		callback: (result: Record<string, any> | false,) => void,
+		callback: (result: Record<string, ActionEntry> | false,) => void,
 	) {
 		log.debug(subreddit,)
 		const dateNow = Date.now()
@@ -234,7 +240,7 @@ export function createQueueHandlers (
 				itemWatch.stop()
 			}
 		}, {childList: true,},)
-		itemWatch.set(disconnect,)
+		itemWatch.set(() => void disconnect())
 	}
 
 	/**
@@ -362,20 +368,21 @@ export function createQueueHandlers (
 			creatureWatch.stop()
 		}, 10000,)
 		creatureWatch.set(() => {
-			disconnect()
-			cancelTimeout()
+			void disconnect()
+			void cancelTimeout()
 		},)
 	}
 
 	/** Handles `TBNewPage` - manages the `toolbox-show-actions` class and queue creature. */
 	function handleNewPage (event: CustomEvent,) {
-		if (expandActionReasonQueue && event.detail.pageType === 'queueListing') {
+		const detail = event.detail as {pageType?: string}
+		if (expandActionReasonQueue && detail.pageType === 'queueListing') {
 			document.body.classList.add('toolbox-show-actions',)
 		} else {
 			document.body.classList.remove('toolbox-show-actions',)
 		}
 		// Leaving the queue: stop any pending watcher from a previous queue page.
-		if (event.detail.pageType !== 'queueListing') {
+		if (detail.pageType !== 'queueListing') {
 			creatureWatch.stop()
 			itemWatch.stop()
 			return

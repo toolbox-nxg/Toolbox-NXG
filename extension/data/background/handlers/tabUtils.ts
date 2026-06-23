@@ -95,7 +95,7 @@ export async function getCookieWithFPIFallback (
 	try {
 		return await browser.cookies.get(info,)
 	} catch {
-		;(info as any).firstPartyDomain = 'reddit.com'
+		;(info as browser.Cookies.GetDetailsType & {firstPartyDomain?: string}).firstPartyDomain = 'reddit.com'
 		return browser.cookies.get(info,)
 	}
 }

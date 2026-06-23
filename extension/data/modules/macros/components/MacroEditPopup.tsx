@@ -86,7 +86,7 @@ export function MacroEditPopup ({
 			closable={!posting}
 			onClose={onClose}
 			footer={
-				<ActionButton onClick={handlePost} disabled={posting}>
+				<ActionButton onClick={() => void handlePost()} disabled={posting}>
 					Post Macro
 				</ActionButton>
 			}

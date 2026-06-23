@@ -136,7 +136,7 @@ async function getOAuthTokens (cookieStoreId?: string, tries = 1,): Promise<Toke
 		},)
 		const contentType = response.headers.get('content-type',)
 		if (response.ok && contentType?.startsWith('application/json',)) {
-			const tokenData = await response.json()
+			const tokenData = await response.json() as {token: string; expires: number}
 			const result: TokenData = {
 				accessToken: tokenData.token,
 				expires: tokenData.expires,

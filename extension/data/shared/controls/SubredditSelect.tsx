@@ -18,7 +18,7 @@ export const SubredditSelect = ({
 	value: string
 	onChange: (value: string,) => void
 },) => {
-	const modSubs = useFetched(getModSubs(false,),) as string[] | undefined
+	const modSubs = useFetched(getModSubs(false,),)
 	const isLoading = modSubs === undefined
 
 	// Build the option list: always include the current value so it shows during load

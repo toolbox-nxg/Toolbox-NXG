@@ -9,6 +9,7 @@ export const delay = (ms: number,): Promise<void> => new Promise((resolve,) => s
 /**
  * Wraps a function so bursts of calls within the timeout collapse into one.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- (...args: any[]) is the idiomatic "any function" constraint; parameter contravariance makes unknown[] reject real callbacks
 export function debounce<T extends (...args: any[]) => void,> (func: T, debounceTime = 100,): T {
 	let timeout: ReturnType<typeof setTimeout> | undefined
 
@@ -55,6 +56,7 @@ export function createDeferredProcessQueue<Item, Result,> (
 	matchOptions?: DeferredQueueMatchOptions<Item, Result>,
 ): (item: Item,) => Promise<Result> {
 	let timeout: ReturnType<typeof setTimeout> | undefined
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- mirrors Promise's reject signature, which is conventionally typed any
 	let queue: {item: Item; resolve: (value: Result,) => void; reject: (error: any,) => void}[] = []
 
 	const flushQueue = async () => {
@@ -95,7 +97,7 @@ export function createDeferredProcessQueue<Item, Result,> (
 			clearTimeout(timeout,)
 
 			if (queue.length >= maxQueueLength) {
-				flushQueue()
+				void flushQueue()
 				return
 			}
 

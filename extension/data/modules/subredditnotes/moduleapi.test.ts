@@ -40,7 +40,7 @@ function mockLayout (state: 'legacyFallback' | 'nxg', compatibilityWrites = fals
 }
 
 /** Mocks readFromWiki per page; unlisted pages yield no_page. */
-function mockWikiPagesContent (pages: Record<string, any>,) {
+function mockWikiPagesContent (pages: Record<string, unknown>,) {
 	readFromWiki.mockImplementation(async (_sub: string, page: string,) =>
 		page in pages
 			? {ok: true, data: pages[page],}

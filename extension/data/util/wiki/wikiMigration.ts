@@ -192,7 +192,7 @@ async function resolveNoteIndex (
 	notePrefix: string,
 	result: WikiMigrationResult,
 ): Promise<SubredditNoteIndex | null | 'abort'> {
-	const response = await readFromWiki<Record<string, any>>(subreddit, indexPage, true,)
+	const response = await readFromWiki<Record<string, unknown>>(subreddit, indexPage, true,)
 	if (response.ok) {
 		const normalized = normalizeIndex(response.data,)
 		if (normalized) { return normalized }
@@ -267,7 +267,7 @@ export async function migrateSubredditToNxg (
 	// page is reconcile-merged into it - adopting the 6.x-owned fields and
 	// preserving ids by content match - instead of overwriting. Only a missing
 	// or unreadable NXG config gets the full overwrite, the true repair path.
-	const legacyConfig = await readFromWiki<Record<string, any>>(subreddit, OLD_WIKI_PATHS.settings, true,)
+	const legacyConfig = await readFromWiki<Record<string, unknown>>(subreddit, OLD_WIKI_PATHS.settings, true,)
 	let legacyData: ToolboxConfig | null = null
 	if (legacyConfig.ok && !isTombstone(legacyConfig.data,)) {
 		purifyObject(legacyConfig.data,)
@@ -279,13 +279,15 @@ export async function migrateSubredditToNxg (
 	}
 
 	let storedNxgConfig: ToolboxConfig | null = null
-	const existingNxg = await readFromWiki<Record<string, any>>(subreddit, NEW_WIKI_PATHS.settings, true,)
+	const existingNxg = await readFromWiki<Record<string, unknown>>(subreddit, NEW_WIKI_PATHS.settings, true,)
 	if (existingNxg.ok) {
 		purifyObject(existingNxg.data,)
 		normalizeConfig(existingNxg.data,)
 		storedNxgConfig = existingNxg.data
 	}
 
+	// Holds a ToolboxConfig, a legacy-config spread, or {} - a union the upcoming LegacyConfig model will type.
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- accumulator holding a full ToolboxConfig, a legacy-config spread, or {}, plus an injected COMPAT_WRITES_KEY bookkeeping field; ToolboxConfig (an interface) is not assignable to Record<string, unknown>
 	let nxgConfig: Record<string, any>
 	if (storedNxgConfig && legacyData && !legacyOwnedFieldsEqual(storedNxgConfig, legacyData,)) {
 		nxgConfig = adoptLegacyConfigFields(storedNxgConfig, legacyData,)
@@ -299,6 +301,7 @@ export async function migrateSubredditToNxg (
 	// 6.x-owned fields and same compat flag) - re-runs stay cheap.
 	if (
 		storedNxgConfig && nxgConfig === storedNxgConfig
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- reads the injected COMPAT_WRITES_KEY bookkeeping field, which is not part of the ToolboxConfig interface
 		&& (storedNxgConfig as Record<string, any>)[COMPAT_WRITES_KEY] === compatibilityWrites
 	) {
 		result.skipped.push(NEW_WIKI_PATHS.settings,)
@@ -386,7 +389,7 @@ export async function migrateSubredditToNxg (
 	if (legacyIndex === 'abort') { return result }
 
 	let storedNxgIndex: SubredditNoteIndex | null = null
-	const nxgIndexResponse = await readFromWiki<Record<string, any>>(subreddit, NEW_WIKI_PATHS.notes, true,)
+	const nxgIndexResponse = await readFromWiki<Record<string, unknown>>(subreddit, NEW_WIKI_PATHS.notes, true,)
 	if (nxgIndexResponse.ok) {
 		purifyObject(nxgIndexResponse.data,)
 		storedNxgIndex = normalizeIndex(nxgIndexResponse.data,)
@@ -465,7 +468,7 @@ export async function bootstrapFreshSub (subreddit: string,): Promise<WikiMigrat
 		return result
 	}
 
-	const nxgConfig: Record<string, any> = {...defaultToolboxConfig, [COMPAT_WRITES_KEY]: false,}
+	const nxgConfig: Record<string, unknown> = {...defaultToolboxConfig, [COMPAT_WRITES_KEY]: false,}
 	try {
 		await postToWiki(subreddit, NEW_WIKI_PATHS.settings, nxgConfig, MIGRATION_REASON, true, false,)
 		result.copied.push(NEW_WIKI_PATHS.settings,)
@@ -514,7 +517,7 @@ export async function copyNxgToLegacy (subreddit: string,): Promise<WikiMigratio
 	// wholesale on save. normalizeConfig first brings the NXG data to the
 	// current v2 shape (a no-op when it already is), so the down-convert
 	// always starts from a known schema.
-	const nxgConfig = await readFromWiki<Record<string, any>>(subreddit, NEW_WIKI_PATHS.settings, true,)
+	const nxgConfig = await readFromWiki<Record<string, unknown>>(subreddit, NEW_WIKI_PATHS.settings, true,)
 	if (!nxgConfig.ok) {
 		result.failed.push({page: NEW_WIKI_PATHS.settings, reason: nxgConfig.reason,},)
 		return result
@@ -529,7 +532,7 @@ export async function copyNxgToLegacy (subreddit: string,): Promise<WikiMigratio
 	// failure aborts before the config write so the legacy pages don't end up
 	// half-migrated.
 	let domainTags: DomainTag[] | undefined
-	const domainTagsPage = await readFromWiki<Record<string, any>>(subreddit, DOMAIN_TAGS_PAGE, true,)
+	const domainTagsPage = await readFromWiki<Record<string, unknown>>(subreddit, DOMAIN_TAGS_PAGE, true,)
 	if (domainTagsPage.ok) {
 		purifyObject(domainTagsPage.data,)
 		domainTags = decodeDomainTagsPage(domainTagsPage.data, subreddit,)?.tags
@@ -653,7 +656,7 @@ export async function setCompatibilityMode (subreddit: string, enabled: boolean,
 
 		// Record the flag inside the NXG config page (the one page 6.x never
 		// rewrites, so the flag can't be stripped).
-		const nxgConfig = await readFromWiki<Record<string, any>>(subreddit, NEW_WIKI_PATHS.settings, true,)
+		const nxgConfig = await readFromWiki<Record<string, unknown>>(subreddit, NEW_WIKI_PATHS.settings, true,)
 		if (!nxgConfig.ok) {
 			result.failed.push({page: NEW_WIKI_PATHS.settings, reason: nxgConfig.reason,},)
 			return result

@@ -180,7 +180,7 @@ function ProfileOverlay ({user, initialListing, initialOptions, subredditColor, 
 									type="checkbox"
 									checked={highlightReposts}
 									disabled={repostStatus === 'loading'}
-									onChange={(event,) => toggleHighlightReposts(event.target.checked,)}
+									onChange={(event,) => void toggleHighlightReposts(event.target.checked,)}
 								/>
 								<span className={css.switchTrack} aria-hidden="true">
 									<span className={css.switchThumb} />

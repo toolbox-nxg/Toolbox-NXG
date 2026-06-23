@@ -203,7 +203,7 @@ export function parseReasonSegments (text: string,): ReasonSegment[] {
 		let lastIndex = 0
 		INLINE_TOKEN_RE.lastIndex = 0
 		let match: RegExpExecArray | null
-		// eslint-disable-next-line no-cond-assign
+
 		while ((match = INLINE_TOKEN_RE.exec(buffer,)) !== null) {
 			const [, kind, id, content,] = match
 			if (match.index > lastIndex) {
@@ -388,7 +388,7 @@ function selectHtmlToChoiceBlock (selectHtml: string,): string {
 	const options: string[] = []
 	const optionRe = /<option(\s[^>]*)?>([^]*?)(?=<option\b|<\/select\b|$)/gi
 	let match: RegExpExecArray | null
-	// eslint-disable-next-line no-cond-assign
+
 	while ((match = optionRe.exec(selectHtml,)) !== null) {
 		const attrs = match[1] ?? ''
 		// Strip the (possibly misspelled) closing tag, keeping a markdown link's `)`.

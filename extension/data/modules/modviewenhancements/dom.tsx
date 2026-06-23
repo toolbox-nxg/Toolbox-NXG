@@ -1,6 +1,7 @@
 /** DOM integration for the Mod View Enhancements module - applies visual and informational augmentations to submissions and reports across the mod queue, subreddit listings, and comment pages. */
 import {isModSub,} from '../../api/resources/modSubs'
 import {getModLog,} from '../../api/resources/subreddits'
+import type {RedditListing,} from '../../api/resources/subreddits'
 import {getCurrentSubredditName, getSiteTable,} from '../../dom/oldReddit/page'
 import {
 	getModReports,
@@ -126,7 +127,9 @@ export function createModViewEnhancementsHandlers ({
 
 	// Created once and shared by every consumer below. Give it a safe default on rejection so a
 	// single failed settings read can't propagate to (and break) every later `await`/`.then` site.
-	const highlightEnabledPromise = getSettingAsync(comments, 'highlighted', [] as string[],)
+	const highlightEnabledPromise: Promise<string[]> = (
+		getSettingAsync(comments, 'highlighted', [] as string[],) as Promise<string[]>
+	)
 		.catch(() => [] as string[])
 
 	function colorSubreddits (element: Element,) {
@@ -142,7 +145,7 @@ export function createModViewEnhancementsHandlers ({
 	function highlightBadPosts (element: Element,) {
 		element.classList.add('highlight-processed',)
 		let score: string | number = getThingScoreTextEl(element,)?.textContent || ''
-		score = /\d+/.test(score as string,) ? parseInt(score as string, 10,) : 0
+		score = /\d+/.test(score,) ? parseInt(score, 10,) : 0
 		if (score > 0) { return }
 		element.classList.add('toolbox-zero-highlight',) // Intentional: marker class on Reddit element, not toolbox UI.
 	}
@@ -156,16 +159,21 @@ export function createModViewEnhancementsHandlers ({
 	async function getAutomodActionReason (subreddit: string,) {
 		log.debug(subreddit,)
 		const highlightEnabled = await highlightEnabledPromise
-		let json: any
+		type AutomodAction = {details?: string; target_fullname?: string; target_permalink?: string}
+		let json: RedditListing<{kind: string; data: AutomodAction}>
 		try {
-			json = await getModLog(subreddit, {limit: '500', mod: 'AutoModerator',},)
+			json = await getModLog<{kind: string; data: AutomodAction}>(subreddit, {
+				limit: '500',
+				mod: 'AutoModerator',
+			},)
 		} catch (err) {
 			log.error('getAutomodActionReason: getModLog failed', err,)
 			return
 		}
-		json.data.children.forEach((value: any,) => {
-			const actionReasonText = value.data.details
+		json.data.children.forEach((value,) => {
+			const actionReasonText = value.data.details ?? ''
 			const targetFullName = value.data.target_fullname
+			if (!targetFullName) { return }
 			const targetThing = getThingByFullname(targetFullName,)
 			if (targetThing) {
 				const entry = getEntry(targetThing,)
@@ -176,7 +184,7 @@ export function createModViewEnhancementsHandlers ({
 						<AutomodActionReason
 							actionReasonText={actionReasonText}
 							subreddit={subreddit}
-							permalink={value.data.target_permalink}
+							permalink={value.data.target_permalink ?? ''}
 						/>,
 						container,
 						{shadow: false,},
@@ -230,7 +238,7 @@ export function createModViewEnhancementsHandlers ({
 		queueSubs.forEach((subreddit,) => void getAutomodActionReason(subreddit,))
 	}
 
-	const selectors = (botCheckmark as string[]).map(
+	const selectors = botCheckmark.map(
 		(bot,) => `img.approval-checkmark[title*="approved by ${bot}" i]`,
 	)
 	if (selectors.length && isMod) {

@@ -1,6 +1,7 @@
 /** Tests for RemovalReasonList, focused on how the reason form persists the post/comment applicability flags. */
 
 import {act,} from 'react'
+import type {ReactNode,} from 'react'
 import {createRoot, type Root,} from 'react-dom/client'
 import {afterEach, beforeEach, describe, expect, it, vi,} from 'vitest'
 
@@ -34,7 +35,7 @@ vi.mock('@dnd-kit/core', async () => {
 	const actual = await vi.importActual<typeof import('@dnd-kit/core')>('@dnd-kit/core',)
 	return {
 		...actual,
-		DndContext: ({children,}: any,) => children,
+		DndContext: ({children,}: {children?: ReactNode},) => children,
 	}
 },)
 
@@ -42,7 +43,7 @@ vi.mock('@dnd-kit/sortable', async () => {
 	const actual = await vi.importActual<typeof import('@dnd-kit/sortable')>('@dnd-kit/sortable',)
 	return {
 		...actual,
-		SortableContext: ({children,}: any,) => children,
+		SortableContext: ({children,}: {children?: ReactNode},) => children,
 		useSortable: () => ({
 			attributes: {},
 			listeners: {},
@@ -99,7 +100,7 @@ function getButton (text: string,) {
 }
 
 beforeEach(() => {
-	;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true
+	;(globalThis as {IS_REACT_ACT_ENVIRONMENT?: boolean}).IS_REACT_ACT_ENVIRONMENT = true
 	container = document.createElement('div',)
 	document.body.appendChild(container,)
 	root = createRoot(container,)

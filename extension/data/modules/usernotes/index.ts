@@ -18,8 +18,13 @@ const self = new Module<UserNotesSettings>({
 
 	lifecycle.mount(display.cleanup,)
 	lifecycle.on(window, 'TBNewThings', display.handleNewThings,)
-	lifecycle.on(window, 'TBNewPage', manager.handleNewPage,)
-	lifecycle.delegate(document.body, 'click', '#toolbox-un-config-link', manager.handleManagerClick,)
+	lifecycle.on(window, 'TBNewPage', (event,) => void manager.handleNewPage(event,),)
+	lifecycle.delegate(
+		document.body,
+		'click',
+		'#toolbox-un-config-link',
+		(element,) => void manager.handleManagerClick(element,),
+	)
 	lifecycle.delegate(document.body, 'click', '#toolbox-manage-bans-link', manager.handleBansLinkClick,)
 	lifecycle.delegate(document.body, 'click', '#toolbox-manage-mutes-link', manager.handleMutesLinkClick,)
 	lifecycle.delegate(document.body, 'click', '#toolbox-manage-flair-link', manager.handleFlairLinkClick,)

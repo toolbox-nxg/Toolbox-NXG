@@ -1,6 +1,7 @@
 /** Tests for the Firefox cookie-store rewrite handler. */
 
 import {beforeEach, describe, expect, it, vi,} from 'vitest'
+import type browser from 'webextension-polyfill'
 
 const cookies = vi.hoisted(() => ({getAll: vi.fn(),}))
 const onBeforeSendHeaders = vi.hoisted(() => ({addListener: vi.fn(),}))
@@ -17,8 +18,8 @@ const TMP_HEADER = 'x-toolbox-tmp-cookiestore'
 function getListener () {
 	registerCookieStoreHandlers()
 	return onBeforeSendHeaders.addListener.mock.calls.at(-1,)![0] as (
-		details: any,
-	) => Promise<any>
+		details: browser.WebRequest.OnBeforeSendHeadersDetailsType,
+	) => Promise<browser.WebRequest.BlockingResponse>
 }
 
 beforeEach(() => {

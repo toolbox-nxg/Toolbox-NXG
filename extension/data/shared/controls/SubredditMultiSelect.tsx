@@ -21,7 +21,7 @@ export const SubredditMultiSelect = ({
 	selected: string[]
 	onChange: (selected: string[],) => void
 },) => {
-	const available = (useFetched(getModSubs(false,),) as string[] | undefined) ?? []
+	const available = (useFetched(getModSubs(false,),)) ?? []
 	const [draggedIdx, setDraggedIdx,] = useState<number | null>(null,)
 	const [dragOverIdx, setDragOverIdx,] = useState<number | null>(null,)
 

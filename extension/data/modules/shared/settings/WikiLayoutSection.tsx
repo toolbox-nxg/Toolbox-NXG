@@ -36,11 +36,12 @@ function describeLayout (layout: WikiLayout,): string {
 				: 'Using the Toolbox 6.x wiki pages. The toolbox-nxg pages could not be created yet; '
 					+ 'setup retries automatically, or run it now with the button below.'
 		case 'nxg':
-			return (layout.compatibilityWrites
-				? 'Data lives under the toolbox-nxg/ wiki pages. The old wiki pages are kept in sync so mods on '
-					+ 'Toolbox 6.x keep working; changes they make there flow back into the NXG pages.'
-				: 'Data lives under the toolbox-nxg/ wiki pages only. Mods on Toolbox 6.x see stale data.')
-				+ ' 6.x compatibility is managed in the subreddit\'s Toolbox config window.'
+			return `${
+				layout.compatibilityWrites
+					? 'Data lives under the toolbox-nxg/ wiki pages. The old wiki pages are kept in sync so mods on '
+						+ 'Toolbox 6.x keep working; changes they make there flow back into the NXG pages.'
+					: 'Data lives under the toolbox-nxg/ wiki pages only. Mods on Toolbox 6.x see stale data.'
+			} 6.x compatibility is managed in the subreddit's Toolbox config window.`
 	}
 }
 
@@ -162,7 +163,7 @@ function WikiLayoutRow ({subreddit, initialLayout,}: {subreddit: string; initial
 								type="button"
 								disabled={busy}
 								onClick={() =>
-									runOperation(
+									void runOperation(
 										() => migrateSubredditToNxg(subreddit,),
 										`/r/${subreddit} set up on the NXG wiki layout`,
 									)}
@@ -180,7 +181,7 @@ function WikiLayoutRow ({subreddit, initialLayout,}: {subreddit: string; initial
 											type="button"
 											disabled={busy}
 											onClick={() =>
-												runOperation(
+												void runOperation(
 													() =>
 														migrateSubredditToNxg(subreddit, {
 															compatibilityWrites: false,

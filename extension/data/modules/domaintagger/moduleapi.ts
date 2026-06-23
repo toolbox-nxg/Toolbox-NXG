@@ -9,6 +9,7 @@ import {purifyObject,} from '../../util/data/purify'
 import createLogger from '../../util/infra/logging'
 import {clearCache,} from '../../util/persistence/cache'
 import {mutateWikiPage, type WikiMutator,} from '../../util/wiki/mutateWikiPage'
+import type {LegacyConfig,} from '../../util/wiki/schemas/config/schema'
 import {
 	decodeDomainTagsPage,
 	domainTagsCodec,
@@ -55,7 +56,7 @@ export async function getDomainTagsData (subreddit: string,): Promise<DomainTags
 	const cached = dataCache.get(subreddit,)
 	if (cached !== undefined) { return cached }
 
-	const response = await readFromWiki<Record<string, any>>(subreddit, DOMAIN_TAGS_PAGE, true,)
+	const response = await readFromWiki<Record<string, unknown>>(subreddit, DOMAIN_TAGS_PAGE, true,)
 
 	if (response.ok) {
 		purifyObject(response.data,)
@@ -83,13 +84,11 @@ export async function getDomainTagsData (subreddit: string,): Promise<DomainTags
 	// static module graph one-way (config -> domaintagger, matching usernotes).
 	// This branch runs at most once per subreddit, before a domain-tags page exists.
 	const {getConfig,} = await import('../config/moduleapi')
-	const oldConfig = await getConfig(subreddit,)
-	const hasLegacyTags = !!oldConfig
-		&& Array.isArray((oldConfig as any).domainTags,)
-		&& (oldConfig as any).domainTags.length > 0
-	if (hasLegacyTags) {
-		log.debug(`Migrating ${(oldConfig as any).domainTags.length} legacy domain tags for /r/${subreddit}`,)
-		freshData.tags = (oldConfig as any).domainTags.map((t: any,) => makeZeroedTag(t,))
+	const oldConfig = await getConfig(subreddit,) as LegacyConfig | undefined
+	const legacyTags = oldConfig?.domainTags ?? []
+	if (legacyTags.length > 0) {
+		log.debug(`Migrating ${legacyTags.length} legacy domain tags for /r/${subreddit}`,)
+		freshData.tags = legacyTags.map((t,) => makeZeroedTag(t,))
 	}
 
 	// Only create the page for subs the viewer moderates: the write needs wiki
@@ -104,7 +103,7 @@ export async function getDomainTagsData (subreddit: string,): Promise<DomainTags
 	}
 	if (moderatesSub) {
 		// Persist immediately so subsequent reads don't re-migrate or re-404.
-		const reason = hasLegacyTags
+		const reason = legacyTags.length > 0
 			? 'domain tagger: migrate tags to dedicated page'
 			: 'domain tagger: initialize domain tags page'
 		await saveDomainTagsData(subreddit, freshData, reason,)
@@ -156,7 +155,7 @@ async function mutateDomainTags (
 	} catch (err: unknown) {
 		log.error(err,)
 		const responseText = err && typeof err === 'object' && 'responseText' in err
-			? String((err as {responseText: unknown}).responseText,)
+			? String(err.responseText,)
 			: String(err,)
 		negativeTextFeedback(responseText,)
 	}

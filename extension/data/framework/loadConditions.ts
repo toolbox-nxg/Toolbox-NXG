@@ -58,13 +58,13 @@ export async function checkLoadConditions (tries = 3,) {
 	}
 
 	// Write a setting and read back its value, if this fails something is wrong
-	let echoValue = Math.random()
+	const echoValue = Math.random()
 	try {
 		await setSettingAsync(utils, 'echoTest', echoValue,)
 	} catch (error) {
 		throw new Error('Failed to write to settings', {cause: error,},)
 	}
-	const echoResult = await getSettingAsync(utils, 'echoTest',)
+	const echoResult = await getSettingAsync(utils, 'echoTest',) as number
 	if (echoResult !== echoValue) {
 		throw new Error(`Settings read/write inconsistent: expected ${echoValue}, received ${echoResult}`,)
 	}

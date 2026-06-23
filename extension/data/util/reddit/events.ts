@@ -31,7 +31,7 @@ export function setupMessageBridge () {
 			message == null
 			|| typeof message !== 'object'
 			|| !('action' in message)
-			|| typeof (message as {action: unknown}).action !== 'string'
+			|| typeof message.action !== 'string'
 		) {
 			return undefined
 		}

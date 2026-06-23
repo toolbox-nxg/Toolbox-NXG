@@ -10,7 +10,7 @@ import {afterEach, describe, expect, it, vi,} from 'vitest'
 const runtime = vi.hoisted(() => ({sendMessage: vi.fn(), getURL: vi.fn((path: string,) => path),}))
 
 vi.mock('webextension-polyfill', () => ({default: {runtime,},}),)
-;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true
+;(globalThis as {IS_REACT_ACT_ENVIRONMENT?: boolean}).IS_REACT_ACT_ENVIRONMENT = true
 
 import {TBSubmission,} from './TBSubmission'
 

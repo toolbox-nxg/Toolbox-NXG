@@ -1,6 +1,7 @@
 /** Tests for notification handlers. */
 
 import {beforeEach, describe, expect, it, vi,} from 'vitest'
+import type browser from 'webextension-polyfill'
 
 import {makeHandlerFinder,} from './test-helpers'
 
@@ -44,7 +45,9 @@ const details = {
 
 /** Builds a message sender, optionally in a specific Firefox container. */
 function sender (cookieStoreId?: string,) {
-	return {tab: {url: details.url, ...(cookieStoreId ? {cookieStoreId,} : {}),},} as any
+	return {
+		tab: {url: details.url, ...(cookieStoreId ? {cookieStoreId,} : {}),},
+	} as unknown as browser.Runtime.MessageSender
 }
 
 beforeEach(() => {

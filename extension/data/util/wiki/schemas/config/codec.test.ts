@@ -52,7 +52,6 @@ describe('encodeClassicConfig', () => {
 
 		const classic = encodeClassicConfig(config,)
 
-		// eslint-disable-next-line no-restricted-globals
 		expect(unescape(classic.removalReasons.reasons[0].text,),).toBe('no spam, 100% sure — ok',)
 		expect(classic.removalReasons.header,).toBe('hello%20there',)
 		expect(classic.removalReasons.footer,).toBe('*bye*',)
@@ -74,7 +73,6 @@ describe('encodeClassicConfig', () => {
 
 		const classic = encodeClassicConfig(config,)
 
-		// eslint-disable-next-line no-restricted-globals
 		expect(unescape(classic.removalReasons.reasons[0].text,),).toBe(
 			'Pick:\n\n<select id="rule"><option>Rule 1</option><option>Rule 2</option></select>\n\n'
 				+ 'explain <input placeholder="why">',
@@ -88,7 +86,7 @@ describe('encodeClassicConfig', () => {
 			},
 			modMacros: [{id: 'm1', text: 'x',},],
 		},)
-		;(config as any)['Toolbox.Utils.compatibilityWrites'] = true
+		;(config as Record<string, unknown>)['Toolbox.Utils.compatibilityWrites'] = true
 
 		const classic = encodeClassicConfig(config,)
 
@@ -98,7 +96,7 @@ describe('encodeClassicConfig', () => {
 	})
 
 	it('tolerates partial config objects without throwing', () => {
-		expect(encodeClassicConfig({foo: 'bar',} as any,),).toEqual({foo: 'bar', ver: 1,},)
+		expect(encodeClassicConfig({foo: 'bar',} as unknown as ToolboxConfig,),).toEqual({foo: 'bar', ver: 1,},)
 	})
 
 	it('strips NXG-only usernote save-requirement fields from the legacy mirror', () => {
@@ -120,7 +118,7 @@ describe('encodeClassicConfig', () => {
 			removalReasons: {
 				reasons: [],
 				suggestedReasons: [{id: 's1', pattern: 'spam', reasonIds: ['r1',],},],
-			} as any,
+			},
 		},),)
 
 		expect(classic.removalReasons,).not.toHaveProperty('suggestedReasons',)

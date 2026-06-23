@@ -6,7 +6,7 @@ import {CheckboxInput,} from '../../../shared/controls/CheckboxInput'
 import {type EnforcementModeOption, EnforcementModeRadio,} from '../../../shared/controls/EnforcementModeRadio'
 import {positiveTextFeedback,} from '../../../store/feedback'
 import {type SaveRef, useSaveRef,} from '../../../util/ui/hooks'
-import type {ConfigState,} from '../../../util/wiki/schemas/config/schema'
+import type {ConfigState, ToolboxConfig,} from '../../../util/wiki/schemas/config/schema'
 import css from './UsernotesSettingsTab.module.css'
 
 /** Props for the UsernotesSettingsTab component. */
@@ -16,7 +16,7 @@ interface Props {
 	/** Optional ref wired up so the parent can trigger saving the settings. */
 	saveRef?: SaveRef
 	/** Called with the updated config and revision note when the user saves. */
-	onSave: (config: any, reason: string,) => void
+	onSave: (config: ToolboxConfig, reason: string,) => void
 }
 
 /** The enforcement-mode choices for how the requirement flags apply to moderators. */
@@ -84,8 +84,8 @@ export function UsernotesSettingsTab ({state, saveRef, onSave,}: Props,) {
 			<div className={css.section}>
 				<div className={css.sectionTitle}>Moderator enforcement</div>
 				<p className={css.sectionDesc}>
-					How do the requirements above apply to other moderators? The more restrictive of this subreddit's
-					requirements and a moderator's personal settings always wins.
+					How do the requirements above apply to other moderators? The more restrictive of this
+					subreddit&apos;s requirements and a moderator&apos;s personal settings always wins.
 				</p>
 				<EnforcementModeRadio
 					name="usernote-requirement-option"

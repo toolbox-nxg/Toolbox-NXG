@@ -4,6 +4,8 @@ import './redditElements.css'
 
 import {useState,} from 'react'
 
+import type {CommentData, RedditMoreChildren, RedditThing,} from '../../../api/resources/things'
+import {isMoreChildren,} from '../../../api/resources/things'
 import {purifyHTML,} from '../../../util/data/purify'
 import {escapeHTML, removeLastDirectoryPartOf,} from '../../../util/data/string'
 import {formatRelativeTime,} from '../../../util/data/time'
@@ -16,7 +18,7 @@ import {CommentOptions,} from './types'
 /** Props for the TBComment component. */
 interface TBCommentProps {
 	/** Raw Reddit API comment object (with a `data` property). */
-	comment: any
+	comment: RedditThing<CommentData>
 	options?: CommentOptions | undefined
 	/** Salt string appended to subreddit names when computing border colors. */
 	subredditColorSalt: string
@@ -30,18 +32,18 @@ export function TBComment ({comment, options = {}, subredditColorSalt,}: TBComme
 	const threadPermalink = removeLastDirectoryPartOf(permalink,)
 	const createdAt = new Date(c.created_utc * 1000,)
 	const editedAt = c.edited ? new Date(c.edited * 1000,) : null
-	const depth = options.commentDepthPlus ? c.depth + 1 : c.depth
+	const depth = options.commentDepthPlus ? (c.depth ?? 0) + 1 : (c.depth ?? 0)
 	const depthClass = options.noOddEven ? depth : (depth % 2 ? 'odd' : 'even')
 
 	const parentKind = c.parent_id?.substring(0, 2,)
 	const parentLink = parentKind === 't1'
-		? threadPermalink + c.parent_id.substring(3,)
+		? threadPermalink + (c.parent_id?.substring(3,) ?? '')
 		: threadPermalink
 
 	const {authorStatus, authorAttrs,} = buildAuthorAttrs(c, threadPermalink,)
 
 	const score = c.score
-	const voteState = getVoteState(c.likes,)
+	const voteState = getVoteState(c.likes ?? null,)
 	const userReports: [string, string,][] = c.user_reports || []
 	const modReports: [string, string,][] = c.mod_reports || []
 	const canMod = c.can_mod_post
@@ -95,7 +97,7 @@ export function TBComment ({comment, options = {}, subredditColorSalt,}: TBComme
 	if (c.author_flair_css_class) { entryClass.push(`toolbox-user-flair-${c.author_flair_css_class}`,) }
 	if (filteredEntry) { entryClass.push('filtered',) }
 
-	const childReplies = c.replies?.data?.children
+	const childReplies = c.replies ? c.replies.data.children : undefined
 	const optionsJSON = escapeHTML(JSON.stringify(options,),)
 
 	return (
@@ -328,7 +330,7 @@ export function TBComment ({comment, options = {}, subredditColorSalt,}: TBComme
 /** Props for the TBCommentChildren component. */
 interface TBCommentChildrenProps {
 	/** Array of Reddit API comment/more objects. */
-	items: any[]
+	items: (RedditThing<CommentData> | RedditMoreChildren)[]
 	options?: CommentOptions | undefined
 	subredditColorSalt: string
 }
@@ -341,14 +343,14 @@ export function TBCommentChildren ({items, options, subredditColorSalt,}: TBComm
 				if (item.kind === 't1') {
 					return (
 						<TBComment
-							key={item.data?.name || i}
+							key={item.data.name || i}
 							comment={item}
 							options={options}
 							subredditColorSalt={subredditColorSalt}
 						/>
 					)
 				}
-				if (item.kind === 'more') {
+				if (isMoreChildren(item,)) {
 					const count = item.data.count
 					const ids = item.data.children.toString()
 					return (

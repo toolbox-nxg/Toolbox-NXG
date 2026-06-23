@@ -7,7 +7,7 @@ import {afterEach, beforeEach, describe, expect, it, vi,} from 'vitest'
 const logError = vi.hoisted(() => vi.fn())
 let selectorState = vi.hoisted(() => ({
 	spinner: {count: 0,},
-	textFeedback: {current: null as any,},
+	textFeedback: {current: null as {message: string; kind: TextFeedbackKind} | null,},
 }))
 let settingValue = vi.hoisted(() => 'left' as 'left' | 'right' | '')
 const runtime = vi.hoisted(() => ({
@@ -49,7 +49,7 @@ vi.mock('../../modules/announcements/components/AnnouncementCard', () => ({
 		</div>
 	),
 }),)
-;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true
+;(globalThis as {IS_REACT_ACT_ENVIRONMENT?: boolean}).IS_REACT_ACT_ENVIRONMENT = true
 
 import {TextFeedbackKind,} from '../../store/textFeedbackSlice'
 import {ErrorBoundary,} from './ErrorBoundary'

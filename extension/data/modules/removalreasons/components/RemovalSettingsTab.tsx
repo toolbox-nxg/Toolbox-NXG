@@ -10,7 +10,7 @@ import {TextareaInput,} from '../../../shared/controls/TextareaInput'
 import {TokenChips,} from '../../../shared/controls/TokenChips'
 import {positiveTextFeedback,} from '../../../store/feedback'
 import {type SaveRef, useSaveRef, useSetting,} from '../../../util/ui/hooks'
-import type {ConfigState,} from '../../../util/wiki/schemas/config/schema'
+import type {ConfigState, ToolboxConfig,} from '../../../util/wiki/schemas/config/schema'
 import {
 	pickSubstitutionTokens,
 	type SubstitutionTokenInfo,
@@ -38,7 +38,7 @@ interface Props {
 	/** Optional ref wired up so the parent can trigger saving the settings. */
 	saveRef?: SaveRef
 	/** Called with the updated config and revision note when the user saves. */
-	onSave: (config: any, reason: string,) => void
+	onSave: (config: ToolboxConfig, reason: string,) => void
 }
 
 /** Renders the removal-reasons settings panel within the toolbox subreddit config overlay. */

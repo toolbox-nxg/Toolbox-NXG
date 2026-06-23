@@ -51,9 +51,9 @@ export default new Module<NotifierSettings>({
 	}, this,)
 
 	lifecycle.on(window, 'TB_UPDATE_COUNTERS', handleCounterUpdate,)
-	lifecycle.interval(getmessages, checkIntervalMillis,)
+	lifecycle.interval(() => void getmessages(), checkIntervalMillis,)
 
-	getmessages()
+	void getmessages()
 
 	return lifecycle.cleanup
 },)

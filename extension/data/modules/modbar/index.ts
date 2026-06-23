@@ -26,11 +26,11 @@ const self = new Module<ModbarSettings>({
 }, async (s: ModbarSettings,) => {
 	const lifecycle = createLifecycle()
 
-	setSettingAsync(modbar, 'consoleShowing', undefined,)
+	void setSettingAsync(modbar, 'consoleShowing', undefined,)
 
 	const handlers = await createModbarHandlers(
 		s,
-		(key, value,) => self.set(key, value,),
+		(key, value,) => void self.set(key, value,),
 		() => resolveModbarExists!(),
 	)
 

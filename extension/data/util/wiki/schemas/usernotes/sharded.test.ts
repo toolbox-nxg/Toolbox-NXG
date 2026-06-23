@@ -4,9 +4,9 @@
 import {afterEach, describe, expect, it, vi,} from 'vitest'
 
 const sendMessage = vi.hoisted(() =>
-	vi.fn(async (msg: any,) => {
+	vi.fn(async (msg: {action?: string; blob?: string},) => {
 		if (msg?.action === 'toolbox-usernote-decompress') {
-			return {users: JSON.parse(atob(msg.blob,),),}
+			return {users: JSON.parse(atob(msg.blob ?? '',),),}
 		}
 	},)
 )
@@ -24,6 +24,7 @@ vi.mock('../../../data/encoding', () => ({
 	byteLength: (s: string,) => new TextEncoder().encode(s,).length,
 }),)
 import {getWikiPages, postToWiki, readFromWiki,} from '../../../../api/resources/wiki'
+import type {WikiReadResult,} from '../../../../api/resources/wiki'
 import {encodeNotesShard,} from './codec'
 import type {UserNotesData, UsernotesUser,} from './schema'
 import {
@@ -76,8 +77,8 @@ function shardPageText (users: Record<string, UsernotesUser>,): string {
 function mockWikiPages (pages: Record<string, string>,) {
 	vi.mocked(readFromWiki,).mockImplementation(async (_sub: string, page: string,) =>
 		pages[page] !== undefined
-			? {ok: true, data: pages[page],} as any
-			: {ok: false, reason: 'no_page',} as any
+			? {ok: true, data: pages[page],} as WikiReadResult
+			: {ok: false, reason: 'no_page',} as WikiReadResult
 	)
 }
 

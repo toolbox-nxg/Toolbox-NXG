@@ -14,11 +14,11 @@ export type MaybeAsyncIterable<T,> = Iterable<T> | AsyncIterable<T>
  * @param start Optional callback invoked before the first chunk.
  * @returns `false` if arguments are invalid (same as calling `complete`).
  */
-export function forEachChunked (
-	array: ArrayLike<any> | null,
+export function forEachChunked<T,> (
+	array: ArrayLike<T> | null,
 	chunkSize: number,
 	delay: number,
-	call: (item: any, index: number, array: ArrayLike<any>,) => any,
+	call: (item: T, index: number, array: ArrayLike<T>,) => unknown,
 	complete?: () => void,
 	start?: () => void,
 ) {
@@ -37,7 +37,7 @@ export function forEachChunked (
 			start()
 		}
 		for (let end = Math.min(array!.length, counter + chunkSize,); counter < end; counter++) {
-			const ret = call(array![counter], counter, array!,)
+			const ret = call(array![counter]!, counter, array!,)
 			if (ret === false) {
 				window.setTimeout(finish, delay,)
 				return
@@ -63,9 +63,9 @@ export function forEachChunked (
  * @param options.nerf Smoothing factor (0-1) for chunk size adjustment.
  * @returns A promise that resolves to the original iterable when done.
  */
-export function forEachChunkedDynamic (
-	array: Iterable<any>,
-	process: (item: any,) => void,
+export function forEachChunkedDynamic<T,> (
+	array: Iterable<T>,
+	process: (item: T,) => void,
 	options?: {size?: number; framerate?: number; nerf?: number},
 ) {
 	if (typeof process !== 'function') {
@@ -81,9 +81,9 @@ export function forEachChunkedDynamic (
 		framerate: 30,
 		nerf: 0.9,
 	}, options,)
-	let size = opt.size as number
-	const nerf = opt.nerf as number
-	const framerate = opt.framerate as number
+	let size = opt.size
+	const nerf = opt.nerf
+	const framerate = opt.framerate
 
 	const now = () => window.performance.now()
 

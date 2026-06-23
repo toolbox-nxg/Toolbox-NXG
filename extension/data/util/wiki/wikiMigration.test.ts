@@ -13,6 +13,7 @@ const clearCache = vi.hoisted(() => vi.fn())
 // Minimal stand-in for the real normalizeConfig: backfills the field shapes
 // the reconcile-merge in step 1 relies on, without decoding or migrations.
 const normalizeConfig = vi.hoisted(() =>
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- test double mirrors normalizeConfig's in-place mutation of arbitrary parsed JSON
 	vi.fn((config: any,) => {
 		if (
 			!config.removalReasons || typeof config.removalReasons !== 'object'
@@ -31,9 +32,9 @@ const normalizeConfig = vi.hoisted(() =>
 )
 
 const sendMessage = vi.hoisted(() =>
-	vi.fn(async (msg: any,) => {
+	vi.fn(async (msg: {action?: string; blob?: string},) => {
 		if (msg?.action === 'toolbox-usernote-decompress') {
-			return {users: JSON.parse(atob(msg.blob,),),}
+			return {users: JSON.parse(atob(msg.blob ?? '',),),}
 		}
 		return undefined
 	},)
@@ -94,7 +95,7 @@ function singleShardManifest (): UsernotesManifest {
 }
 
 /** Sets up readFromWiki to answer per-page, treating unlisted pages as missing. */
-function mockWikiPages (pages: Record<string, any>,) {
+function mockWikiPages (pages: Record<string, unknown>,) {
 	readFromWiki.mockImplementation((_sub: string, page: string,) =>
 		Promise.resolve(
 			page in pages
@@ -105,7 +106,7 @@ function mockWikiPages (pages: Record<string, any>,) {
 }
 
 /** Returns the data written to a page, or undefined if it was never written. */
-function writtenData (page: string,): any {
+function writtenData (page: string,): unknown {
 	return postToWiki.mock.calls.find((call,) => call[1] === page)?.[2]
 }
 
@@ -286,9 +287,15 @@ describe('migrateSubredditToNxg', () => {
 		const payload = JSON.parse(atob(written.blob,),)
 		const notes = payload['testuser'].notes
 		// The archived note survives the re-run; the 6.x addition merged in.
-		expect(notes.some((n: any,) => n.note === 'archived note' && n.archived),).toBe(true,)
-		expect(notes.some((n: any,) => n.note === 'added in 6.x' && !n.archived),).toBe(true,)
-		expect(notes.some((n: any,) => n.note === 'active note' && !n.archived),).toBe(true,)
+		expect(notes.some((n: {note?: string; archived?: boolean},) => n.note === 'archived note' && n.archived),).toBe(
+			true,
+		)
+		expect(notes.some((n: {note?: string; archived?: boolean},) => n.note === 'added in 6.x' && !n.archived),).toBe(
+			true,
+		)
+		expect(notes.some((n: {note?: string; archived?: boolean},) => n.note === 'active note' && !n.archived),).toBe(
+			true,
+		)
 	})
 
 	it('re-runs reuse existing shard page names instead of churning generations', async () => {

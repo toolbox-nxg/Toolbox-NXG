@@ -2,6 +2,7 @@
 
 import {afterEach, beforeEach, describe, expect, it, vi,} from 'vitest'
 
+import type {Module,} from '../../../framework/module'
 import type {MassModerationSettings,} from '../settings'
 
 const ModtoolsToolbar = vi.hoisted(() => vi.fn(() => null))
@@ -151,7 +152,7 @@ describe('queue modtools auto-refresh', () => {
 		const onNewThings = vi.fn()
 		window.addEventListener('TBNewThings', onNewThings,)
 		try {
-			createModtoolsHandlers({set: vi.fn(),} as any, settings,)
+			createModtoolsHandlers({set: vi.fn(),} as unknown as Module, settings,)
 			// Ignore the resort that runs during initial setup; we only care about the tick.
 			sortThings.mockClear()
 
@@ -189,7 +190,7 @@ describe('queue modtools auto-refresh', () => {
 			`,
 			},),
 		)
-		createModtoolsHandlers({set: vi.fn(),} as any, settings,)
+		createModtoolsHandlers({set: vi.fn(),} as unknown as Module, settings,)
 
 		await autoRefreshTick?.()
 
@@ -220,7 +221,7 @@ describe('queue modtools auto-refresh', () => {
 			`,
 			},),
 		)
-		createModtoolsHandlers({set: vi.fn(),} as any, settings,)
+		createModtoolsHandlers({set: vi.fn(),} as unknown as Module, settings,)
 		await autoRefreshTick?.()
 
 		// Subsequent tick returns only already-present items, so nothing new is inserted.
@@ -266,7 +267,7 @@ describe('queue modtools auto-refresh', () => {
 
 	it('decrements the modbar modqueue count when an item is approved via a pretty-button', () => {
 		setQueueHtml('approve',)
-		const handlers = createModtoolsHandlers({set: vi.fn(),} as any, settings,)
+		const handlers = createModtoolsHandlers({set: vi.fn(),} as unknown as Module, settings,)
 
 		handlers.handlePrettyButton(document.querySelector('.pretty-button',)!,)
 
@@ -276,7 +277,7 @@ describe('queue modtools auto-refresh', () => {
 	it('does not change the modbar count when ignoring reports without auto-approve', async () => {
 		getModuleSettingAsync.mockResolvedValue(false,)
 		setQueueHtml('ignorereports',)
-		const handlers = createModtoolsHandlers({set: vi.fn(),} as any, settings,)
+		const handlers = createModtoolsHandlers({set: vi.fn(),} as unknown as Module, settings,)
 		await flushSettings()
 
 		handlers.handlePrettyButton(document.querySelector('.pretty-button',)!,)
@@ -287,7 +288,7 @@ describe('queue modtools auto-refresh', () => {
 	it('decrements the modbar count when ignoring reports with auto-approve enabled', async () => {
 		getModuleSettingAsync.mockResolvedValue(true,)
 		setQueueHtml('ignorereports',)
-		const handlers = createModtoolsHandlers({set: vi.fn(),} as any, settings,)
+		const handlers = createModtoolsHandlers({set: vi.fn(),} as unknown as Module, settings,)
 		await flushSettings()
 
 		handlers.handlePrettyButton(document.querySelector('.pretty-button',)!,)
@@ -307,7 +308,7 @@ describe('queue modtools auto-refresh', () => {
 				</div>
 			</div>
 		`
-		createModtoolsHandlers({set: vi.fn(),} as any, settings,)
+		createModtoolsHandlers({set: vi.fn(),} as unknown as Module, settings,)
 
 		await onActionButton?.('negative',)
 
@@ -328,7 +329,7 @@ describe('queue modtools auto-refresh', () => {
 				</div>
 			</div>
 		`
-		createModtoolsHandlers({set: vi.fn(),} as any, settings,)
+		createModtoolsHandlers({set: vi.fn(),} as unknown as Module, settings,)
 
 		const actionedCount = await onActionButton?.('negative',)
 
@@ -359,7 +360,7 @@ describe('queue modtools auto-refresh', () => {
 		getModLog.mockResolvedValue({
 			data: {children: [{data: {target_fullname: 't3_x', action: 'removelink', mod: 'otheruser',},},],},
 		},)
-		const handlers = createModtoolsHandlers({set: vi.fn(),} as any, settings,)
+		const handlers = createModtoolsHandlers({set: vi.fn(),} as unknown as Module, settings,)
 
 		await handlers.syncModlogActions()
 
@@ -379,7 +380,7 @@ describe('queue modtools auto-refresh', () => {
 		getModLog.mockResolvedValue({
 			data: {children: [{data: {target_fullname: 't3_x', action: 'spamlink', mod: 'spamcop',},},],},
 		},)
-		const handlers = createModtoolsHandlers({set: vi.fn(),} as any, settings,)
+		const handlers = createModtoolsHandlers({set: vi.fn(),} as unknown as Module, settings,)
 
 		await handlers.syncModlogActions()
 
@@ -394,7 +395,7 @@ describe('queue modtools auto-refresh', () => {
 	it('leaves items absent from the mod log untouched and does not change the count', async () => {
 		setBigModQueueHtml()
 		getModLog.mockResolvedValue({data: {children: [],},},)
-		const handlers = createModtoolsHandlers({set: vi.fn(),} as any, settings,)
+		const handlers = createModtoolsHandlers({set: vi.fn(),} as unknown as Module, settings,)
 
 		await handlers.syncModlogActions()
 
@@ -409,7 +410,7 @@ describe('queue modtools auto-refresh', () => {
 		getModLog.mockResolvedValue({
 			data: {children: [{data: {target_fullname: 't3_x', action: 'removelink', mod: 'otheruser',},},],},
 		},)
-		const handlers = createModtoolsHandlers({set: vi.fn(),} as any, settings,)
+		const handlers = createModtoolsHandlers({set: vi.fn(),} as unknown as Module, settings,)
 
 		await handlers.syncModlogActions()
 		await handlers.syncModlogActions()

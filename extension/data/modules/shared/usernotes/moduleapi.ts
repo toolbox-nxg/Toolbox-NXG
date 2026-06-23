@@ -410,7 +410,7 @@ export function createLatestModNoteFetcher (): (subreddit: string, user: string,
 				clearTimeout(fetchLatestNotesTimeout,)
 			}
 			if (pendingLatestNoteRequests.length === 500) {
-				processQueue()
+				void processQueue()
 				return
 			}
 			fetchLatestNotesTimeout = setTimeout(processQueue, 500,)

@@ -12,7 +12,7 @@ export function getBestTextColor (bgColor: string,): string {
 	if (!cache[bgColor]) {
 		cache[bgColor] = tinycolor.mostReadable(bgColor, ['black', 'white',],).toHexString()
 	}
-	return cache[bgColor]!
+	return cache[bgColor]
 }
 
 /** Converts an HTML color name to its hex value, returning the input unchanged if not a known name. */

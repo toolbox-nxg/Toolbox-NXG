@@ -1,6 +1,8 @@
 /** Tests for RemovalReasonsOverlay. */
 
+import type {DragEndEvent,} from '@dnd-kit/core'
 import {act,} from 'react'
+import type {ReactNode,} from 'react'
 import {createRoot, type Root,} from 'react-dom/client'
 import {afterEach, beforeEach, describe, expect, it, vi,} from 'vitest'
 
@@ -8,7 +10,7 @@ const removeThing = vi.hoisted(() => vi.fn())
 const approveThing = vi.hoisted(() => vi.fn())
 const postComment = vi.hoisted(() => vi.fn())
 const flairPost = vi.hoisted(() => vi.fn())
-const dndDragEnd = vi.hoisted(() => ({current: null as null | ((event: any,) => void),}))
+const dndDragEnd = vi.hoisted(() => ({current: null as null | ((event: DragEndEvent,) => void),}))
 
 vi.mock('webextension-polyfill', () => ({
 	default: {runtime: {getURL: (path: string,) => `chrome-extension://fake/${path}`,},},
@@ -63,7 +65,7 @@ vi.mock('@dnd-kit/core', async () => {
 	const actual = await vi.importActual<typeof import('@dnd-kit/core')>('@dnd-kit/core',)
 	return {
 		...actual,
-		DndContext: ({children, onDragEnd,}: any,) => {
+		DndContext: ({children, onDragEnd,}: {children?: ReactNode; onDragEnd?: (event: DragEndEvent,) => void},) => {
 			dndDragEnd.current = onDragEnd
 			return children
 		},
@@ -74,7 +76,7 @@ vi.mock('@dnd-kit/sortable', async () => {
 	const actual = await vi.importActual<typeof import('@dnd-kit/sortable')>('@dnd-kit/sortable',)
 	return {
 		...actual,
-		SortableContext: ({children,}: any,) => children,
+		SortableContext: ({children,}: {children?: ReactNode},) => children,
 		useSortable: () => ({
 			attributes: {},
 			listeners: {},
@@ -166,7 +168,7 @@ function getButton (text: string,) {
 }
 
 beforeEach(() => {
-	;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true
+	;(globalThis as {IS_REACT_ACT_ENVIRONMENT?: boolean}).IS_REACT_ACT_ENVIRONMENT = true
 	Object.defineProperty(window, 'matchMedia', {
 		configurable: true,
 		writable: true,
@@ -337,7 +339,7 @@ describe('RemovalReasonsOverlay', () => {
 		},)
 
 		await act(async () => {
-			dndDragEnd.current?.({active: {id: 'reason-0',}, over: {id: 'reason-1',},},)
+			dndDragEnd.current?.({active: {id: 'reason-0',}, over: {id: 'reason-1',},} as unknown as DragEndEvent,)
 		},)
 
 		const checkboxes = [...container.querySelectorAll<HTMLInputElement>(
@@ -431,7 +433,7 @@ describe('RemovalReasonsOverlay', () => {
 		},)
 
 		await act(async () => {
-			dndDragEnd.current?.({active: {id: 'reason-0',}, over: {id: 'reason-1',},},)
+			dndDragEnd.current?.({active: {id: 'reason-0',}, over: {id: 'reason-1',},} as unknown as DragEndEvent,)
 		},)
 		await act(async () => {
 			getButton('Send',).click()

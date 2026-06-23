@@ -35,5 +35,5 @@ export async function getRemovalReasons (
  * @param reason The wiki revision note.
  */
 export function saveRemovalConfig (subreddit: string, config: ToolboxConfig, reason: string,): void {
-	saveToolboxConfig(subreddit, config, reason,)
+	void saveToolboxConfig(subreddit, config, reason,)
 }

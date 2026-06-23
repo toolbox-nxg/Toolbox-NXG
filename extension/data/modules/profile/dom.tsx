@@ -175,7 +175,7 @@ export function createProfileHandlers (
 			if (detail.user) {
 				user = detail.user
 			} else if (pageDetails.pageType === 'userProfile') {
-				const profileUser = (pageDetails as TBPageContext).pageDetails.user
+				const profileUser = pageDetails.pageDetails.user
 				if (!profileUser) { return }
 				user = profileUser
 			} else {

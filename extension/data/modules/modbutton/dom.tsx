@@ -25,7 +25,7 @@ function ModButtonEntry ({context, settings, setLastAction, setSavedSubs,}: {
 		let alive = true
 		getModSubs(false,).then((subs: unknown,) => {
 			if (alive && (subs as string[]).length) { setReady(true,) }
-		},)
+		},).catch((error: unknown,) => log.error(error,))
 		return () => {
 			alive = false
 		}

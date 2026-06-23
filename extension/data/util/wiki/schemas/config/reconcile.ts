@@ -138,7 +138,7 @@ export async function reconcileConfigFromLegacy (
 ): Promise<{config: ToolboxConfig; changed: boolean}> {
 	let legacy: ToolboxConfig
 	try {
-		const response = await readFromWiki<Record<string, any>>(subreddit, OLD_WIKI_PATHS.settings, true,)
+		const response = await readFromWiki<Record<string, unknown>>(subreddit, OLD_WIKI_PATHS.settings, true,)
 		if (!response.ok || isTombstone(response.data,)) {
 			return {config: nxgConfig, changed: false,}
 		}

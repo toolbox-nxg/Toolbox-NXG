@@ -116,7 +116,7 @@ export async function tryGetConfig (
 		const revs = await getCache(utils, CONFIG_REV_KEY, {},) as Record<string, string>
 		if (revs[subreddit] !== undefined) {
 			normalizeConfig(cachedConfigs[subreddit],)
-			return {status: 'ok', config: cachedConfigs[subreddit]!,}
+			return {status: 'ok', config: cachedConfigs[subreddit],}
 		}
 	}
 
@@ -129,12 +129,12 @@ export async function tryGetConfig (
 		return {status: 'absent',}
 	}
 	const page = layout.state === 'legacyFallback' ? OLD_WIKI_PATHS.settings : NEW_WIKI_PATHS.settings
-	const response = await readFromWiki<Record<string, any>>(subreddit, page, true,)
+	const response = await readFromWiki<Record<string, unknown>>(subreddit, page, true,)
 	if (!response.ok) {
 		if (response.reason === 'no_page') {
 			// A definite "this sub has no toolbox config" - cache it and report absent.
 			cachedSubsWithNoConfig.push(subreddit,)
-			setCache(utils, 'noConfig', cachedSubsWithNoConfig,)
+			void setCache(utils, 'noConfig', cachedSubsWithNoConfig,)
 			return {status: 'absent',}
 		}
 		// A transient read error or unparseable content: the config is unknown. Don't cache,
@@ -159,7 +159,7 @@ export async function tryGetConfig (
 	}
 
 	cachedConfigs[subreddit] = resolvedConfig
-	setCache(utils, 'configCache', cachedConfigs,)
+	void setCache(utils, 'configCache', cachedConfigs,)
 	return {status: 'ok', config: resolvedConfig,}
 }
 
@@ -195,7 +195,7 @@ export async function reloadConfigFromWiki (subreddit: string,): Promise<Toolbox
 		return null
 	}
 	const page = layout.state === 'legacyFallback' ? OLD_WIKI_PATHS.settings : NEW_WIKI_PATHS.settings
-	const response = await readFromWiki<Record<string, any>>(subreddit, page, true,)
+	const response = await readFromWiki<Record<string, unknown>>(subreddit, page, true,)
 	if (!response.ok) {
 		log.debug('Failed: wiki config',)
 		return null
@@ -217,8 +217,11 @@ export async function reloadConfigFromWiki (subreddit: string,): Promise<Toolbox
  * (`format: 'nxg-usernotes'`) - in either case the zlib/base64 `blob` is
  * inflated into a `users` object.
  */
-function humanizeUsernotes (notes: any,) {
-	if ((notes.ver >= 6 || notes.format === NXG_USERNOTES_FORMAT) && typeof notes.blob === 'string') {
+function humanizeUsernotes (notes: Record<string, unknown>,) {
+	if (
+		((typeof notes.ver === 'number' && notes.ver >= 6) || notes.format === NXG_USERNOTES_FORMAT)
+		&& typeof notes.blob === 'string'
+	) {
 		const decompressed = zlibInflate(notes.blob,)
 		delete notes.blob
 		notes.users = JSON.parse(decompressed,)
@@ -227,7 +230,7 @@ function humanizeUsernotes (notes: any,) {
 }
 
 /** Inverse of {@link humanizeUsernotes}: deflates an expanded `users` object back into the on-wiki `blob`. */
-function compressUsernotesBlob (notes: any,) {
+function compressUsernotesBlob (notes: Record<string, unknown>,) {
 	notes.blob = zlibDeflate(JSON.stringify(notes.users,),)
 	delete notes.users
 	return notes
@@ -253,13 +256,13 @@ export interface WikiEditorPageOptions {
  * @param opts What kind of page this is.
  */
 export function formatWikiEditorText (raw: string, opts: WikiEditorPageOptions,): string {
-	let pageText: any = unescapeJSON(raw,)
+	const unescaped = unescapeJSON(raw,)
 	if (opts.isAutomod) {
-		return pageText as string
+		return unescaped
 	}
-	pageText = JSON.parse(pageText as string,)
+	let pageText: unknown = JSON.parse(unescaped,)
 	if (opts.isUsernotes) {
-		pageText = humanizeUsernotes(pageText,)
+		pageText = humanizeUsernotes(pageText as Record<string, unknown>,)
 	}
 	return JSON.stringify(pageText, null, 4,)
 }
@@ -322,7 +325,12 @@ export type UsernotesEditorView = 'compressed' | 'decompressed' | null
  */
 export function getUsernotesEditorView (text: string,): UsernotesEditorView {
 	try {
-		const parsed = JSON.parse(text,)
+		const parsed = JSON.parse(text,) as {
+			blob?: unknown
+			users?: unknown
+			ver?: unknown
+			format?: unknown
+		} | null
 		if (!parsed || typeof parsed !== 'object') { return null }
 		if (typeof parsed.blob === 'string') { return 'compressed' }
 		if (
@@ -368,9 +376,15 @@ export async function convertUsernotesEditorText (
 
 	try {
 		if (target === 'decompressed') {
-			return {ok: true, text: JSON.stringify(humanizeUsernotes(JSON.parse(text,),), null, 4,),}
+			return {
+				ok: true,
+				text: JSON.stringify(humanizeUsernotes(JSON.parse(text,) as Record<string, unknown>,), null, 4,),
+			}
 		}
-		return {ok: true, text: JSON.stringify(compressUsernotesBlob(JSON.parse(text,),), null, 4,),}
+		return {
+			ok: true,
+			text: JSON.stringify(compressUsernotesBlob(JSON.parse(text,) as Record<string, unknown>,), null, 4,),
+		}
 	} catch (err) {
 		log.error(`Failed to ${target === 'compressed' ? 'compress' : 'decompress'} usernotes:`, err,)
 		return {ok: false, message: `Could not convert usernotes: ${String(err,)}`,}
@@ -402,19 +416,21 @@ export async function prepareWikiEditorContent (
 		return {ok: true, content,}
 	}
 
-	let parsed: any
+	let parsed: unknown
 	try {
 		parsed = JSON.parse(content,)
 	} catch (err) {
 		return {ok: false, message: `Page not saved, JSON is not correct.<br> ${String(err,)}`,}
 	}
 
-	if (
-		opts.isUsernotes && parsed && typeof parsed === 'object'
-		&& (parsed.ver === 6 || parsed.format === NXG_USERNOTES_FORMAT)
-		&& parsed.users && typeof parsed.users === 'object' && parsed.blob === undefined
-	) {
-		compressUsernotesBlob(parsed,)
+	if (opts.isUsernotes && parsed && typeof parsed === 'object') {
+		const obj = parsed as Record<string, unknown>
+		if (
+			(obj.ver === 6 || obj.format === NXG_USERNOTES_FORMAT)
+			&& obj.users && typeof obj.users === 'object' && obj.blob === undefined
+		) {
+			compressUsernotesBlob(obj,)
+		}
 	}
 
 	return {ok: true, content: JSON.stringify(parsed,),}
@@ -452,7 +468,7 @@ export async function saveWikiEditorPage (
 			let automodError: string | null = null
 			if (err && typeof err === 'object' && 'response' in err) {
 				try {
-					const response = (err as {response: {json(): Promise<any>}}).response
+					const response = (err as {response: {json(): Promise<{special_errors?: string[]}>}}).response
 					const responseJSON = await response.json()
 					const saveError = responseJSON.special_errors?.[0]
 					if (saveError) { automodError = purifyHTML(saveError,) }
@@ -461,7 +477,7 @@ export async function saveWikiEditorPage (
 			return {ok: false, automodError, message: 'Config not saved!',}
 		}
 		const message = err && typeof err === 'object' && 'responseText' in err
-			? String((err as {responseText: unknown}).responseText,)
+			? String(err.responseText,)
 			: String(err,)
 		return {ok: false, automodError: null, message,}
 	}
@@ -573,7 +589,7 @@ async function doSaveToolboxConfig (subreddit: string, config: ToolboxConfig, re
 	} catch (err: unknown) {
 		log.debug(err,)
 		const responseText = err && typeof err === 'object' && 'responseText' in err
-			? String((err as {responseText: unknown}).responseText,)
+			? String(err.responseText,)
 			: String(err,)
 		negativeTextFeedback(responseText,)
 	}

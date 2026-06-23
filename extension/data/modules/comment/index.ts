@@ -43,9 +43,9 @@ export default new Module<CommentsSettings>({
 		if (isMod) {
 			lifecycle.delegate(document.body, 'click', '#toolbox-toggle-removed', spamToggle.handleToggleRemoved,)
 			lifecycle.delegate(document.body, 'click', '.expando-button.selftext', spamToggle.handleExpandoClick,)
-			lifecycle.on(window, 'TBNewThings', spamToggle.run,)
+			lifecycle.on(window, 'TBNewThings', () => void spamToggle.run(),)
 			lifecycle.mount(spamToggle.cleanup,)
-			spamToggle.run()
+			void spamToggle.run()
 		}
 
 		if (isUserPage) {
@@ -68,8 +68,13 @@ export default new Module<CommentsSettings>({
 	if (highlighted.length) {
 		const highlightHandlers = createHighlightHandlers(highlighted,)
 		lifecycle.mount(highlightHandlers.cleanup,)
-		lifecycle.delegate(document.body, 'click', '.expando-button', highlightHandlers.handleExpando,)
-		lifecycle.on(window, 'TBNewPage', highlightHandlers.handleNewPage,)
+		lifecycle.delegate(
+			document.body,
+			'click',
+			'.expando-button',
+			(target,) => void highlightHandlers.handleExpando(target,),
+		)
+		lifecycle.on(window, 'TBNewPage', (event,) => void highlightHandlers.handleNewPage(event,),)
 	}
 
 	const flatView = createFlatViewHandlers(openContextInPopup,)

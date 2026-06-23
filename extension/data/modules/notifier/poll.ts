@@ -6,6 +6,7 @@ import type {TbGlobalMessage,} from '../../background/messages'
 
 import {getModmailUnreadCount,} from '../../api/resources/modmail'
 import {getModerationQueueListing,} from '../../api/resources/subreddits'
+import type {RedditContentThing, RedditSubmission,} from '../../api/resources/things'
 import {getInfo,} from '../../api/resources/things'
 import {getTime,} from '../../util/data/time'
 import createLogger from '../../util/infra/logging'
@@ -58,7 +59,7 @@ function processMqComments (mqlinkid: string, mqreportauthor: string, mqidname: 
 			log.warn('getInfo returned incomplete data for link', mqlinkid,)
 			return
 		}
-		notification(
+		void notification(
 			`Modqueue - /r/${subreddit} - comment: `,
 			`${mqreportauthor}'s comment in: ${title}`,
 			`${permalink + mqidname.substring(3,)}?context=3`,
@@ -111,7 +112,7 @@ function notifyConsolidated (
 	const {singularTitle, pluralNoun, moreSuffix, url,} = opts
 	const {body, xmore,} = buildConsolidatedBody(labels,)
 	const fullBody = xmore > 0 ? `${body}\n and: ${xmore.toString()} more items${moreSuffix}` : body
-	notification(count === 1 ? singularTitle : `${count.toString()} ${pluralNoun}`, fullBody, url,)
+	void notification(count === 1 ? singularTitle : `${count.toString()} ${pluralNoun}`, fullBody, url,)
 }
 
 /** Runtime options passed to {@link createNotifierHandlers}. */
@@ -220,26 +221,26 @@ export function createNotifierHandlers (
 		const finishCounterUpdate = () => {
 			updateCountdown--
 			if (updateCountdown === 0) {
-				updateAllTabs()
+				updateAllTabs().catch((error: unknown,) => log.error(error,))
 			}
 		}
 
-		module.set('lastChecked', now,)
+		await module.set('lastChecked', now,)
 
 		const modQueueURL = `/r/${modSubreddits}/about/modqueue`
 
-		getModerationQueueListing({
+		getModerationQueueListing<RedditContentThing>({
 			subreddits: modSubreddits,
 			page: 'modqueue',
 			limit: 100,
-		},).then(async (json: any,) => {
+		},).then(async (json,) => {
 			const count = json.data.children.length || 0
 			// Bucket the aggregate listing's items by subreddit so the "subreddits you
 			// moderate" drawer can show a per-sub badge without firing its own requests.
 			// Counts share the aggregate's fetch limit, so they may undercount once the
 			// combined queue exceeds `limit` items.
 			const modqueueBySubreddit: Record<string, number> = {}
-			for (const child of json.data.children as any[]) {
+			for (const child of json.data.children) {
 				const sub = child.data.subreddit
 				if (typeof sub !== 'string' || !sub) { continue }
 				const key = sub.toLowerCase()
@@ -250,8 +251,8 @@ export function createNotifierHandlers (
 			if (modNotifications && count > modqueueCount) {
 				const pusheditems = await module.get('modqueuePushed',)
 				if (consolidatedMessages) {
-					const newItems = json.data.children.filter((v: any,) => !pusheditems.includes(v.data.name,))
-					const labels = newItems.map((v: any,) => {
+					const newItems = json.data.children.filter((v,) => !pusheditems.includes(v.data.name,))
+					const labels = newItems.map((v,) => {
 						const {author, subreddit,} = v.data
 						return v.kind === 't3'
 							? `post from: ${author}, in: ${subreddit}\n`
@@ -267,7 +268,7 @@ export function createNotifierHandlers (
 						url: modQueueURL,
 					},)
 				} else {
-					json.data.children.forEach((value: any,) => {
+					json.data.children.forEach((value,) => {
 						if (pusheditems.includes(value.data.name,)) {
 							return
 						}
@@ -277,7 +278,7 @@ export function createNotifierHandlers (
 							const mqauthor = value.data.author
 							const mqsubreddit = value.data.subreddit
 
-							notification(
+							void notification(
 								`Modqueue: /r/${mqsubreddit} - post`,
 								`${mqtitle} By: ${mqauthor}`,
 								mqpermalink,
@@ -285,7 +286,7 @@ export function createNotifierHandlers (
 						} else {
 							const reportauthor = value.data.author
 							const idname = value.data.name
-							processMqComments(value.data.link_id, reportauthor, idname,)
+							processMqComments(value.data.link_id ?? '', reportauthor, idname,)
 						}
 						pusheditems.push(value.data.name,)
 					},)
@@ -295,9 +296,9 @@ export function createNotifierHandlers (
 				if (pusheditems.length > 100) {
 					pusheditems.splice(0, pusheditems.length - 100,)
 				}
-				module.set('modqueuePushed', pusheditems,)
+				await module.set('modqueuePushed', pusheditems,)
 			}
-			module.set('modqueueCount', count,)
+			await module.set('modqueueCount', count,)
 		},).catch((error: unknown,) => {
 			log.error(error,)
 		},).finally(finishCounterUpdate,)
@@ -305,11 +306,11 @@ export function createNotifierHandlers (
 		if (unmoderatedOn || unmoderatedNotifications) {
 			const unModeratedURL = `/r/${unmoderatedSubreddits}/about/unmoderated`
 
-			getModerationQueueListing({
+			getModerationQueueListing<RedditSubmission>({
 				subreddits: unmoderatedSubreddits,
 				page: 'unmoderated',
 				limit: 100,
-			},).then(async (json: any,) => {
+			},).then(async (json,) => {
 				const count = json.data.children.length || 0
 
 				if (unmoderatedNotifications && count > unmoderatedCount) {
@@ -317,10 +318,10 @@ export function createNotifierHandlers (
 
 					if (consolidatedMessages) {
 						const newItems = json.data.children.filter(
-							(v: any,) => !lastSeen || v.data.created_utc * 1000 > lastSeen,
+							(v,) => !lastSeen || v.data.created_utc * 1000 > lastSeen,
 						)
 						const labels = newItems.map(
-							(v: any,) => `post from: ${v.data.author}, in: ${v.data.subreddit}\n`,
+							(v,) => `post from: ${v.data.author}, in: ${v.data.subreddit}\n`,
 						)
 						notifyConsolidated(labels, {
 							singularTitle: 'One new unmoderated item!',
@@ -329,14 +330,14 @@ export function createNotifierHandlers (
 							url: unModeratedURL,
 						},)
 					} else {
-						json.data.children.forEach((value: any,) => {
+						json.data.children.forEach((value,) => {
 							if (!lastSeen || value.data.created_utc * 1000 > lastSeen) {
 								const uqpermalink = value.data.permalink
 								const uqtitle = value.data.title
 								const uqauthor = value.data.author
 								const uqsubreddit = value.data.subreddit
 
-								notification(
+								void notification(
 									`Unmoderated: /r/${uqsubreddit} - post`,
 									`${uqtitle} By: ${uqauthor}`,
 									uqpermalink,
@@ -345,10 +346,10 @@ export function createNotifierHandlers (
 						},)
 					}
 
-					module.set('lastSeenUnmoderated', now,)
+					await module.set('lastSeenUnmoderated', now,)
 				}
 
-				module.set('unmoderatedCount', count,)
+				await module.set('unmoderatedCount', count,)
 
 				if (unmoderatedOn) {
 					updateCounters({unmoderatedCount: count,},)
@@ -364,8 +365,8 @@ export function createNotifierHandlers (
 
 		getModmailUnreadCount().then(async (data,) => {
 			const modmailFreshCount = calculateModmailCount(data,)
-			module.set('modmailCount', modmailFreshCount,)
-			module.set('modmailCategoryCount', data,)
+			await module.set('modmailCount', modmailFreshCount,)
+			await module.set('modmailCategoryCount', data,)
 			updateCounters({modmailCount: modmailFreshCount, modmailCategoryCount: data,},)
 		},).catch((error: unknown,) => {
 			log.error(error,)
@@ -381,7 +382,15 @@ export function createNotifierHandlers (
 			return
 		}
 		log.debug('updating counters from background',)
-		const {modqueueCount, unmoderatedCount, modmailCount, modmailCategoryCount,} = event.detail
+		// `event.detail` is untyped (`any`); narrow it to the counter payload the
+		// background script dispatches before merging it into the counter store.
+		const detail = event.detail as {
+			modqueueCount: number
+			unmoderatedCount: number
+			modmailCount: number
+			modmailCategoryCount: Record<string, number>
+		}
+		const {modqueueCount, unmoderatedCount, modmailCount, modmailCategoryCount,} = detail
 		updateCounters({modqueueCount, unmoderatedCount, modmailCount, modmailCategoryCount,},)
 	}
 

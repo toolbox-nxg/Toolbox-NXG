@@ -18,8 +18,8 @@ export function escapeHTML (html: string,): string {
  * Replaces `{{key}}` placeholders in `tpl` with corresponding values from `variables`.
  * @example template('/r/{{sub}}/comments/{{id}}/', {sub: 'toolbox', id: '2kwx2o'})
  */
-export function template (tpl: string, variables: Record<string, any>,): string {
-	return tpl.replace(/{{([^}]+)}}/g, (_match, variable,) => variables[variable],)
+export function template (tpl: string, variables: Record<string, unknown>,): string {
+	return tpl.replace(/{{([^}]+)}}/g, (_match, variable,) => String(variables[variable],),)
 }
 
 /**

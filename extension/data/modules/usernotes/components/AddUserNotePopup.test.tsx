@@ -32,7 +32,7 @@ vi.mock('../../../util/infra/logging', () => ({default: () => ({error: vi.fn(),}
 vi.mock('../../shared/modnotes/ModNotesPager', () => ({
 	ModNotesPager: () => <div>Native note history</div>,
 }),)
-;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true
+;(globalThis as {IS_REACT_ACT_ENVIRONMENT?: boolean}).IS_REACT_ACT_ENVIRONMENT = true
 
 import type {ExistingNote, UserNoteColor,} from '../../../util/wiki/schemas/usernotes/schema'
 import {AddUserNotePopup,} from './AddUserNotePopup'

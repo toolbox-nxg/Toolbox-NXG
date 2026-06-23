@@ -313,7 +313,7 @@ export async function submitRemoval (
 
 		const sendModmailMessage = async () => {
 			const body = `${msg}\n\n---\n[[Link to your ${data.kind}](${data.url})]`
-			let res: any
+			let res: Awaited<ReturnType<typeof sendModmail>>
 			try {
 				res = await sendModmail({
 					subreddit: data.subreddit,
@@ -352,12 +352,12 @@ export async function submitRemoval (
 				: Promise.resolve(),
 			notifyByModmail ? sendModmailMessage() : Promise.resolve(),
 		],)
-		const errs = results.filter((r,) => r.status === 'rejected') as PromiseRejectedResult[]
+		const errs = results.filter((r,) => r.status === 'rejected')
 		if (errs.length) {
 			return {
 				ok: false,
 				error: `error${errs.length > 1 ? 's' : ''}: ${
-					errs.map((r,) => (r.reason?.message ?? String(r.reason,))).join('; ',)
+					errs.map((r,) => (r.reason instanceof Error ? r.reason.message : String(r.reason,))).join('; ',)
 				}`,
 			}
 		}

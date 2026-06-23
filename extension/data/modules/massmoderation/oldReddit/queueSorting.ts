@@ -41,7 +41,7 @@ export function appendNewItems (sitetable: Element, things: Element[],): void {
 		header.textContent = 'New Items'
 		group.appendChild(header,)
 	}
-	things.forEach((thing,) => group!.appendChild(thing,))
+	things.forEach((thing,) => group.appendChild(thing,))
 	// Re-append so the section is always the last child, below any subreddit groups.
 	sitetable.appendChild(group,)
 }
@@ -239,7 +239,7 @@ export function groupBySubreddit (sitetable: Element,): void {
 			const subreddit = getThingSubredditEl(thing,)?.textContent?.trim() ?? ''
 			if (!subOrder.includes(subreddit,)) { subOrder.push(subreddit,) }
 			if (!subGroups[subreddit]) { subGroups[subreddit] = [] }
-			subGroups[subreddit]!.push(thing,)
+			subGroups[subreddit].push(thing,)
 		},)
 
 	subOrder.forEach((subreddit,) => {

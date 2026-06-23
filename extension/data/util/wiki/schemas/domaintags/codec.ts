@@ -21,12 +21,14 @@ const log = createLogger('TBDomainTags',)
  * page doesn't crash the module.
  * @param raw The raw (possibly partial) parsed object to normalize.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- assertion function that mutates an arbitrary parsed object in place into DomainTagsData
 export function normalizeDomainTagsData (raw: any,): asserts raw is DomainTagsData {
 	if (typeof raw.ver !== 'number') { raw.ver = domainTagsSchema }
 	if (typeof raw.showCounts !== 'boolean') { raw.showCounts = false }
 
 	if (!Array.isArray(raw.tags,)) { raw.tags = [] }
 
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- filters and coerces arbitrary parsed entries before they are asserted to DomainTag[]
 	raw.tags = (raw.tags as any[]).filter((entry: any,) => {
 		// Drop entries that aren't objects or lack a string name.
 		if (!entry || typeof entry !== 'object' || typeof entry.name !== 'string' || !entry.name) {
@@ -72,6 +74,7 @@ export function decodeDomainTagsPage (raw: unknown, subreddit: string,): DomainT
 		return null
 	}
 
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- reads assorted fields off an untrusted parsed wiki object that has been confirmed to be a non-null object
 	const data = raw as any
 
 	if (typeof data.ver === 'number' && (data.ver < domainTagsMinSchema || data.ver > domainTagsMaxSchema)) {
@@ -83,7 +86,7 @@ export function decodeDomainTagsPage (raw: unknown, subreddit: string,): DomainT
 	}
 
 	normalizeDomainTagsData(data,)
-	return data as DomainTagsData
+	return data
 }
 
 /**

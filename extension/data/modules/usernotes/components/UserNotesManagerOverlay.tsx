@@ -258,7 +258,7 @@ function UserNotesManagerOverlay ({
 	}, [users,],)
 
 	useEffect(() => {
-		getCache(usernotes, prefCacheKey, defaultPrefs,).then(
+		void getCache(usernotes, prefCacheKey, defaultPrefs,).then(
 			(cached: Partial<UserNotesManagerPreferences> & {showArchived?: boolean | 'only'},) => {
 				// Migrate the pre-enum `showArchived` flag (false/undefined = hide,
 				// true = show, 'only') to the unified `archived` mode.
@@ -273,7 +273,7 @@ function UserNotesManagerOverlay ({
 
 	useEffect(() => {
 		if (!prefsLoaded) { return }
-		setCache(usernotes, prefCacheKey, prefs,)
+		void setCache(usernotes, prefCacheKey, prefs,)
 	}, [prefs, prefsLoaded,],)
 
 	function updatePrefs (next: Partial<UserNotesManagerPreferences>,) {
@@ -281,8 +281,8 @@ function UserNotesManagerOverlay ({
 		setPage(0,)
 	}
 
-	const filteredUsers = useMemo(() => {
-		return sortUsers(
+	const filteredUsers = useMemo(() =>
+		sortUsers(
 			filterUsers(users, {
 				userText: prefs.userText,
 				contentText: prefs.contentText,
@@ -293,8 +293,7 @@ function UserNotesManagerOverlay ({
 			prefs.sortKey,
 			prefs.sortDirection,
 			colors,
-		)
-	}, [users, prefs, colors,],)
+		), [users, prefs, colors,],)
 
 	const totalPages = Math.max(1, Math.ceil(filteredUsers.length / prefs.pageSize,),)
 	const safePage = Math.min(page, totalPages - 1,)
@@ -376,7 +375,7 @@ function UserNotesManagerOverlay ({
 		if (!u) { return }
 		const ok = confirm(`This will delete all notes for /u/${user}. Would you like to proceed?`,)
 		if (!ok) { return }
-		onDeleteUser(user,).then(() => {
+		void onDeleteUser(user,).then(() => {
 			setLastAction({
 				type: 'deleteUser',
 				user,
@@ -388,7 +387,7 @@ function UserNotesManagerOverlay ({
 	}
 
 	function handleDeleteNote (user: string, note: UserNoteEntry, notePosition: number,) {
-		onDeleteNote(user, note.index ?? notePosition,).then(() => {
+		void onDeleteNote(user, note.index ?? notePosition,).then(() => {
 			setLastAction({
 				type: 'deleteNote',
 				user,
@@ -409,7 +408,7 @@ function UserNotesManagerOverlay ({
 
 	function handleArchiveNote (user: string, noteIndex: number,) {
 		if (!onArchiveNote) { return }
-		onArchiveNote(user, noteIndex,).then(() => {
+		void onArchiveNote(user, noteIndex,).then(() => {
 			setLocalNoteArchived(user, noteIndex, {by: currentUser, at: nowInSeconds(),},)
 			positiveTextFeedback(`Archived note for /u/${user}`,)
 		},)
@@ -427,7 +426,7 @@ function UserNotesManagerOverlay ({
 			} for /u/${user}. Would you like to proceed?`,
 		)
 		if (!ok) { return }
-		onArchiveAllNotes(user,).then(() => {
+		void onArchiveAllNotes(user,).then(() => {
 			const now = nowInSeconds()
 			setUsers((prev,) =>
 				prev.map((u,) =>
@@ -447,7 +446,7 @@ function UserNotesManagerOverlay ({
 
 	function handleUnarchiveNote (user: string, noteIndex: number,) {
 		if (!onUnarchiveNote) { return }
-		onUnarchiveNote(user, noteIndex,).then(() => {
+		void onUnarchiveNote(user, noteIndex,).then(() => {
 			setLocalNoteArchived(user, noteIndex,)
 			positiveTextFeedback(`Unarchived note for /u/${user}`,)
 		},)
@@ -456,7 +455,7 @@ function UserNotesManagerOverlay ({
 	function handleUndo () {
 		if (!lastAction) { return }
 		if (lastAction.type === 'deleteUser') {
-			onRestoreUser(lastAction.user, lastAction.notes!,).then(() => {
+			void onRestoreUser(lastAction.user, lastAction.notes!,).then(() => {
 				setUsers((prev,) => {
 					const exists = prev.some((u,) => u.name === lastAction.user)
 					if (exists) {
@@ -469,7 +468,7 @@ function UserNotesManagerOverlay ({
 				setLastAction(null,)
 			},)
 		} else if (lastAction.type === 'deleteNote') {
-			onRestoreNote(lastAction.user, lastAction.note!, lastAction.noteIdx!,).then(() => {
+			void onRestoreNote(lastAction.user, lastAction.note!, lastAction.noteIdx!,).then(() => {
 				setUsers((prev,) =>
 					prev.map((u,) => {
 						if (u.name !== lastAction.user) { return u }

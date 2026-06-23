@@ -16,7 +16,7 @@ const self = new Module<AnnouncementsSettings>({
 	const lifecycle = createLifecycle()
 	setupAnnouncementBuilder(lifecycle,)
 	// Fire-and-forget: fetches the wiki and shows any unseen notes. No-op on dev builds.
-	displayAnnouncements()
+	void displayAnnouncements()
 	return lifecycle.cleanup
 },)
 

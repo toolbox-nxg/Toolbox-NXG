@@ -125,7 +125,7 @@ function ModActionButton (
 				state === 'error' && 'is-error',
 			)}
 			title={title}
-			onClick={onClick}
+			onClick={() => void onClick()}
 		>
 			{text}
 		</FlatListAction>

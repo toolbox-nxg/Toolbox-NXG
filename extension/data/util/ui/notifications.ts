@@ -17,7 +17,7 @@ export async function notification (title: string, body: string, path: string,) 
 	const notificationID = await browser.runtime.sendMessage(
 		{
 			action: 'toolbox-notification',
-			native: await getSettingAsync(genSettings, 'nativeNotifications', true,),
+			native: await getSettingAsync(genSettings, 'nativeNotifications', true,) as boolean,
 			details: {
 				title,
 				body,
@@ -27,7 +27,7 @@ export async function notification (title: string, body: string, path: string,) 
 	) as string
 
 	setTimeout(() => {
-		browser.runtime.sendMessage(
+		void browser.runtime.sendMessage(
 			{
 				action: 'toolbox-page-notification-clear',
 				id: notificationID,

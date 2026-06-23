@@ -2,6 +2,7 @@
 
 import {useState,} from 'react'
 import {useEffect, useRef,} from 'react'
+import type {SettingDefinition,} from '../../framework/module'
 import {syntaxThemes,} from '../../modules/syntax/syntaxThemes'
 import type {SyntaxTheme,} from '../../modules/syntax/syntaxThemes'
 import {sendEvent,} from '../../util/reddit/events'
@@ -21,34 +22,6 @@ import {SubredditMultiSelect,} from '../controls/SubredditMultiSelect'
 import {SubredditSelect,} from '../controls/SubredditSelect'
 import {TextareaInput,} from '../controls/TextareaInput'
 import css from './SettingRow.module.css'
-
-/** Represents a single setting definition from a Module's settings Map. */
-interface SettingDefinition {
-	id: string
-	type: string
-	description?: string
-	default?: unknown
-	debug?: boolean
-	hidden?: boolean
-	advanced?: boolean
-	min?: number | string
-	max?: number | string
-	step?: number | string
-	values?: string[]
-	/** Optional display-text overrides for selector options, keyed by the `values` entry. */
-	valueLabels?: Partial<Record<string, string>>
-	labels?: [string, string,]
-	event?: string
-	class?: string
-	/** Optional placeholder text for text/stringlist inputs. */
-	placeholder?: string
-	/** Optional JSX rendered below the label (e.g., an icon preview). */
-	preview?: React.ReactNode
-	/** Optional image URL rendered as a small preview below the label. */
-	previewImageUrl?: string
-	/** Map of value -> note text shown below the input when that value is selected. */
-	valueNotes?: Record<string, string>
-}
 
 const exampleCss = `/* Sample stylesheet for previewing the theme */
 .toolbox-window {
@@ -212,7 +185,7 @@ export function SettingRow ({
 				<NumberInput
 					value={(value ?? settingDef.default) as number}
 					min={settingDef.min}
-					max={settingDef.max}
+					max={settingDef.max ?? undefined}
 					step={settingDef.step}
 					onChange={(event,) => onChange(parseFloat(event.target.value,),)}
 				/>
@@ -288,7 +261,7 @@ export function SettingRow ({
 			inputEl = (
 				<TextInput
 					type="text"
-					value={listValue as string}
+					value={listValue}
 					onChange={(event,) =>
 						onChange(
 							event.target.value.split(',',).map((s: string,) => s.trim()).filter(Boolean,),
@@ -317,7 +290,7 @@ export function SettingRow ({
 			const currentVal = rawVal.toLowerCase().replace(/\s/g, '_',)
 			inputEl = (
 				<SingleSelect
-					options={vals}
+					options={[...vals,]}
 					value={currentVal}
 					labels={settingDef.valueLabels}
 					onChange={onChange}
@@ -339,7 +312,7 @@ export function SettingRow ({
 		case 'map': {
 			inputEl = (
 				<MapInput
-					labels={settingDef.labels ?? ['Key', 'Value',]}
+					labels={(settingDef.labels ?? ['Key', 'Value',]) as [string, string,]}
 					value={(value ?? settingDef.default ?? {}) as Record<string, string>}
 					onChange={onChange}
 				/>

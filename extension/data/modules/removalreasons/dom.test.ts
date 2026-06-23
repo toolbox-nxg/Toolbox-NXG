@@ -9,7 +9,7 @@ const getConfig = vi.hoisted(() => vi.fn())
 const getThingFromDescendant = vi.hoisted(() => vi.fn((element: Element,) => element.closest('.thing',)))
 const removeThing = vi.hoisted(() => vi.fn())
 // Renderer registry for the uiLocations mock — keyed by location name.
-const uiLocMock = vi.hoisted(() => ({renderers: new Map<string, Function>(),}))
+const uiLocMock = vi.hoisted(() => ({renderers: new Map<string, (...args: unknown[]) => unknown>(),}))
 
 vi.mock('webextension-polyfill', () => ({
 	default: {runtime: {getURL: (path: string,) => `chrome-extension://fake/${path}`,},},
@@ -82,7 +82,7 @@ vi.mock('../../dom/uiLocations', () => ({
 		}
 		return vi.fn(() => slot.remove())
 	},),
-	renderAtLocation: vi.fn((location: string, _options: unknown, render: Function,) => {
+	renderAtLocation: vi.fn((location: string, _options: unknown, render: (...args: unknown[]) => unknown,) => {
 		uiLocMock.renderers.set(location, render,)
 		return vi.fn()
 	},),

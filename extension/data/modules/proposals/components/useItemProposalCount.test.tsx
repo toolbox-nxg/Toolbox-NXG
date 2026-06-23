@@ -16,7 +16,7 @@ vi.mock('../../../api/resources/modSubs', () => ({isModSub,}),)
 import type {Proposal, ProposalsData,} from '../../../util/wiki/schemas/proposals/schema'
 import {emitProposalsChanged,} from '../../shared/proposals/events'
 import {useItemProposalCount,} from './useItemProposalCount'
-;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true
+;(globalThis as {IS_REACT_ACT_ENVIRONMENT?: boolean}).IS_REACT_ACT_ENVIRONMENT = true
 
 /** Builds a minimal pending proposal targeting `itemId`. */
 function proposal (id: string, itemId: string,): Proposal {

@@ -38,9 +38,7 @@ function openManager () {
  * navigation events so modbar buttons can show/hide as the user moves around.
  */
 function useCurrentSubreddit (): string | undefined {
-	const [subreddit, setSubreddit,] = useState<string | undefined>(() =>
-		pageDetails['subreddit'] as string | undefined
-	)
+	const [subreddit, setSubreddit,] = useState<string | undefined>(() => pageDetails.pageDetails['subreddit'])
 	useEffect(() => {
 		const handler = (event: CustomEvent<TBPageContext>,) => {
 			setSubreddit(event.detail.pageDetails['subreddit'],)

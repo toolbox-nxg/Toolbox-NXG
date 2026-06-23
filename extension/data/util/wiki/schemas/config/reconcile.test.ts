@@ -32,8 +32,8 @@ import {normalizeConfig,} from './schema'
 import type {ToolboxConfig,} from './schema'
 
 /** Builds a normalized v2 config from a partial shape. */
-function makeConfig (partial: Record<string, any> = {},): ToolboxConfig {
-	const config: Record<string, any> = {ver: 2, ...partial,}
+function makeConfig (partial: Record<string, unknown> = {},): ToolboxConfig {
+	const config: Record<string, unknown> = {ver: 2, ...partial,}
 	normalizeConfig(config,)
 	return config as ToolboxConfig
 }
@@ -170,7 +170,7 @@ describe('adoptLegacyConfigFields', () => {
 
 		const adopted = adoptLegacyConfigFields(nxg, legacy,)
 
-		expect((adopted as Record<string, any>)['Toolbox.Utils.compatibilityWrites'],).toBe(true,)
+		expect((adopted as Record<string, unknown>)['Toolbox.Utils.compatibilityWrites'],).toBe(true,)
 		expect(adopted.ver,).toBe(2,)
 		expect(adopted.banMacros,).toEqual(legacy.banMacros,)
 		expect(nxg,).toEqual(nxgSnapshot,)
@@ -233,7 +233,7 @@ describe('reconcileConfigFromLegacy', () => {
 				removalReasons: {
 					reasons: [{
 						title: 'Rules',
-						// eslint-disable-next-line no-restricted-globals
+
 						text: escape(
 							'Which rule?\n\n<select id="rule"><option>Rule 1</option><option>Rule 2</option></select>',
 						),
@@ -265,7 +265,7 @@ describe('reconcileConfigFromLegacy', () => {
 				removalReasons: {
 					reasons: [{
 						title: 'Rules',
-						// eslint-disable-next-line no-restricted-globals
+
 						text: escape(
 							'<select id="rule"><option>Rule 1 (edited)</option><option>Rule 2</option></select>',
 						),

@@ -21,7 +21,6 @@ import {doSettingsUpdates,} from './util/persistence/settingsMigrations'
 import {setupMessageBridge,} from './util/reddit/events'
 import {watchForURLChanges,} from './util/reddit/pageContext'
 import {delegate, documentInteractive,} from './util/ui/dom'
-import TBListener from './util/ui/listener'
 import {reactRenderer,} from './util/ui/reactMount'
 
 import Announcements from './modules/announcements'
@@ -66,12 +65,12 @@ if (isOldReddit) {
 		'click',
 		'#RESAccountSwitcherDropdown .accountName, #header-bottom-right .logout, .toggle.moderator .option',
 		() => {
-			clearCache()
+			void clearCache()
 		},
 	)
 }
 
-;(async () => {
+void (async () => {
 	// Ensure that other conditions are met, and return early if not
 	try {
 		await checkLoadConditions()
@@ -131,7 +130,7 @@ if (isOldReddit) {
 	// Attach React root
 	documentInteractive.then(() => {
 		document.body.append(reactRenderer(createElement(AppRoot,),),)
-	},)
+	},).catch((error: unknown,) => log.error(error,))
 
 	// Load feature modules and register them
 	for (
@@ -176,9 +175,10 @@ if (isOldReddit) {
 	// Once all modules are registered, call TB.init() to run them
 	await TBModule.init()
 
-	// Modules must register their TBListener handlers during init() before we
-	// start emitting events - otherwise the first page context events would be
-	// lost. init.ts is the single owner of this startup order.
-	TBListener.start()
+	// Modules must register their handlers during init() before we start emitting
+	// events - otherwise the first page context events would be lost. init.ts is the
+	// single owner of this startup order. The `TBListenerLoaded` signal tells the
+	// shreddit module that every module is registered and it may run its initial scan.
+	document.dispatchEvent(new CustomEvent('TBListenerLoaded',),)
 	watchForURLChanges()
 })()

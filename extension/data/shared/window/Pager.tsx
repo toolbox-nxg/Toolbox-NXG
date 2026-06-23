@@ -31,8 +31,10 @@ export const Pager = ({
 	/** An iterable of pages to be displayed. */
 	pages: MaybeAsyncIterable<ReactNode>
 },) => {
-	// Extract the iterator from the iterable we're passed in
-	const iterator = useMemo(() => {
+	// Extract the iterator from the iterable we're passed in. Annotate the union
+	// explicitly: indexing a `MaybeAsyncIterable` by its iterator symbol otherwise
+	// widens the result to `any`, which would taint every page value read below.
+	const iterator = useMemo((): AsyncIterator<ReactNode, void> | Iterator<ReactNode, void> => {
 		if (Symbol.asyncIterator in pages) {
 			return pages[Symbol.asyncIterator]()
 		}
@@ -90,7 +92,7 @@ export const Pager = ({
 	useEffect(() => {
 		// if we're not lazy, gotta cache 'em all
 		if (!lazy && !pagesDone) {
-			cacheNextPage()
+			void cacheNextPage()
 			return
 		}
 
@@ -103,7 +105,7 @@ export const Pager = ({
 				setCurrentPageIndex(Math.max(0, cachedPages.length - 1,),)
 			} else {
 				// Cache additional pages until we get the one we want
-				cacheNextPage()
+				void cacheNextPage()
 			}
 		}
 	}, [lazy, cachedPages, pagesDone, currentPageIndex,],)

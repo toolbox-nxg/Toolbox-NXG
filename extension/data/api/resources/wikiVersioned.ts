@@ -228,7 +228,7 @@ export async function writeWikiPageConditional<T,> (
 	}
 
 	if (response.status === 409) {
-		return await handleConflict(subreddit, page, response, codec,)
+		return handleConflict(subreddit, page, response, codec,)
 	}
 
 	return {ok: false, conflict: false, error: new Error(`wiki write failed: HTTP ${response.status}`,),}

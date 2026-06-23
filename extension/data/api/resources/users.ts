@@ -15,6 +15,15 @@ export interface UserAbout {
 		comment_karma: number
 		is_suspended?: boolean
 		is_employee?: boolean
+		has_verified_email?: boolean
+		snoovatar_img?: string
+		icon_img?: string
+		/** The user's profile subreddit (`u/<name>`), present for non-suspended accounts. */
+		subreddit?: {
+			title?: string
+			public_description?: string
+			icon_img?: string
+		} | null
 		[key: string]: unknown
 	}
 }
@@ -68,11 +77,11 @@ export const getUserComments = (user: string, maxCount?: number,): Promise<unkno
  * Fetches one page of a user listing (submitted, comments, saved, overview,
  * moderated_subreddits, trophies, etc.).
  */
-export const getUserListingPage = (
+export const getUserListingPage = <T = Record<string, unknown>,>(
 	user: string,
 	listing: string,
 	query?: QueryParams,
-): Promise<Record<string, unknown>> => apiOauthGetJSON<Record<string, unknown>>(`/user/${user}/${listing}.json`, query,)
+): Promise<T> => apiOauthGetJSON<T>(`/user/${user}/${listing}.json`, query,)
 
 /**
  * Fetches a user's recent activity from `/user/{user}.json`.

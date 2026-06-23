@@ -7,13 +7,12 @@ import {afterEach, beforeEach, describe, expect, it, vi,} from 'vitest'
 // Stub the reactMount `classes` helper + logging (the real modules pull in browser-only deps). The
 // commentActionRow helpers are used for real against DOM fixtures.
 vi.mock('../../../util/ui/reactMount', () => ({
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- test stub mirrors the real `classes` signature.
-	classes: (...stuff: any[]) => stuff.flat().filter(Boolean,).join(' ',),
+	classes: (...stuff: unknown[]) => stuff.flat().filter(Boolean,).join(' ',),
 }),)
 vi.mock('../../../util/infra/logging', () => ({
 	default: () => ({error: vi.fn(), debug: vi.fn(), warn: vi.fn(), info: vi.fn(),}),
 }),)
-;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true
+;(globalThis as {IS_REACT_ACT_ENVIRONMENT?: boolean}).IS_REACT_ACT_ENVIRONMENT = true
 
 import {CommentExtras, CommentVote,} from './CommentActions'
 

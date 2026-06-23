@@ -17,6 +17,7 @@ vi.mock('webextension-polyfill', () => ({
 vi.mock('../messageHandling', () => ({registerMessageHandler,}),)
 
 import {makeRequest, registerWebrequestHandlers, resetRateLimitState,} from './webrequest'
+import type {MakeRequestOptions,} from './webrequest'
 
 beforeEach(() => {
 	registerMessageHandler.mockClear()
@@ -54,7 +55,7 @@ describe('makeRequest', () => {
 				body: expect.any(FormData,),
 			},),
 		)
-		const body = (fetch as any).mock.calls[0]![1].body as FormData
+		const body = vi.mocked(fetch,).mock.calls[0]![1].body as FormData
 		expect(body.get('foo',),).toBe('bar',)
 		expect(body.has('empty',),).toBe(false,)
 	})
@@ -93,14 +94,21 @@ describe('makeRequest', () => {
 
 	it('rejects non-scalar query parameter values', async () => {
 		await expect(
-			makeRequest({endpoint: '/api/test', query: {nested: {value: 'nope',},} as any,},),
+			makeRequest({
+				endpoint: '/api/test',
+				query: {nested: {value: 'nope',},} as unknown as MakeRequestOptions['query'],
+			},),
 		).rejects.toThrow('query parameter nested must be a scalar value',)
 		expect(fetch,).not.toHaveBeenCalled()
 	})
 
 	it('rejects non-string form body values', async () => {
 		await expect(
-			makeRequest({method: 'POST', endpoint: '/api/test', body: {count: 1,} as any,},),
+			makeRequest({
+				method: 'POST',
+				endpoint: '/api/test',
+				body: {count: 1,} as unknown as MakeRequestOptions['body'],
+			},),
 		).rejects.toThrow('body parameter count must be a string',)
 		expect(fetch,).not.toHaveBeenCalled()
 	})
@@ -126,7 +134,7 @@ describe('makeRequest', () => {
 			.mockResolvedValueOnce(mockJwtCookie({jti: 'session',},),)
 			.mockResolvedValueOnce({value: 'csrf',},)
 		storageLocal.get.mockResolvedValue({},)
-		;(fetch as any)
+		vi.mocked(fetch,)
 			.mockResolvedValueOnce(
 				new Response(JSON.stringify({token: 'fresh', expires: Date.now() + 1000,},), {
 					headers: {'content-type': 'application/json',},
@@ -139,7 +147,7 @@ describe('makeRequest', () => {
 		expect(storageLocal.set,).toHaveBeenCalledWith({
 			'toolbox-accessToken-session': expect.objectContaining({accessToken: 'fresh',},),
 		},)
-		expect((fetch as any).mock.calls[1]![1].headers,).toEqual({Authorization: 'Bearer fresh',},)
+		expect(vi.mocked(fetch,).mock.calls[1]![1].headers,).toEqual({Authorization: 'Bearer fresh',},)
 	})
 
 	it('reports non-JSON OAuth token responses without a content-type header', async () => {
@@ -404,7 +412,7 @@ describe('webrequest message handler', () => {
 			{tab: {cookieStoreId: 'firefox-container-1',},},
 		)
 
-		const headers = (fetch as any).mock.calls[0]![1].headers
+		const headers = vi.mocked(fetch,).mock.calls[0]![1].headers
 		expect(headers['x-toolbox-tmp-cookiestore'],).toBe('firefox-container-1',)
 	})
 })

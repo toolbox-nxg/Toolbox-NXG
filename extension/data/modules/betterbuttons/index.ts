@@ -49,7 +49,12 @@ export default new Module<BetterButtonsSettings>({
 	if (removeRemoveConfirmation) {
 		const {handleApproveClick, handleRemoveClick,} = createRemoveConfirmationHandlers()
 		lifecycle.delegate(document.body, 'click', '.flat-list .approve-button .togglebutton', handleApproveClick,)
-		lifecycle.delegate(document.body, 'click', '.flat-list .remove-button .togglebutton', handleRemoveClick,)
+		lifecycle.delegate(
+			document.body,
+			'click',
+			'.flat-list .remove-button .togglebutton',
+			(target,) => void handleRemoveClick(target,),
+		)
 	}
 	if (approveOnIgnore) {
 		const {handleIgnoreClick,} = createAutoApproveHandlers()

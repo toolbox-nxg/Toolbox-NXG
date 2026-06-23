@@ -7,6 +7,7 @@ type ModuleCleanup = () => void | Promise<void>
  * The initializer function called when a module is started.
  * Receives all setting values and may return an optional cleanup function.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- heterogeneous settings base: each module has a distinct settings shape; unknown breaks TSettings[K] indexing across the class API
 export type ModuleInitializer<TSettings extends Record<string, any> = Record<string, any>,> = (
 	this: Module<TSettings>,
 	initialValues: TSettings,
@@ -49,6 +50,7 @@ export interface SettingDefinition {
 	type: SettingType
 	description?: string
 	/** Default value, or a function that returns it. */
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- a setting default may be any of the heterogeneous SettingType value shapes
 	default?: any | (() => any)
 	storageKey?: string
 	/** When true, only shown in debug mode. */
@@ -161,36 +163,17 @@ export function coerceSetting (
 	}
 }
 
-interface StoredSetting extends
-	Required<
-		Omit<
-			SettingDefinition,
-			| 'id'
-			| 'default'
-			| 'oldReddit'
-			| 'values'
-			| 'labels'
-			| 'class'
-			| 'min'
-			| 'max'
-			| 'step'
-			| 'hidden'
-			| 'placeholder'
-			| 'valueNotes'
-			| 'previewImageUrl'
-			| 'preview'
-			| 'sharedPolicy'
-		>
-	>
-{
-	hidden?: boolean
+/**
+ * A setting as held in a module's settings map: a full `SettingDefinition` (the constructor
+ * spreads the original definition in) with the fields the constructor always fills in narrowed
+ * to required.
+ */
+export interface StoredSetting extends SettingDefinition {
 	id: string
-	default?: any | (() => any)
-	placeholder?: string
-	valueNotes?: Partial<Record<string, string>>
-	previewImageUrl?: string
-	preview?: string
-	sharedPolicy?: SharedSettingPolicy
+	description: string
+	storageKey: string
+	debug: boolean
+	advanced: boolean
 }
 
 /** Constructor options for a Toolbox Module. */
@@ -225,6 +208,7 @@ export interface ModuleOptions {
  * to their `sharedPolicy` value.  Settings without a `sharedPolicy` are omitted.
  * Pass the result to `getAnonymizedSettings()` so the anonymizer knows what to include.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- operates over modules of every settings shape; Module<any> is the correct erasure here
 export function buildPolicyMap (modules: ReadonlyArray<Module<any>>,): Record<string, SharedSettingPolicy> {
 	const map: Record<string, SharedSettingPolicy> = {}
 	for (const mod of modules) {
@@ -238,6 +222,7 @@ export function buildPolicyMap (modules: ReadonlyArray<Module<any>>,): Record<st
 }
 
 /** A user-toggleable Toolbox feature unit; instances are registered and run by the framework. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- heterogeneous settings base: each module has a distinct settings shape; unknown breaks TSettings[K] indexing across the class API
 export class Module<TSettings extends Record<string, any> = Record<string, any>,> {
 	name: string
 	id: string
@@ -291,7 +276,7 @@ export class Module<TSettings extends Record<string, any> = Record<string, any>,
 				advanced: false,
 				hidden: false,
 				...setting,
-			} as StoredSetting,)
+			},)
 		}
 	}
 
@@ -327,7 +312,7 @@ export class Module<TSettings extends Record<string, any> = Record<string, any>,
 	/**
 	 * Sets the value of a setting.
 	 */
-	set<K extends keyof TSettings & string,> (id: K, value: TSettings[K],): Promise<any> {
+	set<K extends keyof TSettings & string,> (id: K, value: TSettings[K],): Promise<void> {
 		const setting = this.settings.get(id,)
 		if (!setting) {
 			throw new TypeError(`Module ${this.name} does not have a setting ${id} to set`,)
@@ -344,7 +329,7 @@ export class Module<TSettings extends Record<string, any> = Record<string, any>,
 	 */
 	async init (): Promise<void> {
 		// Read the current values of all registered settings
-		const initialValues: Record<string, any> = Object.create(null,)
+		const initialValues: Record<string, unknown> = Object.create(null,)
 		await Promise.all([...this.settings.values(),].map(async (setting,) => {
 			initialValues[setting.id] = await this.get(setting.id,)
 		},),)

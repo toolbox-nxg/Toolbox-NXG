@@ -13,6 +13,17 @@ import {getRedditSessionUserID,} from './tabUtils'
 
 const log = createLogger('TBCache',)
 
+/** Shape of a stored cache entry. */
+interface CacheEntry {
+	value: unknown
+	timeStamp: number
+}
+
+/** Narrows an unknown stored value to a well-formed cache entry (older versions or external code may write malformed ones). */
+function isCacheEntry (value: unknown,): value is CacheEntry {
+	return typeof value === 'object' && value !== null && typeof (value as {timeStamp?: unknown}).timeStamp === 'number'
+}
+
 /** Prefix for all cache keys written to `browser.storage.local`. */
 const tbCachePrefix = 'TBCache'
 /** How long (ms) an inactive user's cache namespace is kept before being purged. */
@@ -119,8 +130,10 @@ let longCacheTTL = 45
 /** Reads short and long cache TTL values from `tbsettings` and updates the module-level variables. */
 async function loadCacheTTLs () {
 	const s = await getSettings()
-	shortCacheTTL = s[storageShortLengthKey] || 15
-	longCacheTTL = s[storageLongLengthKey] || 45
+	const short = s[storageShortLengthKey]
+	const long = s[storageLongLengthKey]
+	shortCacheTTL = (typeof short === 'number' ? short : 0) || 15
+	longCacheTTL = (typeof long === 'number' ? long : 0) || 45
 }
 
 function loadCacheTTLsSafely () {
@@ -148,13 +161,13 @@ export function registerCacheHandlers () {
 		if (method === 'get') {
 			const {storageKey, inputValue,} = request
 			const cacheKey = buildCacheKey(redditSessionUserId, storageKey,)
-			const storedValue = await browser.storage.local.get(cacheKey,) as Record<string, any>
+			const storedValue = await browser.storage.local.get(cacheKey,)
 
 			// Cache value was stored before
 			if (Object.prototype.hasOwnProperty.call(storedValue, cacheKey,)) {
 				const entry = storedValue[cacheKey]
 				// Guard against malformed entries written by older versions or external code.
-				if (typeof entry !== 'object' || entry === null || typeof entry.timeStamp !== 'number') {
+				if (!isCacheEntry(entry,)) {
 					await browser.storage.local.remove(cacheKey,)
 					return {value: inputValue,}
 				}

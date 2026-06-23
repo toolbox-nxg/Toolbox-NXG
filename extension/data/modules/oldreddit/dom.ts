@@ -1,5 +1,5 @@
 /**
- * DOM crawling and event-dispatch logic for the Old Reddit module.
+ * DOM crawling and toolbox container injection for the Old Reddit module.
  *
  * This file IS the platform provider layer for the uiLocations slot system on Old Reddit.
  * Each host element creation followed by a `provideLocation()` call here is the intended pattern -
@@ -22,6 +22,7 @@ import {provideLocation,} from '../../dom/uiLocations'
 import createLogger from '../../util/infra/logging'
 import {RedditPlatform,} from '../../util/infra/platform'
 import {postSite,} from '../../util/reddit/pageContext'
+import {tagToolboxContainer,} from '../../util/ui/toolboxContainer'
 import {type OldRedditSettings,} from './settings'
 
 const userListPageRe = /\/about\/(?:banned|moderators|contributors|muted)\/?/
@@ -44,19 +45,10 @@ export interface OldRedditHandlers {
 	cleanup: () => void
 }
 
-function dispatchApiEvent (element: Element, object: any,) {
-	const apiEvent = new CustomEvent('tbReddit', {detail: object,},)
-	try {
-		element.dispatchEvent(apiEvent,)
-	} catch (error) {
-		log.debug('Could not dispatch event', object, error,)
-	}
-}
-
 /**
  * Creates crawlers and mutation observers that process old Reddit `.thing` elements and user-list
- * pages as they enter the viewport, injecting React UI location containers and dispatching
- * `tbReddit` API events consumed by third-party integrations.
+ * pages as they enter the viewport, injecting React UI location containers and tagging the
+ * toolbox marker spans the stylesheets key off for per-context layout.
  */
 export function createOldRedditHandlers (_s: OldRedditSettings,): OldRedditHandlers {
 	function handleThing (entries: IntersectionObserverEntry[], observer: IntersectionObserver,) {
@@ -211,56 +203,23 @@ export function createOldRedditHandlers (_s: OldRedditSettings,): OldRedditHandl
 
 				if (!isComment) {
 					if (!thingSlot.classList.contains('toolbox-frontend-container',)) {
-						dispatchApiEvent(thingSlot, {
-							type: 'TBpost',
-							data: {
-								author: displayAuthor,
-								id: fullname,
-								isRemoved,
-								permalink: fullPermalink,
-								subreddit: {name: subreddit,},
-							},
-						},)
+						tagToolboxContainer(thingSlot, 'TBpost',)
 					}
 					if (
 						authorSlot
 						&& !authorSlot.classList.contains('toolbox-frontend-container',)
 					) {
-						dispatchApiEvent(authorSlot, {
-							type: 'TBpostAuthor',
-							data: {
-								author: displayAuthor,
-								post: {id: fullname,},
-								subreddit: {name: subreddit,},
-							},
-						},)
+						tagToolboxContainer(authorSlot, 'TBpostAuthor',)
 					}
 				} else {
 					if (!thingSlot.classList.contains('toolbox-frontend-container',)) {
-						dispatchApiEvent(thingSlot, {
-							type: 'TBcommentOldReddit',
-							data: {
-								author: displayAuthor,
-								post: {id: postID,},
-								isRemoved,
-								id: fullname,
-								subreddit: {name: subreddit,},
-							},
-						},)
+						tagToolboxContainer(thingSlot, 'TBcommentOldReddit',)
 					}
 					if (
 						authorSlot
 						&& !authorSlot.classList.contains('toolbox-frontend-container',)
 					) {
-						dispatchApiEvent(authorSlot, {
-							type: 'TBcommentAuthor',
-							data: {
-								author: displayAuthor,
-								post: {id: postID,},
-								comment: {id: fullname,},
-								subreddit: {name: subreddit,},
-							},
-						},)
+						tagToolboxContainer(authorSlot, 'TBcommentAuthor',)
 					}
 				}
 			}
@@ -295,14 +254,7 @@ export function createOldRedditHandlers (_s: OldRedditSettings,): OldRedditHandl
 				author: username,
 				subreddit: postSite,
 			},)
-			dispatchApiEvent(container, {
-				type: 'TBpostAuthor',
-				data: {
-					author: username,
-					post: {id: '',},
-					subreddit: {name: postSite,},
-				},
-			},)
+			tagToolboxContainer(container, 'TBpostAuthor',)
 		}
 	}
 

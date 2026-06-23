@@ -76,7 +76,7 @@ export const useFetched = <T,>(promise: Promise<T>,) => {
 
 	useEffect(() => {
 		let valid = true
-		promise.then((result,) => {
+		void promise.then((result,) => {
 			if (valid) {
 				setValue(result,)
 			}
@@ -100,7 +100,11 @@ export const useFetched = <T,>(promise: Promise<T>,) => {
  * @returns The setting's current value, or the fallback.
  */
 export const useSetting = <T,>(moduleName: string, settingName: string, defaultValue: T,): T => {
-	const savedValue = useSelector((state: RootState,) => state.settings.values[`Toolbox.${moduleName}.${settingName}`])
+	// The settings store is a heterogeneous key->any map, so the selected value reads
+	// as `any`; narrow it to the caller's `T` (the hook's whole contract) here.
+	const savedValue = useSelector(
+		(state: RootState,) => state.settings.values[`Toolbox.${moduleName}.${settingName}`] as T | null,
+	)
 
 	// Return the given default value if the setting doesn't have a value (i.e.
 	// is `undefined`) *or* if the setting's value is `null` (mirroring the old

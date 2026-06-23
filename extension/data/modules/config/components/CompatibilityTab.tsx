@@ -112,7 +112,7 @@ export function CompatibilityTab ({subreddit,}: Props,) {
 						type="button"
 						disabled={busy}
 						onClick={() =>
-							runOperation(
+							void runOperation(
 								() => setCompatibilityMode(subreddit, false,),
 								'6.x compatibility disabled - the old wiki pages are no longer updated',
 							)}
@@ -131,7 +131,7 @@ export function CompatibilityTab ({subreddit,}: Props,) {
 						type="button"
 						disabled={busy}
 						onClick={() =>
-							runOperation(
+							void runOperation(
 								() => setCompatibilityMode(subreddit, true,),
 								'6.x compatibility enabled - old wiki pages restored and kept in sync',
 							)}
@@ -153,7 +153,7 @@ export function CompatibilityTab ({subreddit,}: Props,) {
 						type="button"
 						disabled={busy || confirming !== null}
 						onClick={() =>
-							runOperation(
+							void runOperation(
 								() => copyNxgToLegacy(subreddit,),
 								'6.x mirror refreshed from the NXG pages',
 							)}

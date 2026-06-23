@@ -63,7 +63,7 @@ vi.mock('../../../util/ui/reactMount', () => ({
 	classes: (...parts: Array<string | false | null | undefined>) => parts.filter(Boolean,).join(' ',),
 	mountPopup: vi.fn(),
 }),)
-;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true
+;(globalThis as {IS_REACT_ACT_ENVIRONMENT?: boolean}).IS_REACT_ACT_ENVIRONMENT = true
 
 import {SubredditNotesPopup,} from './SubredditNotesPopup'
 

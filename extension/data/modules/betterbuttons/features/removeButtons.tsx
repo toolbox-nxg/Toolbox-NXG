@@ -72,37 +72,41 @@ export function createRemoveButtonsHandlers ({spamRemoved, hamSpammed,}: RemoveB
 	}
 
 	function run () {
-		forEachChunkedDynamic(getUncheckedLinkThings('toolbox-removebuttons-checked',), async (item,) => {
-			if (guard.isDisposed()) { return }
-			item.classList.add('toolbox-removebuttons-checked',)
+		void forEachChunkedDynamic(
+			getUncheckedLinkThings('toolbox-removebuttons-checked',),
+			(item,) =>
+				void (async () => {
+					if (guard.isDisposed()) { return }
+					item.classList.add('toolbox-removebuttons-checked',)
 
-			const thing = await getThingInfo(item as HTMLElement, true,)
-			if (guard.isDisposed()) { return }
+					const thing = await getThingInfo(item, true,)
+					if (guard.isDisposed() || !thing) { return }
 
-			if (spamRemoved && thing.subreddit && thing.ham) {
-				const bigModButtons = getThingBigModButtons(item,)
-				if (bigModButtons && !bigModButtons.querySelector('.negative',)) {
-					provideReplacementAction(bigModButtons, {
-						className: 'toolbox-comment-button toolbox-big-button toolbox-comment-button-spam',
-						fullname: thing.fullname,
-						text: 'spam',
-						type: 'removeButtonReplacement',
-					},)
-				}
-			}
+					if (spamRemoved && thing.subreddit && thing.ham) {
+						const bigModButtons = getThingBigModButtons(item,)
+						if (bigModButtons && !bigModButtons.querySelector('.negative',)) {
+							provideReplacementAction(bigModButtons, {
+								className: 'toolbox-comment-button toolbox-big-button toolbox-comment-button-spam',
+								fullname: thing.fullname,
+								text: 'spam',
+								type: 'removeButtonReplacement',
+							},)
+						}
+					}
 
-			if (hamSpammed && thing.subreddit && thing.spam) {
-				const bigModButtons = getThingBigModButtons(item,)
-				if (bigModButtons && !bigModButtons.querySelector('.neutral',)) {
-					provideReplacementAction(bigModButtons, {
-						className: 'toolbox-comment-button toolbox-big-button toolbox-comment-button-remove',
-						fullname: thing.fullname,
-						text: 'remove',
-						type: 'removeButtonReplacement',
-					},)
-				}
-			}
-		},)
+					if (hamSpammed && thing.subreddit && thing.spam) {
+						const bigModButtons = getThingBigModButtons(item,)
+						if (bigModButtons && !bigModButtons.querySelector('.neutral',)) {
+							provideReplacementAction(bigModButtons, {
+								className: 'toolbox-comment-button toolbox-big-button toolbox-comment-button-remove',
+								fullname: thing.fullname,
+								text: 'remove',
+								type: 'removeButtonReplacement',
+							},)
+						}
+					}
+				})(),
+		)
 	}
 	return {run, cleanup: scope.cleanup,}
 }

@@ -16,9 +16,11 @@ const log = createLogger('TBSettingsPortability',)
 export async function exportSettings (subreddit: string,): Promise<void> {
 	const settingsObject = await getSettings()
 
-	const backupObject = Object.fromEntries(
-		Object.entries(settingsObject,)
-			.map(([key, value,],) => [key.replace('Toolbox.', '',), value,])
+	// `getSettings()` is the heterogeneous (`any`-valued) settings store; treat each value
+	// as `unknown` here so the assembled backup object is typed rather than `any`.
+	const backupObject: Record<string, unknown> = Object.fromEntries(
+		(Object.entries(settingsObject,) as [string, unknown,][])
+			.map(([key, value,],): [string, unknown,] => [key.replace('Toolbox.', '',), value,])
 			.filter(([key,],) => key !== 'Storage.setting')
 			.filter(([_key, value,],) => value != null),
 	)
@@ -48,7 +50,7 @@ export async function exportSettings (subreddit: string,): Promise<void> {
  */
 export async function importSettings (subreddit: string,): Promise<void> {
 	const page = await getWikiReadPath('userSettings', subreddit,)
-	const response = await readFromWiki<Record<string, any>>(subreddit, page, true,)
+	const response = await readFromWiki<Record<string, unknown>>(subreddit, page, true,)
 	if (!response.ok) {
 		log.debug('Error loading wiki page',)
 		return
@@ -56,7 +58,8 @@ export async function importSettings (subreddit: string,): Promise<void> {
 	purifyObject(response.data,)
 	const data = response.data
 
-	if ((data['Utils.lastversion'] ?? 0) < 300) {
+	const lastVersion = typeof data['Utils.lastversion'] === 'number' ? data['Utils.lastversion'] : 0
+	if (lastVersion < 300) {
 		log.debug('Cannot import from a toolbox version under 3.0',)
 		return
 	}

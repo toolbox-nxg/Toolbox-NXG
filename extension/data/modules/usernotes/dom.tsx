@@ -5,8 +5,10 @@ import {useEffect, useState,} from 'react'
 import {getCurrentUser,} from '../../api/resources/me'
 import {isModSub,} from '../../api/resources/modSubs'
 import {getModeratorListResult,} from '../../api/resources/relationships'
+import type {RedditThing, ThingModData,} from '../../api/resources/things'
 import {aboutUser, getUserActivity,} from '../../api/resources/users'
 import {readFromWiki,} from '../../api/resources/wiki'
+// eslint-disable-next-line no-restricted-imports -- getRatelimit is a read-only rate-limit status helper with no resource-level wrapper
 import {getRatelimit,} from '../../api/transport/http'
 import {renderAtLocation, type UILocationContext,} from '../../dom/uiLocations'
 import {createLifecycle,} from '../../framework/lifecycle'
@@ -20,6 +22,7 @@ import {byteLength,} from '../../util/data/encoding'
 import {forEachChunked,} from '../../util/data/iter'
 import {nowInSeconds,} from '../../util/data/time'
 import createLogger from '../../util/infra/logging'
+import type {TBPageContext,} from '../../util/reddit/pageContext'
 import {isEditUserPage,} from '../../util/reddit/pageContext'
 import {isUserProfileSubreddit,} from '../../util/reddit/profileSubreddit'
 import {getApiThingInfo,} from '../../util/reddit/thingInfo'
@@ -111,7 +114,7 @@ export function createNotesDisplay (
 		clearTimeout(queueTimeout,)
 		pendingSubs.add(subreddit,)
 		queueTimeout = setTimeout(() => {
-			for (const subreddit of pendingSubs) { processSub(subreddit,) }
+			for (const subreddit of pendingSubs) { void processSub(subreddit,) }
 			pendingSubs.clear()
 		}, 100,)
 	}
@@ -144,11 +147,13 @@ export function createNotesDisplay (
 							: `/message/compose?to=%2Fr%2Ftoolbox_nxg&subject=Outdated%20usernotes&message=%2Fr%2F${subreddit}%20is%20using%20usernotes%20schema%20v${notes.ver}`,
 					)
 				}
-			},)
+			},).catch((error: unknown,) => log.error(error,))
 			return
 		}
 
-		getSubredditColors(subreddit,).then((colors,) => publishSubredditNotes(subreddit, {notes, colors,},))
+		getSubredditColors(subreddit,).then((colors,) => publishSubredditNotes(subreddit, {notes, colors,},)).catch((
+			error: unknown,
+		) => log.error(error,))
 	}
 
 	function NoteTagRenderer ({
@@ -179,7 +184,7 @@ export function createNotesDisplay (
 					foundSubreddit(subreddit,)
 					queueProcessSub(subreddit,)
 				}
-			},)
+			},).catch((error: unknown,) => log.error(error,))
 			return () => {
 				alive = false
 			}
@@ -187,35 +192,37 @@ export function createNotesDisplay (
 
 		if (!isMod || !author || !subreddit) { return null }
 
-		return renderTag(async (event,) => {
-			event.preventDefault()
-			event.stopPropagation()
-			let link = ''
-			let disableLink = false
-			const conversationId = (rawDetail as {conversationId?: string} | undefined)?.conversationId
-			if (conversationId) {
-				const shortId = conversationId.replace('ModmailConversation_', '',)
-				if (shortId) { link = `https://www.reddit.com/mail/perma/${shortId}` }
-			} else if (thingId) {
-				const info = await getApiThingInfo(subreddit, thingId, true,) as {permalink: string}
-				link = info.permalink
-			} else {
-				disableLink = true
-			}
-			const positions = drawPosition(event.nativeEvent,)
-			await openAddNotePopup(
-				subreddit,
-				author,
-				link,
-				disableLink,
-				{
-					top: positions.topPosition,
-					left: positions.leftPosition,
-				},
-				undefined,
-				defaultTabIndex,
-			)
-		},)
+		return renderTag((event,) =>
+			void (async () => {
+				event.preventDefault()
+				event.stopPropagation()
+				let link = ''
+				let disableLink = false
+				const conversationId = (rawDetail as {conversationId?: string} | undefined)?.conversationId
+				if (conversationId) {
+					const shortId = conversationId.replace('ModmailConversation_', '',)
+					if (shortId) { link = `https://www.reddit.com/mail/perma/${shortId}` }
+				} else if (thingId) {
+					const info = await getApiThingInfo(subreddit, thingId, true,) as {permalink: string}
+					link = info.permalink
+				} else {
+					disableLink = true
+				}
+				const positions = drawPosition(event.nativeEvent,)
+				await openAddNotePopup(
+					subreddit,
+					author,
+					link,
+					disableLink,
+					{
+						top: positions.topPosition,
+						left: positions.leftPosition,
+					},
+					undefined,
+					defaultTabIndex,
+				)
+			})()
+		)
 	}
 
 	renderAtLocation('authorActions', {id: 'usernotes.tag', order: 10, lifecycle,}, ({context, target,},) => {
@@ -425,7 +432,7 @@ export function createNotesDisplay (
 /** Handlers returned by {@link createNotesManager} for the modbox manage-usernotes links. */
 export interface NotesManagerHandlers {
 	/** Adds or removes modbox context items when the page subreddit changes. */
-	handleNewPage: (event: CustomEvent,) => Promise<void>
+	handleNewPage: (event: CustomEvent<TBPageContext>,) => Promise<void>
 	/** Opens the manager for the subreddit passed via the event's `detail.subreddit` field. */
 	handleOpenManagerEvent: (event: Event,) => void
 	/** Opens the manager for the subreddit stored in the clicked element's `data-subreddit` attribute. */
@@ -486,7 +493,7 @@ export function createNotesManager ({unManagerLink,}: UserNotesSettings,): Notes
 			}
 			return {mode: 'sharded', ...shardedInfo, ...(legacyCompatBytes !== undefined && {legacyCompatBytes,}),}
 		}
-		let subUsernotes = notes
+		const subUsernotes = notes
 
 		/** Finds a note on a user's stored record by its stable index. */
 		const findStoredNote = (user: string, noteIndex: number,) =>
@@ -543,7 +550,7 @@ export function createNotesManager ({unManagerLink,}: UserNotesSettings,): Notes
 				if (!subUsernotes.users[user]) {
 					subUsernotes.users[user] = {name: user, notes: [],}
 				}
-				subUsernotes.users[user]!.notes.splice(position, 0, note,)
+				subUsernotes.users[user].notes.splice(position, 0, note,)
 				await saveUserNotes(subreddit, subUsernotes, `restored a note for /u/${user}`,).catch(() => {},)
 			},
 			onArchiveNote: async (user: string, noteIndex: number,) => {
@@ -653,17 +660,21 @@ export function createNotesManager ({unManagerLink,}: UserNotesSettings,): Notes
 							let accountDeleted = false
 							let accountSuspended = false
 							let accountInactive = false
-							await getUserActivity(username, {sort: 'new',},).then(({data,}: any,) => {
-								accountInactive = !data.children.some((thing: any,) =>
+							await getUserActivity(username, {sort: 'new',},).then((response,) => {
+								const data = response.data as {children: RedditThing<ThingModData>[]}
+								accountInactive = !data.children.some((thing,) =>
 									thing.data.created_utc * 1000 > dateThreshold
 								)
-							},).catch((error: any,) => {
-								if (!error.response) { return }
-								if (error.response.status === 404) {
+							},).catch((error: unknown,) => {
+								const status = error instanceof Object && 'response' in error
+									? (error as {response?: {status?: number}}).response?.status
+									: undefined
+								if (status === undefined) { return }
+								if (status === 404) {
 									accountDeleted = true
 									// A deleted account has no activity, so it also qualifies for inactivity pruning.
 									accountInactive = true
-								} else if (error.response.status === 403) { accountSuspended = true }
+								} else if (status === 403) { accountSuspended = true }
 							},)
 							if (
 								options.pruneByUserDeleted && accountDeleted
@@ -773,10 +784,10 @@ export function createNotesManager ({unManagerLink,}: UserNotesSettings,): Notes
 	}
 
 	return {
-		handleNewPage: async (event: CustomEvent,) => {
+		handleNewPage: async (event: CustomEvent<TBPageContext>,) => {
 			if (!unManagerLink) { return }
-			if (event.detail.pageDetails.subreddit) {
-				const subreddit = event.detail.pageDetails.subreddit
+			const subreddit = event.detail.pageDetails.subreddit
+			if (subreddit) {
 				if (await isModSub(subreddit,)) {
 					addContextItem('toolbox-manage-bans-link', {
 						text: 'manage bans',

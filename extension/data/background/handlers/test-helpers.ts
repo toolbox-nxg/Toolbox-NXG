@@ -15,7 +15,8 @@ import {vi,} from 'vitest'
  */
 export function makeHandlerFinder (registerMock: ReturnType<typeof vi.fn>,) {
 	return function handlerFor (action: string,) {
-		const call = registerMock.mock.calls.find((call: unknown[],) => call[0] === action)
+		const calls = registerMock.mock.calls as unknown[][]
+		const call = calls.find((call,) => call[0] === action)
 		if (!call) {
 			throw new Error(`No handler registered for action: ${action}`,)
 		}

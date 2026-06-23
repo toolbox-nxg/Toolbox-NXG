@@ -63,7 +63,7 @@ export function BulkRemovePanel ({user, subreddit, onClose,}: BulkRemovePanelPro
 						This cannot be undone automatically.
 					</p>
 					<div className={css.bulkRemoveActions}>
-						<ActionButton type="button" onClick={execute}>Confirm remove all</ActionButton>
+						<ActionButton type="button" onClick={() => void execute()}>Confirm remove all</ActionButton>
 						<ActionButton type="button" onClick={onClose}>Cancel</ActionButton>
 					</div>
 				</>

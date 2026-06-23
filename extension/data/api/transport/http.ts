@@ -194,7 +194,7 @@ const parseAndPurifyJSON = <T,>(response: Response,): Promise<T> =>
  * @param query Query parameters to append.
  * @param options Additional request options (e.g. `absolute: true`)
  */
-export const apiOauthGetJSON = <T = any,>(
+export const apiOauthGetJSON = <T = unknown,>(
 	endpoint: string,
 	query?: QueryParams,
 	options?: Partial<RequestOptions>,
@@ -210,7 +210,7 @@ export const apiOauthGetJSON = <T = any,>(
  * @param body Body parameters to send.
  * @param options Additional request options
  */
-export const apiOauthPostJSON = <T = any,>(
+export const apiOauthPostJSON = <T = unknown,>(
 	endpoint: string,
 	body?: RequestBody,
 	options?: Partial<RequestOptions>,

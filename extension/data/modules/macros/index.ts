@@ -22,12 +22,17 @@ export default new Module<MacrosSettings>({
 
 	if (isOldReddit) {
 		await handlers.initOldRedditTop()
-		lifecycle.delegate(document.body, 'click', 'ul.buttons a', handlers.handleReplyClick,)
+		lifecycle.delegate(
+			document.body,
+			'click',
+			'ul.buttons a',
+			(target,) => void handlers.handleReplyClick(target,),
+		)
 	} else {
 		lifecycle.mount(onSharedMutation(handlers.handleShredditMutations,),)
 	}
 
-	lifecycle.on(window, 'TBNewPage', handlers.handleNewPage,)
+	lifecycle.on(window, 'TBNewPage', (event,) => void handlers.handleNewPage(event,),)
 	lifecycle.mount(handlers.cleanup,)
 
 	return lifecycle.cleanup

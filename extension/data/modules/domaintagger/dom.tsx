@@ -290,14 +290,14 @@ export function createDomainTaggerHandlers (
 			return (
 				<ShredditDomainIndicator
 					detail={detail}
-					onButtonClick={(event,) => handleTagButtonClick(target, event,)}
+					onButtonClick={(event,) => void handleTagButtonClick(target, event,)}
 				/>
 			)
 		}
 		return (
 			<OldRedditDomainTagButton
 				subreddit={context.subreddit}
-				onButtonClick={(event,) => handleTagButtonClick(event.currentTarget, event.nativeEvent,)}
+				onButtonClick={(event,) => void handleTagButtonClick(event.currentTarget, event.nativeEvent,)}
 			/>
 		)
 	},)
@@ -363,8 +363,8 @@ export function createDomainTaggerHandlers (
 		log.debug('Processing subreddits',)
 		log.debug(Object.keys(subs,),)
 
-		forEachChunkedDynamic(Object.entries(subs,), ([subreddit, tags,],) => {
-			processSubreddit(subreddit, tags,)
+		void forEachChunkedDynamic(Object.entries(subs,), ([subreddit, tags,],) => {
+			void processSubreddit(subreddit, tags,)
 		},)?.then(() => {
 			log.debug('Done processing things',)
 		},)
@@ -406,7 +406,7 @@ export function createDomainTaggerHandlers (
 						borderRadius: '3px',
 						color: textColor,
 					},)
-					const anchor = domainEl.querySelector('a',) as HTMLAnchorElement | null
+					const anchor = domainEl.querySelector('a',)
 					if (anchor) {
 						anchor.style.color = textColor
 					}
@@ -482,7 +482,7 @@ export function createDomainTaggerHandlers (
 			return false
 		}
 
-		forEachChunkedDynamic(things, (thing,) => {
+		void forEachChunkedDynamic(things, (thing,) => {
 			const entryEl = getEntry(thing,)
 			const domainEl = getThingDomainEl(thing,)
 			const domain = getThingDomain(thing,)
@@ -524,7 +524,7 @@ export function createDomainTaggerHandlers (
 		provideLocation('thingDomainControls', postEl, {
 			platform: RedditPlatform.Shreddit,
 			kind: 'post',
-			subreddit: subreddit,
+			subreddit,
 			rawDetail: {
 				displayType,
 				domain: domain ?? '',
@@ -548,7 +548,7 @@ export function createDomainTaggerHandlers (
 				refreshProvidedLocation('thingDomainControls', postEl, {
 					platform: RedditPlatform.Shreddit,
 					kind: 'post',
-					subreddit: subreddit,
+					subreddit,
 					rawDetail: {
 						displayType,
 						domain,
@@ -579,23 +579,25 @@ export function createDomainTaggerHandlers (
 
 		let lastStatus = postEl.getAttribute('mod-status',) ?? ''
 
-		const observer = new MutationObserver(async (mutations,) => {
-			for (const mutation of mutations) {
-				if (mutation.type !== 'attributes') { continue }
-				const newStatus = postEl.getAttribute('mod-status',) ?? ''
-				if (newStatus === lastStatus || !newStatus) { continue }
-				lastStatus = newStatus
+		const observer = new MutationObserver((mutations,) => {
+			void (async () => {
+				for (const mutation of mutations) {
+					if (mutation.type !== 'attributes') { continue }
+					const newStatus = postEl.getAttribute('mod-status',) ?? ''
+					if (newStatus === lastStatus || !newStatus) { continue }
+					lastStatus = newStatus
 
-				const data = await getDomainTagsData(subreddit,)
-				const match = findTagForDomain(domain, data.tags,)
-				if (!match) { continue }
+					const data = await getDomainTagsData(subreddit,)
+					const match = findTagForDomain(domain, data.tags,)
+					if (!match) { continue }
 
-				if (newStatus === 'approved') {
-					await incrementDomainStat(subreddit, domain, 'approve',)
-				} else if (newStatus === 'removed' || newStatus === 'spam') {
-					await incrementDomainStat(subreddit, domain, 'remove',)
+					if (newStatus === 'approved') {
+						await incrementDomainStat(subreddit, domain, 'approve',)
+					} else if (newStatus === 'removed' || newStatus === 'spam') {
+						await incrementDomainStat(subreddit, domain, 'remove',)
+					}
 				}
-			}
+			})()
 		},)
 
 		observer.observe(postEl, {attributes: true, attributeFilter: ['mod-status',],},)
@@ -630,15 +632,17 @@ export function createDomainTaggerHandlers (
 					approvalCount={currentTag?.approvalCount ?? 0}
 					removalCount={currentTag?.removalCount ?? 0}
 					initialPosition={{top: event.pageY - 10, left: event.pageX - 50,}}
-					onSave={async (tag: DomainTag,) => {
-						onClose()
-						try {
-							await saveDomainTag(subreddit, tag,)
-						} catch (err: unknown) {
-							log.debug(err,)
-							return
-						}
-						onAfterSave()
+					onSave={(tag: DomainTag,) => {
+						void (async () => {
+							onClose()
+							try {
+								await saveDomainTag(subreddit, tag,)
+							} catch (err: unknown) {
+								log.debug(err,)
+								return
+							}
+							onAfterSave()
+						})()
 					}}
 					onClose={onClose}
 				/>
@@ -701,7 +705,7 @@ export function createDomainTaggerHandlers (
 				getLinkThings()
 					.filter((el,) => el.classList.contains('dt-processed',))
 					.forEach((el,) => el.classList.remove('dt-processed',))
-				run()
+				void run()
 			},
 		}, event,)
 	}
@@ -718,7 +722,7 @@ export function createDomainTaggerHandlers (
 
 		handleNewThings () {
 			log.debug('run called from NER support',)
-			run()
+			void run()
 		},
 
 		initShreddit () {

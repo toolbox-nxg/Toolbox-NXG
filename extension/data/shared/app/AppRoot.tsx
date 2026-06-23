@@ -10,7 +10,7 @@ import {TBContextMenu,} from './TBContextMenu'
 import {TextFeedbackContainer,} from './TextFeedbackContainer'
 
 /** Renders the Redux Provider and mounts all global Toolbox overlay containers. */
-export default function () {
+export default function AppRoot () {
 	return (
 		<Provider store={store}>
 			<div className="toolbox-app-root">

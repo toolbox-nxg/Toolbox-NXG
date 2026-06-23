@@ -16,7 +16,7 @@ vi.mock('webextension-polyfill', () => ({
 // messageHandling.ts runs its module-level addListener call.
 import {handleMessage, registerMessageHandler,} from './messageHandling'
 
-const fakeSender = {} as any
+const fakeSender = {} as unknown as browser.Runtime.MessageSender
 
 describe('registerMessageHandler / handleMessage', () => {
 	it('registers handleMessage as the runtime onMessage listener', () => {
@@ -73,7 +73,7 @@ describe('registerMessageHandler / handleMessage', () => {
 	it('rejects tab-originated messages from non-Reddit senders', () => {
 		const warn = vi.spyOn(console, 'warn',).mockImplementation(() => {},)
 		const handler = vi.fn()
-		const sender = {tab: {url: 'https://notreddit.com/r/toolbox',},} as any
+		const sender = {tab: {url: 'https://notreddit.com/r/toolbox',},} as unknown as browser.Runtime.MessageSender
 		registerMessageHandler('toolbox-reload', handler,)
 
 		expect(handleMessage({action: 'toolbox-reload',}, sender,),).toBeUndefined()
@@ -92,7 +92,7 @@ describe('registerMessageHandler / handleMessage', () => {
 
 	it('accepts tab-originated messages from HTTPS Reddit senders', async () => {
 		const handler = vi.fn().mockReturnValue('ok',)
-		const sender = {tab: {url: 'https://old.reddit.com/r/toolbox',},} as any
+		const sender = {tab: {url: 'https://old.reddit.com/r/toolbox',},} as unknown as browser.Runtime.MessageSender
 		registerMessageHandler('toolbox-reload', handler,)
 
 		const result = await handleMessage({action: 'toolbox-reload',}, sender,)
@@ -133,7 +133,7 @@ describe('registerMessageHandler / handleMessage', () => {
 
 	it('accepts messages from HTTPS redd.it senders', async () => {
 		const handler = vi.fn().mockReturnValue('ok',)
-		const reddItSender = {tab: {url: 'https://v.redd.it/embed/abc',},} as any
+		const reddItSender = {tab: {url: 'https://v.redd.it/embed/abc',},} as unknown as browser.Runtime.MessageSender
 		registerMessageHandler('toolbox-reload', handler,)
 
 		const result = await handleMessage({action: 'toolbox-reload',}, reddItSender,)
@@ -145,7 +145,7 @@ describe('registerMessageHandler / handleMessage', () => {
 	it('rejects messages from HTTP reddit.com senders', () => {
 		const warn = vi.spyOn(console, 'warn',).mockImplementation(() => {},)
 		const handler = vi.fn()
-		const httpSender = {tab: {url: 'http://old.reddit.com/r/toolbox',},} as any
+		const httpSender = {tab: {url: 'http://old.reddit.com/r/toolbox',},} as unknown as browser.Runtime.MessageSender
 		registerMessageHandler('toolbox-reload', handler,)
 
 		expect(handleMessage({action: 'toolbox-reload',}, httpSender,),).toBeUndefined()

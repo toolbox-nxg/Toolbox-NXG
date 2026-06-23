@@ -2,6 +2,7 @@
 import {removeThing,} from '../../../api/resources/things'
 import {getUserListingPage,} from '../../../api/resources/users'
 import {registerItemSubreddit, unregisterItemSubreddit,} from '../../../util/infra/captureGuard'
+import type {ProfileListingPage,} from './ProfileOverlay.helpers'
 
 /** Running totals reported back to the panel as the scan progresses. */
 export interface BulkRemoveProgress {
@@ -46,15 +47,14 @@ export async function bulkRemoveUserContent (
 	let after: string | undefined
 
 	while (!opts.isCancelled()) {
-		// eslint-disable-next-line no-await-in-loop
-		const data: any = await getUserListingPage(user, 'overview', {
+		const data = await getUserListingPage<ProfileListingPage>(user, 'overview', {
 			raw_json: '1',
 			after: after ?? '',
 			sort: 'new',
 			limit: '100',
 			t: 'all',
 		},)
-		const children: any[] = data.data.children ?? []
+		const children = data.data.children ?? []
 		totalScanned += children.length
 		opts.onProgress({scanned: totalScanned, removed: totalRemoved,},)
 
@@ -65,7 +65,6 @@ export async function bulkRemoveUserContent (
 			const fullname: string = item.data.name
 			registerItemSubreddit(subreddit, fullname,)
 			try {
-				// eslint-disable-next-line no-await-in-loop
 				await removeThing(fullname,)
 			} finally {
 				unregisterItemSubreddit(fullname,)

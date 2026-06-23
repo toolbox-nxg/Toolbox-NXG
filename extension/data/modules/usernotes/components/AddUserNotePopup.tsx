@@ -590,7 +590,7 @@ export function AddUserNotePopup ({
 					onKeyDown={(event,) => {
 						if (event.key === 'Enter') {
 							event.preventDefault()
-							handleSave()
+							void handleSave()
 						}
 					}}
 				/>
@@ -628,7 +628,7 @@ export function AddUserNotePopup ({
 						</label>
 					)}
 					{error && <span className={css.error}>{error}</span>}
-					<ActionButton type="button" primary disabled={saveDisabled} onClick={handleSave}>
+					<ActionButton type="button" primary disabled={saveDisabled} onClick={() => void handleSave()}>
 						{saving ? 'Saving...' : editingNoteId === undefined ? `Save for /r/${subreddit}` : 'Save Edit'}
 					</ActionButton>
 				</div>
@@ -676,7 +676,7 @@ export function AddUserNotePopup ({
 					onKeyDown={(event,) => {
 						if (event.key === 'Enter') {
 							event.preventDefault()
-							handleNativeSave()
+							void handleNativeSave()
 						}
 					}}
 				/>
@@ -734,7 +734,7 @@ export function AddUserNotePopup ({
 						</label>
 					)}
 					{nativeError && <span className={css.error}>{nativeError}</span>}
-					<ActionButton type="button" primary disabled={nativeSaving} onClick={handleNativeSave}>
+					<ActionButton type="button" primary disabled={nativeSaving} onClick={() => void handleNativeSave()}>
 						{nativeSaving ? 'Saving...' : `Save for /r/${subreddit}`}
 					</ActionButton>
 				</div>

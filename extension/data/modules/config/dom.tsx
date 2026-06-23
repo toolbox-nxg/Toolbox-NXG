@@ -175,7 +175,7 @@ function buildConfigTabs (
 			contentNode: <UsernotesSettingsTab
 				state={state}
 				saveRef={save.usernoteSettings}
-				onSave={(config, reason,) => saveToolboxConfig(state.subreddit!, config, reason,)}
+				onSave={(config, reason,) => void saveToolboxConfig(state.subreddit!, config, reason,)}
 			/>,
 			footer: <ActionButton primary type="button" onClick={() => save.usernoteSettings.current?.()}>
 				Save usernotes settings
@@ -187,7 +187,7 @@ function buildConfigTabs (
 			contentNode: <TrainingSettingsTab
 				state={state}
 				saveRef={save.trainingSettings}
-				onSave={(config, reason,) => saveToolboxConfig(state.subreddit!, config, reason,)}
+				onSave={(config, reason,) => void saveToolboxConfig(state.subreddit!, config, reason,)}
 			/>,
 			footer: <ActionButton primary type="button" onClick={() => save.trainingSettings.current?.()}>
 				Save training mode settings
@@ -307,7 +307,7 @@ function buildConfigTabs (
 				saveRef={save.banMacro}
 				onSave={(banMacros,) => {
 					state.config.banMacros = banMacros
-					saveToolboxConfig(state.subreddit!, state.config, 'updated ban macro',)
+					void saveToolboxConfig(state.subreddit!, state.config, 'updated ban macro',)
 				}}
 			/>,
 			footer: <ActionButton primary type="button" onClick={() => save.banMacro.current?.()}>
@@ -418,7 +418,7 @@ export function createConfigOpenHandlers (unManager: boolean,): ConfigOpenHandle
 	function onToggleRetiredShards (checked: boolean,) {
 		if (!state.subreddit) { return }
 		state.config.showRetiredUsernoteShards = checked
-		saveToolboxConfig(state.subreddit, state.config, 'updated usernote shard visibility',)
+		void saveToolboxConfig(state.subreddit, state.config, 'updated usernote shard visibility',)
 		void refreshShardTabs()
 	}
 
@@ -444,8 +444,8 @@ export function createConfigOpenHandlers (unManager: boolean,): ConfigOpenHandle
 
 	function openConfigForSubreddit (subreddit: string,) {
 		state.subreddit = subreddit
-		getWikiReadPath('settings', subreddit,).then((page,) =>
-			readFromWiki<Record<string, any>>(subreddit, page, true,)
+		void getWikiReadPath('settings', subreddit,).then((page,) =>
+			readFromWiki<Record<string, unknown>>(subreddit, page, true,)
 		).then(async (response,) => {
 			if (!response.ok) {
 				if (response.reason === 'invalid_json') {
@@ -456,9 +456,10 @@ export function createConfigOpenHandlers (unManager: boolean,): ConfigOpenHandle
 				}
 				state.config = defaultConfig
 			} else {
-				state.config = response.data
-				purifyObject(state.config,)
-				normalizeConfig(state.config,)
+				const loaded = response.data
+				purifyObject(loaded,)
+				normalizeConfig(loaded,)
+				state.config = loaded
 				if (!isConfigValidVersion(subreddit, state.config,)) {
 					negativeTextFeedback(
 						`This version of Toolbox-NXG is not compatible with the /r/${subreddit} configuration.`,

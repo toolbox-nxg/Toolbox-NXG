@@ -14,7 +14,7 @@ import {type DomainTag,} from './schema'
  */
 export function matchesGlob (domain: string, pattern: string,): boolean {
 	const regex = new RegExp(
-		'^' + pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&',).replace(/\*/g, '.*',) + '$',
+		`^${pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&',).replace(/\*/g, '.*',)}$`,
 	)
 	return regex.test(domain,)
 }

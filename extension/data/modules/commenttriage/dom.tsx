@@ -139,7 +139,7 @@ export function createCommentTriageHandlers (
 	adapter: CommentTriageAdapter,
 ): CommentTriageHandlers {
 	let sorted = false
-	let pending: Array<() => void> = []
+	const pending: Array<() => void> = []
 	let started = false
 
 	/** Walks the comment tree upward from `el`, adding `className` to every ancestor comment. */
@@ -183,7 +183,7 @@ export function createCommentTriageHandlers (
 			if (childCount !== null && thing instanceof HTMLElement) {
 				thing.dataset.nchildren = String(childCount,)
 			}
-			scoreAndAnnotate(thing,)
+			void scoreAndAnnotate(thing,)
 		},)
 
 		if (highlightControversy) {

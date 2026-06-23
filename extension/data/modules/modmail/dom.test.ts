@@ -1,5 +1,6 @@
 /** Tests for formatRecentModmailTimestamp. */
 
+import type {ReactElement,} from 'react'
 import {afterEach, beforeEach, describe, expect, it, vi,} from 'vitest'
 
 const feedback = vi.hoisted(() => ({
@@ -9,12 +10,16 @@ const feedback = vi.hoisted(() => ({
 const uiLocations = vi.hoisted(() => ({
 	provideLocation: vi.fn(() => () => {}),
 	renderAtLocation: vi.fn(
-		(_location: string, _opts: {id: string}, fn: (args: {context: any; target: Element},) => any,) => {
+		(
+			_location: string,
+			_opts: {id: string},
+			fn: (args: {context: unknown; target: Element},) => ReactElement | null,
+		) => {
 			uiLocations.lastRenderFn = fn
 			return () => {}
 		},
 	),
-	lastRenderFn: null as ((args: {context: any; target: Element},) => any) | null,
+	lastRenderFn: null as ((args: {context: unknown; target: Element},) => ReactElement | null) | null,
 }))
 
 vi.mock('../../store/feedback', () => feedback,)

@@ -20,6 +20,7 @@ import createLogger from '../../util/infra/logging'
 import {isOldReddit, RedditPlatform,} from '../../util/infra/platform'
 import {getModuleSettingAsync,} from '../../util/persistence/settings'
 import {pageDetails, postSite,} from '../../util/reddit/pageContext'
+import type {ThingInfo,} from '../../util/reddit/thingInfo'
 import {getApiThingInfo,} from '../../util/reddit/thingInfo'
 import {getConfig,} from '../config/moduleapi'
 import {proposeOrRemove,} from '../shared/proposals/gateway'
@@ -164,7 +165,7 @@ export async function openRemovalOverlayForProposal ({
 	acceptGate?: RemovalAcceptGate
 	onAccepted: () => void
 },): Promise<{ok: true; close: () => void} | {ok: false; reason: 'no-reasons' | 'error'}> {
-	let info: any
+	let info: ThingInfo
 	try {
 		info = await getApiThingInfo(subreddit, fullname, false,)
 	} catch (error) {
@@ -456,7 +457,7 @@ export function createRemovalReasonsHandlers ({
 		const drawerGeneration = drawerMode ? ++drawerOpenGeneration : 0
 		const drawerRequestIsCurrent = () => !drawerMode || drawerGeneration === drawerOpenGeneration
 
-		let info: any
+		let info: ThingInfo
 		try {
 			info = await getApiThingInfo(thingSubreddit, thingID, false,)
 		} catch (error) {
@@ -593,7 +594,7 @@ export function createRemovalReasonsHandlers ({
 			if (thing && pendingRemoveButton) {
 				const stopObserving = lifecycle.observe(thing, () => {
 					if (!thing.classList.contains('spammed',)) {
-						stopObserving()
+						void stopObserving()
 						pendingRemoveButton.textContent = originalRemoveButtonText
 						pendingRemoveButton.style.opacity = ''
 						pendingRemoveButton.style.filter = ''

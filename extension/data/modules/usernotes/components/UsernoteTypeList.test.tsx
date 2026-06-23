@@ -22,7 +22,7 @@ vi.mock('../../config/moduleapi', () => ({
 	saveToolboxConfig: vi.fn().mockResolvedValue(undefined,),
 }),)
 vi.mock('../../shared/usernotes/moduleapi', () => ({getUserNotes, saveUserNotes,}),)
-;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true
+;(globalThis as {IS_REACT_ACT_ENVIRONMENT?: boolean}).IS_REACT_ACT_ENVIRONMENT = true
 
 import {SortModeRef,} from '../../../shared/controls/SortToggleButton'
 import type {ConfigState,} from '../../../util/wiki/schemas/config/schema'
@@ -147,7 +147,7 @@ describe('UsernoteTypeList', () => {
 		},)
 
 		expect(saveUserNotes,).toHaveBeenCalledTimes(1,)
-		const savedTypes = (saveUserNotes.mock.calls[0]![1] as any).types as UserNoteColor[]
+		const savedTypes = (saveUserNotes.mock.calls[0]![1] as {types: UserNoteColor[]}).types
 		expect(savedTypes,).toHaveLength(2,)
 		expect(savedTypes[0],).toEqual(
 			{key: 'gooduser', text: 'Good Contributor', color: 'green', colorDark: '#53b953',},

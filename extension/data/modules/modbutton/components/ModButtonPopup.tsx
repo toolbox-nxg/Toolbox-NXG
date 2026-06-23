@@ -19,6 +19,7 @@ import {negativeTextFeedback, neutralTextFeedback, positiveTextFeedback,} from '
 import {startSpinner, stopSpinner,} from '../../../store/spinnerSlice'
 import {replaceTokens,} from '../../../util/data/string'
 import createLogger from '../../../util/infra/logging'
+import type {ThingInfo,} from '../../../util/reddit/thingInfo'
 import {useFetched,} from '../../../util/ui/hooks'
 import {ModNotesPager,} from '../../shared/modnotes/ModNotesPager'
 
@@ -50,7 +51,7 @@ const log = createLogger('ModButton',)
 /** Props for the ModButtonPopup component. */
 interface ModButtonPopupProps {
 	/** Normalized thing/author info used to pre-populate ban fields and token replacement. */
-	info: any
+	info: ThingInfo
 	initialPosition: {top: number; left: number}
 	/** Whether to restore the last-used action type when the popup opens. */
 	rememberLastAction: boolean
@@ -95,8 +96,8 @@ export function ModButtonPopup ({
 	const [activeSub, setActiveSub,] = useState<string>(contextSub,)
 
 	// Action select
-	const initialAction = (getDefaultActionForUrl()
-		?? (rememberLastAction ? (lastAction as ActionKind) : 'ban')) as ActionKind
+	const initialAction = getDefaultActionForUrl()
+		?? (rememberLastAction ? (lastAction as ActionKind) : 'ban')
 	const [actionType, setActionType,] = useState<ActionKind>(initialAction,)
 
 	// Subreddit selection state
@@ -156,7 +157,7 @@ export function ModButtonPopup ({
 	const [userModlogLoaded, setUserModlogLoaded,] = useState(false,)
 
 	// Mod subs list
-	const modSubs = (useFetched(getModSubs(false,),) as string[] | undefined) ?? []
+	const modSubs = (useFetched(getModSubs(false,),)) ?? []
 
 	// Moderated subs eligible for global actions (excludeGlobal filtered out)
 	const globalTargetSubs = useMemo(
@@ -231,8 +232,8 @@ export function ModButtonPopup ({
 
 		actions.getBanMacros(activeSub,).then((macros: BanMacros | null,) => {
 			if (cancelled || !macros) { return }
-			if (macros.banNote) { setBanNote(replaceTokens(info, macros.banNote,),) }
-			if (macros.banMessage) { setBanMessage(replaceTokens(info, macros.banMessage,),) }
+			if (macros.banNote) { setBanNote(replaceTokens(info as Record<string, string>, macros.banNote,),) }
+			if (macros.banMessage) { setBanMessage(replaceTokens(info as Record<string, string>, macros.banMessage,),) }
 			const permanent = macros.defaultBanPermanent !== false
 			setBanPermanent(permanent,)
 			let presets: number[] = DEFAULT_BAN_PRESETS
@@ -249,7 +250,7 @@ export function ModButtonPopup ({
 		},).catch((error: unknown,) => {
 			log.error('Failed to load ban macros:', error,)
 		},)
-		;(async () => {
+		void (async () => {
 			setSubStatuses((prev,) => new Map(prev,).set(activeSub, loadingStatus,))
 			const currentUserName = currentUser || await getCurrentUser()
 			if (cancelled) { return }
@@ -346,7 +347,7 @@ export function ModButtonPopup ({
 
 	useEffect(() => {
 		if (!activeSub || !user || activeTabIndex !== 1 || flairLoaded) { return }
-		;(async () => {
+		void (async () => {
 			try {
 				const [userFlairInfo, userFlairTemplates,] = await Promise.all([
 					getFlairSelector(activeSub, user,),
@@ -435,11 +436,11 @@ export function ModButtonPopup ({
 			const response = error instanceof Error ? (error as RequestError).response : undefined
 			if (response) {
 				try {
-					const data = await response.json()
+					const data = await response.json() as {fields?: string[]; explanation?: string; message?: string}
 					if (data.fields && Array.isArray(data.fields,)) {
 						message = `${data.fields.join(', ',)}: ${data.explanation}`
 					} else {
-						message = data.message
+						message = data.message ?? message
 					}
 				} catch { /* keep original message */ }
 			}
@@ -473,7 +474,7 @@ export function ModButtonPopup ({
 			else { next.delete(subreddit,) }
 			return next
 		},)
-		if (checked) { loadSubStatus(subreddit,) }
+		if (checked) { void loadSubStatus(subreddit,) }
 	}
 
 	// Auto-uncheck subs that become non-applicable when status loads or action changes
@@ -516,7 +517,7 @@ export function ModButtonPopup ({
 					: banMessage
 				await actions.ban({
 					user,
-					subreddit: subreddit,
+					subreddit,
 					note: banNote,
 					banMessage: messageToSend,
 					banDuration: banPermanent ? 0 : parseInt(banDuration, 10,) || 0,
@@ -542,7 +543,7 @@ export function ModButtonPopup ({
 				await actions.removeModerator(subreddit, user,)
 				break
 			case 'mute':
-				await actions.muteUser({user, subreddit: subreddit, duration: muteDuration,},)
+				await actions.muteUser({user, subreddit, duration: muteDuration,},)
 				break
 			case 'unmute':
 				await actions.unmuteUser(subreddit, user,)
@@ -582,7 +583,7 @@ export function ModButtonPopup ({
 	const runMassAction = async (subs: string[],) => {
 		const failed = await executeOnSubs(subs,)
 		if (failed.length > 0) {
-			requestConfirm(`${failed.length} failed again. Retry?`, () => runMassAction(failed,),)
+			requestConfirm(`${failed.length} failed again. Retry?`, () => void runMassAction(failed,),)
 		} else {
 			onClose()
 		}
@@ -605,16 +606,18 @@ export function ModButtonPopup ({
 		if (isGlobal) {
 			requestConfirm(
 				`This will ${actionType} /u/${user} on ${globalTargetSubs.length} subreddits. Are you sure?`,
-				async () => {
-					const failed = await executeOnSubs(globalTargetSubs,)
-					if (failed.length > 0) {
-						requestConfirm(
-							`Action complete, however ${failed.length} failed. Retry?`,
-							() => runMassAction(failed,),
-						)
-					} else {
-						onClose()
-					}
+				() => {
+					void (async () => {
+						const failed = await executeOnSubs(globalTargetSubs,)
+						if (failed.length > 0) {
+							requestConfirm(
+								`Action complete, however ${failed.length} failed. Retry?`,
+								() => void runMassAction(failed,),
+							)
+						} else {
+							onClose()
+						}
+					})()
 				},
 			)
 			return
@@ -630,7 +633,7 @@ export function ModButtonPopup ({
 		if (failed.length > 0) {
 			requestConfirm(
 				`Action complete, however ${failed.length} failed. Retry?`,
-				() => runMassAction(failed,),
+				() => void runMassAction(failed,),
 			)
 		} else {
 			onClose()
@@ -645,9 +648,11 @@ export function ModButtonPopup ({
 		}
 		const failed = await executeUnbanOnSubs(targetSubs,)
 		if (failed.length > 0) {
-			requestConfirm(`Unban complete, however ${failed.length} failed. Retry?`, async () => {
-				await executeUnbanOnSubs(failed,)
-				onClose()
+			requestConfirm(`Unban complete, however ${failed.length} failed. Retry?`, () => {
+				void (async () => {
+					await executeUnbanOnSubs(failed,)
+					onClose()
+				})()
 			},)
 		} else {
 			onClose()
@@ -756,9 +761,11 @@ export function ModButtonPopup ({
 							</option>
 						))}
 					</ActionSelect>
-					<ActionButton primary onClick={() => handleSave(isGlobalMode,)}>Save</ActionButton>
+					<ActionButton primary onClick={() => void handleSave(isGlobalMode,)}>Save</ActionButton>
 					{actionType === 'change ban' && (
-						<ActionButton className={css.unbanButton} onClick={handleUnban}>Unban</ActionButton>
+						<ActionButton className={css.unbanButton} onClick={() => void handleUnban()}>
+							Unban
+						</ActionButton>
 					)}
 				</>
 			)
@@ -766,11 +773,13 @@ export function ModButtonPopup ({
 		footer = (
 			<>
 				<span className={classes(css.status, css.error,)}>{status}</span>
-				<ActionButton onClick={handleFlairSave}>Save Flair</ActionButton>
+				<ActionButton onClick={() => void handleFlairSave()}>Save Flair</ActionButton>
 			</>
 		)
 	} else if (activeTabIndex === 2) {
-		footer = <ActionButton disabled={!modmailSub} onClick={handleSendModmail}>Send Modmail</ActionButton>
+		footer = <ActionButton disabled={!modmailSub} onClick={() => void handleSendModmail()}>
+			Send Modmail
+		</ActionButton>
 	}
 
 	const tabItems = [
@@ -953,7 +962,7 @@ export function ModButtonPopup ({
 							effectiveMaxMessage={effectiveMaxMessage}
 							notesSuggestError={notesSuggestError}
 							showFromNotes={!!activeSub}
-							onSuggestFromNotes={handleSuggestFromNotes}
+							onSuggestFromNotes={() => void handleSuggestFromNotes()}
 							onSelectPreset={(days,) => {
 								setBanDuration(String(days,),)
 								setBanPermanent(false,)

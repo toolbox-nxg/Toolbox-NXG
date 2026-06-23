@@ -7,6 +7,8 @@ vi.mock('../util/ui/reactMount', () => ({
 	mountToTarget: mockMountToTarget,
 }),)
 
+import type {Lifecycle,} from '../framework/lifecycle'
+import {RedditPlatform,} from '../util/infra/platform'
 import {
 	provideLocation,
 	refreshProvidedLocation,
@@ -17,7 +19,7 @@ import {
 
 // shared context fixture
 const ctx: UILocationContext = {
-	platform: 0 as any, // RedditPlatform.Old
+	platform: RedditPlatform.Old,
 	kind: 'post',
 	author: 'testuser',
 	subreddit: 'testsub',
@@ -71,7 +73,7 @@ describe('renderAtLocation', () => {
 
 	it('registers cleanup with provided lifecycle', () => {
 		const mountMock = vi.fn()
-		const lifecycle = {mount: mountMock,} as any
+		const lifecycle = {mount: mountMock,} as unknown as Lifecycle
 
 		const render = vi.fn(() => null)
 		renderAtLocation('thingDetails', {id: 'test.lc', lifecycle,}, render,)
@@ -256,14 +258,14 @@ describe('renderer subscription', () => {
 	it('renderer added after provideLocation notifies the mounted component', () => {
 		// Use a real subscription listener to verify the notification mechanism
 		// without needing to render React (mountToTarget is mocked).
-		mockMountToTarget.mockImplementationOnce((_content: unknown, _target: unknown, _opts: unknown,) => {
+		mockMountToTarget.mockImplementationOnce((_content: unknown, _target: unknown, _opts: unknown,) =>
 			// Capture the subscription call from the LocationRenderers component
 			// by hooking into the module-level listener registration.
 			// We simulate what LocationRenderers does internally:
 			// subscribe via the module-private subscribeToLocationRenderers.
 			// Since we can't call it directly, we verify side-effects via notification count.
-			return vi.fn()
-		},)
+			vi.fn()
+		)
 
 		const target = document.createElement('div',)
 		document.body.appendChild(target,)

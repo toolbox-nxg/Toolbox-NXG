@@ -16,9 +16,10 @@ vi.mock('../../../api/resources/subreddits', () => ({
 // uiLocations transitively loads the webextension polyfill, which throws outside a
 // browser. StickyButton itself never touches it, so a stub keeps the import graph clean.
 vi.mock('../../../dom/uiLocations', () => ({renderAtLocation: vi.fn(),}),)
-;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true
+;(globalThis as {IS_REACT_ACT_ENVIRONMENT?: boolean}).IS_REACT_ACT_ENVIRONMENT = true
 
 import {getSubredditListing,} from '../../../api/resources/subreddits'
+import type {RedditListing,} from '../../../api/resources/subreddits'
 import {proposeOrSticky, proposeOrUnsticky,} from '../../shared/proposals/gateway'
 import {StickyButton,} from './stickyButtons'
 
@@ -83,7 +84,7 @@ describe('StickyButton', () => {
 
 	it('shows "sticky slot 2" when the subreddit already has a sticky', async () => {
 		mockGetSubredditListing.mockResolvedValue(
-			{kind: 'Listing', data: {children: [{},], after: null, before: null,},} as any,
+			{kind: 'Listing', data: {children: [{},], after: null, before: null,},} as RedditListing,
 		)
 		const host = await renderButton(makeThing(),)
 
@@ -106,7 +107,7 @@ describe('StickyButton', () => {
 
 	it('stickies into slot 2 on click', async () => {
 		mockGetSubredditListing.mockResolvedValue(
-			{kind: 'Listing', data: {children: [{},], after: null, before: null,},} as any,
+			{kind: 'Listing', data: {children: [{},], after: null, before: null,},} as RedditListing,
 		)
 		const host = await renderButton(makeThing(),)
 

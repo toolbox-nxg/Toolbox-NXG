@@ -1,6 +1,7 @@
 /** Popup window that displays comment context for a specific comment thread in a floating overlay. */
 import {useLayoutEffect, useMemo, useRef,} from 'react'
 
+import type {CommentData, RedditMoreChildren, RedditThing,} from '../../../api/resources/things'
 import {getCommentEntryByCommentId,} from '../../../dom/shreddit/comments'
 import {Window,} from '../../../shared/window/Window'
 import {purifyObject,} from '../../../util/data/purify'
@@ -16,13 +17,8 @@ interface ContextPopupProps {
 	title: string
 	/** Initial screen position of the popup. */
 	initialPosition: {top: number; left: number}
-	/**
-	 * Raw Reddit API comment data objects to render.
-	 * Typed as `any[]` because `TBCommentChildren` (the consumer) already accepts `any[]`;
-	 * a narrower type here would require a full Reddit Listing/Comment type definition
-	 * without providing additional runtime safety.
-	 */
-	commentsData: any[]
+	/** Raw Reddit API comment/more child objects to render (forwarded to `TBCommentChildren`). */
+	commentsData: (RedditThing<CommentData> | RedditMoreChildren)[]
 	/** If provided, the comment with this ID will be highlighted. */
 	highlightCommentId?: string
 	/** Called when the popup is closed. */
@@ -40,12 +36,11 @@ function ContextPopup (
 ) {
 	const containerRef = useRef<HTMLDivElement>(null,)
 
-	const purifiedData = useMemo(() => {
-		return commentsData.map((item,) => {
+	const purifiedData = useMemo(() =>
+		commentsData.map((item,) => {
 			purifyObject(item,)
 			return item
-		},)
-	}, [commentsData,],)
+		},), [commentsData,],)
 
 	useLayoutEffect(() => {
 		if (!containerRef.current) { return }

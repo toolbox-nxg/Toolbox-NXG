@@ -14,7 +14,7 @@ const ACTION_MATCH_TOLERANCE_SECONDS = 5
 export type GetActions = (
 	subreddit: string,
 	fullName: string,
-	callback: (result: Record<string, any> | false,) => void,
+	callback: (result: Record<string, ActionEntry> | false,) => void,
 ) => void
 
 /** Mod/user report lists for a queue item whose reports have been ignored. */
@@ -86,7 +86,7 @@ export function useItemActions (
 	useEffect(() => {
 		if (!enabled || !subreddit) { return }
 		let alive = true
-		checkIsMod(subreddit,).then((mod,) => {
+		void checkIsMod(subreddit,).then((mod,) => {
 			if (alive) { setIsMod(mod,) }
 		},)
 		return () => {
@@ -98,7 +98,7 @@ export function useItemActions (
 		if (!isMod || !subreddit || !thingId) { return }
 		let alive = true
 		getActions(subreddit, thingId, (result,) => {
-			if (alive) { setActions(result as Record<string, ActionEntry> | false,) }
+			if (alive) { setActions(result,) }
 		},)
 		return () => {
 			alive = false

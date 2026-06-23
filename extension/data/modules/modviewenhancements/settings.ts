@@ -23,7 +23,7 @@ export const settings = defineSettings(
 		{
 			id: 'subredditColorOverrides',
 			type: 'map',
-			default: {} as Record<string, string>,
+			default: {},
 			labels: ['subreddit', 'color (#rrggbb)',],
 			description:
 				'Override the auto-generated border color for specific subreddits. Enter the subreddit name and a hex color (e.g. #ff0000). Only applies when subreddit color borders are enabled.',

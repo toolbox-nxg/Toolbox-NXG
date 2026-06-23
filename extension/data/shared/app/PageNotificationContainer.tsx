@@ -71,14 +71,14 @@ export function PageNotificationContainer () {
 
 		// notify the background page that the notification should also be
 		// removed from other tabs
-		browser.runtime.sendMessage(
+		void browser.runtime.sendMessage(
 			{action: 'toolbox-page-notification-clear', id,} satisfies TbPageNotificationClearMessage,
 		)
 	}
 
 	// Handle clicks elsewhere on the notification
 	function handleClick (id: string,) {
-		browser.runtime.sendMessage(
+		void browser.runtime.sendMessage(
 			{action: 'toolbox-page-notification-click', id,} satisfies TbPageNotificationClickMessage,
 		)
 	}

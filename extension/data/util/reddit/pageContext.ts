@@ -25,8 +25,18 @@ export const baseDomain = `https://${window.location.hostname}`
 /** Returns the URL as-is. Exists as a hook point for future URL transformation needs. */
 export const link = (l: string,) => l
 
-/** The page context object from the most recent `TBNewPage` event. */
-export let pageDetails: Record<string, any> = {}
+/**
+ * The page context from the most recent `TBNewPage` event. This is the whole
+ * `TBPageContext` (matching `event.detail`), so per-page fields live under the
+ * nested `pageDetails.pageDetails` (e.g. `pageDetails.pageDetails.subreddit`),
+ * while `pageType` is top-level.
+ */
+export let pageDetails: TBPageContext = {
+	oldHref: undefined,
+	locationHref: location.href,
+	pageType: '',
+	pageDetails: {},
+}
 
 export const isEditUserPage = location.pathname.match(/\/about\/(?:contributors|moderator|banned)\/?/,)
 export const isModpage = location.pathname.match(/\/about\/(?:reports|modqueue|spam|unmoderated|edited)\/?/,)

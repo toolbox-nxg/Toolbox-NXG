@@ -26,7 +26,7 @@ import {stripLayoutMetadata,} from '../../wikiConstants'
 import type {DomainTag,} from '../domaintags/schema'
 import {tokensToHtmlFields,} from '../shared/tokens'
 import type {UserNoteColor,} from '../usernotes/schema'
-import {configSchema, normalizeConfig, type ToolboxConfig,} from './schema'
+import {configSchema, type LegacyConfig, normalizeConfig, type ToolboxConfig,} from './schema'
 
 /**
  * Down-converts one reason/header/footer text: tokens -> legacy HTML (each
@@ -53,8 +53,8 @@ export function encodeClassicConfig (
 	config: ToolboxConfig,
 	domainTags?: DomainTag[],
 	usernoteColors?: UserNoteColor[],
-): Record<string, any> {
-	const classic = stripLayoutMetadata(structuredClone(config,),) as ToolboxConfig
+): LegacyConfig {
+	const classic = stripLayoutMetadata(structuredClone(config,),) as unknown as LegacyConfig
 
 	classic.ver = 1
 
@@ -111,10 +111,12 @@ export function encodeClassicConfig (
 	// the per-type ban/archive/dark-mode extras) are dropped to keep the mirror
 	// a clean v1 object; the dedicated NXG pages remain authoritative for them.
 	if (domainTags?.length) {
-		;(classic as any).domainTags = domainTags.map(({name, color, note,},) => ({name, color, note,}))
+		classic.domainTags = domainTags.map(({name, color, note,},) =>
+			note !== undefined ? {name, color, note,} : {name, color,}
+		)
 	}
 	if (usernoteColors?.length) {
-		;(classic as any).usernoteColors = usernoteColors.map(({key, text, color,},) => ({key, text, color,}))
+		classic.usernoteColors = usernoteColors.map(({key, text, color,},) => ({key, text, color,}))
 	}
 
 	return classic
@@ -142,12 +144,12 @@ export const configCodec: WikiPageCodec<ToolboxConfig> = {
 		} catch {
 			return {ok: false, reason: 'The config page is not a recognized toolbox config.',}
 		}
-		return {ok: true, data: obj as ToolboxConfig,}
+		return {ok: true, data: obj,}
 	},
 	serialize: (data,) => JSON.stringify(data,),
 	empty () {
 		const config = {ver: configSchema,}
 		normalizeConfig(config,)
-		return config as ToolboxConfig
+		return config
 	},
 }

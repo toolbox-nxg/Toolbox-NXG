@@ -9,6 +9,71 @@ import {cleanSubredditName,} from './reddit-domain'
 const permaCommentLinkRegex = /(\/(?:r|user)\/[^/]*?\/comments\/[^/]*?\/)([^/]*?)(\/[^/]*?\/?)$/
 
 /**
+ * The raw Reddit thing `data` fields read by {@link getApiThingInfo}. Only the consumed fields are
+ * modeled; the index signature covers the rest (and keeps the cast from `Record<string, unknown>`
+ * valid). Plain-text `body`/`selftext` are distinct from the rendered `*_html` variants.
+ */
+interface ApiThingData {
+	author?: string
+	body?: string
+	selftext?: string
+	permalink?: string
+	title?: string
+	url?: string
+	domain?: string
+	approved_by?: string | null
+	banned_by?: string | boolean | null
+	spam?: boolean
+	removed?: boolean
+	user_reports?: [string, string,][]
+	mod_reports?: [string, string,][]
+	user_reports_dismissed?: [string, string,][]
+	mod_reports_dismissed?: [string, string,][]
+	ignore_reports?: boolean
+	[key: string]: unknown
+}
+
+/**
+ * Normalized, flat thing (submission/comment) info produced by {@link getApiThingInfo} (from the
+ * Reddit API) and {@link getThingInfo} (from a Toolbox-rendered DOM element). Fields absent from
+ * one producer or the other are optional.
+ */
+export interface ThingInfo {
+	subreddit: string
+	user: string
+	author: string
+	permalink: string
+	url: string
+	domain: string
+	fullname: string
+	id: string
+	body: string
+	raw_body: string
+	uri_body: string
+	approved_by?: string | null
+	title: string
+	uri_title: string
+	kind: 'submission' | 'comment'
+	postlink: string
+	link: string
+	banned_by?: string | boolean | null
+	spam?: boolean | string
+	ham?: boolean | string
+	rules: string
+	sidebar: string
+	wiki: string
+	mod: Awaited<ReturnType<typeof getCurrentUser>>
+	userReports?: [string, string,][]
+	modReports?: [string, string,][]
+	userReportsDismissed?: [string, string,][]
+	modReportsDismissed?: [string, string,][]
+	reportsIgnored?: boolean
+	// Token replacement (replaceTokens) and macro code read fields dynamically by name, so keep an
+	// index signature; unlisted fields surface as `unknown` and must be narrowed at the use site.
+	[key: string]: unknown
+}
+
+/**
  * Thrown by {@link getApiThingInfo} when the Reddit API returns an empty listing for a
  * fullname - a definitive "not found" (deleted/removed thing), as opposed to a transient
  * error. Callers can branch on `instanceof ThingNotFoundError` instead of matching the
@@ -47,19 +112,19 @@ export function isInfoRemoved (info: {ham?: unknown; spam?: unknown; banned_by?:
  * @param fullname Fullname of the thing (e.g. `t3_abc123`).
  * @param modCheck When true, returns an empty subreddit field if the current user is not a mod there.
  */
-export async function getApiThingInfo (subreddit: string, fullname: string, modCheck?: boolean,) {
+export async function getApiThingInfo (subreddit: string, fullname: string, modCheck?: boolean,): Promise<ThingInfo> {
 	const response = await getApiThingInfoById(subreddit, fullname,)
 	const thing = response.data?.children?.[0]
 	if (!thing) {
 		throw new ThingNotFoundError(fullname, subreddit,)
 	}
-	// Cast to Record<string, any>: getApiThingInfo is the adapter layer that reads
-	// many optional fields from raw API data; the loose cast is intentional here.
-	const thingData = thing.data as Record<string, any>
+	// getApiThingInfo is the adapter layer that reads many optional fields from raw API data;
+	// `ApiThingData` models the consumed fields with an index signature for the rest.
+	const thingData = thing.data as ApiThingData
 
-	let user = thingData.author
+	let user = thingData.author ?? ''
 	const body = thingData.body || thingData.selftext || ''
-	let permalink = thingData.permalink
+	let permalink = thingData.permalink ?? ''
 	const title = thingData.title || ''
 	const postlink = thingData.url || ''
 	subreddit = cleanSubredditName(subreddit,)
@@ -93,27 +158,27 @@ export async function getApiThingInfo (subreddit: string, fullname: string, modC
 		body: `> ${body.split('\n',).join('\n> ',)}`,
 		raw_body: body,
 		uri_body: encodeURIComponent(body,).replace(/\\/g, '\\\\',).replace(/\)/g, '\\)',),
-		approved_by: thingData.approved_by,
+		approved_by: thingData.approved_by ?? null,
 		title,
 		uri_title: encodeURIComponent(title,).replace(/\\/g, '\\\\',).replace(/\)/g, '\\)',),
 		kind: thing.kind === 't3' ? 'submission' : 'comment',
 		postlink,
 		link: postlink,
-		banned_by: thingData.banned_by,
-		spam: thingData.spam,
-		ham: thingData.removed,
+		banned_by: thingData.banned_by ?? null,
+		spam: thingData.spam ?? false,
+		ham: thingData.removed ?? false,
 		rules: subreddit ? link(`/r/${subreddit}/about/rules`,) : '',
 		sidebar: subreddit ? link(`/r/${subreddit}/about/sidebar`,) : '',
 		wiki: subreddit ? link(`/r/${subreddit}/wiki/index`,) : '',
 		mod: await getCurrentUser(),
-		userReports: thingData.user_reports,
-		modReports: thingData.mod_reports,
+		userReports: thingData.user_reports ?? [],
+		modReports: thingData.mod_reports ?? [],
 		// When a post/comment is removed or its reports are ignored, Reddit moves the reports out
 		// of user_reports/mod_reports and into these *_dismissed arrays (leaving the active arrays
 		// empty), so anything wanting to surface dismissed reports must read these.
-		userReportsDismissed: thingData.user_reports_dismissed,
-		modReportsDismissed: thingData.mod_reports_dismissed,
-		reportsIgnored: thingData.ignore_reports,
+		userReportsDismissed: thingData.user_reports_dismissed ?? [],
+		modReportsDismissed: thingData.mod_reports_dismissed ?? [],
+		reportsIgnored: thingData.ignore_reports ?? false,
 	}
 }
 
@@ -122,7 +187,7 @@ export async function getApiThingInfo (subreddit: string, fullname: string, modC
  * @param sender Any element inside a `.toolbox-thing`; the nearest ancestor is used.
  * @param modCheck When true, returns null if the current user is not a mod in the thing's subreddit.
  */
-export async function getThingInfo (sender: Element | null, modCheck?: boolean,): Promise<any> {
+export async function getThingInfo (sender: Element | null, modCheck?: boolean,): Promise<ThingInfo | null> {
 	if (!sender) { return null }
 
 	const currentUser = await getCurrentUser()

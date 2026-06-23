@@ -3,6 +3,8 @@
 import {getCurrentUser,} from '../../../api/resources/me'
 import {sendModmail,} from '../../../api/resources/modmail'
 import {addContributor, addModerator, removeContributor, removeModerator,} from '../../../api/resources/relationships'
+import type {RedditListing,} from '../../../api/resources/subreddits'
+import type {RedditContentThing,} from '../../../api/resources/things'
 import {removeThing,} from '../../../api/resources/things'
 import {getUserListingPage,} from '../../../api/resources/users'
 import {AuthorButton,} from '../../../shared/controls/AuthorButton'
@@ -10,6 +12,7 @@ import {GeneralButton,} from '../../../shared/controls/GeneralButton'
 import {negativeTextFeedback,} from '../../../store/feedback'
 import {registerItemSubreddit, unregisterItemSubreddit,} from '../../../util/infra/captureGuard'
 import {link,} from '../../../util/reddit/pageContext'
+import type {ThingInfo,} from '../../../util/reddit/thingInfo'
 import {getApiThingInfo,} from '../../../util/reddit/thingInfo'
 import {drawPosition,} from '../../../util/ui/drawPosition'
 import {getConfig,} from '../../config/moduleapi'
@@ -108,15 +111,14 @@ function createActions (): ModButtonActions {
 			}
 			let after: string | undefined
 			while (true) {
-				// eslint-disable-next-line no-await-in-loop
-				const data: any = await getUserListingPage(user, 'overview', {
+				const data = await getUserListingPage<RedditListing<RedditContentThing>>(user, 'overview', {
 					raw_json: '1',
 					after: after ?? '',
 					sort: 'new',
 					limit: '100',
 					t: 'all',
 				},)
-				const children: any[] = data.data.children ?? []
+				const children = data.data.children ?? []
 				for (const item of children) {
 					if (item.data?.subreddit?.toLowerCase() !== subreddit.toLowerCase()) { continue }
 					if (item.data?.banned_by) { continue }
@@ -129,7 +131,6 @@ function createActions (): ModButtonActions {
 					// itself was already refused upfront, so the loop never runs for them.)
 					registerItemSubreddit(subreddit, fullname,)
 					try {
-						// eslint-disable-next-line no-await-in-loop
 						await removeThing(fullname,)
 					} finally {
 						unregisterItemSubreddit(fullname,)
@@ -147,7 +148,7 @@ function createActions (): ModButtonActions {
 			await sendModmail(params,)
 		},
 		async getBanMacros (subreddit,) {
-			const config: any = await getConfig(subreddit,)
+			const config = await getConfig(subreddit,)
 			if (!config || typeof config.banMacros !== 'object' || !config.banMacros) { return null }
 			return config.banMacros as BanMacros
 		},
@@ -191,7 +192,7 @@ export function ModButtonUserRoot ({
 
 		const positions = drawPosition(e.nativeEvent as MouseEvent,)
 
-		let info: any
+		let info: ThingInfo
 		if (!parentId || !subreddit || parentId === 'unknown' || parentId === 'undefined') {
 			info = {
 				subreddit,
@@ -200,6 +201,7 @@ export function ModButtonUserRoot ({
 				permalink: location.href,
 				url: location.href,
 				domain: '',
+				fullname: parentId,
 				id: parentId,
 				body: '>',
 				raw_body: '',
@@ -241,7 +243,7 @@ export function ModButtonUserRoot ({
 
 	const Button = authorButton ? AuthorButton : GeneralButton
 	return (
-		<Button type="button" className={className} title={titleText} onClick={handleClick}>
+		<Button type="button" className={className} title={titleText} onClick={(e,) => void handleClick(e,)}>
 			{label}
 		</Button>
 	)

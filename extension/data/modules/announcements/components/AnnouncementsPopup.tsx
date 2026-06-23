@@ -28,7 +28,7 @@ function AnnouncementsPopup ({notes, onClose,}: Props,) {
 	// never on the initial render. So a quick reload that never engages the popup
 	// leaves every note unseen, and only notes actually viewed get hidden later.
 	useEffect(() => () => {
-		markSeen(note.id,)
+		void markSeen(note.id,)
 	}, [note.id,],)
 
 	return (

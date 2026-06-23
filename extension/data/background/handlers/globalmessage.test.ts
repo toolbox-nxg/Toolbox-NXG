@@ -1,6 +1,7 @@
 /** Tests for global message handler. */
 
 import {beforeEach, describe, expect, it, vi,} from 'vitest'
+import type browser from 'webextension-polyfill'
 
 const registerMessageHandler = vi.hoisted(() => vi.fn())
 const handleMessage = vi.hoisted(() => vi.fn())
@@ -33,7 +34,7 @@ describe('global message handler', () => {
 	it('broadcasts to other reddit tabs and the background handler', async () => {
 		registerGlobalMessageHandlers()
 		const handler = registerMessageHandler.mock.calls[0]![1]
-		const sender = {tab: {id: 1,},} as any
+		const sender = {tab: {id: 1,},} as unknown as browser.Runtime.MessageSender
 
 		await handler({globalEvent: 'TBGlobal', payload: {ok: true,},}, sender,)
 
@@ -47,7 +48,9 @@ describe('global message handler', () => {
 	it('scopes the broadcast to the sender container', async () => {
 		registerGlobalMessageHandlers()
 		const handler = registerMessageHandler.mock.calls[0]![1]
-		const sender = {tab: {id: 1, cookieStoreId: 'firefox-container-1',},} as any
+		const sender = {
+			tab: {id: 1, cookieStoreId: 'firefox-container-1',},
+		} as unknown as browser.Runtime.MessageSender
 
 		await handler({globalEvent: 'TBGlobal', excludeBackground: true,}, sender,)
 
@@ -61,7 +64,10 @@ describe('global message handler', () => {
 		registerGlobalMessageHandlers()
 		const handler = registerMessageHandler.mock.calls[0]![1]
 
-		await handler({globalEvent: 'TBGlobal', excludeBackground: true,}, {tab: {id: 1,},} as any,)
+		await handler(
+			{globalEvent: 'TBGlobal', excludeBackground: true,},
+			{tab: {id: 1,},} as unknown as browser.Runtime.MessageSender,
+		)
 
 		expect(handleMessage,).not.toHaveBeenCalled()
 	})
@@ -72,7 +78,7 @@ describe('global message handler', () => {
 		registerGlobalMessageHandlers()
 		const handler = registerMessageHandler.mock.calls[0]![1]
 
-		await handler({globalEvent: 'TBGlobal',}, {tab: {id: 1,},} as any,)
+		await handler({globalEvent: 'TBGlobal',}, {tab: {id: 1,},} as unknown as browser.Runtime.MessageSender,)
 		await Promise.resolve()
 
 		expect(warn,).toHaveBeenCalledWith(

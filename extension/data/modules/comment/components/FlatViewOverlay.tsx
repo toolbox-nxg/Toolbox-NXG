@@ -5,6 +5,7 @@
 import {useEffect, useRef, useState,} from 'react'
 
 import {getCommentsPageListing,} from '../../../api/resources/comments'
+import type {CommentData, RedditThing,} from '../../../api/resources/things'
 import {Backdrop,} from '../../../shared/window/Backdrop'
 import {Window,} from '../../../shared/window/Window'
 import store from '../../../store'
@@ -45,9 +46,13 @@ function FlatViewOverlay ({openContextInPopup, onClose,}: FlatViewOverlayProps,)
 		const sitetable = sitetableRef.current
 		if (!sitetable) { return }
 
-		const flatListing: Record<string, any> = {}
+		const flatListing: Record<string, RedditThing<CommentData>> = {}
 		let idListing: string[] = []
 
+		// Recursive walk over heterogeneous comment-tree nodes (Listing / t1 / more) that also
+		// deep-clones and reads dynamic fields; `RedditThing.kind` being a broad string makes a
+		// typed discriminated walk impractical here.
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped recursive JSON walk
 		function parseComments (object: any,) {
 			switch (object.kind) {
 				case 'Listing':
@@ -55,17 +60,19 @@ function FlatViewOverlay ({openContextInPopup, onClose,}: FlatViewOverlayProps,)
 						parseComments(object.data.children[i],)
 					}
 					break
-				case 't1':
-					flatListing[object.data.id] = JSON.parse(JSON.stringify(object,),)
+				case 't1': {
+					const cloned = JSON.parse(JSON.stringify(object,),)
+					flatListing[object.data.id] = cloned
 					idListing.push(object.data.id,)
 					if (
-						Object.prototype.hasOwnProperty.call(flatListing[object.data.id].data, 'replies',)
-						&& flatListing[object.data.id].data.replies
-						&& typeof flatListing[object.data.id].data.replies === 'object'
+						Object.prototype.hasOwnProperty.call(cloned.data, 'replies',)
+						&& cloned.data.replies
+						&& typeof cloned.data.replies === 'object'
 					) {
 						parseComments(object.data.replies,)
 					}
 					break
+				}
 			}
 		}
 
@@ -73,6 +80,9 @@ function FlatViewOverlay ({openContextInPopup, onClose,}: FlatViewOverlayProps,)
 		let finishTimeoutId: ReturnType<typeof setTimeout> | null = null
 		store.dispatch(startSpinner(),)
 		neutralTextFeedback('Fetching comment data.',)
+		// The fetched listing is augmented in place (`isreply`) before the recursive parse, so it is
+		// consumed as `any` rather than the read-only RedditCommentPageListing[] return type.
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- listing is mutated before parsing
 		getCommentsPageListing(location.pathname,).then(async (data: any,) => {
 			if (cancelled) { return }
 			if (!data?.[1]) { return }
@@ -94,9 +104,10 @@ function FlatViewOverlay ({openContextInPopup, onClose,}: FlatViewOverlayProps,)
 				count++
 				neutralTextFeedback(`Building comment ${count}/${idListing.length}`,)
 				const item = flatListing[id]
+				if (!item) { return }
 				// Strip nested replies so each comment is rendered standalone in
 				// the flat list (replies appear as their own entries via idListing).
-				if (item?.data) { item.data.replies = '' }
+				item.data.replies = ''
 				const comment = makeSingleComment(item, commentOptions,)
 				sitetableRef.current.appendChild(comment,)
 			},)
@@ -108,7 +119,7 @@ function FlatViewOverlay ({openContextInPopup, onClose,}: FlatViewOverlayProps,)
 				if (sitetableRef.current) { tbRedditEvent(sitetableRef.current,) }
 				store.dispatch(stopSpinner(),)
 			}, 1000,)
-		},)
+		},).catch((error: unknown,) => log.error(error,))
 
 		return () => {
 			cancelled = true

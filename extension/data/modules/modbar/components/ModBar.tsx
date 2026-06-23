@@ -122,11 +122,9 @@ export function ModBar ({
 		setSetting('modbarHidden', hidden,)
 	}, [hidden,],)
 
-	useEffect(() => {
-		return () => {
-			document.body.classList.remove('toolbox-modbar-shown',)
-			clearTimeout(hoverTimeoutRef.current,)
-		}
+	useEffect(() => () => {
+		document.body.classList.remove('toolbox-modbar-shown',)
+		clearTimeout(hoverTimeoutRef.current,)
 	}, [],)
 
 	useEffect(() => {

@@ -43,7 +43,7 @@ export const configMaxSchema = 2
  * @param config The parsed config object to validate.
  * @returns True if the version is compatible, false otherwise.
  */
-export function isConfigValidVersion (subreddit: string, config: any,) {
+export function isConfigValidVersion (subreddit: string, config: ToolboxConfig,) {
 	if (config.ver < configMinSchema || config.ver > configMaxSchema) {
 		log.error(
 			`config version ${config.ver} for /r/${subreddit} is outside the supported range `
@@ -125,6 +125,32 @@ export interface ToolboxConfig {
 	 * to 14.
 	 */
 	proposalRetentionDays?: number
+}
+
+/** Minimal domain-tag shape stored inline on the legacy `toolbox` config page (6.x reads it from there). */
+export interface LegacyDomainTag {
+	name: string
+	color: string
+	note?: string
+}
+
+/** Minimal usernote-color shape stored inline on the legacy `toolbox` config page. */
+export interface LegacyUsernoteColor {
+	key: string
+	text: string
+	color: string
+}
+
+/**
+ * The classic v1 config shape as stored on the legacy `toolbox` wiki page that
+ * Toolbox 6.x reads: a {@link ToolboxConfig} plus the `domainTags` and
+ * `usernoteColors` arrays 6.x keeps inline (NXG moves both to dedicated pages).
+ * This is the wire shape produced by `encodeClassicConfig`; raw pages read off
+ * the wiki are coerced back to {@link ToolboxConfig} by {@link normalizeConfig}.
+ */
+export interface LegacyConfig extends ToolboxConfig {
+	domainTags?: LegacyDomainTag[]
+	usernoteColors?: LegacyUsernoteColor[]
 }
 
 /** Default empty toolbox config used when a subreddit has no existing wiki page. */
@@ -294,14 +320,16 @@ export function migrateConfig (config: ToolboxConfig,): void {
  * strings; this normalizes them to plain text on load so save paths don't need
  * to re-encode.
  */
-function decodeAllStrings (target: any,): void {
+function decodeAllStrings (target: unknown,): void {
 	if (!target || typeof target !== 'object') { return }
-	const items: [string | number, any,][] = Array.isArray(target,)
-		? target.map((value, index,) => [index, value,])
-		: Object.entries(target,)
-	for (const [key, value,] of items) {
+	const record = target as Record<string | number, unknown>
+	const keys: (string | number)[] = Array.isArray(target,)
+		? target.map((_value, index,) => index)
+		: Object.keys(record,)
+	for (const key of keys) {
+		const value = record[key]
 		if (typeof value === 'string') {
-			;(target as any)[key] = tbDecode(value,)
+			record[key] = tbDecode(value,)
 		} else {
 			decodeAllStrings(value,)
 		}
@@ -324,7 +352,12 @@ function decodeAllStrings (target: any,): void {
  *   {@link upconvertReasonHtml})
  * - Ensures every removal reason and macro has a stable `id`
  */
-export function normalizeConfig (config: any,): asserts config is ToolboxConfig {
+export function normalizeConfig (configInput: unknown,): asserts configInput is ToolboxConfig {
+	// Untrusted wiki JSON coerced in place: every field below is runtime-validated before the
+	// ToolboxConfig assertion holds. A single mutable alias keeps that defensive field work readable.
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- in-place normalization of arbitrary parsed JSON
+	const config = configInput as Record<string, any>
+
 	// ver: default to the classic version if missing or non-numeric, so the
 	// decode gate and migrations below see a concrete version.
 	if (typeof config.ver !== 'number') { config.ver = 1 }
@@ -353,8 +386,8 @@ export function normalizeConfig (config: any,): asserts config is ToolboxConfig 
 	if (!Array.isArray(config.modMacros,)) { config.modMacros = [] }
 	// domainTags and usernoteColors live on their own wiki pages. Delete both
 	// fields if present so they don't round-trip back into the config page.
-	delete (config as any).domainTags
-	delete (config as any).usernoteColors
+	delete config.domainTags
+	delete config.usernoteColors
 
 	// banMacros: must be a non-array object; anything else (including legacy '') -> null
 	if (!config.banMacros || typeof config.banMacros !== 'object' || Array.isArray(config.banMacros,)) {
@@ -406,11 +439,15 @@ export function normalizeConfig (config: any,): asserts config is ToolboxConfig 
 /** Mutable state shared between the config overlay and all tab components for a single open session. */
 export interface ConfigState {
 	/** The live (possibly mutated) config object loaded from the wiki, or the default if no page exists. */
-	config: any
+	config: ToolboxConfig
 	/** The subreddit whose config is currently loaded, or null/undefined when no overlay is open. */
 	subreddit: string | null | undefined
+	// The flair-template types live in api/resources/flair and a modbutton component, which schema.ts
+	// must not import (module layering); these stay loosely typed here and are narrowed at the consumers.
 	/** Cached post flair templates for the current subreddit, or null if not yet loaded. */
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- see note above
 	postFlairTemplates: any
 	/** Cached user flair templates for the current subreddit, or null if not yet loaded. */
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- see note above
 	userFlairTemplates: any
 }

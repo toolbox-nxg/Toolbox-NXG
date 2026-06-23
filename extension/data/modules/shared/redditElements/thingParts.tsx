@@ -8,6 +8,7 @@
 import {useEffect, useState,} from 'react'
 import browser from 'webextension-polyfill'
 
+import type {ThingModData,} from '../../../api/resources/things'
 import type {TbModqueueMessage,} from '../../../background/messages'
 
 import {link,} from '../../../util/reddit/pageContext'
@@ -21,12 +22,12 @@ type ReportTuple = [string, string,]
  * @param thing The raw Reddit API thing data (`comment.data` / `submission.data`).
  * @param status The derived moderation status from {@link deriveThingStatus}.
  */
-export function useFilteredFromQueue (thing: any, status: string,): boolean {
+export function useFilteredFromQueue (thing: ThingModData, status: string,): boolean {
 	const [filteredFromQueue, setFilteredFromQueue,] = useState(false,)
 
 	useEffect(() => {
 		if (status === 'removed' || status === 'spammed') {
-			browser.runtime.sendMessage(
+			void browser.runtime.sendMessage(
 				{
 					action: 'toolbox-modqueue',
 					subreddit: thing.subreddit,
@@ -57,7 +58,7 @@ export function getVoteState (likes: boolean | null,): 'liked' | 'disliked' | 'n
  *   comments, the post permalink for submissions.
  */
 export function buildAuthorAttrs (
-	thing: any,
+	thing: ThingModData,
 	submitterHref: string,
 ): {authorStatus: string; authorAttrs: React.ReactNode[]} {
 	let authorStatus = 'toolbox-regular'

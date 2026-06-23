@@ -1,6 +1,8 @@
 /** Developer tool for rendering Reddit comment/thread/listing UI elements and testing in-page notifications. */
 import {useRef, useState,} from 'react'
 
+import type {RedditListing,} from '../../../api/resources/subreddits'
+import type {CommentData, RedditContentThing, RedditMoreChildren, RedditThing,} from '../../../api/resources/things'
 import {ActionButton,} from '../../../shared/controls/ActionButton'
 import {Backdrop,} from '../../../shared/window/Backdrop'
 import {Window,} from '../../../shared/window/Window'
@@ -18,7 +20,12 @@ import css from './CommentUITester.module.css'
 /** Props for the CommentUITester component. */
 export interface CommentUITesterProps {
 	onClose: () => void
-	/** Fetches a Reddit JSON listing for the given path (or absolute URL when `absolute` is true). */
+	/**
+	 * Fetches a Reddit JSON listing for the given path (or absolute URL when `absolute` is true).
+	 * Returns `any` because this devtools tester fetches arbitrary dev-entered URLs whose response
+	 * shape varies with the URL and the selected render mode.
+	 */
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- arbitrary dev-entered listing JSON
 	fetchListing: (url: string, absolute: boolean,) => Promise<any>
 }
 
@@ -34,22 +41,25 @@ export function CommentUITester ({onClose, fetchListing,}: CommentUITesterProps,
 		if (!siteTableRef.current) { return }
 		siteTableRef.current.replaceChildren()
 		if (!url) { return }
-		const data = await fetchListing(url, absolute,)
+		const data: unknown = await fetchListing(url, absolute,)
 		const commentOptions = {
 			parentLink: true,
 			contextLink: true,
 			fullCommentsLink: true,
 		}
 		if (mode === 'thread') {
-			const comments = makeCommentThread(data[1].data.children, commentOptions,)
+			const thread = data as [unknown, RedditListing<RedditThing<CommentData> | RedditMoreChildren>,]
+			const comments = makeCommentThread(thread[1].data.children, commentOptions,)
 			siteTableRef.current.appendChild(comments,)
 			tbRedditEvent(comments,)
 		} else if (mode === 'single') {
-			const comment = makeSingleComment(data[1].data.children[0], commentOptions,)
+			const thread = data as [unknown, RedditListing<RedditThing<CommentData>>,]
+			const comment = makeSingleComment(thread[1].data.children[0]!, commentOptions,)
 			siteTableRef.current.appendChild(comment,)
 			tbRedditEvent(comment,)
 		} else {
-			await forEachChunkedDynamic(data.data.children, (entry: any,) => {
+			const listing = data as RedditListing<RedditContentThing>
+			await forEachChunkedDynamic(listing.data.children, (entry: RedditContentThing,) => {
 				if (entry.kind === 't3' && siteTableRef.current) {
 					const submission = makeSubmissionEntry(entry,)
 					siteTableRef.current.appendChild(submission,)
@@ -60,7 +70,7 @@ export function CommentUITester ({onClose, fetchListing,}: CommentUITesterProps,
 	}
 
 	function fireNotification () {
-		notification(notifTitle, notifBody, notifPath,)
+		void notification(notifTitle, notifBody, notifPath,)
 	}
 
 	return (
@@ -88,9 +98,11 @@ export function CommentUITester ({onClose, fetchListing,}: CommentUITesterProps,
 							/>
 							absolute URL
 						</label>
-						<ActionButton onClick={() => fetchAndRender('single',)}>fetch single</ActionButton>
-						<ActionButton onClick={() => fetchAndRender('thread',)}>fetch thread</ActionButton>
-						<ActionButton onClick={() => fetchAndRender('listing',)}>fetch submission listing</ActionButton>
+						<ActionButton onClick={() => void fetchAndRender('single',)}>fetch single</ActionButton>
+						<ActionButton onClick={() => void fetchAndRender('thread',)}>fetch thread</ActionButton>
+						<ActionButton onClick={() => void fetchAndRender('listing',)}>
+							fetch submission listing
+						</ActionButton>
 					</div>
 					<div className={css.notifSection}>
 						<h1>Notification tester</h1>

@@ -16,9 +16,10 @@ export function createSettingsNavigationHandlers () {
 	return {
 		cleanup: lifecycle.cleanup,
 		handleHashParams (event: Event,) {
-			let module: string | undefined = (event as CustomEvent).detail?.tbsettings
+			const detail = (event as CustomEvent<{tbsettings?: string; setting?: string} | null>).detail
+			let module: string | undefined = detail?.tbsettings
 			if (!module) { return }
-			let setting: string | undefined = (event as CustomEvent).detail?.setting
+			let setting: string | undefined = detail?.setting
 			module = module.toLowerCase()
 
 			if (setting) {
@@ -36,9 +37,11 @@ export function createSettingsNavigationHandlers () {
 
 			// One-shot navigation: open settings after a short delay to allow the hash to be consumed.
 			// Routed through lifecycle.timeout so it is cancelled if the module is disabled before it fires.
-			lifecycle.timeout(async () => {
-				history.pushState('', document.title, window.location.pathname,)
-				await TBModule.showSettings()
+			lifecycle.timeout(() => {
+				void (async () => {
+					history.pushState('', document.title, window.location.pathname,)
+					await TBModule.showSettings()
+				})()
 			}, 500,)
 		},
 	}

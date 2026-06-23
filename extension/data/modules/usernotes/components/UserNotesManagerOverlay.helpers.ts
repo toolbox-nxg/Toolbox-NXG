@@ -517,7 +517,7 @@ export function createPrunePreview (
 	now = Date.now(),
 	sampleSize = 20,
 ): PrunePreview {
-	const nextUsers: Record<string, UsernotesUser> = JSON.parse(JSON.stringify(users,),)
+	const nextUsers = JSON.parse(JSON.stringify(users,),) as Record<string, UsernotesUser>
 	const totalNotes = Object.values(nextUsers,).reduce((acc, user,) => acc + user.notes.length, 0,)
 	const totalUsers = Object.keys(nextUsers,).length
 	const sampleRows: PrunePreviewRow[] = []

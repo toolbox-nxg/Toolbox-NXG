@@ -43,6 +43,10 @@ function useCommentLockToggle (comment: Element, initialLocked: boolean,) {
 		if (!(comment instanceof HTMLElement)) { return }
 		setProcessing(true,)
 		const info = await getThingInfo(comment, true,)
+		if (!info) {
+			setProcessing(false,)
+			return
+		}
 		try {
 			const ctx = {
 				subreddit: info.subreddit,
@@ -82,7 +86,7 @@ function CommentLockButton ({initialLocked, comment,}: CommentLockButtonProps,) 
 		<a
 			className="toolbox-comment-lock-button"
 			style={{opacity: processing ? 0.5 : undefined, cursor: 'pointer',}}
-			onClick={toggle}
+			onClick={() => void toggle()}
 		>
 			{action}
 		</a>
@@ -180,7 +184,7 @@ export function createCommentLockHandlers () {
 	}
 
 	function commentLockRun () {
-		forEachChunkedDynamic(getUncheckedComments('toolbox-lock-button',), processComment,)
+		void forEachChunkedDynamic(getUncheckedComments('toolbox-lock-button',), processComment,)
 	}
 
 	return {commentLockRun, cleanup: scope.cleanup,}

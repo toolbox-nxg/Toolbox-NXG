@@ -4,9 +4,9 @@
 import {afterEach, beforeEach, describe, expect, it, vi,} from 'vitest'
 
 const sendMessage = vi.hoisted(() =>
-	vi.fn(async (msg: any,) => {
+	vi.fn(async (msg: {action?: string; blob?: string},) => {
 		if (msg?.action === 'toolbox-usernote-decompress') {
-			return {users: JSON.parse(atob(msg.blob,),),}
+			return {users: JSON.parse(atob(msg.blob ?? '',),),}
 		}
 	},)
 )
@@ -59,6 +59,7 @@ vi.mock('../../../util/wiki/wikiPaths', () => ({
 }),)
 
 import {postToWiki, readFromWiki,} from '../../../api/resources/wiki'
+import type {WikiReadResult,} from '../../../api/resources/wiki'
 import {nowInSeconds,} from '../../../util/data/time'
 import {getCache, setCache,} from '../../../util/persistence/cache'
 import {encodeNotesShard, encodeUsernotesV6,} from '../../../util/wiki/schemas/usernotes/codec'
@@ -110,8 +111,8 @@ function makeUser (name: string, note = `note for ${name}`,): UsernotesUser {
 function mockWikiPages (pages: Record<string, string>,) {
 	vi.mocked(readFromWiki,).mockImplementation(async (_sub: string, page: string,) =>
 		pages[page] !== undefined
-			? {ok: true, data: pages[page],} as any
-			: {ok: false, reason: 'no_page',} as any
+			? {ok: true, data: pages[page],} as WikiReadResult
+			: {ok: false, reason: 'no_page',} as WikiReadResult
 	)
 }
 
@@ -228,7 +229,7 @@ describe('getUserNotes', () => {
 
 	it('throws "usernotes schema too old" for v5 data', async () => {
 		vi.mocked(readFromWiki,).mockResolvedValue(
-			{ok: true, data: JSON.stringify({ver: 5, users: {}, constants: {},},),} as any,
+			{ok: true, data: JSON.stringify({ver: 5, users: {}, constants: {},},),} as WikiReadResult,
 		)
 
 		await expect(getUserNotes('sub',),).rejects.toThrow('usernotes schema too old to be understood',)
@@ -408,7 +409,7 @@ describe('saveUserNotes', () => {
 
 		const legacyWrite = vi.mocked(postToWiki,).mock.calls.find((call,) => call[1] === 'usernotes')!
 		const legacyUsers = JSON.parse(atob((legacyWrite[2] as RawUsernotesBlob).blob,),)
-		const legacyTexts = legacyUsers['testuser'].ns.map((n: any,) => n.n)
+		const legacyTexts = legacyUsers['testuser'].ns.map((n: {n?: string},) => n.n)
 		// Both the 6.x note and the user's new note survive, nothing archived.
 		expect(legacyTexts.sort(),).toEqual(['added in 6.x', 'my new note', 'stored note',],)
 	})
@@ -417,8 +418,8 @@ describe('saveUserNotes', () => {
 		mockLayout('nxg', true,)
 		vi.mocked(readFromWiki,).mockImplementation(async (_sub: string, page: string,) =>
 			page === 'usernotes'
-				? {ok: false, reason: 'unknown_error',} as any
-				: {ok: false, reason: 'no_page',} as any
+				? {ok: false, reason: 'unknown_error',} as WikiReadResult
+				: {ok: false, reason: 'no_page',} as WikiReadResult
 		)
 
 		await expect(saveUserNotes('sub', {ver: 6, users: {testuser: makeUser('testuser',),},}, 'test',),)

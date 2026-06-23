@@ -1,6 +1,7 @@
 /** Tests for tabUtils. */
 
 import {beforeEach, describe, expect, it, vi,} from 'vitest'
+import type browser from 'webextension-polyfill'
 
 import {mockJwtCookie,} from './test-helpers'
 
@@ -71,7 +72,7 @@ describe('tabUtils', () => {
 		await expect(
 			getRedditSessionUserID({
 				tab: {url: 'https://old.reddit.com/r/test', cookieStoreId: 'firefox-store',},
-			} as any,),
+			} as unknown as browser.Runtime.MessageSender,),
 		).resolves.toBe('user',)
 
 		expect(cookies.get,).toHaveBeenCalledWith({
@@ -86,7 +87,9 @@ describe('tabUtils', () => {
 		cookies.get.mockResolvedValue({value: 'not-a-jwt',},)
 
 		await expect(
-			getRedditSessionUserID({tab: {url: 'https://old.reddit.com/r/test',},} as any,),
+			getRedditSessionUserID(
+				{tab: {url: 'https://old.reddit.com/r/test',},} as unknown as browser.Runtime.MessageSender,
+			),
 		).resolves.toBe('noSessionFallback',)
 		await expect(getRedditSessionJTI(),).resolves.toBe('noSessionFallback',)
 
@@ -98,7 +101,9 @@ describe('tabUtils', () => {
 		cookies.get.mockResolvedValue(mockJwtCookie({sub: 'not-a-user-fullname',},),)
 
 		await expect(
-			getRedditSessionUserID({tab: {url: 'https://old.reddit.com/r/test',},} as any,),
+			getRedditSessionUserID(
+				{tab: {url: 'https://old.reddit.com/r/test',},} as unknown as browser.Runtime.MessageSender,
+			),
 		).resolves.toBe('noSessionFallback',)
 
 		cookies.get.mockResolvedValue(mockJwtCookie({sub: 't2_user',},),)
@@ -106,8 +111,12 @@ describe('tabUtils', () => {
 	})
 
 	it('uses the no-session fallback when sender has no tab URL', async () => {
-		await expect(getRedditSessionUserID({} as any,),).resolves.toBe('noSessionFallback',)
-		await expect(getRedditSessionUserID({tab: {},} as any,),).resolves.toBe('noSessionFallback',)
+		await expect(getRedditSessionUserID({} as unknown as browser.Runtime.MessageSender,),).resolves.toBe(
+			'noSessionFallback',
+		)
+		await expect(getRedditSessionUserID({tab: {},} as unknown as browser.Runtime.MessageSender,),).resolves.toBe(
+			'noSessionFallback',
+		)
 		expect(cookies.get,).not.toHaveBeenCalled()
 	})
 

@@ -25,6 +25,7 @@ export interface JsonSpan {
 /** A successfully parsed document with per-node source spans. */
 export interface PositionalJsonResult {
 	/** The parsed value, identical to `JSON.parse` output. */
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- arbitrary parsed JSON, mirroring JSON.parse's any return
 	value: any
 	/**
 	 * Source span of every node, keyed by path: `''` is the root, object
@@ -126,11 +127,13 @@ export function parsePositionalJson (text: string,): PositionalJsonResult {
 		fail('unterminated string',)
 	}
 
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- recursive JSON parser producing arbitrary node values
 	function parseValue (path: string,): any {
 		skipWhitespace()
 		if (pos >= text.length) { fail('unexpected end of input',) }
 		const from = pos
 		const ch = text[pos]!
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- accumulates an arbitrary parsed JSON node
 		let value: any
 
 		if (ch === '{') {

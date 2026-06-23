@@ -195,20 +195,18 @@ export function MatrixTable ({state, sortedMods, onSort,}: Props,) {
 	}, [hideZeroColumns, actionCodes, sortedMods, modFilter, state.subredditModerators,],)
 
 	// Codes visible after action filter + zero hiding
-	const visibleActionCodes = useMemo(() => {
-		return actionCodes.filter((code,) => {
+	const visibleActionCodes = useMemo(() =>
+		actionCodes.filter((code,) => {
 			if (zeroCols.has(code,)) { return false }
 			if (actionFilter !== null && !actionFilter.includes(code,)) { return false }
 			return true
-		},)
-	}, [actionCodes, zeroCols, actionFilter,],)
+		},), [actionCodes, zeroCols, actionFilter,],)
 
 	// Groups filtered to only those with at least one visible code
-	const visibleGroups = useMemo(() => {
-		return allGroups
+	const visibleGroups = useMemo(() =>
+		allGroups
 			.map((g,) => ({...g, codes: g.codes.filter((c,) => visibleActionCodes.includes(c,)),}))
-			.filter((g,) => g.codes.length > 0)
-	}, [allGroups, visibleActionCodes,],)
+			.filter((g,) => g.codes.length > 0), [allGroups, visibleActionCodes,],)
 
 	const zeroMods = useMemo(() => {
 		if (!hideZeroMods) { return new Set<string>() }
@@ -231,13 +229,12 @@ export function MatrixTable ({state, sortedMods, onSort,}: Props,) {
 		[sortedMods, state, visibleActionCodes, visibleGroups,],
 	)
 
-	const grandTotal = useMemo(() => {
-		return displayMods.reduce((sum, mod,) => {
+	const grandTotal = useMemo(() =>
+		displayMods.reduce((sum, mod,) => {
 			if (modFilter !== null && !modFilter.includes(mod,)) { return sum }
 			if (zeroMods.has(mod,)) { return sum }
 			return sum + visibleActionCodes.reduce((s, a,) => s + (state.subredditModerators[mod]?.[a] ?? 0), 0,)
-		}, 0,)
-	}, [displayMods, state, modFilter, zeroMods, visibleActionCodes,],)
+		}, 0,), [displayMods, state, modFilter, zeroMods, visibleActionCodes,],)
 
 	function toggleGroup (label: string,) {
 		setExpandedGroups((prev,) => {
@@ -367,13 +364,15 @@ export function MatrixTable ({state, sortedMods, onSort,}: Props,) {
 						<td>Total</td>
 						{visibleGroups.map((group,) => {
 							const isExpanded = expandedGroups.has(group.label,)
-							const groupTotal = group.codes.reduce((sum, code,) => {
-								return sum + displayMods.reduce((s, mod,) => {
-									if (modFilter !== null && !modFilter.includes(mod,)) { return s }
-									if (zeroMods.has(mod,)) { return s }
-									return s + (state.subredditModerators[mod]?.[code] ?? 0)
-								}, 0,)
-							}, 0,)
+							const groupTotal = group.codes.reduce(
+								(sum, code,) =>
+									sum + displayMods.reduce((s, mod,) => {
+										if (modFilter !== null && !modFilter.includes(mod,)) { return s }
+										if (zeroMods.has(mod,)) { return s }
+										return s + (state.subredditModerators[mod]?.[code] ?? 0)
+									}, 0,),
+								0,
+							)
 							if (!isExpanded) {
 								return (
 									<td key={group.label} className={css.groupSubtotal}>

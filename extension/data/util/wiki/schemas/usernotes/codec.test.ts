@@ -21,7 +21,7 @@ import type {NxgUsernotesShardPage, UserNotesData, UsernotesUser,} from './schem
 
 /** Implements the background decompress message with real (node) zlib. */
 function mockBackgroundCodecs () {
-	sendMessage.mockImplementation(async (msg: any,) => {
+	sendMessage.mockImplementation(async (msg: {action?: string; blob?: string},) => {
 		if (msg.action === 'toolbox-usernote-decompress') {
 			const json = inflateSync(Buffer.from(msg.blob, 'base64',),).toString('latin1',)
 			return {users: JSON.parse(json,),}
@@ -351,7 +351,8 @@ describe('v6 codec', () => {
 	})
 
 	it('returns null for unknown schema versions', async () => {
-		expect(await decodeUsernotesV6({ver: 5,} as any, 'testsub',),).toBeNull()
+		expect(await decodeUsernotesV6({ver: 5,} as unknown as Parameters<typeof decodeUsernotesV6>[0], 'testsub',),)
+			.toBeNull()
 	})
 
 	it('passes the cache key through to the background decompressor', async () => {

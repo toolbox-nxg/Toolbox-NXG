@@ -12,7 +12,7 @@ import {getSettingAsync, setSettingAsync,} from '../../util/persistence/settings
 
 /** Returns the ids of announcement notes the user has already seen. */
 export async function getSeenIds (): Promise<string[]> {
-	return getSettingAsync(announcements, 'seenNotes', [],)
+	return getSettingAsync(announcements, 'seenNotes', [],) as Promise<string[]>
 }
 
 /**

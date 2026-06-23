@@ -1,6 +1,7 @@
 /** Tests for cache handlers. */
 
 import {beforeEach, describe, expect, it, vi,} from 'vitest'
+import type browser from 'webextension-polyfill'
 
 import {makeHandlerFinder, mockJwtCookie,} from './test-helpers'
 
@@ -19,7 +20,9 @@ import {registerCacheHandlers,} from './cache'
 const handlerFor = makeHandlerFinder(registerMessageHandler,)
 
 function sender () {
-	return {tab: {url: 'https://old.reddit.com/r/test', cookieStoreId: 'store',},} as any
+	return {
+		tab: {url: 'https://old.reddit.com/r/test', cookieStoreId: 'store',},
+	} as unknown as browser.Runtime.MessageSender
 }
 
 beforeEach(() => {

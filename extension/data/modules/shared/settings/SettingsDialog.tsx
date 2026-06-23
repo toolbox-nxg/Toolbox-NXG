@@ -2,6 +2,7 @@
 
 import {useCallback, useMemo, useRef, useState,} from 'react'
 import {buildPolicyMap,} from '../../../framework/module'
+import type {Module, StoredSetting,} from '../../../framework/module'
 import {ActionButton,} from '../../../shared/controls/ActionButton'
 import {CheckboxInput,} from '../../../shared/controls/CheckboxInput'
 import {Icon,} from '../../../shared/controls/Icon'
@@ -203,7 +204,7 @@ function CoreSettingsTab ({
 	onExport: (subreddit: string,) => Promise<void>
 	onImport: (subreddit: string,) => Promise<void>
 	onReset: () => Promise<void>
-	modules: any[]
+	modules: Module[]
 },) {
 	const settingSub = (localValues['Toolbox.Utils.settingSub'] ?? '') as string
 	const showExportReminder = !!(localValues['Toolbox.Modbar.showExportReminder'] ?? true)
@@ -224,7 +225,7 @@ function CoreSettingsTab ({
 	const [copied, setCopied,] = useState(false,)
 
 	if (showRaw && !rawText) {
-		getSettings().then((s,) => setRawText(JSON.stringify(s, null, 2,),))
+		void getSettings().then((s,) => setRawText(JSON.stringify(s, null, 2,),))
 	}
 
 	const anonymizeRaw = async () => {
@@ -306,10 +307,10 @@ function CoreSettingsTab ({
 					{confirmingUnsavedBackup
 						? (
 							<>
-								<ActionButton type="button" onClick={handleSaveAndExport}>
+								<ActionButton type="button" onClick={() => void handleSaveAndExport()}>
 									Save &amp; Backup
 								</ActionButton>
-								<ActionButton type="button" onClick={handleExportWithoutSaving}>
+								<ActionButton type="button" onClick={() => void handleExportWithoutSaving()}>
 									Backup without saving
 								</ActionButton>
 								<ActionButton type="button" onClick={() => setConfirmingUnsavedBackup(false,)}>
@@ -319,12 +320,14 @@ function CoreSettingsTab ({
 							</>
 						)
 						: (
-							<ActionButton type="button" onClick={handleExport}>Backup</ActionButton>
+							<ActionButton type="button" onClick={() => void handleExport()}>Backup</ActionButton>
 						)}
 					{confirmingRestore
 						? (
 							<>
-								<ActionButton type="button" onClick={handleImport}>Confirm restore</ActionButton>
+								<ActionButton type="button" onClick={() => void handleImport()}>
+									Confirm restore
+								</ActionButton>
 								<ActionButton type="button" onClick={() => setConfirmingRestore(false,)}>
 									Cancel
 								</ActionButton>
@@ -416,8 +419,10 @@ function CoreSettingsTab ({
 							onChange={() => {}}
 						/>
 						<div className={css.rawActions}>
-							<ActionButton type="button" onClick={anonymizeRaw}>Anonymize Settings</ActionButton>
-							<ActionButton type="button" onClick={copyRawToClipboard}>
+							<ActionButton type="button" onClick={() => void anonymizeRaw()}>
+								Anonymize Settings
+							</ActionButton>
+							<ActionButton type="button" onClick={() => void copyRawToClipboard()}>
 								{copied ? 'Copied!' : 'Copy to Clipboard'}
 							</ActionButton>
 						</div>
@@ -429,7 +434,7 @@ function CoreSettingsTab ({
 				{confirmingReset
 					? (
 						<>
-							<ActionButton type="button" onClick={onReset}>Confirm reset</ActionButton>
+							<ActionButton type="button" onClick={() => void onReset()}>Confirm reset</ActionButton>
 							<ActionButton type="button" onClick={() => setConfirmingReset(false,)}>Cancel</ActionButton>
 							<span className={css.backupNote}>
 								⚠ This erases all Toolbox settings and reloads the page!
@@ -452,7 +457,7 @@ function CoreSettingsTab ({
  * Help link to a module's documentation page on the Toolbox-NXG docs site. Renders
  * nothing for modules whose `docSlug` is empty (i.e. modules with no docs page).
  */
-function ModuleDocsLink ({module,}: {module: any},) {
+function ModuleDocsLink ({module,}: {module: Module},) {
 	if (!module.docSlug) { return null }
 	const href = `https://toolbox-nxg.github.io/Toolbox-NXG/user-guide/modules/${module.docSlug}`
 	return (
@@ -483,7 +488,7 @@ function ModuleSettingsTab ({
 	debugMode,
 	advancedMode,
 }: {
-	module: any
+	module: Module
 	localValues: Record<string, unknown>
 	updateValue: (key: string, value: unknown,) => void
 	debugMode: boolean
@@ -503,7 +508,7 @@ function ModuleSettingsTab ({
 				</p>
 			)}
 			<fieldset disabled={!enabled} className={css.settingFieldset}>
-				{[...module.settings.values(),].map((setting: any,) => {
+				{[...module.settings.values(),].map((setting: StoredSetting,) => {
 					if (setting.debug && !debugMode) { return null }
 					if (setting.hidden && !debugMode) { return null }
 					const storageKey = `Toolbox.${module.id}.${setting.id}`
@@ -541,7 +546,7 @@ export function SettingsDialog ({
 	onExport,
 	onImport,
 }: {
-	modules: any[]
+	modules: Module[]
 	onClose: () => void
 	onExport: (subreddit: string,) => Promise<void>
 	onImport: (subreddit: string,) => Promise<void>
@@ -566,7 +571,7 @@ export function SettingsDialog ({
 
 	/** Saves settings to storage without reloading or closing - used by save-then-backup. */
 	const saveSettingsOnly = useCallback(async () => {
-		if (clearCacheOnSave) { clearCache() }
+		if (clearCacheOnSave) { void clearCache() }
 		await writeSettings(localValues,)
 	}, [clearCacheOnSave, localValues,],)
 
@@ -580,7 +585,7 @@ export function SettingsDialog ({
 	}, [],)
 
 	const handleSave = async (andReload = !devMode,) => {
-		if (clearCacheOnSave) { clearCache() }
+		if (clearCacheOnSave) { void clearCache() }
 		try {
 			await writeSettings(localValues,)
 			positiveTextFeedback('Settings saved',)
@@ -600,21 +605,21 @@ export function SettingsDialog ({
 	// Split modules into always-enabled (non-optional) and toggleable, both sorted alphabetically.
 	// Only include modules with at least one visible setting.
 	const visibleModules = modules
-		.filter((m: any,) => debugMode || !m.debugMode)
-		.filter((m: any,) => {
-			return [...m.settings.values(),].some((s: any,) => (debugMode || !s.debug) && (debugMode || !s.hidden))
-		},)
+		.filter((m: Module,) => debugMode || !m.debugMode)
+		.filter((m: Module,) =>
+			[...m.settings.values(),].some((s: StoredSetting,) => (debugMode || !s.debug) && (debugMode || !s.hidden))
+		)
 
 	const matchingModules = searchActive
 		? visibleModules
-			.map((m: any,) => ({
+			.map((m: Module,) => ({
 				module: m,
-				settings: ([...m.settings.values(),] as any[])
-					.filter((s: any,) => (debugMode || !s.debug) && (debugMode || !s.hidden))
-					.filter((s: any,) => {
-						const desc = ((s.description ?? s.id) as string).toLowerCase()
+				settings: [...m.settings.values(),]
+					.filter((s: StoredSetting,) => (debugMode || !s.debug) && (debugMode || !s.hidden))
+					.filter((s: StoredSetting,) => {
+						const desc = (s.description ?? s.id).toLowerCase()
 						return desc.includes(normalizedQuery,)
-							|| (m.name as string).toLowerCase().includes(normalizedQuery,)
+							|| m.name.toLowerCase().includes(normalizedQuery,)
 					},),
 			}))
 			.filter(({settings,},) => settings.length > 0)
@@ -636,7 +641,7 @@ export function SettingsDialog ({
 		</div>
 	)
 
-	const makeModuleTab = (m: any, withToggle: boolean,): WindowTab => ({
+	const makeModuleTab = (m: Module, withToggle: boolean,): WindowTab => ({
 		title: m.name,
 		moduleId: m.id,
 		...(withToggle && {
@@ -656,21 +661,21 @@ export function SettingsDialog ({
 		),
 	})
 	const alwaysEnabledTabs: WindowTab[] = visibleModules
-		.filter((m: any,) => m.alwaysEnabled)
-		.sort((a: any, b: any,) => a.name.localeCompare(b.name,))
-		.map((m: any,) => makeModuleTab(m, false,))
+		.filter((m: Module,) => m.alwaysEnabled)
+		.sort((a: Module, b: Module,) => a.name.localeCompare(b.name,))
+		.map((m: Module,) => makeModuleTab(m, false,))
 	const generalModuleTabs: WindowTab[] = visibleModules
-		.filter((m: any,) => !m.alwaysEnabled && !m.oldReddit && !m.shreddit)
-		.sort((a: any, b: any,) => a.name.localeCompare(b.name,))
-		.map((m: any,) => makeModuleTab(m, true,))
+		.filter((m: Module,) => !m.alwaysEnabled && !m.oldReddit && !m.shreddit)
+		.sort((a: Module, b: Module,) => a.name.localeCompare(b.name,))
+		.map((m: Module,) => makeModuleTab(m, true,))
 	const oldRedditModuleTabs: WindowTab[] = visibleModules
-		.filter((m: any,) => !m.alwaysEnabled && m.oldReddit)
-		.sort((a: any, b: any,) => a.name.localeCompare(b.name,))
-		.map((m: any,) => makeModuleTab(m, true,))
+		.filter((m: Module,) => !m.alwaysEnabled && m.oldReddit)
+		.sort((a: Module, b: Module,) => a.name.localeCompare(b.name,))
+		.map((m: Module,) => makeModuleTab(m, true,))
 	const shredditModuleTabs: WindowTab[] = visibleModules
-		.filter((m: any,) => !m.alwaysEnabled && m.shreddit)
-		.sort((a: any, b: any,) => a.name.localeCompare(b.name,))
-		.map((m: any,) => makeModuleTab(m, true,))
+		.filter((m: Module,) => !m.alwaysEnabled && m.shreddit)
+		.sort((a: Module, b: Module,) => a.name.localeCompare(b.name,))
+		.map((m: Module,) => makeModuleTab(m, true,))
 
 	const normalTabs: WindowTabItem[] = [
 		{
@@ -715,7 +720,7 @@ export function SettingsDialog ({
 		let i = 0
 		for (const item of normalTabs) {
 			if (!('kind' in item)) {
-				const tab = item as WindowTab
+				const tab = item
 				if (tab.moduleId) { tabIndexToModuleId.set(i, tab.moduleId,) }
 				i++
 			}
@@ -747,7 +752,7 @@ export function SettingsDialog ({
 								<ModuleDocsLink module={m} />
 							</div>
 							<fieldset className={css.settingFieldset}>
-								{settings.map((s: any,) => {
+								{settings.map((s: StoredSetting,) => {
 									const storageKey = `Toolbox.${m.id}.${s.id}`
 									return (
 										<SettingRow
@@ -787,7 +792,7 @@ export function SettingsDialog ({
 				onClose={onClose}
 				footer={
 					<div className={css.centeredFooter}>
-						<ActionButton primary type="button" onClick={() => handleSave()}>
+						<ActionButton primary type="button" onClick={() => void handleSave()}>
 							{devMode ? 'Save Settings (Dev Mode - No Refresh)' : 'Save Settings and Refresh Page'}
 						</ActionButton>
 					</div>

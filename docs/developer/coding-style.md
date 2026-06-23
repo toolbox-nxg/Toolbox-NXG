@@ -244,9 +244,10 @@ const config = {
 
 ### Callbacks
 
-Callbacks must be arrow functions — `prefer-arrow-callback` is enforced by
-ESLint. Arrow functions do not have their own `this`, which avoids an entire
-class of bugs:
+Anonymous callbacks must be arrow functions — `prefer-arrow-callback` is enforced
+by ESLint (with `allowNamedFunctions`, so a _named_ function-expression callback
+such as a module's `function init()` is still permitted). Arrow functions do not
+have their own `this`, which avoids an entire class of bugs:
 
 ```ts
 // correct

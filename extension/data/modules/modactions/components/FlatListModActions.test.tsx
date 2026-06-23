@@ -39,13 +39,12 @@ vi.mock('../../shared/proposals/gateway', () => ({
 	proposeOrMarkNsfw,
 }),)
 vi.mock('../../../util/ui/reactMount', () => ({
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- test stub mirrors the real `classes` signature.
-	classes: (...stuff: any[]) => stuff.flat().filter(Boolean,).join(' ',),
+	classes: (...stuff: unknown[]) => stuff.flat().filter(Boolean,).join(' ',),
 }),)
 vi.mock('../../../util/infra/logging', () => ({
 	default: () => ({error: vi.fn(), debug: vi.fn(), warn: vi.fn(), info: vi.fn(),}),
 }),)
-;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true
+;(globalThis as {IS_REACT_ACT_ENVIRONMENT?: boolean}).IS_REACT_ACT_ENVIRONMENT = true
 
 import {FlatListModActions, type FlatListModActionsProps,} from './FlatListModActions'
 

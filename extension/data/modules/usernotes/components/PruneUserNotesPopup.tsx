@@ -107,7 +107,7 @@ export function PruneUserNotesPanel ({
 
 	/** All available note kinds: configured colors first, then the no-type sentinel. */
 	const allKinds = useMemo(() => [
-		...colors.map((c,) => ({key: c.key, label: c.text, color: c.color as string | undefined,})),
+		...colors.map((c,) => ({key: c.key, label: c.text, color: c.color,})),
 		{key: normalizeKindKey(undefined,), label: 'No type', color: undefined,},
 	], [colors,],)
 
@@ -410,7 +410,7 @@ export function PruneUserNotesPanel ({
 			)}
 
 			<div className={css.actions}>
-				<ActionButton primary disabled={!canConfirm || isPruning} onClick={confirm}>
+				<ActionButton primary disabled={!canConfirm || isPruning} onClick={() => void confirm()}>
 					{isPruning ? 'Pruning...' : 'Review and prune'}
 				</ActionButton>
 			</div>

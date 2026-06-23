@@ -38,7 +38,7 @@ export const settings = defineSettings(
 			sharedPolicy: 'length',
 			description: 'Shortcuts',
 			type: 'map' as const,
-			default: {} as Record<string, string>,
+			default: {},
 			labels: ['name', 'url',],
 			hidden: false,
 		},

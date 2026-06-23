@@ -24,8 +24,8 @@ export interface QueueOverlayHandlers {
  */
 export async function createQueueOverlayHandlers (): Promise<QueueOverlayHandlers> {
 	const [modSubreddits, unmoderatedSubreddits,] = await Promise.all([
-		getSettingAsync(notifier, 'modSubreddits', 'mod',),
-		getSettingAsync(notifier, 'unmoderatedSubreddits', 'mod',),
+		getSettingAsync(notifier, 'modSubreddits', 'mod',) as Promise<string>,
+		getSettingAsync(notifier, 'unmoderatedSubreddits', 'mod',) as Promise<string>,
 	],)
 
 	const baseUrls: QueueBaseUrls = {

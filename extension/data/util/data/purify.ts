@@ -18,7 +18,7 @@ import {htmlDecode,} from './encoding'
  * strip nothing - so never hand a sink an undecoded `*_html` field.)
  */
 export function purifyHTML (input: string,): string {
-	return DOMPurify.sanitize(input,) as unknown as string
+	return DOMPurify.sanitize(input,)
 }
 
 /**
@@ -44,6 +44,7 @@ export function purify (input: string,): string {
  * value arrives here as real (decoded) markup, that sink-side DOMPurify pass
  * actually inspects the tags.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- in-place recursive sanitizer that reads and writes arbitrary keys on untrusted parsed JSON
 export function purifyObject (input: any,) {
 	for (const key in input) {
 		if (Object.prototype.hasOwnProperty.call(input, key,)) {
@@ -68,7 +69,7 @@ export function purifyObject (input: any,) {
 						}
 						purifyObject(jsonObject,)
 						input[key] = JSON.stringify(jsonObject,)
-					} catch (e) {
+					} catch {
 						// Not json. Decode to display-ready plain text; innerHTML sinks
 						// re-sanitize with purifyHTML at the point of use.
 						input[key] = purify(input[key],)

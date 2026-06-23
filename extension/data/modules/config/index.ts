@@ -14,10 +14,10 @@ export default new Module<ConfigSettings>({
 	settings,
 }, async () => {
 	const lifecycle = createLifecycle()
-	const unManager = await getSettingAsync(usernotes, 'unManagerLink', true,)
+	const unManager = await getSettingAsync(usernotes, 'unManagerLink', true,) as boolean
 
 	const openHandlers = createConfigOpenHandlers(unManager,)
-	lifecycle.on(window, 'TBNewPage', openHandlers.handleNewPage,)
+	lifecycle.on(window, 'TBNewPage', (event,) => void openHandlers.handleNewPage(event,),)
 	lifecycle.delegate(document.body, 'click', '#toolbox-config-link', openHandlers.handleConfigLinkClick,)
 	lifecycle.on(document, 'tb:mysubs-open-config', openHandlers.handleOpenConfigEvent,)
 

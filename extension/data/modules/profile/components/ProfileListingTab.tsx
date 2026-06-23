@@ -16,6 +16,7 @@ import {
 	tbRedditEvent,
 } from '../../../util/ui/redditElementsInit'
 import {openCommentContextPopup,} from '../../comment/dom'
+import type {CommentOptions, SubmissionOptions,} from '../../shared/redditElements/types'
 import {BulkRemovePanel,} from './BulkRemovePanel'
 import {
 	applyProfileEntryFilters,
@@ -27,10 +28,13 @@ import {
 	getOrCreatePageCache,
 	getProfileThings,
 	type ProfileCacheStore,
+	type ProfileEntry,
 	type ProfileListing,
 	profileListingEntryMatches,
+	type ProfileListingPage,
 	type ProfilePageCache,
 	type RepostData,
+	type RepostInfo,
 	type TabState,
 } from './ProfileOverlay.helpers'
 import css from './ProfileOverlay.module.css'
@@ -112,7 +116,7 @@ export function ListingTab ({
 	useEffect(() => {
 		getModSubs(false,).then((subs: string[],) => {
 			if (mountedRef.current) { setModSubsList(subs || [],) }
-		},)
+		},).catch((error: unknown,) => log.error(error,))
 	}, [],)
 
 	afterRef.current = state.after
@@ -132,7 +136,7 @@ export function ListingTab ({
 		const observer = new IntersectionObserver(
 			(entries,) => {
 				if (entries[0]?.isIntersecting && afterRef.current) {
-					loadPageRef.current(afterRef.current as string,)
+					loadPageRef.current(afterRef.current,)
 				}
 			},
 			{root, threshold: 0,},
@@ -141,7 +145,6 @@ export function ListingTab ({
 		return () => observer.disconnect()
 		// The observer reads only refs (afterRef, loadPageRef), which always hold
 		// the latest values, so it is set up once and never needs to re-run.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [],)
 
 	useEffect(() => {
@@ -157,7 +160,7 @@ export function ListingTab ({
 		},).catch(() => setSubBanState(null,))
 	}, [state.searchSubreddit, user, modSubsList,],)
 
-	async function appendItems (items: any[],) {
+	async function appendItems (items: ProfileEntry[],) {
 		if (!sitetableRef.current) { return }
 		const rendered = new Set(
 			Array.from(sitetableRef.current.querySelectorAll('.toolbox-thing[data-fullname]',),)
@@ -165,35 +168,37 @@ export function ListingTab ({
 				.filter((name,): name is string => Boolean(name,)),
 		)
 		const uniqueItems = dedupByFullname(items, rendered,)
-		const commentOptions: any = {
+		const commentOptions: CommentOptions = {
 			parentLink: true,
 			contextLink: true,
 			contextPopup: openCommentContextPopup,
 			fullCommentsLink: true,
 			overviewData: true,
 		}
-		const submissionOptions: any = {}
+		const submissionOptions: SubmissionOptions = {}
 		if (subredditColor) {
 			commentOptions.subredditColor = true
 			submissionOptions.subredditColor = true
 		}
 		submissionOptions.showPostFlair = true
 		await colorSaltReady
-		const promise = forEachChunkedDynamic(uniqueItems, (entry: any,) => {
+		const promise = forEachChunkedDynamic(uniqueItems, (entry: ProfileEntry,) => {
 			if (!sitetableRef.current) { return }
 			if (entry.kind === 't1') {
 				const comment = makeSingleComment(entry, commentOptions,)
 				if (entry.highlight) {
+					const highlightTarget = entry.highlight
 					comment.querySelectorAll('.md',).forEach((element: Element,) =>
-						highlight(element, entry.highlight, false, true,)
+						highlight(element, highlightTarget, false, true,)
 					)
 				}
 				sitetableRef.current.appendChild(comment,)
 			} else if (entry.kind === 't3') {
 				const submission = makeSubmissionEntry(entry, submissionOptions,)
 				if (entry.highlight) {
+					const highlightTarget = entry.highlight
 					submission.querySelectorAll('.toolbox-title, .md',).forEach((element: Element,) =>
-						highlight(element, entry.highlight, false, true,)
+						highlight(element, highlightTarget, false, true,)
 					)
 				}
 				sitetableRef.current.appendChild(submission,)
@@ -209,7 +214,7 @@ export function ListingTab ({
 				applyFilters()
 				applyReposts()
 			}, 200,)
-		},)
+		},).catch((error: unknown,) => log.error(error,))
 	}
 
 	function clearSitetable () {
@@ -220,7 +225,7 @@ export function ListingTab ({
 		return getOrCreatePageCache(pageCacheRef.current, cacheListing, sort,)
 	}
 
-	function cachePage (sort: string, items: any[], after: string | false,) {
+	function cachePage (sort: string, items: ProfileEntry[], after: string | false,) {
 		return cacheListingPage(pageCacheRef.current, listing, sort, items, after,)
 	}
 
@@ -238,7 +243,7 @@ export function ListingTab ({
 	}
 
 	function getCachedListingSlice (sort: string, offset: number, limit: number,): {
-		items: any[]
+		items: ProfileEntry[]
 		after: string | false
 	} {
 		const cache = getPageCache(sort,)
@@ -254,7 +259,7 @@ export function ListingTab ({
 		return {items, after,}
 	}
 
-	function renderEntryForSearch (entry: any, highlightText: string | RegExp | null,) {
+	function renderEntryForSearch (entry: ProfileEntry, highlightText: string | RegExp | null,) {
 		const next = {...entry,}
 		delete next.highlight
 		if (highlightText) { next.highlight = highlightText }
@@ -274,8 +279,8 @@ export function ListingTab ({
 		if (!sitetableRef.current) { return }
 		applyRepostHighlights(
 			sitetableRef.current,
-			repostData?.byFullname ?? new Map(),
-			repostData?.groups ?? new Map(),
+			repostData?.byFullname ?? new Map<string, RepostInfo>(),
+			repostData?.groups ?? new Map<string, Set<string>>(),
 			highlightReposts && !!repostData,
 			activeRepostGroup,
 			showOnlyReposts,
@@ -293,7 +298,7 @@ export function ListingTab ({
 	// only appends the items that are not already rendered.
 	useEffect(() => {
 		if (active && highlightReposts && repostData && state.loaded && !state.searchActive) {
-			appendItems(getCachedListingItems(state.sort,),)
+			void appendItems(getCachedListingItems(state.sort,),)
 		}
 	}, [active, highlightReposts, repostData, state.loaded, state.searchActive, state.sort,],)
 
@@ -323,7 +328,7 @@ export function ListingTab ({
 	useEffect(() => {
 		if (!active || state.loaded) { return }
 		if (state.searchActive) {
-			runSearch({
+			void runSearch({
 				subreddit: state.searchSubreddit,
 				content: state.searchContent,
 				regex: state.searchRegex,
@@ -338,7 +343,7 @@ export function ListingTab ({
 		const cacheOffset = after?.startsWith('cache:',) ? Number(after.slice(6,),) : null
 		if (cacheOffset != null && Number.isFinite(cacheOffset,)) {
 			const cached = getCachedListingSlice(state.sort, cacheOffset, 25,)
-			appendItems(cached.items,)
+			void appendItems(cached.items,)
 			update({loaded: true, after: cached.after, error: undefined, searchRunning: false,},)
 			setErrorMsg(undefined,)
 			return
@@ -348,7 +353,7 @@ export function ListingTab ({
 			const cached = getCachedListingSlice(state.sort, 0, 25,)
 			if (cached.items.length > 0) {
 				clearSitetable()
-				appendItems(cached.items,)
+				void appendItems(cached.items,)
 				update({loaded: true, after: cached.after, error: undefined, searchRunning: false,},)
 				setErrorMsg(undefined,)
 				return
@@ -356,18 +361,18 @@ export function ListingTab ({
 		}
 
 		setIsFetching(true,)
-		getUserListingPage(user, listing, {
+		getUserListingPage<ProfileListingPage>(user, listing, {
 			raw_json: '1',
 			after: after === 'fetch' ? '' : after || '',
 			sort: state.sort,
 			limit: '25',
 			t: 'all',
-		},).then((data: any,) => {
+		},).then((data,) => {
 			if (!mountedRef.current) { return }
 			const nextAfter = data.data.after || false
 			const newItems = cachePage(state.sort, data.data.children, nextAfter,)
 			if (!after) { clearSitetable() }
-			appendItems(newItems,)
+			void appendItems(newItems,)
 			update({loaded: true, after: nextAfter, error: undefined, searchRunning: false,},)
 			setErrorMsg(undefined,)
 			setIsFetching(false,)
@@ -391,17 +396,18 @@ export function ListingTab ({
 			searchRunning: false,
 		},)
 		clearSitetable()
-		getUserListingPage(user, listing, {raw_json: '1', sort: newSort, limit: '25', t: 'all',},).then(
-			(data: any,) => {
+		getUserListingPage<ProfileListingPage>(user, listing, {raw_json: '1', sort: newSort, limit: '25', t: 'all',},)
+			.then(
+				(data,) => {
+					if (!mountedRef.current) { return }
+					cachePage(newSort, data.data.children, data.data.after || false,)
+					void appendItems(data.data.children,)
+					update({loaded: true, after: data.data.after || false, error: undefined,},)
+				},
+			).catch((error: unknown,) => {
 				if (!mountedRef.current) { return }
-				cachePage(newSort, data.data.children, data.data.after || false,)
-				appendItems(data.data.children,)
-				update({loaded: true, after: data.data.after || false, error: undefined,},)
-			},
-		).catch((error: unknown,) => {
-			if (!mountedRef.current) { return }
-			log.error('Error sorting:', error,)
-		},)
+				log.error('Error sorting:', error,)
+			},)
 	}
 
 	async function runSearch (overrides?: {
@@ -463,7 +469,7 @@ export function ListingTab ({
 				)
 
 			if (cachedResults.length > 0) {
-				appendItems(cachedResults,)
+				void appendItems(cachedResults,)
 				resultCount = cachedResults.length
 				hits = true
 			}
@@ -478,8 +484,8 @@ export function ListingTab ({
 			while (!cancelSearchRef.current) {
 				if (cache.exhausted) { break }
 				pageCount += 1
-				// eslint-disable-next-line no-await-in-loop
-				const data: any = await getUserListingPage(user, listing, {
+
+				const data = await getUserListingPage<ProfileListingPage>(user, listing, {
 					raw_json: '1',
 					after: after || '',
 					sort: sortMethod,
@@ -489,8 +495,8 @@ export function ListingTab ({
 				if (cancelSearchRef.current) { break }
 				cachePage(sortMethod, data.data.children, data.data.after || false,)
 				neutralTextFeedback(`Searching profile page ${pageCount} with ${data.data.children.length} items`,)
-				const results: any[] = []
-				data.data.children.forEach((value: any,) => {
+				const results: ProfileEntry[] = []
+				data.data.children.forEach((value,) => {
 					if (profileListingEntryMatches(value, compiledSearch,)) {
 						results.push(renderEntryForSearch(
 							value,
@@ -500,7 +506,7 @@ export function ListingTab ({
 					}
 				},)
 				if (results.length > 0) {
-					appendItems(results,)
+					void appendItems(results,)
 					resultCount += results.length
 					update({searchPageCount: pageCount, searchResultCount: resultCount,},)
 				} else {
@@ -572,7 +578,7 @@ export function ListingTab ({
 					className={css.searchForm}
 					onSubmit={(event,) => {
 						event.preventDefault()
-						runSearch()
+						void runSearch()
 					}}
 				>
 					<label className={css.field}>

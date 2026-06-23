@@ -22,11 +22,14 @@ const log = createLogger('TBSettings',)
 const settingsWriteMutex = new Mutex()
 
 /** Reads the full `tbsettings` object from storage, returning an empty object if not yet set. */
-export const getSettings = async (): Promise<Record<string, any>> =>
-	((await browser.storage.local.get('tbsettings',) as Record<string, any>).tbsettings ?? {}) as Record<string, any>
+export const getSettings = async (): Promise<Record<string, unknown>> =>
+	((await browser.storage.local.get('tbsettings',)).tbsettings ?? {}) as Record<
+		string,
+		unknown
+	>
 
 /** Persists a complete settings object to storage. */
-const writeSettings = (newSettings: Record<string, any>,) => browser.storage.local.set({tbsettings: newSettings,},)
+const writeSettings = (newSettings: Record<string, unknown>,) => browser.storage.local.set({tbsettings: newSettings,},)
 
 /** Registers `toolbox-update-settings` and `toolbox-overwrite-all-settings` message handlers. */
 export function registerSettingsHandlers () {
@@ -58,7 +61,7 @@ export function registerSettingsHandlers () {
 			return
 		}
 		await settingsWriteMutex.runExclusive(async () => {
-			await writeSettings(newSettings as Record<string, any>,)
+			await writeSettings(newSettings,)
 		},)
 	},)
 }

@@ -4,9 +4,9 @@
 import {afterEach, describe, expect, it, vi,} from 'vitest'
 
 const sendMessage = vi.hoisted(() =>
-	vi.fn(async (msg: any,) => {
+	vi.fn(async (msg: {action?: string; blob?: string},) => {
 		if (msg?.action === 'toolbox-usernote-decompress') {
-			return {users: JSON.parse(atob(msg.blob,),),}
+			return {users: JSON.parse(atob(msg.blob ?? '',),),}
 		}
 	},)
 )
@@ -35,6 +35,7 @@ vi.mock('../../wikiPaths', () => ({
 }),)
 
 import {readFromWiki,} from '../../../../api/resources/wiki'
+import type {WikiReadResult,} from '../../../../api/resources/wiki'
 import {encodeUsernotesV6,} from './codec'
 import {applyLegacyDiff, computeLegacyDiff, diffLegacyNotes, reconcileFromLegacy,} from './reconcile'
 import type {UserNoteEntry, UserNotesData, UsernotesUser,} from './schema'
@@ -218,7 +219,7 @@ describe('reconcileFromLegacy', () => {
 	}
 
 	it('is a no-op when the legacy page does not exist', async () => {
-		vi.mocked(readFromWiki,).mockResolvedValue({ok: false, reason: 'no_page',} as any,)
+		vi.mocked(readFromWiki,).mockResolvedValue({ok: false, reason: 'no_page',} as WikiReadResult,)
 
 		const result = await reconcileFromLegacy('sub', baseNotes,)
 
@@ -233,7 +234,7 @@ describe('reconcileFromLegacy', () => {
 				alice: makeUser('alice', [{note: 'kept',}, {note: 'added in 6.x', time: 1_700_200_000,},],),
 			},
 		},)
-		vi.mocked(readFromWiki,).mockResolvedValue({ok: true, data: JSON.stringify(legacyPage,),} as any,)
+		vi.mocked(readFromWiki,).mockResolvedValue({ok: true, data: JSON.stringify(legacyPage,),} as WikiReadResult,)
 
 		const result = await reconcileFromLegacy('sub', baseNotes,)
 
@@ -245,16 +246,16 @@ describe('reconcileFromLegacy', () => {
 	})
 
 	it('throws when the legacy page exists but cannot be read', async () => {
-		vi.mocked(readFromWiki,).mockResolvedValue({ok: false, reason: 'unknown_error',} as any,)
+		vi.mocked(readFromWiki,).mockResolvedValue({ok: false, reason: 'unknown_error',} as WikiReadResult,)
 
 		await expect(reconcileFromLegacy('sub', baseNotes,),).rejects.toThrow(/could not read the legacy/,)
 	})
 
 	it('throws when the legacy page is not valid usernotes', async () => {
-		vi.mocked(readFromWiki,).mockResolvedValue({ok: true, data: 'not json',} as any,)
+		vi.mocked(readFromWiki,).mockResolvedValue({ok: true, data: 'not json',} as WikiReadResult,)
 		await expect(reconcileFromLegacy('sub', baseNotes,),).rejects.toThrow(/not valid JSON/,)
 
-		vi.mocked(readFromWiki,).mockResolvedValue({ok: true, data: '{"ver":5}',} as any,)
+		vi.mocked(readFromWiki,).mockResolvedValue({ok: true, data: '{"ver":5}',} as WikiReadResult,)
 		await expect(reconcileFromLegacy('sub', baseNotes,),).rejects.toThrow(/unrecognized schema/,)
 	})
 })

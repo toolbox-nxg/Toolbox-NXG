@@ -15,7 +15,7 @@ import {CheckboxInput,} from '../../../shared/controls/CheckboxInput'
 import {Icon,} from '../../../shared/controls/Icon'
 import {TextInput,} from '../../../shared/controls/NormalInput'
 import {generateConfigId,} from '../../../util/wiki/schemas/config/schema'
-import type {ConfigState,} from '../../../util/wiki/schemas/config/schema'
+import type {ConfigState, ToolboxConfig,} from '../../../util/wiki/schemas/config/schema'
 import {parseAutomodReasons, staticReasonPart,} from '../automodReasons'
 import type {RemovalReason, SuggestedReasonMapping,} from '../schema'
 import css from './SuggestedReasonsTab.module.css'
@@ -53,7 +53,7 @@ interface Props {
 	/** Optional ref wired up so the parent can disable the add button while the add form is open. */
 	disabledRef?: DisabledRef
 	/** Called with the updated config and revision note when a mapping is saved or deleted. */
-	onSave: (config: any, reason: string,) => void
+	onSave: (config: ToolboxConfig, reason: string,) => void
 }
 
 /** Builds the initial committed entries from the stored mapping list. */
@@ -291,7 +291,9 @@ export function SuggestedReasonsTab ({state, addRef, disabledRef, onSave,}: Prop
 				<p className={css.automodNote}>Loading report reasons from your AutoMod config…</p>
 			)}
 			{automodLoad === 'error' && (
-				<p className={css.automodNote}>Couldn't read your AutoMod config — type the reason text manually.</p>
+				<p className={css.automodNote}>
+					Couldn&apos;t read your AutoMod config — type the reason text manually.
+				</p>
 			)}
 			{automodLoad === 'ok' && automodReasons.length === 0 && (
 				<p className={css.automodNote}>
@@ -302,7 +304,8 @@ export function SuggestedReasonsTab ({state, addRef, disabledRef, onSave,}: Prop
 
 			{reasons.length === 0 && (
 				<p className={css.empty}>
-					Add removal reasons first (in the "Edit removal reasons" tab) so you can map reports to them.
+					Add removal reasons first (in the &quot;Edit removal reasons&quot; tab) so you can map reports to
+					them.
 				</p>
 			)}
 

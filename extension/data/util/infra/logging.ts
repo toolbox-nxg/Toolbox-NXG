@@ -31,7 +31,7 @@ type LogType = keyof typeof logTypes
  * @param type Which log level/type to use.
  * @param values Arbitrary content passed through to the console
  */
-function log (caller: string, type: LogType, ...values: any[]) {
+function log (caller: string, type: LogType, ...values: unknown[]) {
 	// Get the appropriate styles for this log type, and send the message
 	const config = logTypes[type]
 	const {color, background,} = config
@@ -51,7 +51,7 @@ function log (caller: string, type: LogType, ...values: any[]) {
 
 /** A logger scoped to a named caller. */
 type Logger = {
-	[type in LogType]: (...values: any[]) => void
+	[type in LogType]: (...values: unknown[]) => void
 }
 
 /**

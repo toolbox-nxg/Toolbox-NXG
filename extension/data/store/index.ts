@@ -39,7 +39,7 @@ listenerMiddleware.startListening({
 },)
 
 // Kick off the initial settings load from storage right away
-store.dispatch(loadSettings(),)
+void store.dispatch(loadSettings(),)
 
 /** The combined state type for all Toolbox reducers. */
 export type RootState = ReturnType<typeof rootReducer>

@@ -166,7 +166,7 @@ export function AnnouncementBuilderPopup ({onClose, postLink, initialNote, onSav
 	const footer = (
 		<>
 			<ActionButton onClick={onClose} disabled={saving}>Cancel</ActionButton>
-			<ActionButton primary onClick={handleSave} disabled={!canSave}>
+			<ActionButton primary onClick={() => void handleSave()} disabled={!canSave}>
 				{saving ? 'Working...' : editing ? 'Save changes' : scheduledEpoch ? 'Schedule' : 'Publish'}
 			</ActionButton>
 		</>
@@ -225,7 +225,7 @@ export function AnnouncementBuilderPopup ({onClose, postLink, initialNote, onSav
 									placeholder="Read more"
 								/>
 								<span className={css.hint}>
-									{isPostLinked ? 'Links to this post; ' : ''}leave blank for "Read more".
+									{isPostLinked ? 'Links to this post; ' : ''}leave blank for &quot;Read more&quot;.
 								</span>
 							</label>
 						)}

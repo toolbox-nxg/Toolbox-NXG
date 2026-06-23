@@ -111,43 +111,46 @@ export function createSpamToggleHandlers (
 		}
 
 		if (approveComments || spamRemoved || hamSpammed) {
-			forEachChunkedDynamic(adapter.getUncheckedCommentThings(), async (item,) => {
-				adapter.markThingChecked(item,)
+			void forEachChunkedDynamic(adapter.getUncheckedCommentThings(), (item,) => {
+				void (async () => {
+					adapter.markThingChecked(item,)
 
-				const thing = await getThingInfo(item as HTMLElement, true,)
+					const thing = await getThingInfo(item, true,)
+					if (!thing) { return }
 
-				if (approveComments && thing.subreddit && !thing.approved_by) {
-					const anchor = adapter.getApproveAnchor(item,)
-					if (anchor) {
-						adapter.insertActionButton(anchor, 'afterend', {
-							className: 'toolbox-comment-button toolbox-comment-button-approve',
-							text: 'approve',
-							fullname: thing.fullname,
-						},)
+					if (approveComments && thing.subreddit && !thing.approved_by) {
+						const anchor = adapter.getApproveAnchor(item,)
+						if (anchor) {
+							adapter.insertActionButton(anchor, 'afterend', {
+								className: 'toolbox-comment-button toolbox-comment-button-approve',
+								text: 'approve',
+								fullname: thing.fullname,
+							},)
+						}
 					}
-				}
 
-				if (spamRemoved && thing.subreddit && thing.ham) {
-					const anchor = adapter.getSpamButtonAnchor(item,)
-					if (anchor) {
-						adapter.insertActionButton(anchor, 'beforebegin', {
-							className: 'toolbox-comment-button toolbox-big-button toolbox-comment-button-spam',
-							text: 'spam',
-							fullname: thing.fullname,
-						},)
+					if (spamRemoved && thing.subreddit && thing.ham) {
+						const anchor = adapter.getSpamButtonAnchor(item,)
+						if (anchor) {
+							adapter.insertActionButton(anchor, 'beforebegin', {
+								className: 'toolbox-comment-button toolbox-big-button toolbox-comment-button-spam',
+								text: 'spam',
+								fullname: thing.fullname,
+							},)
+						}
 					}
-				}
 
-				if (hamSpammed && thing.subreddit && thing.spam) {
-					const anchor = adapter.getHamButtonAnchor(item,)
-					if (anchor) {
-						adapter.insertActionButton(anchor, 'beforebegin', {
-							className: 'toolbox-comment-button toolbox-big-button toolbox-comment-button-remove',
-							text: 'remove',
-							fullname: thing.fullname,
-						},)
+					if (hamSpammed && thing.subreddit && thing.spam) {
+						const anchor = adapter.getHamButtonAnchor(item,)
+						if (anchor) {
+							adapter.insertActionButton(anchor, 'beforebegin', {
+								className: 'toolbox-comment-button toolbox-big-button toolbox-comment-button-remove',
+								text: 'remove',
+								fullname: thing.fullname,
+							},)
+						}
 					}
-				}
+				})()
 			},)
 		}
 	}
@@ -172,7 +175,7 @@ export function createSpamToggleHandlers (
 			},)
 		},
 		handleExpandoClick () {
-			lifecycle.timeout(run, 1000,)
+			lifecycle.timeout(() => void run(), 1000,)
 		},
 	}
 }

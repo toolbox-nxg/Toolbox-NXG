@@ -2,6 +2,7 @@
 import {useEffect, useState,} from 'react'
 
 import {aboutUser, getUserListingPage,} from '../../../api/resources/users'
+import type {UserAbout,} from '../../../api/resources/users'
 import {GeneralButton,} from '../../../shared/controls/GeneralButton'
 import {RelativeTime,} from '../../../shared/controls/RelativeTime'
 import {link,} from '../../../util/reddit/pageContext'
@@ -12,25 +13,43 @@ interface UserSidebarProps {
 	user: string
 }
 
+/** A subreddit summary entry from the `moderated_subreddits` listing. */
+interface ModeratedSubreddit {
+	sr: string
+	subscribers?: number
+	icon_img?: string
+	over_18?: boolean
+}
+
+/** A trophy entry from the `trophies` listing. */
+interface Trophy {
+	data: {
+		name?: string
+		description?: string
+		icon_40?: string
+		url?: string
+	}
+}
+
 export function UserSidebar ({user,}: UserSidebarProps,) {
-	const [aboutData, setAboutData,] = useState<any | null>(null,)
+	const [aboutData, setAboutData,] = useState<UserAbout['data'] | null>(null,)
 	const [error, setError,] = useState(false,)
-	const [modSubs, setModSubs,] = useState<any[]>([],)
+	const [modSubs, setModSubs,] = useState<ModeratedSubreddit[]>([],)
 	const [showAllMod, setShowAllMod,] = useState(false,)
-	const [trophies, setTrophies,] = useState<any[]>([],)
+	const [trophies, setTrophies,] = useState<Trophy[]>([],)
 
 	useEffect(() => {
-		aboutUser(user,).then((data: any,) => {
+		aboutUser(user,).then((data,) => {
 			setAboutData(data.data,)
 		},).catch(() => setError(true,))
 
-		getUserListingPage(user, 'moderated_subreddits',).then((data: any,) => {
-			if (data && data.data && Array.isArray(data.data,)) {
+		getUserListingPage<{data: ModeratedSubreddit[]}>(user, 'moderated_subreddits',).then((data,) => {
+			if (data && Array.isArray(data.data,)) {
 				setModSubs(data.data,)
 			}
 		},).catch(() => undefined)
 
-		getUserListingPage(user, 'trophies',).then((data: any,) => {
+		getUserListingPage<{data: {trophies: Trophy[]}}>(user, 'trophies',).then((data,) => {
 			if (data && data.data && Array.isArray(data.data.trophies,)) {
 				setTrophies(data.data.trophies,)
 			}

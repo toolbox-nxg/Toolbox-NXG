@@ -34,5 +34,5 @@ export async function reloadToolboxConfig (subreddit: string,): Promise<ToolboxC
  * @param note The wiki revision note.
  */
 export function saveMacroConfig (subreddit: string, config: ToolboxConfig, note: string,): void {
-	saveToolboxConfig(subreddit, config, note,)
+	void saveToolboxConfig(subreddit, config, note,)
 }

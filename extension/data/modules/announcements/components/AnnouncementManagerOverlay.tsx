@@ -39,7 +39,7 @@ export function AnnouncementManagerOverlay ({onClose,}: Props,) {
 	}, [],)
 
 	useEffect(() => {
-		load()
+		void load()
 	}, [load,],)
 
 	/** Confirms, removes a note, then refreshes the list. */
@@ -55,7 +55,7 @@ export function AnnouncementManagerOverlay ({onClose,}: Props,) {
 		setBusyId(null,)
 		if (result.ok) {
 			positiveTextFeedback('Announcement removed',)
-			load()
+			void load()
 		} else {
 			negativeTextFeedback(result.reason, {duration: 8000,},)
 		}
@@ -65,10 +65,10 @@ export function AnnouncementManagerOverlay ({onClose,}: Props,) {
 
 	const toolbar = (
 		<div className={css.toolbar}>
-			<ActionButton primary onClick={() => openAnnouncementBuilder({onSaved: load,},)}>
+			<ActionButton primary onClick={() => openAnnouncementBuilder({onSaved: () => void load(),},)}>
 				New announcement
 			</ActionButton>
-			<ActionButton onClick={load} disabled={state.status === 'loading'}>Refresh</ActionButton>
+			<ActionButton onClick={() => void load()} disabled={state.status === 'loading'}>Refresh</ActionButton>
 		</div>
 	)
 
@@ -107,13 +107,16 @@ export function AnnouncementManagerOverlay ({onClose,}: Props,) {
 									{scheduled && (
 										<ActionButton
 											onClick={() =>
-												openAnnouncementBuilder({initialNote: note, onSaved: load,},)}
+												openAnnouncementBuilder({
+													initialNote: note,
+													onSaved: () => void load(),
+												},)}
 										>
 											Edit
 										</ActionButton>
 									)}
 									<ActionButton
-										onClick={() => handleRemove(note,)}
+										onClick={() => void handleRemove(note,)}
 										disabled={busyId === note.id}
 									>
 										{busyId === note.id ? 'Removing...' : 'Remove'}

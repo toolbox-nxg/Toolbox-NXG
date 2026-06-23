@@ -20,11 +20,12 @@ import {
 import {findProfileCommentTargets,} from '../../dom/shreddit/userpage'
 import {provideLocation,} from '../../dom/uiLocations'
 import {RedditPlatform,} from '../../util/infra/platform'
+import {tagToolboxContainer,} from '../../util/ui/toolboxContainer'
 import {type ShredditSettings,} from './settings'
 
 /** Handlers returned by {@link createShredditHandlers} for wiring up the Shreddit module lifecycle. */
 export interface ShredditHandlers {
-	/** Called once when TBListener signals it has finished loading, triggering an initial full-page scan. */
+	/** Called once when the `TBListenerLoaded` signal fires (all modules registered), triggering an initial full-page scan. */
 	handleListenerLoaded: () => void
 	/** MutationObserver callback that processes newly added DOM nodes. */
 	handleMutations: MutationCallback
@@ -83,7 +84,7 @@ function createToolboxSpan (): HTMLSpanElement {
 	return span
 }
 
-// Intentional: event-dispatch infrastructure; placeholder containers for other modules, not toolbox UI.
+// Intentional: marker-tagging infrastructure; placeholder containers for other modules, not toolbox UI.
 function createAuthorContainer (): HTMLSpanElement {
 	const container = document.createElement('span',)
 	container.className = 'toolbox-author-slot'
@@ -96,17 +97,6 @@ function createThingContainer (): HTMLDivElement {
 	div.className = 'toolbox-thing-slot'
 	div.appendChild(createToolboxSpan(),)
 	return div
-}
-
-function dispatchAuthorEvent (container: Element, type: string, data: object,) {
-	if (container.classList.contains('toolbox-frontend-container',)) {
-		return
-	}
-	container.dispatchEvent(
-		new CustomEvent('tbReddit', {
-			detail: {type, data,},
-		},),
-	)
 }
 
 function processModNotesTargets (root: Element,) {
@@ -125,11 +115,7 @@ function processModNotesTargets (root: Element,) {
 				subreddit,
 				rawDetail: {conversationId,},
 			},)
-			dispatchAuthorEvent(container, 'TBmodmailAuthor', {
-				author,
-				subreddit: {name: subreddit,},
-				modmail: {conversationId,},
-			},)
+			tagToolboxContainer(container, 'TBmodmailAuthor',)
 		} else {
 			const isComment = thingId.startsWith('t1_',)
 			provideLocation('authorActions', container, {
@@ -141,18 +127,9 @@ function processModNotesTargets (root: Element,) {
 				postId,
 			},)
 			if (isComment) {
-				dispatchAuthorEvent(container, 'TBcommentAuthor', {
-					author,
-					post: {id: postId,},
-					comment: {id: thingId,},
-					subreddit: {name: subreddit,},
-				},)
+				tagToolboxContainer(container, 'TBcommentAuthor',)
 			} else {
-				dispatchAuthorEvent(container, 'TBpostAuthor', {
-					author,
-					post: {id: thingId,},
-					subreddit: {name: subreddit,},
-				},)
+				tagToolboxContainer(container, 'TBpostAuthor',)
 			}
 
 			if (thingAncestor) {
@@ -169,19 +146,7 @@ function processModNotesTargets (root: Element,) {
 				}
 				provideLocation('thingActions', thingContainer, thingContext,)
 				provideLocation('thingDetails', thingContainer, thingContext,)
-				thingContainer.dispatchEvent(
-					new CustomEvent('tbReddit', {
-						detail: isComment
-							? {
-								type: 'TBcomment',
-								data: {author, post: {id: postId,}, id: thingId, subreddit: {name: subreddit,},},
-							}
-							: {
-								type: 'TBpost',
-								data: {author, post: {id: thingId,}, id: thingId, subreddit: {name: subreddit,},},
-							},
-					},),
-				)
+				tagToolboxContainer(thingContainer, isComment ? 'TBcomment' : 'TBpost',)
 			}
 		}
 	}
@@ -214,18 +179,9 @@ function processSingleCreditBarTarget (target: CreditBarTarget,) {
 			postId,
 		},)
 		if (isComment) {
-			dispatchAuthorEvent(container, 'TBcommentAuthor', {
-				author,
-				post: {id: postId,},
-				comment: {id: thingId,},
-				subreddit: {name: subreddit,},
-			},)
+			tagToolboxContainer(container, 'TBcommentAuthor',)
 		} else {
-			dispatchAuthorEvent(container, 'TBpostAuthor', {
-				author,
-				post: {id: thingId,},
-				subreddit: {name: subreddit,},
-			},)
+			tagToolboxContainer(container, 'TBpostAuthor',)
 		}
 
 		if (needsThingContainer) {
@@ -242,19 +198,7 @@ function processSingleCreditBarTarget (target: CreditBarTarget,) {
 			}
 			provideLocation('thingActions', thingContainer, thingContext,)
 			provideLocation('thingDetails', thingContainer, thingContext,)
-			thingContainer.dispatchEvent(
-				new CustomEvent('tbReddit', {
-					detail: isComment
-						? {
-							type: 'TBcomment',
-							data: {author, post: {id: postId,}, id: thingId, subreddit: {name: subreddit,},},
-						}
-						: {
-							type: 'TBpost',
-							data: {author, post: {id: thingId,}, id: thingId, subreddit: {name: subreddit,},},
-						},
-				},),
-			)
+			tagToolboxContainer(thingContainer, isComment ? 'TBcomment' : 'TBpost',)
 		}
 	} else {
 		const {creditBar, separator, postEl, author, subreddit, postId, needsThingContainer, hasNativeAuthor,} = target
@@ -280,11 +224,7 @@ function processSingleCreditBarTarget (target: CreditBarTarget,) {
 				subreddit,
 				postId,
 			},)
-			dispatchAuthorEvent(container, 'TBpostAuthor', {
-				author,
-				post: {id: postId,},
-				subreddit: {name: subreddit,},
-			},)
+			tagToolboxContainer(container, 'TBpostAuthor',)
 		}
 
 		if (needsThingContainer) {
@@ -304,14 +244,7 @@ function processSingleCreditBarTarget (target: CreditBarTarget,) {
 			}
 			provideLocation('thingActions', thingContainer, thingContext,)
 			provideLocation('thingDetails', thingContainer, thingContext,)
-			thingContainer.dispatchEvent(
-				new CustomEvent('tbReddit', {
-					detail: {
-						type: 'TBpost',
-						data: {author, post: {id: postId,}, id: postId, subreddit: {name: subreddit,}, isRemoved,},
-					},
-				},),
-			)
+			tagToolboxContainer(thingContainer, 'TBpost',)
 		}
 	}
 }
@@ -331,18 +264,9 @@ function processUsernameTargets (root: Element,) {
 			...(commentId && {commentId,}),
 		},)
 		if (commentId) {
-			dispatchAuthorEvent(container, 'TBcommentAuthor', {
-				author,
-				post: {id: postId,},
-				comment: {id: commentId,},
-				subreddit: {name: subreddit,},
-			},)
+			tagToolboxContainer(container, 'TBcommentAuthor',)
 		} else {
-			dispatchAuthorEvent(container, 'TBpostAuthor', {
-				author,
-				post: {id: postId,},
-				subreddit: {name: subreddit,},
-			},)
+			tagToolboxContainer(container, 'TBpostAuthor',)
 		}
 	}
 }
@@ -362,14 +286,7 @@ function processProfileCommentTargets (root: Element,) {
 		}
 		provideLocation('thingActions', thingContainer, thingContext,)
 		provideLocation('thingDetails', thingContainer, thingContext,)
-		thingContainer.dispatchEvent(
-			new CustomEvent('tbReddit', {
-				detail: {
-					type: 'TBcomment',
-					data: {author, post: {id: postId,}, id: thingId, subreddit: {name: subreddit,},},
-				},
-			},),
-		)
+		tagToolboxContainer(thingContainer, 'TBcomment',)
 	}
 }
 
@@ -543,10 +460,6 @@ function processHighlightCardTargets (root: Element, showPinnedAuthor: boolean,)
 			subreddit,
 			postId,
 		},)
-		dispatchAuthorEvent(container, 'TBpostAuthor', {
-			author,
-			post: {id: postId,},
-			subreddit: {name: subreddit,},
-		},)
+		tagToolboxContainer(container, 'TBpostAuthor',)
 	}
 }

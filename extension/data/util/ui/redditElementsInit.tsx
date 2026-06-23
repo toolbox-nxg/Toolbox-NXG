@@ -1,6 +1,6 @@
 /**
  * Initializes Toolbox's React-rendered Reddit elements (TBComment, TBSubmission) and wires up
- * action button delegation, "load more comments" handling, and the tbReddit event bridge.
+ * action button delegation, "load more comments" handling, and toolbox container tagging.
  */
 
 import {ReactNode,} from 'react'
@@ -8,6 +8,7 @@ import {flushSync,} from 'react-dom'
 import {createRoot, Root,} from 'react-dom/client'
 
 import {getMoreComments,} from '../../api/resources/comments'
+import type {CommentData, RedditMoreChildren, RedditThing, SubmissionData,} from '../../api/resources/things'
 import {provideLocation,} from '../../dom/uiLocations'
 import {comments, queueTools,} from '../../framework/moduleIds'
 import {
@@ -27,6 +28,7 @@ import createLogger from '../infra/logging'
 import {currentPlatform, RedditPlatform,} from '../infra/platform'
 import {getSettingAsync,} from '../persistence/settings'
 import {delegate,} from './dom'
+import {tagToolboxContainer,} from './toolboxContainer'
 
 import {TBComment, TBCommentChildren,} from '../../modules/shared/redditElements/TBComment'
 import {TBSubmission,} from '../../modules/shared/redditElements/TBSubmission'
@@ -42,7 +44,9 @@ delegate(document.body, 'click', '.toolbox-general-button', (_target, event,) =>
 let subredditColorSalt = 'PJSalt'
 /** Resolves once the subreddit color salt has been loaded from extension storage. Await before any make* call where correctness is required. */
 export const colorSaltReady: Promise<void> = getSettingAsync(queueTools, 'subredditColorSalt', 'PJSalt',).then(
-	(salt,) => {
+	// `getSettingAsync` reads from the heterogeneous (`any`-valued) settings store; this
+	// setting is always a string, so narrow the resolved value here.
+	(salt: string,) => {
 		subredditColorSalt = salt
 	},
 )
@@ -52,7 +56,7 @@ export function getSubredditColorSalt () {
 	return subredditColorSalt
 }
 
-// jsAPI bridge: inject toolbox slots and dispatch tbReddit events for a single toolbox-thing element.
+// jsAPI bridge: inject toolbox slots and tag toolbox containers for a single toolbox-thing element.
 // Idempotent: a data attribute prevents double-processing if called more than once.
 function processTBThing (element: Element,) {
 	if ((element as HTMLElement).dataset.tbThingInit) { return }
@@ -79,24 +83,10 @@ function processTBThing (element: Element,) {
 		const postID = element.getAttribute('data-comment-post-id',)
 		const commentID = element.getAttribute('data-comment-id',)
 		const subredditName = element.getAttribute('data-subreddit',)
-		const subredditType = element.getAttribute('data-subreddit-type',)
 
 		if (commentSlot && !commentSlot.classList.contains('toolbox-frontend-container',)) {
 			commentSlot.insertAdjacentHTML('beforeend', '<span data-name="toolbox">',)
-			commentSlot.dispatchEvent(
-				new CustomEvent('tbReddit', {
-					composed: true,
-					detail: {
-						type: 'TBcomment',
-						data: {
-							author: commentAuthor,
-							post: {id: postID,},
-							id: commentID,
-							subreddit: {name: subredditName, type: subredditType,},
-						},
-					},
-				},),
-			)
+			tagToolboxContainer(commentSlot, 'TBcomment',)
 		}
 		if (authorSlot) {
 			provideLocation('authorActions', authorSlot, {
@@ -119,23 +109,9 @@ function processTBThing (element: Element,) {
 		const submissionAuthor = element.getAttribute('data-submission-author',)
 		const postID = element.getAttribute('data-post-id',)
 		const subredditName = element.getAttribute('data-subreddit',)
-		const subredditType = element.getAttribute('data-subreddit-type',)
 
 		if (!submissionSlot.classList.contains('toolbox-frontend-container',)) {
-			submissionSlot.dispatchEvent(
-				new CustomEvent('tbReddit', {
-					composed: true,
-					detail: {
-						type: 'TBpost',
-						data: {
-							author: submissionAuthor,
-							id: postID,
-							permalink: `https://www.reddit.com/r/${subredditName}/comments/${postID?.substring(3,)}/`,
-							subreddit: {name: subredditName, type: subredditType,},
-						},
-					},
-				},),
-			)
+			tagToolboxContainer(submissionSlot, 'TBpost',)
 		}
 		if (authorSlot) {
 			provideLocation('authorActions', authorSlot, {
@@ -152,11 +128,11 @@ function processTBThing (element: Element,) {
 
 /**
  * Processes all `.toolbox-thing` elements inside `elements`, injecting toolbox slots and
- * dispatching `tbReddit` events so modules can attach their UI.
+ * tagging toolbox containers so modules can attach their UI.
  * @param elements A single element or array-like collection to scan.
  */
 export function tbRedditEvent (elements: Element | ArrayLike<Element>,) {
-	const container = (elements instanceof Element) ? elements : ((elements as any)[0] || elements)
+	const container = (elements instanceof Element) ? elements : elements[0]
 	if (!container || typeof container.querySelectorAll !== 'function') { return }
 	container.querySelectorAll('.toolbox-thing',).forEach((element: Element,) => {
 		processTBThing(element,)
@@ -197,7 +173,10 @@ function makeReactHost () {
  * Renders a TBSubmission React component into a detached host element and returns it.
  * The host element uses `display: contents` so it is visually transparent.
  */
-export function makeSubmissionEntry (submission: any, submissionOptions?: SubmissionOptions,): HTMLElement {
+export function makeSubmissionEntry (
+	submission: RedditThing<SubmissionData>,
+	submissionOptions?: SubmissionOptions,
+): HTMLElement {
 	purifyObject(submission,)
 	return makeTBElement(
 		<TBSubmission submission={submission} options={submissionOptions} subredditColorSalt={subredditColorSalt} />,
@@ -207,7 +186,10 @@ export function makeSubmissionEntry (submission: any, submissionOptions?: Submis
 /**
  * Renders a single TBComment React component into a detached host element and returns it.
  */
-export function makeSingleComment (comment: any, commentOptions: CommentOptions = {},): HTMLElement {
+export function makeSingleComment (
+	comment: RedditThing<CommentData>,
+	commentOptions: CommentOptions = {},
+): HTMLElement {
 	purifyObject(comment,)
 	return makeTBElement(
 		<TBComment comment={comment} options={commentOptions} subredditColorSalt={subredditColorSalt} />,
@@ -219,7 +201,10 @@ export function makeSingleComment (comment: any, commentOptions: CommentOptions 
  * @param jsonInput Array of Reddit API comment/more child objects.
  * @param commentOptions Optional rendering options forwarded to the comment components.
  */
-export function makeCommentThread (jsonInput: any[], commentOptions?: CommentOptions,): HTMLElement {
+export function makeCommentThread (
+	jsonInput: (RedditThing<CommentData> | RedditMoreChildren)[],
+	commentOptions?: CommentOptions,
+): HTMLElement {
 	jsonInput.forEach((item,) => {
 		if (item) { purifyObject(item,) }
 	},)
@@ -264,10 +249,12 @@ function actionButton (
 			result.textContent = outcome === 'captured' ? 'sent for review' : pastTense
 			element.before(result,)
 			element.remove()
-		},).catch((error: any,) => {
+		},).catch((error: unknown,) => {
 			const result = document.createElement('span',)
 			result.className = 'toolbox-actioned-button toolbox-actioned-error'
-			result.textContent = error || 'something went wrong'
+			// The rejection reason is an untyped thrown value; render it as text, falling back
+			// to a generic message when it is falsy (matching the prior `||` behavior).
+			result.textContent = error ? String(error,) : 'something went wrong'
 			element.before(result,)
 			element.remove()
 		},)
@@ -299,16 +286,16 @@ actionButton('.toolbox-submission-button-unsfw', (ctx,) => proposeOrMarkNsfw(ctx
 // rendered by other code (none in current modules) is no longer supported.
 
 delegate(document.body, 'click', '.toolbox-load-more-comments', (element,) => {
-	const thisMoreComments = element.closest('.toolbox-more-comments',) as HTMLElement | null
+	const thisMoreComments = element.closest('.toolbox-more-comments',)
 	if (!thisMoreComments) { return }
 	const commentIDs = (element.getAttribute('data-ids',) || '').split(',',)
 	const commentIDcount = commentIDs.length
-	const thisComment = element.closest('.toolbox-comment',) as HTMLElement | null
+	const thisComment = element.closest('.toolbox-comment',)
 	if (!thisComment) { return }
 	const threadPermalink = thisComment.getAttribute('data-thread-permalink',)
 	if (!threadPermalink) { return }
 	const commentOptionsData = thisComment.getAttribute('data-comment-options',)
-	const commentOptions = commentOptionsData ? JSON.parse(commentOptionsData,) : {}
+	const commentOptions: CommentOptions = commentOptionsData ? JSON.parse(commentOptionsData,) as CommentOptions : {}
 	commentOptions.commentDepthPlus = true
 
 	let settledCount = 0
@@ -316,9 +303,12 @@ delegate(document.body, 'click', '.toolbox-load-more-comments', (element,) => {
 	store.dispatch(startSpinner(),)
 	commentIDs.forEach((id,) => {
 		getMoreComments(threadPermalink, id,)
-			.then(async (data: any,) => {
+			.then(async (data,) => {
 				await colorSaltReady
-				const commentsEl = makeCommentThread(data[1].data.children, commentOptions,)
+				// data[1] is the comment listing; its children are heterogeneous comment-tree
+				// JSON nodes, narrowed here to the union the renderer accepts.
+				const children = (data[1]?.data.children ?? []) as (RedditThing<CommentData> | RedditMoreChildren)[]
+				const commentsEl = makeCommentThread(children, commentOptions,)
 				window.requestAnimationFrame(() => {
 					// Insert the host wrapper itself; its React tree stays intact
 					// and synthetic events keep firing.

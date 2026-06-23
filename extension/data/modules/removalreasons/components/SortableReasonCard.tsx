@@ -68,7 +68,7 @@ export function SortableReasonCard ({
 		item.reason.flairText && `flair: ${item.reason.flairText}`,
 		item.reason.flairCSS && `class: ${item.reason.flairCSS}`,
 		item.reason.flairTemplateID && `template: ${item.reason.flairTemplateID}`,
-	].filter(Boolean,) as string[]
+	].filter(Boolean,)
 
 	return (
 		<div
@@ -134,7 +134,8 @@ export function SortableReasonCard ({
 						title={isEditing ? 'Cancel edit' : 'Edit reason text'}
 						onClick={(e,) => {
 							e.stopPropagation()
-							isEditing ? onEditCancel() : onEdit()
+							if (isEditing) { onEditCancel() }
+							else { onEdit() }
 						}}
 					>
 						<Icon icon={isEditing ? 'close' : 'edit'} />

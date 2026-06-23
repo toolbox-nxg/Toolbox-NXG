@@ -52,6 +52,9 @@ async function parseChain (
 	const removalChain: string[] = []
 	const distinguishedComments: string[] = []
 
+	// Recursive walk over heterogeneous comment-tree nodes (Listing / t1 / more); the broad
+	// `RedditThing.kind` string makes a typed discriminated walk impractical here.
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped recursive JSON walk
 	async function recurse (object: any,) {
 		if (!object) { return }
 		switch (object.kind) {
@@ -135,7 +138,7 @@ export function NukeCommentsPopup ({
 			setRemovalChain(removalChain,)
 			setDistinguishedComments(distinguishedComments,)
 			setPhase('ready',)
-		},)
+		},).catch((error: unknown,) => log.error(error,))
 		return () => {
 			if (autoCloseTimer.current) { clearTimeout(autoCloseTimer.current,) }
 		}
@@ -237,12 +240,12 @@ export function NukeCommentsPopup ({
 			footer={
 				<>
 					{phase === 'ready' && (
-						<ActionButton onClick={() => runRemoval(false,)}>
+						<ActionButton onClick={() => void runRemoval(false,)}>
 							Execute
 						</ActionButton>
 					)}
 					{phase === 'done-with-errors' && (
-						<ActionButton onClick={() => runRemoval(true,)}>
+						<ActionButton onClick={() => void runRemoval(true,)}>
 							Retry
 						</ActionButton>
 					)}

@@ -247,8 +247,8 @@ export function RemovalReasonsOverlay ({
 	// `markdown` is kept in token form for composition (handleSave replaces data
 	// tokens there); `html` has data tokens substituted so the preview reflects
 	// the actual post/comment context instead of showing raw placeholders.
-	const renderedReasons = useMemo<RenderedReason[]>(() => {
-		return visibleReasons.map((reason, reasonIndex,) => {
+	const renderedReasons = useMemo<RenderedReason[]>(() =>
+		visibleReasons.map((reason, reasonIndex,) => {
 			// Normalize to token form up front (decoding entity-encoded angle brackets
 			// first, so legacy &lt;select&gt; configs convert too): display rendering and
 			// the value substitution in handleSave then both work from the same tokens.
@@ -257,8 +257,7 @@ export function RemovalReasonsOverlay ({
 			// Pass the reason's stable positional id so id-less {choice} blocks get persistent ids.
 			const html = renderReasonHtml(parser, replaceTokens(tokenSource, markdown,), reasonId,)
 			return {id: reasonId, reason, markdown, html,}
-		},)
-	}, [visibleReasons, parser, tokenSource,],)
+		},), [visibleReasons, parser, tokenSource,],)
 
 	// When re-opened to accept a proposal, map the captured selection's persistent reason
 	// ids onto the overlay's positional ids (`reason-${index}`), skipping any reason that
@@ -451,9 +450,9 @@ export function RemovalReasonsOverlay ({
 							syncRadiosToHiddenInput(input as HTMLInputElement,)
 						}
 					}
-				},)
+				},).catch((error: unknown,) => log.error(error,))
 				const onChange = () => {
-					setCache(removalReasons, cacheKey, input.value,)
+					void setCache(removalReasons, cacheKey, input.value,)
 				}
 				input.addEventListener('change', onChange,)
 				cleanups.push(() => input.removeEventListener('change', onChange,))
@@ -536,7 +535,7 @@ export function RemovalReasonsOverlay ({
 			setBanPermanent(color.banDuration === 0,)
 			if (color.banDuration > 0) { setBanDays(color.banDuration,) }
 		}
-	}, [usernoteType, subredditColors,],) // eslint-disable-line react-hooks/exhaustive-deps
+	}, [usernoteType, subredditColors,],)
 
 	// Keep the ban note in sync with the usernote text when a ban is being issued.
 	useEffect(() => {
@@ -928,17 +927,19 @@ export function RemovalReasonsOverlay ({
 			>
 				{status}
 			</span>
-			<ActionButton primary onClick={handleSave} disabled={saving || usernoteRequirementUnmet}>Send</ActionButton>
+			<ActionButton primary onClick={() => void handleSave()} disabled={saving || usernoteRequirementUnmet}>
+				Send
+			</ActionButton>
 			{!acceptGate && (
 				<ActionButton
-					onClick={handleRequestReview}
+					onClick={() => void handleRequestReview()}
 					disabled={saving || usernoteRequirementUnmet}
 					title="Capture this removal for another moderator to review instead of performing it"
 				>
 					Request second opinion
 				</ActionButton>
 			)}
-			<ActionButton onClick={handleNoReason} disabled={saving}>Silently remove</ActionButton>
+			<ActionButton onClick={() => void handleNoReason()} disabled={saving}>Silently remove</ActionButton>
 			<ActionButton onClick={handleCancel} disabled={saving}>Cancel</ActionButton>
 		</>
 	)
@@ -992,7 +993,7 @@ export function RemovalReasonsOverlay ({
 					<div className={css.suggestedNotice}>
 						<span>
 							{suggestedPositionalIds.length} reason{suggestedPositionalIds.length === 1 ? '' : 's'}{' '}
-							pre-selected from this item's reports.
+							pre-selected from this item&apos;s reports.
 						</span>
 						{suggestedPositionalIds.some((id,) => selected.has(id,)) && (
 							<button

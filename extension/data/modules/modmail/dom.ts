@@ -39,7 +39,7 @@ function queryDeep<T extends Element,> (root: Element | ShadowRoot, selector: st
 	if (direct) { return direct }
 
 	for (const element of root.querySelectorAll('*',)) {
-		const sr = (element as Element).shadowRoot
+		const sr = element.shadowRoot
 		if (sr) {
 			const found = queryDeep<T>(sr, selector,)
 			if (found) { return found }
@@ -322,9 +322,7 @@ export function createModmailHandlers (
 
 			// Poll until the button has rendered, then watch for Lit to enable it, then click.
 			const waitForButton = () => {
-				const button = queryDeep<HTMLButtonElement>(wrapper, 'button:has(svg[icon-name="show"])',) as
-					| HTMLButtonElement
-					| null
+				const button = queryDeep<HTMLButtonElement>(wrapper, 'button:has(svg[icon-name="show"])',)
 				if (!button) {
 					if (++attempts < maxAttempts) { scope.timeout(waitForButton, 100,) }
 					return
@@ -333,12 +331,14 @@ export function createModmailHandlers (
 					button.click()
 					return
 				}
-				const stopAttrTimeout = scope.timeout(() => stopAttrObserver(), 2000,)
+				const stopAttrTimeout = scope.timeout(() => {
+					void stopAttrObserver()
+				}, 2000,)
 				const stopAttrObserver = scope.observe(button, () => {
 					if (!button.disabled) {
 						button.click()
-						stopAttrTimeout()
-						stopAttrObserver()
+						void stopAttrTimeout()
+						void stopAttrObserver()
 					}
 				}, {attributes: true, attributeFilter: ['disabled',],},)
 			}

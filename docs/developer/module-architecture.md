@@ -152,11 +152,9 @@ Rules:
 Contains the handler logic for page behavior. Exports one or more factory functions — each factory closes over settings and returns a **handler bundle**: a plain object mapping handler names to functions.
 
 ```ts
-import {TBListenerEvent,} from '../../util/ui/listener'
 import {MyModuleSettings,} from './settings'
 
 export interface MyHandlers {
-	handleAuthor: (event: TBListenerEvent,) => void
 	handleClick: (element: Element, event: MouseEvent,) => void
 	handleNewPage: (event: CustomEvent,) => void
 	/** Disposes everything this factory registered; `index.ts` passes it to `lifecycle.mount`. */
@@ -172,12 +170,10 @@ export function createMyHandlers (s: MyModuleSettings,): MyHandlers {
 
 	return {
 		cleanup: scope.cleanup,
-		handleAuthor (event,) {
-			const {username,} = event.detail.data
-			if (seen.has(username,)) { return }
-			seen.add(username,)
-		},
 		handleClick (element, _event,) {
+			const id = element.getAttribute('data-fullname',) ?? ''
+			if (seen.has(id,)) { return } // domain state lives in the factory closure
+			seen.add(id,)
 			scope.timeout(() => {/* ... */}, 200,)
 		},
 		handleNewPage (_event,) {
@@ -223,7 +219,6 @@ The entry point. Its only job is to instantiate the `Module`, then in `init()`: 
 import {createLifecycle,} from '../../framework/lifecycle'
 import {Module,} from '../../framework/module'
 import {isCommentsPage,} from '../../util/reddit/pageContext'
-import TBListener from '../../util/ui/listener'
 import {createMyHandlers,} from './dom'
 import {MyModuleSettings, settings,} from './settings'
 
@@ -240,7 +235,6 @@ export default new Module<MyModuleSettings>({
 	const handlers = createMyHandlers(s,)
 
 	lifecycle.mount(handlers.cleanup,)
-	lifecycle.mount(TBListener.on('author', handlers.handleAuthor,),)
 	lifecycle.on(window, 'TBNewPage', handlers.handleNewPage,)
 	lifecycle.delegate<MouseEvent>(
 		document.body,
@@ -270,7 +264,6 @@ The `Lifecycle` object manages everything that needs cleanup when the module re-
 | ----------------------------------------------------- | ------------------------------------------------------------------------------- |
 | `lifecycle.on(target, type, handler, options?)`       | DOM event listeners on `window`, `document`, or a specific element              |
 | `lifecycle.delegate(parent, type, selector, handler)` | Event delegation — fires handler when a matching descendant is the event target |
-| `lifecycle.mount(TBListener.on('name', handler))`     | TBListener subscriptions                                                        |
 | `lifecycle.observe(target, callback, options)`        | MutationObserver — creates, starts observing, and disconnects on cleanup        |
 | `lifecycle.interval(handler, ms)`                     | `setInterval` with automatic `clearInterval`                                    |
 | `lifecycle.timeout(handler, ms)`                      | `setTimeout` with automatic `clearTimeout`                                      |
@@ -283,7 +276,7 @@ The `Lifecycle` object manages everything that needs cleanup when the module re-
 
 ## Type discipline
 
-- `any` is permitted only at genuine external boundaries: raw Reddit API JSON, extension storage reads, WeakMap lookups from `elementDetails`
+- `any` is permitted only at genuine external boundaries: raw Reddit API JSON, extension storage reads
 - Use `unknown` + narrowing (`instanceof Error`) in `catch` blocks
 - For `fetch` / `TBApi.getJSON` results: `any` at the immediate response boundary is acceptable; don't carry `any` deeper into business logic
 - Domain types flow from `schema.ts` → `api.ts` / `dom.ts` / `components/`; never in reverse

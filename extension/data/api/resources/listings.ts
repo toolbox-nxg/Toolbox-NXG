@@ -8,7 +8,7 @@ import {apiOauthGetJSON,} from '../transport/http'
 import type {QueryParams,} from '../transport/http'
 
 /** Fetches a Reddit API endpoint as JSON with `raw_json=1` applied. */
-export function getRedditEndpointJson<T = any,> (endpoint: string,): Promise<T> {
+export function getRedditEndpointJson<T = unknown,> (endpoint: string,): Promise<T> {
 	return apiOauthGetJSON<T>(endpoint, {raw_json: '1',},)
 }
 
@@ -17,7 +17,7 @@ export function getRedditEndpointJson<T = any,> (endpoint: string,): Promise<T> 
  * @param pathname The page's URL pathname (e.g. `/r/sub/hot`).
  * @param query Optional query parameters to append.
  */
-export function getRedditPageJson<T = any,> (pathname: string, query: QueryParams = {},): Promise<T> {
+export function getRedditPageJson<T = unknown,> (pathname: string, query: QueryParams = {},): Promise<T> {
 	return apiOauthGetJSON<T>(`${pathname}.json`, {...query, raw_json: '1',},)
 }
 
@@ -25,6 +25,6 @@ export function getRedditPageJson<T = any,> (pathname: string, query: QueryParam
  * Fetches a fully-qualified Reddit URL as JSON with `raw_json=1` applied.
  * @param url A complete `https://` URL on a reddit.com origin.
  */
-export function getAbsoluteRedditJson<T = any,> (url: string,): Promise<T> {
+export function getAbsoluteRedditJson<T = unknown,> (url: string,): Promise<T> {
 	return apiOauthGetJSON<T>(url, {raw_json: '1',}, {absolute: true,},)
 }

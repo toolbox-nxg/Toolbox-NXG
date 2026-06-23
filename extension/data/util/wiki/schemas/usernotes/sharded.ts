@@ -339,7 +339,7 @@ export async function writeShardedUsernotes (
 	// Partition the dataset and plan the writes: a shard is dirty when its
 	// fingerprint changed (or was never known).
 	const slices = partitionUsers(notes.users, manifest,)
-	let planned: PlannedShard[] = manifest.shards.map((ref,) => {
+	const planned: PlannedShard[] = manifest.shards.map((ref,) => {
 		const users = slices.get(ref.page,)!
 		const fingerprint = fingerprintSlice(users,)
 		return {

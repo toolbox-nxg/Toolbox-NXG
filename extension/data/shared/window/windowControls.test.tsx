@@ -7,7 +7,7 @@ import {afterEach, describe, expect, it, vi,} from 'vitest'
 vi.mock('../../util/ui/reactMount', () => ({
 	classes: (...parts: Array<string | false | null | undefined>) => parts.filter(Boolean,).join(' ',),
 }),)
-;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true
+;(globalThis as {IS_REACT_ACT_ENVIRONMENT?: boolean}).IS_REACT_ACT_ENVIRONMENT = true
 
 import {Backdrop,} from './Backdrop'
 import {WindowTabs,} from './WindowTabs'

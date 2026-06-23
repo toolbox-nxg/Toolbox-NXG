@@ -18,17 +18,20 @@ export const getModNotes = ({subreddit, user, filter, before,}: {
 	filter?: string | undefined
 	before?: string | undefined
 },) =>
-	apiOauthGetJSON('/api/mod/notes', {
-		subreddit,
-		user,
-		filter,
-		before,
-		limit: '100',
-	},).then((response,) => ({
-		notes: (response.mod_notes ?? []) as ModNote[],
-		startCursor: (response.start_cursor ?? '') as string,
-		endCursor: (response.end_cursor ?? '') as string,
-		hasNextPage: (response.has_next_page ?? false) as boolean,
+	apiOauthGetJSON<{mod_notes?: ModNote[]; start_cursor?: string; end_cursor?: string; has_next_page?: boolean}>(
+		'/api/mod/notes',
+		{
+			subreddit,
+			user,
+			filter,
+			before,
+			limit: '100',
+		},
+	).then((response,) => ({
+		notes: response.mod_notes ?? [],
+		startCursor: response.start_cursor ?? '',
+		endCursor: response.end_cursor ?? '',
+		hasNextPage: response.has_next_page ?? false,
 	}))
 
 /**
@@ -39,10 +42,10 @@ export const getModNotes = ({subreddit, user, filter, before,}: {
  * paired user has no note in the paired subreddit.
  */
 export const getRecentModNotes = (subreddits: string[], users: string[],) =>
-	apiOauthGetJSON('/api/mod/notes/recent', {
+	apiOauthGetJSON<{mod_notes: (ModNote | null)[]}>('/api/mod/notes/recent', {
 		subreddits: subreddits.join(',',),
 		users: users.join(',',),
-	},).then((response,) => response.mod_notes as (ModNote | null)[])
+	},).then((response,) => response.mod_notes)
 
 /**
  * Adds a new mod note to a user in a subreddit.

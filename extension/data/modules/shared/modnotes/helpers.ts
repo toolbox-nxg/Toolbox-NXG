@@ -4,7 +4,7 @@ import {getInfo,} from '../../../api/resources/things'
 import {link,} from '../../../util/reddit/pageContext'
 import {ModNote,} from './schema'
 
-const submissionFullnamesCache: Record<string, Promise<string>> = Object.create(null,)
+const submissionFullnamesCache = Object.create(null,) as Record<string, Promise<string>>
 
 /** Gets the fullname of a comment's corresponding submission. */
 export function getSubmissionFullname (commentFullname: string,): Promise<string> {

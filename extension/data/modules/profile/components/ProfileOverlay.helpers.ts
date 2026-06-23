@@ -1,6 +1,39 @@
 /** Helper utilities for filtering and searching entries displayed in the profile overlay. */
+import type {RedditListing,} from '../../../api/resources/subreddits'
+import type {RedditThing,} from '../../../api/resources/things'
+import type {UserAbout,} from '../../../api/resources/users'
 import {literalRegExp,} from '../../../util/data/string'
 import {cleanSubredditName,} from '../../../util/reddit/reddit-domain'
+
+/**
+ * The `data` payload of a Reddit user-content listing entry (`t1` comment or `t3` submission).
+ * Profile entries are real comments/submissions, so this carries the base fields the shared
+ * renderer requires ({@link CommentData} / {@link SubmissionData}) alongside the plain-text
+ * fields the profile search/repost logic matches against.
+ */
+export interface ProfileItemData {
+	/** Reddit fullname (e.g. `t3_abc123`); used for dedup and repost grouping. */
+	name: string
+	subreddit: string
+	created_utc: number
+	author: string
+	permalink: string
+	title?: string
+	selftext?: string
+	body?: string
+	url?: string
+	is_self?: boolean
+	[key: string]: unknown
+}
+
+/** A Reddit listing entry shown in the profile overlay. */
+export interface ProfileEntry extends RedditThing<ProfileItemData> {
+	/** Set transiently while rendering a search result so the renderer highlights matches; never from the API. */
+	highlight?: string | RegExp
+}
+
+/** One page of profile listing entries (`overview`/`submitted`/`comments`) as returned by the Reddit API. */
+export type ProfileListingPage = RedditListing<ProfileEntry>
 
 /** Visibility filters applied to profile listing entries in the overlay. */
 export interface ProfileEntryFilters {
@@ -114,7 +147,7 @@ export function compileProfileSearch (options: ProfileSearchOptions,): CompiledP
  * @returns `false` when no patterns are provided; otherwise `true` only if all active patterns match.
  */
 export function profileListingEntryMatches (
-	entry: any,
+	entry: ProfileEntry,
 	{subredditPattern, contentPattern,}: Omit<CompiledProfileSearch, 'error'>,
 ): boolean {
 	if (!subredditPattern && !contentPattern) { return false }
@@ -140,7 +173,7 @@ export interface TabState {
 	sort: string
 	/** Pagination cursor for the next Reddit API page, or `false` when exhausted. */
 	after: string | false
-	items: any[]
+	items: ProfileEntry[]
 	/** Whether the tab has completed its initial data load. */
 	loaded: boolean
 	/** Whether a search is currently active (affecting what is displayed). */
@@ -161,7 +194,7 @@ export interface TabState {
 /** Cached listing data for a single (listing, sort) combination. */
 export interface ProfilePageCache {
 	/** All items fetched so far, deduplicated by fullname. */
-	items: any[]
+	items: ProfileEntry[]
 	/** Reddit API cursor for the next unfetched page, or `false` when none. */
 	after: string | false
 	/** `true` when the API has no more pages to fetch. */
@@ -187,7 +220,7 @@ export const defaultTabState: TabState = {
 	searchResultCount: 0,
 }
 
-export function getUserThumbnailUrl (aboutData: any,): string | null {
+export function getUserThumbnailUrl (aboutData: UserAbout['data'],): string | null {
 	const candidates = [
 		aboutData.snoovatar_img,
 		aboutData.subreddit?.icon_img,
@@ -206,7 +239,7 @@ export function getCacheKey (listing: ProfileListing, sort: string,): string {
 	return `${listing}:${sort}`
 }
 
-export function entryBelongsToListing (entry: any, listing: ProfileListing,): boolean {
+export function entryBelongsToListing (entry: ProfileEntry, listing: ProfileListing,): boolean {
 	return listing === 'overview'
 		|| listing === 'submitted' && entry.kind === 't3'
 		|| listing === 'comments' && entry.kind === 't1'
@@ -245,7 +278,7 @@ export function getOrCreatePageCache (
  * @param seen Set of already-seen fullnames; mutated in place as items are kept.
  * @returns The items not previously seen.
  */
-export function dedupByFullname (items: any[], seen: Set<string>,): any[] {
+export function dedupByFullname (items: ProfileEntry[], seen: Set<string>,): ProfileEntry[] {
 	return items.filter((item,) => {
 		const name = item.data?.name
 		if (!name || !seen.has(name,)) {
@@ -260,9 +293,9 @@ export function cacheListingPage (
 	store: ProfileCacheStore,
 	listing: ProfileListing,
 	sort: string,
-	items: any[],
+	items: ProfileEntry[],
 	after: string | false,
-): any[] {
+): ProfileEntry[] {
 	const cache = getOrCreatePageCache(store, listing, sort,)
 	const seen = new Set(cache.items.map((item,) => item.data?.name).filter(Boolean,),)
 	const newItems = items.filter((item,) => {
@@ -285,7 +318,7 @@ export type ListingPageFetcher = (
 	user: string,
 	listing: string,
 	query: Record<string, string>,
-) => Promise<any>
+) => Promise<ProfileListingPage>
 
 /**
  * Eagerly fetches every remaining page of a user's listing into the cache.
@@ -307,14 +340,14 @@ export async function fetchEntireListing (
 	store: ProfileCacheStore,
 	onProgress?: (pageCount: number, itemCount: number,) => void,
 	shouldCancel?: () => boolean,
-): Promise<any[]> {
+): Promise<ProfileEntry[]> {
 	const cache = getOrCreatePageCache(store, listing, sort,)
 	let after = typeof cache.after === 'string' ? cache.after : ''
 
 	while (!cache.exhausted) {
 		if (shouldCancel?.()) { break }
-		// eslint-disable-next-line no-await-in-loop
-		const data: any = await fetchPage(user, listing, {
+
+		const data = await fetchPage(user, listing, {
 			raw_json: '1',
 			after: after || '',
 			sort,
@@ -411,7 +444,7 @@ export interface RepostData {
  * @param items Raw Reddit API children (`t1` comments and/or `t3` submissions).
  * @returns Per-entry annotations and complete group membership.
  */
-export function computeRepostGroups (items: any[],): RepostData {
+export function computeRepostGroups (items: ProfileEntry[],): RepostData {
 	// signature key -> member descriptors (name + subreddit)
 	const buckets = new Map<string, {name: string; subreddit: string}[]>()
 	// fullname -> the signature keys it produced

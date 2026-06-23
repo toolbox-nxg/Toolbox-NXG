@@ -40,6 +40,7 @@ export const sharedSettingPolicies: Record<string, SharedSettingPolicy> = {
  * and there is no central registry of what type each key holds.
  */
 export interface SettingsObject {
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- heterogeneous store: each Toolbox.{module}.{setting} key holds a different type with no central registry; unknown would force a narrowing cast at every read site for no safety gain
 	[key: string]: any
 }
 
@@ -84,7 +85,7 @@ export async function updateSettings (settings: Partial<SettingsObject>,) {
  * @param setting Key of the setting.
  * @param defaultVal Value returned when the setting is unset.
  */
-export async function getSettingAsync (moduleID: string, setting: string, defaultVal: any = undefined,) {
+export async function getSettingAsync (moduleID: string, setting: string, defaultVal: unknown = undefined,) {
 	const settings = await getSettings()
 	const value = settings[`Toolbox.${moduleID}.${setting}`]
 
@@ -101,10 +102,10 @@ export async function getSettingAsync (moduleID: string, setting: string, defaul
  * @param setting Key of the setting.
  * @param defaultVal Value returned when the setting is unset.
  */
-export async function getModuleSettingAsync<T = any,> (
+export async function getModuleSettingAsync<T = unknown,> (
 	moduleID: string,
 	setting: string,
-	defaultVal: T = undefined as any,
+	defaultVal?: T,
 ): Promise<T> {
 	return getSettingAsync(moduleID, setting, defaultVal,)
 }
@@ -115,7 +116,7 @@ export async function getModuleSettingAsync<T = any,> (
  * @param setting Key of the setting.
  * @param value New value to store.
  */
-export const setSettingAsync = (moduleID: string, setting: string, value: any,) =>
+export const setSettingAsync = (moduleID: string, setting: string, value: unknown,) =>
 	updateSettings({
 		[`Toolbox.${moduleID}.${setting}`]: value,
 	},)
@@ -149,17 +150,23 @@ export const getAnonymizedSettings = async (extraPolicies: Record<string, Shared
 
 	return sharedSettings
 
-	function undefinedOrLength (setting: any,) {
-		return setting === undefined ? 0 : setting.length ?? 0
+	function undefinedOrLength (setting: unknown,) {
+		if (typeof setting === 'string' || Array.isArray(setting,)) {
+			return setting.length
+		}
+		return 0
 	}
 
-	function undefinedOrTrue (setting: any,) {
+	function undefinedOrTrue (setting: unknown,) {
 		if (!setting) {
 			return false
 		}
-		if (setting.length != null) {
+		if (typeof setting === 'string' || Array.isArray(setting,)) {
 			return setting.length > 0
 		}
-		return Object.keys(setting,).length > 0
+		if (typeof setting === 'object') {
+			return Object.keys(setting,).length > 0
+		}
+		return false
 	}
 }

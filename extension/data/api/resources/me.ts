@@ -5,6 +5,12 @@ import {getCache, setCache,} from '../../util/persistence/cache'
 import {apiOauthGetJSON,} from '../transport/http'
 import {fetchAllListingPages, is504,} from '../transport/pagination'
 
+/** Partial shape of the `/api/v1/me` account object (only the fields Toolbox reads). */
+export interface UserDetails {
+	/** The authenticated account's username. */
+	name: string
+}
+
 /**
  * A promise resolving to the current user's details from `/api/v1/me`, or
  * rejecting when they can't be fetched. May yield a previously cached details
@@ -16,10 +22,10 @@ import {fetchAllListingPages, is504,} from '../transport/pagination'
  */
 const userDetailsPromise = (async function fetchUserDetails (tries = 3,) {
 	try {
-		const data = await apiOauthGetJSON('/api/v1/me',)
+		const data = await apiOauthGetJSON<UserDetails>('/api/v1/me',)
 		// Fire-and-forget: cache write is best-effort; callers should not fail
 		// because a background write to extension storage didn't complete.
-		setCache(utils, 'userDetails', data,)
+		void setCache(utils, 'userDetails', data,)
 		return data
 	} catch (error) {
 		// 504 Gateway Timeout errors can be retried
@@ -32,7 +38,7 @@ const userDetailsPromise = (async function fetchUserDetails (tries = 3,) {
 	}
 })()
 	// If getting details from API fails, fall back to the cached value (if any)
-	.catch(() => getCache(utils, 'userDetails',))
+	.catch(() => getCache<UserDetails>(utils, 'userDetails',))
 
 /** Gets details about the current user from `/api/v1/me`. */
 export const getUserDetails = () => userDetailsPromise

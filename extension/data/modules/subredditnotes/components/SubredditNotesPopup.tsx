@@ -81,7 +81,7 @@ export function SubredditNotesPopup ({
 	currentSubreddit,
 	onClose,
 }: SubredditNotesPopupProps,) {
-	const modSubs = (useFetched(getModSubs(false,),) as string[] | undefined) ?? []
+	const modSubs = (useFetched(getModSubs(false,),)) ?? []
 
 	// modSubs loads asynchronously and is empty on the first render, so the active subreddit can't
 	// be resolved at mount. Start with the configured notewiki and let the effect below switch to
@@ -207,12 +207,12 @@ export function SubredditNotesPopup ({
 		clearEditor()
 		setSelectedTagFilters([],)
 		setSelectedAuthorFilters([],)
-		;(async () => {
+		void (async () => {
 			if (activeSubreddit === '') {
 				setMode('no-subreddit',)
 				return
 			}
-			const mySubs = await getModSubs(false,) as string[]
+			const mySubs = await getModSubs(false,)
 			const mySubsLowerCase = mySubs.map((s: string,) => s.toLowerCase())
 			if (!mySubsLowerCase.includes(activeSubreddit.toLowerCase(),)) {
 				setMode('not-mod',)
@@ -593,7 +593,7 @@ export function SubredditNotesPopup ({
 								<button
 									type="button"
 									className={css.newNoteButton}
-									onClick={handleCreate}
+									onClick={() => void handleCreate()}
 									disabled={editorLoading || saving || !currentUser}
 								>
 									+ New note
@@ -618,7 +618,7 @@ export function SubredditNotesPopup ({
 													activeSlug === note.slug && css.active,
 													note.archived && css.archived,
 												)}
-												onClick={() => loadNote(note,)}
+												onClick={() => void loadNote(note,)}
 												disabled={editorLoading || saving}
 											>
 												<span className={css.noteTitle}>{note.title}</span>
@@ -639,7 +639,7 @@ export function SubredditNotesPopup ({
 												type="button"
 												className={css.archiveButton}
 												title={note.archived ? 'Restore note' : 'Archive note'}
-												onClick={() => handleArchive(note,)}
+												onClick={() => void handleArchive(note,)}
 												disabled={editorLoading || saving}
 											>
 												<Icon
@@ -677,13 +677,13 @@ export function SubredditNotesPopup ({
 												onKeyDown={(event,) => {
 													if (event.key === 'Enter') {
 														event.preventDefault()
-														handleSaveTitle()
+														void handleSaveTitle()
 													}
 												}}
 											/>
 											<ActionButton
 												inline
-												onClick={handleSaveTitle}
+												onClick={() => void handleSaveTitle()}
 												disabled={editorLoading || saving || !editingTitle.trim()
 													|| editingTitle.trim() === activeNote.title}
 											>
@@ -791,7 +791,7 @@ export function SubredditNotesPopup ({
 								? (
 									<ActionButton
 										primary
-										onClick={handleSave}
+										onClick={() => void handleSave()}
 										disabled={activeNote == null || editorLoading || saving || !unsaved}
 									>
 										save note

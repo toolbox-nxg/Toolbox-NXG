@@ -170,7 +170,7 @@ export function showConfigOverlay (options: ConfigOverlayOptions,): ConfigOverla
 	const handle: ConfigOverlayHandle = {
 		switchTab: (tabId,) => {
 			// Map string id -> numeric index using the same visible-tabs list
-			const advancedMode = store.getState().settings.values['Toolbox.Utils.advancedMode']
+			const advancedMode = store.getState().settings.values['Toolbox.Utils.advancedMode'] as boolean
 			const visibleTabs = currentTabs.filter((t,) => advancedMode || !t.advanced)
 			const index = visibleTabs.findIndex((t,) => deriveTabId(t,) === tabId)
 			if (index >= 0) { setActiveIndexRef.current?.(index,) }

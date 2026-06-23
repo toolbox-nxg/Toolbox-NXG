@@ -57,14 +57,14 @@ export const COMPAT_WRITES_KEY = 'Toolbox.Utils.compatibilityWrites'
  * Returns a shallow copy of a config object without the NXG layout metadata
  * keys. Used when writing the legacy `toolbox` mirror, which 6.x parses.
  */
-export function stripLayoutMetadata (config: Record<string, any>,): Record<string, any> {
-	const copy = {...config,}
+export function stripLayoutMetadata (config: object,): Record<string, unknown> {
+	const copy: Record<string, unknown> = {...config,}
 	delete copy[WIKI_LAYOUT_KEY]
 	delete copy[COMPAT_WRITES_KEY]
 	return copy
 }
 
 /** Returns `true` when a parsed `toolbox` page is an NXG tombstone rather than a real 6.x config. */
-export function isTombstone (data: Record<string, any>,): boolean {
-	return data[WIKI_LAYOUT_KEY] === 'nxg'
+export function isTombstone (data: object,): boolean {
+	return (data as Record<string, unknown>)[WIKI_LAYOUT_KEY] === 'nxg'
 }

@@ -2,6 +2,7 @@
 import {useEffect,} from 'react'
 import {getCommentContext,} from '../../api/resources/comments'
 import {isModSub,} from '../../api/resources/modSubs'
+import type {CommentData, RedditMoreChildren, RedditThing,} from '../../api/resources/things'
 import {getMenuarea,} from '../../dom/oldReddit/page'
 import {provideLocation, renderAtLocation,} from '../../dom/uiLocations'
 import {createLifecycle,} from '../../framework/lifecycle'
@@ -101,7 +102,7 @@ export function createHighlightHandlers (highlighted: string[],) {
 		async handleExpando (element: Element,) {
 			const thing = element as HTMLElement
 			const thingInfo = await getThingInfo(thing, true,)
-			if (thingInfo.subreddit) {
+			if (thingInfo?.subreddit) {
 				lifecycle.timeout(() => {
 					highlightAll(thing.querySelectorAll('.md',), highlighted,)
 				}, 200,)
@@ -160,17 +161,19 @@ export function openCommentContextPopup (commentID: string, permalink: string, e
 			negativeTextFeedback('Content inaccessible; removed or deleted?',)
 			return
 		}
-		// Cast to access raw API fields; children are untyped comment things from the API.
-		const firstChild = listing.data.children[0] as Record<string, any> | undefined
+		// Children are untyped comment things from the API; narrow to the modeled comment shape.
+		const children = listing.data.children as (RedditThing<CommentData> | RedditMoreChildren)[]
+		// The first context child is the highlighted comment; read its author/subreddit directly.
+		const firstChild = children[0] as RedditThing<CommentData> | undefined
 		const contextUser = firstChild?.data?.author
 		const contextSubreddit = firstChild?.data?.subreddit
 		showContextPopup({
 			title: `Context for /u/${contextUser} in /r/${contextSubreddit}`,
 			initialPosition: {top: positions.topPosition, left: positions.leftPosition,},
-			commentsData: listing.data.children,
+			commentsData: children,
 			highlightCommentId: commentID,
 		},)
-	},)
+	},).catch((error: unknown,) => log.error(error,))
 }
 
 /**

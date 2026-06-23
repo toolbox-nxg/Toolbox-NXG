@@ -386,7 +386,7 @@ export function createMacrosHandlers ({showMacroPreview,}: MacrosSettings,): Mac
 				removeExistingMacros(thing, '.toolbox-top-macro-select, .toolbox-macro-select',)
 			}
 
-			if (!info.subreddit) { return }
+			if (!info || !info.subreddit) { return }
 			log.debug(info.subreddit,)
 
 			const thingFullname = thing ? getThingFullname(thing,) : null
@@ -450,7 +450,7 @@ export function createMacrosHandlers ({showMacroPreview,}: MacrosSettings,): Mac
 		},
 
 		handleShredditMutations (mutations: MutationRecord[],) {
-			const subreddit = pageDetails.subreddit as string | undefined
+			const subreddit = pageDetails.pageDetails.subreddit
 			if (!subreddit) { return }
 
 			for (const mutation of mutations) {
@@ -467,7 +467,7 @@ export function createMacrosHandlers ({showMacroPreview,}: MacrosSettings,): Mac
 							host.classList.add('toolbox-macro-select',)
 							container.after(host,)
 							injectMacroSelect(host, RedditPlatform.Shreddit, subreddit, thingId, 'comment', false,)
-						},)
+						},).catch((error: unknown,) => log.error(error,))
 					}
 
 					// Top-level post reply form: comment-composer-host added via SPA navigation
@@ -481,7 +481,7 @@ export function createMacrosHandlers ({showMacroPreview,}: MacrosSettings,): Mac
 							const wrapper = document.querySelector('#sticky-comment-composer-wrapper',)
 							;(wrapper ?? composerEl).after(host,)
 							injectMacroSelect(host, RedditPlatform.Shreddit, subreddit, postId, 'post', true,)
-						},)
+						},).catch((error: unknown,) => log.error(error,))
 					}
 				}
 			}

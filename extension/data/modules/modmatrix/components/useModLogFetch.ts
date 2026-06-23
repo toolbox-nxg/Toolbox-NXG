@@ -2,8 +2,12 @@
 
 import {useEffect, useRef,} from 'react'
 import {getModLogByPath,} from '../../../api/resources/subreddits'
+import type {RedditListing,} from '../../../api/resources/subreddits'
 import createLogger from '../../../util/infra/logging'
 import type {ModLogEntry,} from '../schema'
+
+/** The `data` envelope of a paginated mod-log listing response. */
+type ModLogPageData = RedditListing<{kind: string; data: ModLogEntry}>['data']
 
 const log = createLogger('ModMatrix',)
 const limit = 500
@@ -35,7 +39,7 @@ export function useModLogFetch (
 ) {
 	const afterRef = useRef<string | null>(null,)
 	const iterationsRef = useRef(0,)
-	const dataCacheRef = useRef<Record<string, any>>({},)
+	const dataCacheRef = useRef<Record<string, ModLogPageData>>({},)
 	const activeRef = useRef(false,)
 
 	useEffect(() => {
@@ -55,7 +59,7 @@ export function useModLogFetch (
 			const count = iterationsRef.current * limit
 			iterationsRef.current += 1
 
-			const requestData: Record<string, any> = {limit: limit, count,}
+			const requestData: Record<string, string> = {limit: String(limit,), count: String(count,),}
 			if (afterRef.current != null) {
 				requestData.after = afterRef.current
 			}
@@ -63,12 +67,13 @@ export function useModLogFetch (
 			const cacheKey = `${modLogCachePath}?${JSON.stringify(requestData,)}`
 			log.debug(`Fetching ${count} to ${count + limit}`,)
 
-			let data: any
+			let data: ModLogPageData
 			try {
-				if (dataCacheRef.current[cacheKey] != null) {
-					data = dataCacheRef.current[cacheKey]
+				const cached = dataCacheRef.current[cacheKey]
+				if (cached != null) {
+					data = cached
 				} else {
-					const response = await getModLogByPath(relativeUrl, requestData,)
+					const response = await getModLogByPath<{kind: string; data: ModLogEntry}>(relativeUrl, requestData,)
 					data = response.data
 					dataCacheRef.current[cacheKey] = data
 				}
@@ -92,7 +97,7 @@ export function useModLogFetch (
 			let finished = false
 
 			for (const child of (data.children ?? [])) {
-				const item = child.data as ModLogEntry
+				const item = child.data
 				if (minDate != null && minDate > item.created_utc * 1000) {
 					finished = true
 					break
@@ -116,7 +121,7 @@ export function useModLogFetch (
 			}
 		}
 
-		fetchPage()
+		void fetchPage()
 
 		return () => {
 			activeRef.current = false

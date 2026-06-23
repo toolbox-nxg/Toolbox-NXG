@@ -14,7 +14,6 @@ export function tbDecode (s: string,): string {
 	try {
 		return decodeURIComponent(s,)
 	} catch {
-		// eslint-disable-next-line no-restricted-globals
 		return unescape(s,)
 	}
 }
@@ -31,7 +30,6 @@ export function tbDecode (s: string,): string {
  * wiki mirrors are no longer written.
  */
 export function legacyEscape (s: string,): string {
-	// eslint-disable-next-line no-restricted-globals
 	return escape(s,)
 }
 
@@ -86,7 +84,7 @@ export function htmlDecode (value: string,): string {
 /**
  * Decompresses a base64-encoded, zlib-compressed string back into its data.
  */
-export function zlibInflate (stringThing: string,): any {
+export function zlibInflate (stringThing: string,): string {
 	// Decode base64 -> binary string -> Uint8Array, then inflate raw bytes.
 	// Convert result as Latin-1 (charCode per byte) to match the encoding
 	// used by pako 0.2.x, which stored data as a Latin-1 byte sequence.

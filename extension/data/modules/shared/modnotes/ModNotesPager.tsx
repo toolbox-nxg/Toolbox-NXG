@@ -54,7 +54,7 @@ export function ModNotesPager ({user, subreddit, filter: noteFilter,}: ModNotesP
 										key={note.id}
 										note={note}
 										notesOnly
-										onDelete={() => deleteNote(note.id,)}
+										onDelete={() => void deleteNote(note.id,)}
 									/>
 								))}
 							</div>
@@ -74,7 +74,7 @@ export function ModNotesPager ({user, subreddit, filter: noteFilter,}: ModNotesP
 										<NoteTableRow
 											key={note.id}
 											note={note}
-											onDelete={() => deleteNote(note.id,)}
+											onDelete={() => void deleteNote(note.id,)}
 										/>
 									))}
 								</tbody>

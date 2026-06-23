@@ -20,7 +20,7 @@ export function registerGlobalMessageHandlers () {
 
 		// Also send to the background page, unless it only applies to tabs
 		if (!request.excludeBackground) {
-			handleMessage(message, sender,)
+			await handleMessage(message, sender,)
 		}
 	},)
 }

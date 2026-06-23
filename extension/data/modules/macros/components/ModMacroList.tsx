@@ -37,7 +37,7 @@ import css from './ModMacroList.module.css'
 interface Macro {
 	/** Stable identifier (schema v2); preserved across edits, assigned on create. */
 	id?: string
-	text?: string
+	text: string
 	title?: string
 	distinguish?: boolean
 	sticky?: boolean
@@ -496,7 +496,11 @@ export function ModMacroList ({state, addRef, disabledRef, sortRef,}: ModMacroLi
 	const [macros, setMacros,] = useState<MacroEntry[]>([],)
 	const [editingIndex, setEditingIndex,] = useState<number | null>(null,)
 	const [showAddForm, setShowAddForm,] = useState(false,)
-	const [flairTemplates, setFlairTemplates,] = useState<UserFlairTemplate[] | null>(state.userFlairTemplates,)
+	const [flairTemplates, setFlairTemplates,] = useState<UserFlairTemplate[] | null>(
+		// `state.userFlairTemplates` is loosely typed `any` on ConfigState (the schema avoids
+		// importing flair types for module layering); narrow it to the shape this list consumes.
+		state.userFlairTemplates as UserFlairTemplate[] | null,
+	)
 	const rootRef = useRef<HTMLDivElement>(null,)
 	const idCounterRef = useRef(0,)
 	const parser = useMemo(() => getMarkdownParser(), [],)
@@ -509,7 +513,7 @@ export function ModMacroList ({state, addRef, disabledRef, sortRef,}: ModMacroLi
 
 	useEffect(() => {
 		if (document.body.classList.contains('toolbox-wiki-edited',)) {
-			reloadToolboxConfig(subreddit,).then((config,) => {
+			void reloadToolboxConfig(subreddit,).then((config,) => {
 				if (!config) { return }
 				normalizeConfig(config,)
 				state.config = config
@@ -590,7 +594,7 @@ export function ModMacroList ({state, addRef, disabledRef, sortRef,}: ModMacroLi
 			flushPendingOrderRef.current()
 		}
 		prevSortingRef.current = sorting
-	}, [sorting,],) // eslint-disable-line react-hooks/exhaustive-deps
+	}, [sorting,],)
 
 	// Safety net: cards can be dragged in either view and the overlay can close
 	// (or the tab switch away, which unmounts) at any time - persist a dirty
@@ -655,7 +659,7 @@ export function ModMacroList ({state, addRef, disabledRef, sortRef,}: ModMacroLi
 		setShowAddForm(false,)
 	}
 
-	const emptyMacro: Macro = {}
+	const emptyMacro: Macro = {text: '',}
 
 	return (
 		<div ref={rootRef} className={css.root}>

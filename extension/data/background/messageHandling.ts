@@ -22,6 +22,7 @@ type MessageHandlerFn<M extends ToolboxMessage,> = (
 ) => MaybePromise<unknown>
 
 /** Registry mapping action strings to their typed handler functions. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- heterogeneous handler registry: each action's handler accepts a different ToolboxMessage subtype, erased to any at storage
 const messageHandlers = new Map<string, MessageHandlerFn<any>>()
 
 /** A function that validates the payload of an incoming message. */
@@ -179,10 +180,11 @@ export function handleMessage (request: unknown, sender: browser.Runtime.Message
 			return
 		}
 		const validator = messageValidators[request.action as ToolboxMessageAction]
-		if (!validator(request as Record<string, unknown>,)) {
+		if (!validator(request,)) {
 			log.warn('Malformed toolbox message payload:', request, sender,)
 			return
 		}
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- validated above; bridge the erased registry handler to this specific request at the dispatch boundary
 		return Promise.resolve(handler(request as any, sender,),).catch((error,) => {
 			log.error('Toolbox background handler failed:', request.action, error,)
 			throw error

@@ -73,7 +73,7 @@ export function StickyButton ({thing,}: StickyButtonProps,) {
 		let active = true
 		subredditHasSticky(subreddit,).then((has,) => {
 			if (active) { setSlot2Available(has,) }
-		},)
+		},).catch((error: unknown,) => log.error(error,))
 		return () => {
 			active = false
 		}

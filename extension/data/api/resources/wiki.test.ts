@@ -55,7 +55,7 @@ describe('readFromWiki', () => {
 	})
 
 	it('maps missing wiki error reasons to no_page', async () => {
-		const error: any = new Error('not found',)
+		const error: Error & {response?: Response} = new Error('not found',)
 		error.response = new Response(JSON.stringify({reason: 'PAGE_NOT_CREATED',},), {status: 404,},)
 		apiOauthGET.mockRejectedValue(error,)
 

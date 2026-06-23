@@ -1,4 +1,5 @@
 /** API helpers for fetching and aggregating a user's submission and comment history data. */
+import type {CommentData, RedditThing, SubmissionData,} from '../../api/resources/things'
 import {aboutUser,} from '../../api/resources/users'
 import {getUserComments, getUserSubmissions,} from '../../api/resources/users'
 import {CommentHistoryData, SubmissionHistoryData, UserInfo,} from './schema'
@@ -17,7 +18,7 @@ export async function getUserInfo (user: string,): Promise<UserInfo> {
 }
 
 // Matches http(s) URLs; excludes trailing punctuation that isn't part of the URL.
-const urlRegex = /https?:\/\/[^\s"()\[\]<>]+/g
+const urlRegex = /https?:\/\/[^\s"()[\]<>]+/g
 
 function extractExternalLinkDomains (text: string,): string[] {
 	const matches = text.match(urlRegex,) ?? []
@@ -54,22 +55,22 @@ function accumulateLinkDomains (map: Record<string, {count: number}>, text: stri
  */
 export async function getSubmissionHistoryData (user: string,): Promise<SubmissionHistoryData> {
 	let total = 0
-	const domains: Record<string, {count: number}> = Object.create(null,)
-	const subreddits: Record<string, {count: number; karma: number}> = Object.create(null,)
-	const textLinkDomains: Record<string, {count: number}> = Object.create(null,)
+	const domains = Object.create(null,) as Record<string, {count: number}>
+	const subreddits = Object.create(null,) as Record<string, {count: number; karma: number}>
+	const textLinkDomains = Object.create(null,) as Record<string, {count: number}>
 
-	const children = await getUserSubmissions(user,)
+	const children = await getUserSubmissions(user,) as RedditThing<SubmissionData & {selftext?: string}>[]
 	total = children.length
 
-	children.forEach((value: any,) => {
+	children.forEach((value,) => {
 		const submission = value.data
 
-		const domainEntry = domains[submission.domain] ??= {count: 0,}
+		const domainEntry = domains[submission.domain ?? ''] ??= {count: 0,}
 		domainEntry.count += 1
 
 		const subredditEntry = subreddits[submission.subreddit] ??= {count: 0, karma: 0,}
 		subredditEntry.count += 1
-		subredditEntry.karma += submission.score
+		subredditEntry.karma += submission.score ?? 0
 
 		if (submission.is_self) {
 			accumulateLinkDomains(textLinkDomains, submission.selftext,)
@@ -86,13 +87,13 @@ export async function getSubmissionHistoryData (user: string,): Promise<Submissi
  * @returns Total comment count, per-subreddit counts, and external domains linked in comment bodies.
  */
 export async function getCommentHistoryData (user: string, commentCount: number,): Promise<CommentHistoryData> {
-	const subreddits: Record<string, number> = Object.create(null,)
-	const linkDomains: Record<string, {count: number}> = Object.create(null,)
+	const subreddits = Object.create(null,) as Record<string, number>
+	const linkDomains = Object.create(null,) as Record<string, {count: number}>
 
-	const children = await getUserComments(user, commentCount,)
+	const children = await getUserComments(user, commentCount,) as RedditThing<CommentData & {body?: string}>[]
 	const total = children.length
 
-	children.forEach((comment: any,) => {
+	children.forEach((comment,) => {
 		const {subreddit, body,} = comment.data
 		subreddits[subreddit] ??= 0
 		subreddits[subreddit] += 1

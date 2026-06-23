@@ -43,7 +43,7 @@ export interface BanState {
  * isn't banned.
  */
 export const getBanState = async (subreddit: string, user: string,) => {
-	const data = await apiOauthGetJSON(`/r/${subreddit}/about/banned/.json`, {user,},)
+	const data = await apiOauthGetJSON<{data?: {children?: BanState[]}}>(`/r/${subreddit}/about/banned/.json`, {user,},)
 	const children = data?.data?.children
 	if (!Array.isArray(children,)) { return undefined }
 	const bans = children.filter((c,): c is BanState => typeof c?.name === 'string')

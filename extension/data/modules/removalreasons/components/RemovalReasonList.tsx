@@ -28,7 +28,7 @@ import {TextInput,} from '../../../shared/controls/NormalInput'
 import {SortModeRef, useSortMode,} from '../../../shared/controls/SortToggleButton'
 import {TextareaInput,} from '../../../shared/controls/TextareaInput'
 import {TokenChips,} from '../../../shared/controls/TokenChips'
-import {type ConfigState, generateConfigId,} from '../../../util/wiki/schemas/config/schema'
+import {type ConfigState, generateConfigId, type ToolboxConfig,} from '../../../util/wiki/schemas/config/schema'
 import {decodeHtmlAngleBrackets, substitutionTokens,} from '../../../util/wiki/schemas/shared/tokens'
 import type {UserNoteColor,} from '../../../util/wiki/schemas/usernotes/schema'
 import {reloadConfigFromWiki,} from '../../config/moduleapi'
@@ -43,7 +43,7 @@ interface Reason {
 	/** Stable identifier (schema v2); preserved across edits, assigned on create. */
 	id?: string
 	text: string
-	title?: string
+	title: string
 	/** Whether the reason applies to posts (defaults to true when undefined). */
 	removePosts?: boolean
 	/**
@@ -53,9 +53,9 @@ interface Reason {
 	 * This editor writes `true` or omits the key - never `false`.
 	 */
 	removeComments?: boolean
-	flairText?: string
-	flairCSS?: string
-	flairTemplateID?: string
+	flairText: string
+	flairCSS: string
+	flairTemplateID: string
 	editable?: boolean
 	default_note?: string
 	default_note_type?: string
@@ -538,7 +538,7 @@ export interface RemovalReasonListProps {
 	/** Optional ref connecting the list to a footer Reorder toggle. */
 	sortRef?: SortModeRef
 	/** Called with the updated config and revision note when any reason is saved or deleted. */
-	onSave: (config: any, reason: string,) => void
+	onSave: (config: ToolboxConfig, reason: string,) => void
 }
 
 /**
@@ -560,7 +560,9 @@ export function RemovalReasonList ({state, addRef, disabledRef, sortRef, onSave,
 	const [reasons, setReasons,] = useState<ReasonEntry[]>([],)
 	const [editingIndex, setEditingIndex,] = useState<number | null>(null,)
 	const [showAddForm, setShowAddForm,] = useState(false,)
-	const [flairTemplates, setFlairTemplates,] = useState<FlairTemplate[] | null>(state.postFlairTemplates,)
+	const [flairTemplates, setFlairTemplates,] = useState<FlairTemplate[] | null>(
+		state.postFlairTemplates as FlairTemplate[] | null,
+	)
 	const [noteColors, setNoteColors,] = useState<UserNoteColor[] | null>(null,)
 	const rootRef = useRef<HTMLDivElement>(null,)
 	const idCounterRef = useRef(0,)
@@ -575,7 +577,7 @@ export function RemovalReasonList ({state, addRef, disabledRef, sortRef, onSave,
 
 	useEffect(() => {
 		if (document.body.classList.contains('toolbox-wiki-edited',)) {
-			reloadConfigFromWiki(subreddit,).then((config,) => {
+			void reloadConfigFromWiki(subreddit,).then((config,) => {
 				if (!config) { return }
 				state.config = config
 				setReasons(toEntries(config.removalReasons?.reasons ?? [],),)
@@ -675,7 +677,7 @@ export function RemovalReasonList ({state, addRef, disabledRef, sortRef, onSave,
 			flushPendingOrderRef.current()
 		}
 		prevSortingRef.current = sorting
-	}, [sorting,],) // eslint-disable-line react-hooks/exhaustive-deps
+	}, [sorting,],)
 
 	// Safety net: cards can be dragged in either view and the overlay can close
 	// (or the tab switch away, which unmounts) at any time - persist a dirty

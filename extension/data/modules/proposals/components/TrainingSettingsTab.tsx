@@ -9,7 +9,7 @@ import {NumberInput,} from '../../../shared/controls/NumberInput'
 import {positiveTextFeedback,} from '../../../store/feedback'
 import createLogger from '../../../util/infra/logging'
 import {type SaveRef, useSaveRef,} from '../../../util/ui/hooks'
-import type {ConfigState,} from '../../../util/wiki/schemas/config/schema'
+import type {ConfigState, ToolboxConfig,} from '../../../util/wiki/schemas/config/schema'
 import type {ProposedActionType,} from '../../../util/wiki/schemas/proposals/schema'
 import {compatMirrorEnabled, resolveWikiLayout,} from '../../../util/wiki/wikiPaths'
 import css from './TrainingSettingsTab.module.css'
@@ -44,7 +44,7 @@ interface Props {
 	/** Optional ref wired up so the parent can trigger saving the settings. */
 	saveRef?: SaveRef
 	/** Called with the updated config and revision note when the user saves. */
-	onSave: (config: any, reason: string,) => void
+	onSave: (config: ToolboxConfig, reason: string,) => void
 }
 
 /** One moderator entry from the subreddit's about/moderators listing. */
@@ -87,7 +87,7 @@ export function TrainingSettingsTab ({state, saveRef, onSave,}: Props,) {
 	useEffect(() => {
 		if (!subreddit) { return }
 		let cancelled = false
-		;(async () => {
+		void (async () => {
 			try {
 				const listing = await getSubredditListing<ModeratorEntry>(subreddit, 'moderators', {limit: '100',},)
 				if (!cancelled) { setMods(listing?.data?.children ?? [],) }

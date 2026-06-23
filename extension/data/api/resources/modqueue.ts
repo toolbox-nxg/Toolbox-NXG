@@ -9,8 +9,11 @@ import {apiOauthGetJSON,} from '../transport/http'
  * @returns An array of fullnames (e.g. `t3_abc123`).
  */
 export async function getModqueueThingNames (subreddit: string, limit = 100,): Promise<string[]> {
-	const queue = await apiOauthGetJSON(`/r/${subreddit}/about/modqueue.json`, {limit: String(limit,),},)
+	const queue = await apiOauthGetJSON<{data: {children: Array<{data?: {name?: string}}>}}>(
+		`/r/${subreddit}/about/modqueue.json`,
+		{limit: String(limit,),},
+	)
 	return queue.data.children
-		.map((thing: {data?: {name?: string}},) => thing.data?.name)
-		.filter((name: string | undefined,): name is string => name != null)
+		.map((thing,) => thing.data?.name)
+		.filter((name,): name is string => name != null)
 }
