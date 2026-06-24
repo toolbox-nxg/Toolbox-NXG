@@ -128,7 +128,7 @@ describe('FlatListModActions', () => {
 		expect(host.textContent,).toBe('',)
 	})
 
-	it('shows the post action set (no Distinguish, no Approve until removed)', async () => {
+	it('shows the post action set (no Distinguish, Approve always shown)', async () => {
 		const host = await render(postProps(),)
 		expect(buttonByText(host, 'Spam',),).toBeTruthy()
 		expect(buttonByText(host, 'Remove',),).toBeTruthy()
@@ -137,7 +137,7 @@ describe('FlatListModActions', () => {
 		expect(buttonByText(host, 'Mark NSFW',),).toBeTruthy()
 		expect(buttonByText(host, 'Recent actions',),).toBeTruthy()
 		expect(buttonByText(host, 'Distinguish',),).toBeFalsy()
-		expect(buttonByText(host, 'Approve',),).toBeFalsy()
+		expect(buttonByText(host, 'Approve',),).toBeTruthy()
 	})
 
 	it('renders Spam immediately before Remove', async () => {
@@ -186,19 +186,19 @@ describe('FlatListModActions', () => {
 		expect(buttonByText(host, 'Lock',),).toBeTruthy()
 	})
 
-	it('approves a removed comment through the gateway and swaps back to Spam/Remove', async () => {
+	it('approves a removed comment through the gateway and swaps Spam/Remove back in', async () => {
 		const host = await render(commentProps({isRemoved: true,},),)
 		await click(buttonByText(host, 'Approve',),)
 		expect(proposeOrApprove,).toHaveBeenCalledWith(
 			expect.objectContaining({subreddit: 'sub', itemId: 't1_y', itemKind: 'comment',},),
 		)
-		// A real approve flips the row back to not-removed: Approve goes, Spam/Remove return.
-		expect(buttonByText(host, 'Approve',),).toBeFalsy()
+		// A real approve flips the row back to not-removed: Spam/Remove return; Approve stays shown.
+		expect(buttonByText(host, 'Approve',),).toBeTruthy()
 		expect(buttonByText(host, 'Spam',),).toBeTruthy()
 		expect(buttonByText(host, 'Remove',),).toBeTruthy()
 	})
 
-	it('keeps Approve shown when the approve is only captured for review', async () => {
+	it('keeps Spam hidden when the approve is only captured for review', async () => {
 		proposeOrApprove.mockResolvedValueOnce('captured',)
 		const host = await render(commentProps({isRemoved: true,},),)
 		await click(buttonByText(host, 'Approve',),)
@@ -208,24 +208,24 @@ describe('FlatListModActions', () => {
 		expect(buttonByText(host, 'Spam',),).toBeFalsy()
 	})
 
-	it('shows Approve on any removed item, hidden until removed', async () => {
+	it('shows Approve on every item, removed or not', async () => {
 		// Removed comment: shown.
 		expect(buttonByText(await render(commentProps({isRemoved: true,},),), 'Approve',),).toBeTruthy()
-		// Removed post: shown too (the native post approve is hidden by CSS on removed rows).
+		// Removed post: shown.
 		expect(buttonByText(await render(postProps({isRemoved: true,},),), 'Approve',),).toBeTruthy()
-		// Non-removed comment: hidden (Spam/Remove are the verdict actions there).
-		expect(buttonByText(await render(commentProps(),), 'Approve',),).toBeFalsy()
-		// Non-removed post: hidden.
-		expect(buttonByText(await render(postProps(),), 'Approve',),).toBeFalsy()
+		// Non-removed comment: shown (the native approve is hidden by CSS, Toolbox renders its own).
+		expect(buttonByText(await render(commentProps(),), 'Approve',),).toBeTruthy()
+		// Non-removed post: shown.
+		expect(buttonByText(await render(postProps(),), 'Approve',),).toBeTruthy()
 	})
 
-	it('approves a removed post through the gateway and swaps back to Spam/Remove', async () => {
+	it('approves a removed post through the gateway and swaps Spam/Remove back in', async () => {
 		const host = await render(postProps({isRemoved: true,},),)
 		await click(buttonByText(host, 'Approve',),)
 		expect(proposeOrApprove,).toHaveBeenCalledWith(
 			expect.objectContaining({subreddit: 'sub', itemId: 't3_x', itemKind: 'post',},),
 		)
-		expect(buttonByText(host, 'Approve',),).toBeFalsy()
+		expect(buttonByText(host, 'Approve',),).toBeTruthy()
 		expect(buttonByText(host, 'Spam',),).toBeTruthy()
 		expect(buttonByText(host, 'Remove',),).toBeTruthy()
 	})

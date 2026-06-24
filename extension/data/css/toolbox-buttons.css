@@ -92,26 +92,10 @@
 /* Hide Reddit's native inline mod-action pills on Shreddit surfaces where Toolbox renders its own
    inline mod actions (e.g. post-detail / queue, which render `mod-action-button` elements directly
    - the feed keeps them in the lazy ⋯ menu, handled separately by suppressNativeOverflowModActions).
-   The native Approve is left visible by this rule (Toolbox replaces it only on removed rows - see the
-   rule below - so reported-but-not-removed items keep their native Approve); share/save/award are
-   untouched. */
-body.toolbox-scope shreddit-post mod-action-button:not([data-mod-action="mod-approve-content"]),
-body.toolbox-scope shreddit-comment-action-row mod-action-button:not([data-mod-action="mod-approve-content"]) {
-	/* stylelint-disable-next-line declaration-no-important -- Reddit's own stylesheet sets these; specificity alone can't win. */
-	display: none !important;
-}
-
-/* On removed rows the Toolbox row renders its own Approve (gateway-routed, training-capture aware), so
-   hide the native Approve there to avoid showing two. Matches the removed-state attributes that
-   `isThingRemoved` reads; scoped to things with an injected Toolbox row. Non-removed items that still
-   expose an Approve (e.g. reported-but-not-removed) keep the native one - the Toolbox row doesn't
-   render an Approve for them, so the rule above leaves it in place. */
-body.toolbox-scope
-	shreddit-post.toolbox-has-flat-list-row:is([removed], [item-state="REMOVED"], [moderation-verdict="MOD_REMOVED"])
-	mod-action-button[data-mod-action="mod-approve-content"],
-body.toolbox-scope
-	shreddit-comment.toolbox-has-flat-list-row:is([removed], [item-state="REMOVED"], [moderation-verdict="MOD_REMOVED"])
-	mod-action-button[data-mod-action="mod-approve-content"] {
+   The native Approve is hidden too: Toolbox now renders its own Approve on every row (removed or not),
+   so leaving the native one visible would show two. Share/save/award are untouched. */
+body.toolbox-scope shreddit-post mod-action-button,
+body.toolbox-scope shreddit-comment-action-row mod-action-button {
 	/* stylelint-disable-next-line declaration-no-important -- Reddit's own stylesheet sets these; specificity alone can't win. */
 	display: none !important;
 }

@@ -8,7 +8,7 @@
  * primitives directly).
  *
  * Renders the inline set: Spam and the Toolbox Remove link (shown until the item is removed), then
- * Approve (shown on any removed item, as the inverse of Spam/Remove), then Lock and the
+ * Approve (always shown, so a reported-but-not-removed item can be approved too), then Lock and the
  * post/comment-specific toggles. Reddit's own inline mod actions are hidden by CSS, so these stand in
  * for them. The Remove link carries the `toolbox-removal-reason-remove` class so the removalreasons
  * document-level handler drives its click; this component only emits the markup (it already depends
@@ -223,22 +223,25 @@ export function FlatListModActions (
 					Remove
 				</FlatListAction>
 			)}
-			{removed && (
-				// Approve is the inverse of Spam/Remove (both hidden once removed), surfaced on any
-				// removed item and routed through the gateway like the rest. The native approve is
-				// hidden on removed rows by CSS - for posts it otherwise lives in the hidden
-				// `shreddit-mod-inline-actions` host (feed) or as a kept `mod-action-button`
-				// (post-detail/queue) - so this Toolbox one doesn't duplicate it. See toolbox-buttons.css.
-				// On a real approve, flip `removed` so the row swaps back to Spam/Remove (no terminal
-				// label: the swap itself is the feedback); a captured trainee approve leaves it shown.
-				<ModActionButton
-					label="Approve"
-					title={isPost ? 'Approve this post' : 'Approve this comment'}
-					capturedMessage="Approve sent for review"
-					onPerformed={() => setRemoved(false,)}
-					run={() => proposeOrApprove(ctx,)}
-				/>
-			)}
+			{
+				/*
+				Approve is always shown on posts and comments, regardless of removed state: a moderator
+				may want to approve a reported-but-not-removed item (clearing its reports) just as often
+				as an already-removed one, so gating it on `removed` hid it exactly where the modqueue
+				needs it. Routed through the gateway like the rest. The native approve is hidden on every
+				Toolbox row by CSS (the `mod-action-button` rule and the `shreddit-mod-inline-actions`
+				host hide), so this Toolbox one never duplicates it. See toolbox-buttons.css. On a real
+				approve, flip `removed` so a removed row swaps Spam/Remove back in (no terminal label: the
+				swap is the feedback); a captured trainee approve leaves the row unchanged.
+			*/
+			}
+			<ModActionButton
+				label="Approve"
+				title={isPost ? 'Approve this post' : 'Approve this comment'}
+				capturedMessage="Approve sent for review"
+				onPerformed={() => setRemoved(false,)}
+				run={() => proposeOrApprove(ctx,)}
+			/>
 			<ModActionButton
 				label={locked ? 'Unlock' : 'Lock'}
 				title={locked ? 'Unlock this thread' : 'Lock this thread'}
