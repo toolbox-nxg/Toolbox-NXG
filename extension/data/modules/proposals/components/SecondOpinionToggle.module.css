@@ -6,6 +6,10 @@
  */
 .toggle {
 	vertical-align: middle;
+	/* The toggle is a hrefless `<a role="button">`, so without this old Reddit (light DOM, where the
+	   Shreddit `.toolbox-flat-list-action` pill rule's `cursor` no longer applies) shows a text caret
+	   on hover. Harmless on Shreddit, where the pill already sets it. */
+	cursor: pointer;
 }
 
 .armed {

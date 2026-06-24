@@ -52,14 +52,21 @@
 }
 
 /* Inline flat-list-slot controls (ModActions pills, the Toolbox Remove link, the Second opinion
-   toggle), styled as native Reddit pills. These all render inside the row's Toolbox shadow host, so
-   they are NOT scoped under `.toolbox-flat-list-slot`: that ancestor lives in light DOM, outside the
-   shadow root and therefore unreachable from the host's adopted stylesheet. Scoping on the action
-   class via `:host` is what actually reaches them (otherwise even `cursor`/`padding` silently fail to
-   apply). `border: 0`/`background: transparent` reset any host-page button chrome; `color: inherit`
-   tracks Reddit's light/dark themes. The Remove link and Second opinion toggle opt in by also
-   carrying `toolbox-flat-list-action` alongside their own behavioural class. */
-:is(body.toolbox-scope, :host) .toolbox-flat-list-action {
+   toggle), styled as native Reddit pills. These render inside the row's Toolbox shadow host on
+   Shreddit, so they are NOT scoped under `.toolbox-flat-list-slot`: that ancestor lives in light DOM,
+   outside the shadow root and therefore unreachable from the host's adopted stylesheet. Scoping on the
+   action class via `:host` is what actually reaches them (otherwise even `cursor`/`padding` silently
+   fail to apply). `border: 0`/`background: transparent` reset any host-page button chrome;
+   `color: inherit` tracks Reddit's light/dark themes. The Remove link and Second opinion toggle opt in
+   by also carrying `toolbox-flat-list-action` alongside their own behavioural class.
+
+   Scoped to `:host` ONLY (not `body.toolbox-scope`): the pill look is a Shreddit-row style, and the
+   Shreddit flat-list slot is always a shadow host so `:host` reaches it. Cross-platform controls (the
+   Second opinion toggle, "Add removal reason") also render in old Reddit's flat-list, but there the
+   slot is light DOM - matching `body.toolbox-scope` would wrap them in Shreddit pills instead of
+   leaving them as old Reddit's plain inline links. The Shreddit-only modules (ModActions, Comment
+   Actions) never render on old Reddit, so only those cross-platform controls were affected. */
+:host .toolbox-flat-list-action {
 	display: inline-flex;
 	align-items: center;
 	font: inherit;
@@ -74,18 +81,18 @@
 	cursor: pointer;
 }
 
-:is(body.toolbox-scope, :host) .toolbox-flat-list-action:hover {
+:host .toolbox-flat-list-action:hover {
 	background-color: rgb(127 127 127 / 20%);
 	text-decoration: none;
 }
 
 /* Transient feedback while an action runs / after it fails (kept theme-agnostic). */
-:is(body.toolbox-scope, :host) .toolbox-flat-list-action.is-pending {
+:host .toolbox-flat-list-action.is-pending {
 	opacity: 0.6;
 	pointer-events: none;
 }
 
-:is(body.toolbox-scope, :host) .toolbox-flat-list-action.is-error {
+:host .toolbox-flat-list-action.is-error {
 	color: var(--toolbox-error-color);
 }
 
