@@ -9,7 +9,12 @@
  * `commentActionRow.test.ts`.
  */
 
-/** CSS hook the Expand toggle flips on a `shreddit-comment` to reveal its collapsed native row. */
+/**
+ * CSS hook the Expand toggle flips on a comment's own `shreddit-comment-action-row` to reveal the
+ * collapsed native row. Lives on the ROW (not the `shreddit-comment`) so the collapse decision is
+ * per-row: Shreddit nests a reply's comment - and thus its row - inside the parent, so a class on the
+ * comment would leak through the descendant-combinator collapse rule and re-hide an expanded reply.
+ */
 export const NATIVE_ROW_EXPANDED_CLASS = 'toolbox-native-row-expanded'
 
 /** Native vote state, as stamped on the action row's `vote-state` attribute. */
@@ -100,19 +105,20 @@ export function clickNativeVoteButton (comment: Element, direction: 'up' | 'down
 }
 
 /**
- * Shows or hides a comment's native action row inline (the CSS collapse rule keys off
- * {@link NATIVE_ROW_EXPANDED_CLASS}).
+ * Shows or hides a comment's native action row inline by flipping {@link NATIVE_ROW_EXPANDED_CLASS} on
+ * the comment's OWN row (the CSS collapse rule keys off the class on the row). No-op when the row isn't
+ * rendered yet.
  * @param comment A `shreddit-comment` element.
  * @param on `true` to reveal the native row, `false` to collapse it.
  */
 export function setNativeRowExpanded (comment: Element, on: boolean,): void {
-	comment.classList.toggle(NATIVE_ROW_EXPANDED_CLASS, on,)
+	getCommentActionRow(comment,)?.classList.toggle(NATIVE_ROW_EXPANDED_CLASS, on,)
 }
 
 /**
- * Whether a comment's native action row is currently expanded.
+ * Whether a comment's native action row is currently expanded (`false` when the row isn't rendered).
  * @param comment A `shreddit-comment` element.
  */
 export function isNativeRowExpanded (comment: Element,): boolean {
-	return comment.classList.contains(NATIVE_ROW_EXPANDED_CLASS,)
+	return getCommentActionRow(comment,)?.classList.contains(NATIVE_ROW_EXPANDED_CLASS,) ?? false
 }

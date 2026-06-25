@@ -138,10 +138,15 @@ body.toolbox-scope shreddit-comment.toolbox-has-flat-list-row mod-content-action
    the native `shreddit-comment-action-row` to a single row (eliminates the scroll layout jump). Scoped
    to comments with an injected Toolbox slot; posts are never matched (selector rooted at
    shreddit-comment). The native row stays in the DOM so the Toolbox Reply/Report can drive it; the
-   Expand (⋯) toggle adds `.toolbox-native-row-expanded` to reveal it inline for save/award/insights. */
+   Expand (...) toggle adds `.toolbox-native-row-expanded` to reveal it inline for save/award/insights.
+   The collapse keys off that class ON THE ROW ELEMENT, not on the `shreddit-comment`: Shreddit slots a
+   reply's `shreddit-comment` inside its parent, so a reply's row is also a descendant of the parent
+   comment. Keying the collapse on the comment's class would re-hide an expanded reply's row through its
+   still-collapsed ancestor (a descendant-combinator leak), leaving the Expand toggle dead on every
+   non-top-level comment; keying on the row's own class makes the decision per-row, depth-independent. */
 body.toolbox-scope
-	shreddit-comment.toolbox-has-flat-list-row:not(.toolbox-native-row-expanded)
-	shreddit-comment-action-row {
+	shreddit-comment.toolbox-has-flat-list-row
+	shreddit-comment-action-row:not(.toolbox-native-row-expanded) {
 	/* stylelint-disable-next-line declaration-no-important -- Reddit sets inline/utility display; specificity alone can't win. */
 	display: none !important;
 }

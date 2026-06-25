@@ -111,7 +111,9 @@ describe('CommentVote', () => {
 		await click(buttonByText(host, '▲',),)
 		expect(host.querySelector('.toolbox-comment-score',)?.textContent,).toBe('8',)
 		// Degrade visibly rather than silently: reveal Reddit's own row so the user can still vote.
-		expect(comment.classList.contains('toolbox-native-row-expanded',),).toBe(true,)
+		expect(
+			comment.querySelector('shreddit-comment-action-row',)?.classList.contains('toolbox-native-row-expanded',),
+		).toBe(true,)
 	})
 
 	it('re-syncs the score and arrow when Reddit updates the native attributes', async () => {
@@ -147,17 +149,20 @@ describe('CommentExtras', () => {
 		reply.addEventListener('click', replyClick,)
 		const host = await render(<CommentExtras comment={comment} />,)
 		await click(buttonByText(host, 'Reply',),)
-		expect(comment.classList.contains('toolbox-native-row-expanded',),).toBe(true,)
+		expect(
+			comment.querySelector('shreddit-comment-action-row',)?.classList.contains('toolbox-native-row-expanded',),
+		).toBe(true,)
 		expect(replyClick,).toHaveBeenCalled()
 	})
 
 	it('toggles the native row from the ⋯ button', async () => {
 		const {comment,} = makeComment()
 		const host = await render(<CommentExtras comment={comment} />,)
+		const actionRow = comment.querySelector('shreddit-comment-action-row',)!
 		await click(buttonByText(host, '⋯',),)
-		expect(comment.classList.contains('toolbox-native-row-expanded',),).toBe(true,)
+		expect(actionRow.classList.contains('toolbox-native-row-expanded',),).toBe(true,)
 		await click(buttonByText(host, '⋯',),)
-		expect(comment.classList.contains('toolbox-native-row-expanded',),).toBe(false,)
+		expect(actionRow.classList.contains('toolbox-native-row-expanded',),).toBe(false,)
 	})
 
 	it('stops the ⋯ click from bubbling to the post overlay', async () => {

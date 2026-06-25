@@ -130,12 +130,21 @@ describe('clickNativeVoteButton', () => {
 })
 
 describe('setNativeRowExpanded / isNativeRowExpanded', () => {
-	it('toggles the expanded class', () => {
-		const root = html('<shreddit-comment thingid="t1_x"></shreddit-comment>',)
-		const comment = root.firstElementChild!
+	it('toggles the expanded class on the comment\'s own action row', () => {
+		const root = html(`
+			<shreddit-comment thingid="t1_x">
+				<div slot="actionRow">
+					<shreddit-comment-action-row comment-id="t1_x"></shreddit-comment-action-row>
+				</div>
+			</shreddit-comment>
+		`,)
+		const comment = root.querySelector('shreddit-comment',)!
+		const actionRow = root.querySelector('shreddit-comment-action-row',)!
 		expect(isNativeRowExpanded(comment,),).toBe(false,)
 		setNativeRowExpanded(comment, true,)
-		expect(comment.classList.contains(NATIVE_ROW_EXPANDED_CLASS,),).toBe(true,)
+		// The class lives on the row, not the comment - so a nested reply's collapse can't leak from it.
+		expect(actionRow.classList.contains(NATIVE_ROW_EXPANDED_CLASS,),).toBe(true,)
+		expect(comment.classList.contains(NATIVE_ROW_EXPANDED_CLASS,),).toBe(false,)
 		expect(isNativeRowExpanded(comment,),).toBe(true,)
 		setNativeRowExpanded(comment, false,)
 		expect(isNativeRowExpanded(comment,),).toBe(false,)
