@@ -1,18 +1,22 @@
 # git-cliff configuration. Release notes are generated from git history rather
 # than pull requests: this project merges branches locally and pushes straight to
 # main, so there are no PRs to label. Commits are bucketed by their leading verb
-# (see commit_parsers); the `<!-- N -->` prefixes only set section order and are
-# stripped from the rendered headings.
+# (see commit_parsers). Section order is fixed by the template's group list below,
+# not by commit order.
 
 [changelog]
-# One blank line precedes each group heading; commit subjects (first line only)
-# are listed under their group.
+# Iterate a fixed group order and emit each non-empty bucket; one blank line
+# precedes each heading. (group_by preserves commit order, not a stable section
+# order, so we drive ordering explicitly here.)
 body = """
-{% for group, commits in commits | group_by(attribute="group") %}
-### {{ group | striptags | trim }}
-{% for commit in commits %}\
+{% for group in ["Added", "Fixed", "Removed", "Changed", "Other"] %}\
+{% set items = commits | filter(attribute="group", value=group) %}\
+{% if items | length > 0 %}
+### {{ group }}
+{% for commit in items %}\
 - {{ commit.message | split(pat="\n") | first | trim }}
 {% endfor %}\
+{% endif %}\
 {% endfor %}"""
 trim = true
 
@@ -22,12 +26,13 @@ conventional_commits = false
 filter_unconventional = false
 # First matching parser wins; the trailing catch-all sweeps anything unmatched.
 # Release-bump commits (e.g. "v8.0.0-beta.5") and merges are dropped as noise.
+# Group names here must match the template's group list above.
 commit_parsers = [
 	{ message = "^v?\\d+\\.\\d+\\.\\d+", skip = true },
 	{ message = "^Merge ", skip = true },
-	{ message = "(?i)^(add|implement|introduce|create|new)\\b", group = "<!-- 0 -->Added" },
-	{ message = "(?i)^(fix|correct|resolve|patch|repair)\\b", group = "<!-- 1 -->Fixed" },
-	{ message = "(?i)^(remove|delete|drop|revert)\\b", group = "<!-- 2 -->Removed" },
-	{ message = "(?i)^(update|change|sync|scope|refactor|improve|bump|move|rename|tweak|adjust|rework|simplify)\\b", group = "<!-- 3 -->Changed" },
-	{ message = ".*", group = "<!-- 4 -->Other" },
+	{ message = "(?i)^(add|implement|introduce|create|new)\\b", group = "Added" },
+	{ message = "(?i)^(fix|correct|resolve|patch|repair)\\b", group = "Fixed" },
+	{ message = "(?i)^(remove|delete|drop|revert)\\b", group = "Removed" },
+	{ message = "(?i)^(update|change|sync|scope|refactor|improve|bump|move|rename|tweak|adjust|rework|simplify)\\b", group = "Changed" },
+	{ message = ".*", group = "Other" },
 ]

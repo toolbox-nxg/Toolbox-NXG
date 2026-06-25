@@ -52,5 +52,7 @@ describe('background entrypoint', () => {
 		expect(registerUsernoteHandlers,).toHaveBeenCalledOnce()
 		expect(registerWebrequestHandlers,).toHaveBeenCalledOnce()
 		expect(registerUrlChangedListeners,).toHaveBeenCalledOnce()
-	})
+		// Generous timeout: importing the entrypoint pulls in the whole background
+		// handler graph, which can exceed vitest's 5s default on a loaded CI runner.
+	}, 20_000,)
 })
