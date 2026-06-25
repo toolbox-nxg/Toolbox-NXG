@@ -4,7 +4,7 @@
     "author": "toolbox team",
     "short_name": "Toolbox-NXG",
     "description": "A set of tools to be used by moderators on reddit in order to make their jobs easier.",
-    "version": "8.0.0.5",
+    "version": "8.0.0.6",
     "version_name": "8.0.0: \"Forked Phoenix\"",
     "browser_specific_settings": {
         "gecko": {
