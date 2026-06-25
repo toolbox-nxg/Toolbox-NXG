@@ -1,0 +1,136 @@
+name: "Publish release"
+on:
+  push:
+    tags:
+    - "v*"
+
+# Single public store listing per browser. Every tag publishes to everyone: the
+# extension has no stable release yet, so all builds are betas shipped publicly
+# (hence BUILD_TYPE: beta, which surfaces "beta" in the version string). If a
+# stable/testing-track split is reintroduced later, branch the Chrome `action`
+# and Firefox `self-hosted` inputs (and BUILD_TYPE) on the tag shape.
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+    - uses: actions/checkout@v7
+    - uses: actions/setup-node@v6
+      with:
+        node-version: 24
+        cache: npm
+    - run: npm ci
+    - run: npm run fmt
+    - run: npm run lint
+    - run: npm run lint:css
+    - run: npm run lint:params
+    - run: npm run typecheck
+    - run: npm test
+    - env:
+        NODE_ENV: production
+        BUILD_TYPE: beta
+        BUILD_SHA: ${{ github.sha }}
+      run: npm run build
+
+    - name: Zip Chrome build
+      run: |
+        pushd build/chrome
+        zip -r release-build-chrome.zip ./*
+        mv release-build-chrome.zip ../..
+        popd
+    - name: Zip Firefox build
+      run: |
+        pushd build/firefox
+        zip -r release-build-firefox.zip ./*
+        mv release-build-firefox.zip ../..
+        popd
+    # AMO requires the source of bundled/minified add-ons. `git archive` emits
+    # exactly the committed tree at this tag (no node_modules, no build output).
+    # docs/ is excluded - it is not needed to reproduce the build.
+    - name: Create source archive for AMO review
+      run: git archive --format=zip -o toolbox-source.zip HEAD -- ':(exclude)docs' '.'
+
+    - name: Upload release build artifact - Chrome
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-build-chrome
+        path: release-build-chrome.zip
+    - name: Upload release build artifact - Firefox
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-build-firefox
+        path: release-build-firefox.zip
+    - name: Upload source archive artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-source
+        path: toolbox-source.zip
+
+  publish-chrome:
+    runs-on: ubuntu-latest
+    permissions: {}
+    needs: build-release
+    steps:
+    - uses: actions/download-artifact@v4
+      with:
+        name: release-build-chrome
+    - uses: wdzeng/chrome-extension@v1
+      with:
+        extension-id: kglcfhgacmfabofjhbjlonpihkhonmkh
+        zip-path: release-build-chrome.zip
+        client-id: ${{ secrets.CWS_CLIENT_ID }}
+        client-secret: ${{ secrets.CWS_CLIENT_SECRET }}
+        refresh-token: ${{ secrets.CWS_REFRESH_TOKEN }}
+
+  publish-firefox:
+    runs-on: ubuntu-latest
+    permissions: {}
+    needs: build-release
+    steps:
+    - uses: actions/download-artifact@v4
+      with:
+        name: release-build-firefox
+    - uses: actions/download-artifact@v4
+      with:
+        name: release-source
+    - uses: wdzeng/firefox-addon@v1
+      with:
+        addon-guid: adhesivecheese@toolbox-team-nxg
+        xpi-path: release-build-firefox.zip
+        source-file-path: toolbox-source.zip
+        approval-notes: |
+          This add-on is bundled with Rollup; the uploaded code is generated. To
+          reproduce build/firefox/ from the attached source archive:
+            1. Install Node 24 or newer (package.json "engines": node >=24).
+            2. npm ci    # also applies patches/ via patch-package's postinstall hook
+            3. NODE_ENV=production BUILD_TYPE=beta BUILD_SHA=${{ github.sha }} npm run build:firefox
+          The built add-on is written to build/firefox/. BUILD_COUNT is 0 for
+          non-dev builds; the version is read from extension/firefox_manifest.json.
+        jwt-issuer: ${{ secrets.AMO_JWT_ISSUER }}
+        jwt-secret: ${{ secrets.AMO_JWT_SECRET }}
+
+  publish-github-release:
+    runs-on: ubuntu-latest
+    needs: build-release
+    permissions:
+      contents: write
+    steps:
+    # git-cliff builds the notes from commit history, so the full history and tags
+    # must be present (fetch-depth: 0).
+    - uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+    - name: Generate release notes from commit history
+      uses: orhun/git-cliff-action@v4
+      id: cliff
+      with:
+        config: cliff.toml
+        args: --latest --strip all
+      env:
+        OUTPUT: RELEASE_NOTES.md
+    # Create the GitHub release for the pushed tag from those notes. No pre-staged
+    # draft required; `--verify-tag` aborts if the tag is not on the remote.
+    - run: gh release create "${GITHUB_REF#refs/tags/}" --verify-tag --notes-file "${{ steps.cliff.outputs.changelog }}"
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GH_REPO: ${{ github.repository }}
