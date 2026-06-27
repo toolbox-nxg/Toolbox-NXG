@@ -10,10 +10,6 @@ import {afterEach, beforeEach, describe, expect, it, vi,} from 'vitest'
 const isModSub = vi.hoisted(() => vi.fn())
 const getCurrentUser = vi.hoisted(() => vi.fn())
 const positiveTextFeedback = vi.hoisted(() => vi.fn())
-const openItemHistory = vi.hoisted(() => vi.fn())
-const ensureRecentActionsLoaded = vi.hoisted(() => vi.fn())
-const itemHasRecentActions = vi.hoisted(() => vi.fn())
-const subscribeRecentActions = vi.hoisted(() => vi.fn(() => () => {}))
 const openRemovalReasonOverlay = vi.hoisted(() => vi.fn())
 const proposeOrApprove = vi.hoisted(() => vi.fn())
 const proposeOrLock = vi.hoisted(() => vi.fn())
@@ -26,8 +22,6 @@ const proposeOrMarkNsfw = vi.hoisted(() => vi.fn())
 vi.mock('../../../api/resources/modSubs', () => ({isModSub,}),)
 vi.mock('../../../api/resources/me', () => ({getCurrentUser,}),)
 vi.mock('../../../store/feedback', () => ({positiveTextFeedback,}),)
-vi.mock('./ItemHistoryPopup', () => ({openItemHistory,}),)
-vi.mock('../recentActionsStore', () => ({ensureRecentActionsLoaded, itemHasRecentActions, subscribeRecentActions,}),)
 vi.mock('../../removalreasons/overlayOpener', () => ({openRemovalReasonOverlay,}),)
 vi.mock('../../shared/proposals/gateway', () => ({
 	proposeOrApprove,
@@ -97,9 +91,6 @@ beforeEach(() => {
 	vi.clearAllMocks()
 	isModSub.mockResolvedValue(true,)
 	getCurrentUser.mockResolvedValue('me',)
-	// Default: the item has recent actions, so the "Recent actions" button is shown.
-	itemHasRecentActions.mockReturnValue(true,)
-	subscribeRecentActions.mockReturnValue(() => {},)
 	for (
 		const fn of [
 			proposeOrApprove,
@@ -135,7 +126,6 @@ describe('FlatListModActions', () => {
 		expect(buttonByText(host, 'Lock',),).toBeTruthy()
 		expect(buttonByText(host, 'Sticky',),).toBeTruthy()
 		expect(buttonByText(host, 'Mark NSFW',),).toBeTruthy()
-		expect(buttonByText(host, 'Recent actions',),).toBeTruthy()
 		expect(buttonByText(host, 'Distinguish',),).toBeFalsy()
 		expect(buttonByText(host, 'Approve',),).toBeTruthy()
 	})
@@ -290,31 +280,6 @@ describe('FlatListModActions', () => {
 		const host = await render(postProps(),)
 		await click(buttonByText(host, 'Lock',),)
 		expect(host.textContent,).toContain('Lock failed',)
-	})
-
-	it('opens the per-item history popup from "Recent actions"', async () => {
-		const host = await render(postProps(),)
-		await click(buttonByText(host, 'Recent actions',),)
-		expect(openItemHistory,).toHaveBeenCalledWith({subreddit: 'sub', itemId: 't3_x',},)
-	})
-
-	it('hides "Recent actions" when the item has no recent mod-log entries', async () => {
-		itemHasRecentActions.mockReturnValue(false,)
-		const host = await render(postProps(),)
-		expect(buttonByText(host, 'Recent actions',),).toBeFalsy()
-		// The rest of the row still renders.
-		expect(buttonByText(host, 'Spam',),).toBeTruthy()
-	})
-
-	it('loads the subreddit\'s recent-actions index once it knows the viewer is a mod', async () => {
-		await render(postProps(),)
-		expect(ensureRecentActionsLoaded,).toHaveBeenCalledWith('sub',)
-	})
-
-	it('does not load the recent-actions index for non-moderators', async () => {
-		isModSub.mockResolvedValue(false,)
-		await render(postProps(),)
-		expect(ensureRecentActionsLoaded,).not.toHaveBeenCalled()
 	})
 
 	it('stops the click from bubbling to the post overlay', async () => {

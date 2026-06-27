@@ -4,12 +4,20 @@ import {defineSettings, InferSettings,} from '../../framework/module'
 export const settings = defineSettings(
 	[
 		{
-			id: 'showActionReason',
+			id: 'showRecentActionsOnApproved',
 			sharedPolicy: 'raw',
 			type: 'boolean',
 			default: true,
 			description:
-				'Show previously taken actions next to submissions. Based on the last 500 actions in the subreddit modlog',
+				'Show the recent-actions table on approved (not removed) items. Combines the last 500 actions in the subreddit modlog with the item\'s own current approval/removal state',
+		},
+		{
+			id: 'showRecentActionsOnRemoved',
+			sharedPolicy: 'raw',
+			type: 'boolean',
+			default: true,
+			description:
+				'Show the recent-actions table on removed items. Combines the last 500 actions in the subreddit modlog with the item\'s own current approval/removal state',
 		},
 		{
 			id: 'expandActionReasonQueue',

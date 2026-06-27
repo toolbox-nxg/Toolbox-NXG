@@ -14,12 +14,14 @@ import {ReportsTable,} from './ReportsTable'
 /**
  * Renders the inline action/report toggles and tables for a queue item.
  *
- * Each half is independently gated: the actions toggle appears only when `showActionReason`
- * is enabled and the item has recent mod-log actions, and the reports toggle only when
- * `showReportReasons` is enabled and the item has ignored reports.
+ * Each half is independently gated: the actions toggle appears only when the relevant per-state
+ * toggle for the item (`showRecentActionsOnApproved` / `showRecentActionsOnRemoved`) is enabled and
+ * the item has recent mod-log actions, and the reports toggle only when `showReportReasons` is
+ * enabled and the item has ignored reports.
  * @param props Component properties.
  * @param context UILocationContext for the current queue item.
- * @param showActionReason Whether the recent-actions feature is enabled.
+ * @param showRecentActionsOnApproved Whether the recent-actions table shows on approved (not removed) items.
+ * @param showRecentActionsOnRemoved Whether the recent-actions table shows on removed items.
  * @param showReportReasons Whether the ignored-reports feature is enabled.
  * @param getActions Factory-provided function to retrieve cached mod-log actions.
  * @param checkIsMod Factory-provided check for whether the current user moderates a subreddit.
@@ -27,9 +29,19 @@ import {ReportsTable,} from './ReportsTable'
  * @param getReports Factory-provided fetch returning ignored-report data, or null when not applicable.
  */
 export function QueueItemTables (
-	{context, showActionReason, showReportReasons, getActions, checkIsMod, getThingData, getReports,}: {
+	{
+		context,
+		showRecentActionsOnApproved,
+		showRecentActionsOnRemoved,
+		showReportReasons,
+		getActions,
+		checkIsMod,
+		getThingData,
+		getReports,
+	}: {
 		context: UILocationContext
-		showActionReason: boolean
+		showRecentActionsOnApproved: boolean
+		showRecentActionsOnRemoved: boolean
 		showReportReasons: boolean
 		getActions: GetActions
 		checkIsMod: (subreddit: string,) => Promise<boolean>
@@ -37,7 +49,10 @@ export function QueueItemTables (
 		getReports: (subreddit: string, thingId: string,) => Promise<IgnoredReportData | null>
 	},
 ) {
-	const itemActions = useItemActions(context, {getActions, checkIsMod, getThingData,}, showActionReason,)
+	// Pick the per-state toggle for the item's removed state: an approved/unactioned item uses the
+	// "approved" toggle, a removed one uses the "removed" toggle.
+	const showActionsFeature = context.isRemoved ? showRecentActionsOnRemoved : showRecentActionsOnApproved
+	const itemActions = useItemActions(context, {getActions, checkIsMod, getThingData,}, showActionsFeature,)
 	const reportData = useItemReports(context, getReports, showReportReasons,)
 
 	const [showActions, setShowActions,] = useState(

@@ -1,7 +1,8 @@
 /**
  * Entry point for the Mod Actions module: inline moderator-action buttons on each Shreddit
- * post/comment (Remove as Spam, Lock, Distinguish, Sticky, Mark NSFW, Recent actions). Only runs on
- * the Shreddit UI; the module registry skips it on old Reddit, which keeps its own mod buttons.
+ * post/comment (Remove as Spam, Lock, Distinguish, Sticky, Mark NSFW). Only runs on the Shreddit UI;
+ * the module registry skips it on old Reddit, which keeps its own mod buttons. The per-item
+ * recent-actions history is provided separately by the Queue Tools module on both platforms.
  */
 
 import {createLifecycle,} from '../../framework/lifecycle'

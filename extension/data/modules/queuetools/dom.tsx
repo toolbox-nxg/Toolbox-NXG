@@ -123,9 +123,19 @@ const creatureClasses: Partial<Record<string, string>> = {
  *   Call `lifecycle.mount(handlers.cleanup)` in `index.ts`.
  */
 export function createQueueHandlers (
-	{showActionReason, showReportReasons, queueCreature, expandActionReasonQueue,}: Pick<
+	{
+		showRecentActionsOnApproved,
+		showRecentActionsOnRemoved,
+		showReportReasons,
+		queueCreature,
+		expandActionReasonQueue,
+	}: Pick<
 		QueueToolsSettings,
-		'showActionReason' | 'showReportReasons' | 'queueCreature' | 'expandActionReasonQueue'
+		| 'showRecentActionsOnApproved'
+		| 'showRecentActionsOnRemoved'
+		| 'showReportReasons'
+		| 'queueCreature'
+		| 'expandActionReasonQueue'
 	>,
 ) {
 	/** Per-subreddit modlog cache. Lives in the factory closure to avoid module-level mutable state. */
@@ -309,18 +319,20 @@ export function createQueueHandlers (
 		injectCreatureIfEmpty()
 	}
 
-	// Old Reddit only: the "show recent actions" and "show reports" inline toggles + tables share a
-	// single thingDetails host so they sit on one line. On Shreddit the ModActions module's inline
-	// "Recent actions" button already surfaces the per-item mod-log, and new reddit surfaces
-	// removed/dismissed reports natively, so both halves would only duplicate that there.
-	if ((showActionReason || showReportReasons) && isOldReddit) {
+	// The recent-actions table renders on BOTH platforms via thingDetails (it replaces the Shreddit
+	// ModActions "Recent actions" pill, now removed). The reports half stays Old-Reddit-only: new
+	// reddit surfaces removed/dismissed reports natively, so it would only duplicate that there.
+	const actionsEnabled = showRecentActionsOnApproved || showRecentActionsOnRemoved
+	const reportsEnabled = showReportReasons && isOldReddit
+	if (actionsEnabled || reportsEnabled) {
 		renderAtLocation('thingDetails', {id: 'queuetools.itemTables', lifecycle: scope,}, ({context,},) => {
 			if (!context.thingId || !context.subreddit) { return null }
 			return (
 				<QueueItemTables
 					context={context}
-					showActionReason={showActionReason}
-					showReportReasons={showReportReasons}
+					showRecentActionsOnApproved={showRecentActionsOnApproved}
+					showRecentActionsOnRemoved={showRecentActionsOnRemoved}
+					showReportReasons={reportsEnabled}
 					getActions={getActions}
 					checkIsMod={isModSub}
 					getThingData={getThingData}

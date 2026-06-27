@@ -18,7 +18,7 @@ This module runs only on the Shreddit UI. On old Reddit, Toolbox-NXG provides it
 - **Sticky** — sticky a comment.
 - **Mark NSFW** — toggle the item's NSFW flag.
 
-**Recent actions** — a history control surfaces the recent moderator actions taken on the item, so you can see at a glance what has already been done before acting again.
+The recent moderator actions taken on an item are surfaced separately, by the [Queue Tools](queue-tools.md) module's recent-actions table (available on both old and new Reddit).
 
 ## Settings
 

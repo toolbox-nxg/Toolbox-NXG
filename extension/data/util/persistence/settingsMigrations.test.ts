@@ -70,7 +70,11 @@ describe('settings migrations', () => {
 		await doSettingsUpdates()
 
 		expect(store.get('Toolbox.QueueTools.enabled',),).toBe(false,)
-		expect(store.get('Toolbox.QueueTools.showActionReason',),).toBe(false,)
+		// showActionReason was replaced by the per-item-state recent-actions toggles; an explicit
+		// "off" carries over to both new toggles and the old key is dropped.
+		expect(store.has('Toolbox.QueueTools.showActionReason',),).toBe(false,)
+		expect(store.get('Toolbox.QueueTools.showRecentActionsOnApproved',),).toBe(false,)
+		expect(store.get('Toolbox.QueueTools.showRecentActionsOnRemoved',),).toBe(false,)
 
 		expect(store.get('Toolbox.MassModeration.enabled',),).toBe(false,)
 		expect(store.get('Toolbox.MassModeration.autoActivate',),).toBe(false,)
@@ -86,6 +90,17 @@ describe('settings migrations', () => {
 		expect(store.has('Toolbox.QueueTools.reportsThreshold',),).toBe(false,)
 		expect(store.has('Toolbox.QueueTools.subredditColor',),).toBe(false,)
 		expect(store.has('Toolbox.QueueTools.showAutomodActionReason',),).toBe(false,)
+	})
+
+	it('drops showActionReason without forcing the per-state toggles off when it was on', async () => {
+		store.set('Toolbox.QueueTools.showActionReason', true,)
+
+		await doSettingsUpdates()
+
+		// The old key is removed; the new per-state toggles keep their defaults (unset -> on).
+		expect(store.has('Toolbox.QueueTools.showActionReason',),).toBe(false,)
+		expect(store.has('Toolbox.QueueTools.showRecentActionsOnApproved',),).toBe(false,)
+		expect(store.has('Toolbox.QueueTools.showRecentActionsOnRemoved',),).toBe(false,)
 	})
 
 	it('renames QueueEnhancements settings to ModViewEnhancements', async () => {

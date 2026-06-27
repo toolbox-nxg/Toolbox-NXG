@@ -2,10 +2,11 @@
  * Inline moderator-action buttons rendered into a Shreddit thing's flat-list row
  * (`toolbox-flat-list-slot`). Surfaces the mod actions that otherwise live in Reddit's lazy ⋯
  * overflow menu - Remove as Spam, Lock/Unlock, Distinguish (comments), Sticky/Unsticky and
- * Mark/Unmark NSFW (posts), plus a per-item "Recent actions" history popup - so a moderator can
- * act without opening the menu. Every action routes through the proposals gateway, so training-mode
- * capture and the second-opinion flow apply uniformly (UI must never call the moderation API
- * primitives directly).
+ * Mark/Unmark NSFW (posts) - so a moderator can act without opening the menu. Every action routes
+ * through the proposals gateway, so training-mode capture and the second-opinion flow apply
+ * uniformly (UI must never call the moderation API primitives directly). The per-item recent-actions
+ * history is surfaced separately by the Queue Tools module (its `thingDetails` table), on both
+ * platforms.
  *
  * Renders the inline set: Spam and the Toolbox Remove link (shown until the item is removed), then
  * Approve (always shown, so a reported-but-not-removed item can be approved too), then Lock and the
@@ -15,7 +16,7 @@
  * on removalreasons for the Spam -> removal-overlay path).
  */
 
-import {useEffect, useState, useSyncExternalStore,} from 'react'
+import {useEffect, useState,} from 'react'
 
 import {getCurrentUser,} from '../../../api/resources/me'
 import {FlatListAction,} from '../../../shared/controls/FlatListAction'
@@ -35,8 +36,6 @@ import {
 	proposeOrUnlock,
 	proposeOrUnsticky,
 } from '../../shared/proposals/gateway'
-import {ensureRecentActionsLoaded, itemHasRecentActions, subscribeRecentActions,} from '../recentActionsStore'
-import {openItemHistory,} from './ItemHistoryPopup'
 
 const log = createLogger('ModActions',)
 
@@ -171,17 +170,6 @@ export function FlatListModActions (
 		}
 	}, [itemKind,],)
 
-	// Fetch this sub's recent mod-log window once we know the viewer is a mod, then show the
-	// "Recent actions" button only for items the log actually touched (otherwise the popup would
-	// just read "No recent mod actions for this item").
-	useEffect(() => {
-		if (isMod === true) { ensureRecentActionsLoaded(subreddit,) }
-	}, [isMod, subreddit,],)
-	const hasRecentActions = useSyncExternalStore(
-		subscribeRecentActions,
-		() => itemHasRecentActions(subreddit, itemId,),
-	)
-
 	if (isMod !== true) { return null }
 
 	const isPost = itemKind === 'post'
@@ -275,14 +263,6 @@ export function FlatListModActions (
 					onPerformed={() => setNsfw((v,) => !v)}
 					run={() => proposeOrMarkNsfw(ctx, !nsfw,)}
 				/>
-			)}
-			{hasRecentActions && (
-				<FlatListAction
-					title="Show recent mod actions on this item"
-					onClick={() => openItemHistory({subreddit, itemId,},)}
-				>
-					Recent actions
-				</FlatListAction>
 			)}
 		</>
 	)

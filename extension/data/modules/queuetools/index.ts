@@ -18,10 +18,17 @@ const self: Module<QueueToolsSettings> = new Module({
 
 function init (options: QueueToolsSettings,) {
 	const lifecycle = createLifecycle()
-	const {showActionReason, showReportReasons, expandActionReasonQueue, queueCreature,} = options
+	const {
+		showRecentActionsOnApproved,
+		showRecentActionsOnRemoved,
+		showReportReasons,
+		expandActionReasonQueue,
+		queueCreature,
+	} = options
 
 	const queueHandlers = createQueueHandlers({
-		showActionReason,
+		showRecentActionsOnApproved,
+		showRecentActionsOnRemoved,
 		showReportReasons,
 		queueCreature,
 		expandActionReasonQueue,

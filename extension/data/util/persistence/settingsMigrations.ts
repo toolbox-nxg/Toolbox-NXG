@@ -225,6 +225,24 @@ export async function doSettingsUpdates () {
 		}
 	}
 
+	// QueueTools "showActionReason" (a single on/off for the recent-actions table) was replaced by the
+	// per-item-state toggles showRecentActionsOnApproved / showRecentActionsOnRemoved. Preserve an
+	// explicit "off" by turning both new toggles off; otherwise the new defaults (on) apply.
+	const showActionReasonKey = 'Toolbox.QueueTools.showActionReason'
+	if (showActionReasonKey in allSettings) {
+		if (allSettings[showActionReasonKey] === false) {
+			for (
+				const key of [
+					'Toolbox.QueueTools.showRecentActionsOnApproved',
+					'Toolbox.QueueTools.showRecentActionsOnRemoved',
+				]
+			) {
+				if (!(key in allSettings)) { migratedWrites[key] = false }
+			}
+		}
+		migratedDeletes.push(showActionReasonKey,)
+	}
+
 	const oldQueueToolsEnabled = allSettings['Toolbox.QueueTools.enabled'] as unknown
 	if (oldQueueToolsEnabled !== undefined) {
 		for (const newModule of ['MassModeration', 'ModViewEnhancements',]) {
