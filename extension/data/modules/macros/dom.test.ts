@@ -1,5 +1,6 @@
 /** Tests for the Mod Macros training-mode refusal (mod-action macros are blocked for trainees). */
 
+import type {ReactElement,} from 'react'
 import {beforeEach, describe, expect, it, vi,} from 'vitest'
 
 import type {MacroConfig, ThingInfo,} from './schema'
@@ -41,10 +42,6 @@ vi.mock('../../store/feedback', () => ({negativeTextFeedback, positiveTextFeedba
 vi.mock('../notifier/store', () => ({requestCounterRefresh: vi.fn(),}),)
 vi.mock('../../dom/oldReddit/page', () => ({getSiteTable: vi.fn(),}),)
 vi.mock('../../dom/oldReddit/things', () => ({getThingFullname: vi.fn(), getThings: vi.fn(),}),)
-vi.mock('../../dom/shreddit/commentThread', () => ({
-	findInlineReplyComposerTargets: vi.fn(() => []),
-	findTopLevelComposerHosts: vi.fn(() => []),
-}),)
 vi.mock(
 	'../../dom/uiLocations',
 	() => ({provideLocation: vi.fn(() => vi.fn()), renderAtLocation: vi.fn(() => vi.fn()),}),
@@ -52,7 +49,13 @@ vi.mock(
 vi.mock('../../util/reddit/thingInfo', () => ({getApiThingInfo: vi.fn(), getThingInfo: vi.fn(),}),)
 vi.mock('../../util/reddit/pageContext', () => ({postSite: '', pageDetails: {},}),)
 
-import {editMacro,} from './dom'
+import {getThingFullname,} from '../../dom/oldReddit/things'
+import {renderAtLocation, type UILocationRenderArgs,} from '../../dom/uiLocations'
+import {RedditPlatform,} from '../../util/infra/platform'
+import {getThingInfo,} from '../../util/reddit/thingInfo'
+import {MacroSelect,} from './components/MacroSelect'
+import {createMacrosHandlers, editMacro,} from './dom'
+import type {MacrosSettings,} from './settings'
 
 /** Builds a minimal ThingInfo for a target post in `subreddit`. */
 function thingInfo (subreddit: string,): ThingInfo {
@@ -149,5 +152,129 @@ describe('macro training-mode refusal', () => {
 		expect(postComment,).toHaveBeenCalled()
 		expect(removeThing,).toHaveBeenCalledWith('t3_target',)
 		expect(negativeTextFeedback,).not.toHaveBeenCalled()
+	})
+})
+
+describe('handleReplyClick on old Reddit (clone cleanup)', () => {
+	/**
+	 * Builds a comment `.thing` whose reply box already holds a `.toolbox-usertext-buttons`
+	 * wrapper containing a stale macro host - the copy Reddit makes when it clones the
+	 * top-level reply box for a nested reply. That cloned host was never tracked, so it
+	 * must be removed rather than left to accumulate one-per-nesting-level.
+	 */
+	function buildThing () {
+		const thing = document.createElement('div',)
+		thing.className = 'thing'
+		thing.innerHTML = `
+			<div class="entry"><ul class="buttons"><li><a>reply</a></li></ul></div>
+			<div class="child">
+				<div class="usertext cloneable">
+					<div class="usertext-buttons">
+						<span class="toolbox-usertext-buttons"><span class="toolbox-top-macro-select">CLONED</span></span>
+						<span class="status"></span>
+					</div>
+				</div>
+			</div>
+		`
+		document.body.appendChild(thing,)
+		return thing
+	}
+
+	beforeEach(() => {
+		document.body.innerHTML = ''
+		vi.mocked(getThingInfo,).mockResolvedValue({subreddit: 'sandboxed',} as unknown as ThingInfo,)
+		vi.mocked(getThingFullname,).mockReturnValue('t1_comment',)
+	},)
+
+	it('removes the cloned untracked host and leaves exactly one macro button', async () => {
+		const thing = buildThing()
+		const replyLink = thing.querySelector('a',)!
+		const handlers = createMacrosHandlers({showMacroPreview: false,} as MacrosSettings,)
+
+		await handlers.handleReplyClick(replyLink,)
+
+		// The cloned host is gone; a single fresh host remains.
+		expect(thing.querySelector('.toolbox-top-macro-select',),).toBeNull()
+		expect(thing.querySelectorAll('.toolbox-macro-select',),).toHaveLength(1,)
+	})
+
+	it('renders only into the host it owns, not other injected hosts', async () => {
+		const thing = buildThing()
+		const handlers = createMacrosHandlers({showMacroPreview: false,} as MacrosSettings,)
+
+		await handlers.handleReplyClick(thing.querySelector('a',)!,)
+
+		const host = thing.querySelector('.toolbox-macro-select',)!
+		const renderFn = vi.mocked(renderAtLocation,).mock.calls.at(-1,)![2]
+		const ctx = {
+			platform: RedditPlatform.Old,
+			kind: 'commentComposer',
+			subreddit: 'sandboxed',
+			thingId: 't1_comment',
+			rawDetail: {type: 'comment', topLevel: false,},
+		} as UILocationRenderArgs['context']
+
+		// Renders into its own host, but returns null for any other provider's host -
+		// otherwise every live host would show one button per injected host on the page.
+		expect(renderFn({context: ctx, target: host,},),).not.toBeNull()
+		expect(renderFn({context: ctx, target: document.createElement('span',),},),).toBeNull()
+	})
+})
+
+describe('Shreddit shared-slot macro renderer', () => {
+	/** Grabs the renderer function passed to the (mocked) renderAtLocation when mounting. */
+	function getRenderer () {
+		const handlers = createMacrosHandlers({showMacroPreview: false,} as MacrosSettings,)
+		handlers.mountShredditMacroRenderer()
+		const call = vi.mocked(renderAtLocation,).mock.calls.at(-1,)!
+		expect(call[0],).toBe('commentComposerControls',)
+		return call[2]
+	}
+
+	/** Builds a `comment-composer-host` (optionally a reply) wrapping a slot span used as `target`. */
+	function composerTarget (attrs: {postId: string; parentId?: string},) {
+		const host = document.createElement('comment-composer-host',)
+		host.setAttribute('post-id', attrs.postId,)
+		if (attrs.parentId) { host.setAttribute('parent-id', attrs.parentId,) }
+		const slot = document.createElement('span',)
+		host.appendChild(slot,)
+		return slot
+	}
+
+	const context = (overrides: Partial<UILocationRenderArgs['context']>,): UILocationRenderArgs['context'] => ({
+		platform: RedditPlatform.Shreddit,
+		kind: 'commentComposer',
+		subreddit: 'sandboxed',
+		postId: 't3_post',
+		...overrides,
+	})
+
+	it('renders a comment macro picker targeting the parent comment on a reply composer', () => {
+		const render = getRenderer()
+		const target = composerTarget({postId: 't3_post', parentId: 't1_parent',},)
+
+		const node = render({context: context({},), target,},) as ReactElement<{type: string; subreddit: string}>
+
+		expect(node,).not.toBeNull()
+		expect(node.type,).toBe(MacroSelect,)
+		expect(node.props.type,).toBe('comment',)
+		expect(node.props.subreddit,).toBe('sandboxed',)
+	})
+
+	it('renders a post macro picker on the top-level composer (no parent-id)', () => {
+		const render = getRenderer()
+		const target = composerTarget({postId: 't3_post',},)
+
+		const node = render({context: context({},), target,},) as ReactElement<{type: string}>
+
+		expect(node.type,).toBe(MacroSelect,)
+		expect(node.props.type,).toBe('post',)
+	})
+
+	it('renders nothing for a non-Shreddit composer slot', () => {
+		const render = getRenderer()
+		const target = composerTarget({postId: 't3_post',},)
+
+		expect(render({context: context({platform: RedditPlatform.Old,},), target,},),).toBeNull()
 	})
 })

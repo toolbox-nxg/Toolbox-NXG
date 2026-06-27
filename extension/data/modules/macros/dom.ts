@@ -15,14 +15,14 @@ import {
 } from '../../api/resources/things'
 import {getSiteTable,} from '../../dom/oldReddit/page'
 import {getThingFullname, getThings,} from '../../dom/oldReddit/things'
-import {findInlineReplyComposerTargets, findTopLevelComposerHosts,} from '../../dom/shreddit/commentThread'
+import type {UILocationRenderArgs,} from '../../dom/uiLocations'
 import {provideLocation, renderAtLocation,} from '../../dom/uiLocations'
 import {negativeTextFeedback, positiveTextFeedback,} from '../../store/feedback'
 import {replaceTokens,} from '../../util/data/string'
 import {runInReplay,} from '../../util/infra/captureGuard'
 import createLogger from '../../util/infra/logging'
 import {RedditPlatform,} from '../../util/infra/platform'
-import {pageDetails, postSite, TBPageContext,} from '../../util/reddit/pageContext'
+import {postSite, TBPageContext,} from '../../util/reddit/pageContext'
 import {getApiThingInfo, getThingInfo,} from '../../util/reddit/thingInfo'
 import {html,} from '../../util/ui/dom'
 import {requestCounterRefresh,} from '../notifier/store'
@@ -50,8 +50,12 @@ export interface MacrosHandlers {
 	 * @param event The TBNewPage custom event carrying page context.
 	 */
 	handleNewPage: (event: CustomEvent<TBPageContext>,) => Promise<void>
-	/** MutationObserver callback that injects macro buttons into new Shreddit reply forms. */
-	handleShredditMutations: MutationCallback
+	/**
+	 * Registers the Shreddit macro renderer into the shared `commentComposerControls`
+	 * slot the shreddit module provides on every reply composer.
+	 * @returns An unregister function that removes the renderer.
+	 */
+	mountShredditMacroRenderer: () => () => void
 }
 
 /**
@@ -283,10 +287,6 @@ export function createMacrosHandlers ({showMacroPreview,}: MacrosSettings,): Mac
 	let macroSelectIdCounter = 0
 	// Tracks cleanup (unrender + unprovide + DOM removal) per injected host element.
 	const injectCleanups = new Map<Element, () => void>()
-	// Set when the factory's cleanup runs. Async isModSub() checks in
-	// handleShredditMutations consult this so a check that resolves after
-	// teardown doesn't inject a host nobody will ever clean up.
-	let disposed = false
 
 	/**
 	 * Provides the commentComposerControls slot on `host` and registers a MacroSelect renderer.
@@ -310,7 +310,11 @@ export function createMacrosHandlers ({showMacroPreview,}: MacrosSettings,): Mac
 			rawDetail: {type, topLevel,},
 		}, {shadow: false, hostTag: 'span',},)
 
-		const unrender = renderAtLocation('commentComposerControls', {id,}, ({context,},) => {
+		const unrender = renderAtLocation('commentComposerControls', {id,}, ({context, target,},) => {
+			// Each injected host registers its own renderer, but renderers run against every
+			// commentComposerControls provider; only render into the host we own or every host
+			// would show one button per injected host on the page.
+			if (target !== host) { return null }
 			const detail = context.rawDetail as {type: 'post' | 'comment'; topLevel: boolean} | undefined
 			// rawDetail is absent in slots not created by this module (e.g. modSave's
 			// commentComposerControls slot), so bail out instead of throwing.
@@ -332,16 +336,50 @@ export function createMacrosHandlers ({showMacroPreview,}: MacrosSettings,): Mac
 		injectCleanups.set(host, cleanup,)
 	}
 
-	/** Calls cleanup for all injected macro-select hosts matching `selector` within `scope`. */
+	/**
+	 * Removes all macro-select hosts matching `selector` within `scope`.
+	 * Tracked hosts run their full cleanup (unrender + unprovide + DOM removal);
+	 * untracked hosts - clones Reddit makes when it copies a reply box that already
+	 * holds a macro host - are not in `injectCleanups`, so remove them directly or
+	 * they accumulate one-per-nesting-level.
+	 */
 	function removeExistingMacros (scope: Element | Document, selector: string,) {
 		for (const el of scope.querySelectorAll(selector,)) {
-			injectCleanups.get(el,)?.()
+			const cleanup = injectCleanups.get(el,)
+			if (cleanup) {
+				cleanup()
+			} else {
+				el.remove()
+			}
 		}
+	}
+
+	/**
+	 * Renderer for the shared Shreddit `commentComposerControls` slot (provided by the
+	 * shreddit module on every reply composer). Reads the composer context to pick the
+	 * macro target: `comment-composer-host` always carries `post-id`, plus `parent-id`
+	 * (`t1_...`) when it is a reply to a comment rather than the top-level post composer.
+	 */
+	function shredditComposerControls ({context, target,}: UILocationRenderArgs,) {
+		if (context.platform !== RedditPlatform.Shreddit) { return null }
+		if (context.kind !== 'commentComposer') { return null }
+		const subreddit = context.subreddit
+		if (!subreddit) { return null }
+		const host = target.closest('comment-composer-host',)
+		const parentId = host?.getAttribute('parent-id',) ?? undefined
+		const isComment = parentId !== undefined && parentId.startsWith('t1_',)
+		const thingId = isComment ? parentId : context.postId
+		if (!thingId) { return null }
+		return createElement(MacroSelect, {
+			subreddit,
+			type: isComment ? 'comment' : 'post',
+			presentation: 'button',
+			onSelectMacro: createSelectCallback(thingId, subreddit, !isComment,),
+		},)
 	}
 
 	return {
 		cleanup () {
-			disposed = true
 			for (const cleanup of injectCleanups.values()) {
 				cleanup()
 			}
@@ -437,54 +475,11 @@ export function createMacrosHandlers ({showMacroPreview,}: MacrosSettings,): Mac
 			if (commentAsLabel) {
 				commentAsLabel.closest('div',)?.after(host,)
 				injectMacroSelect(host, RedditPlatform.Old, subreddit, `t3_${submissionID}`, 'post', true,)
-				return
-			}
-
-			// Shreddit: anchor on comment-composer-host, insert after the wrapper div
-			const composerHost = document.querySelector('comment-composer-host[post-id]',)
-			if (composerHost) {
-				const wrapper = document.querySelector('#sticky-comment-composer-wrapper',)
-				;(wrapper ?? composerHost).after(host,)
-				injectMacroSelect(host, RedditPlatform.Shreddit, subreddit, `t3_${submissionID}`, 'post', true,)
 			}
 		},
 
-		handleShredditMutations (mutations: MutationRecord[],) {
-			const subreddit = pageDetails.pageDetails.subreddit
-			if (!subreddit) { return }
-
-			for (const mutation of mutations) {
-				for (const node of mutation.addedNodes) {
-					if (!(node instanceof Element)) { continue }
-
-					// Inline comment reply forms: "Comment as" span inside shreddit-comment
-					for (const {container, thingId,} of findInlineReplyComposerTargets(node,)) {
-						if (container.querySelector('.toolbox-macro-select',)) { continue }
-						isModSub(subreddit,).then((isMod,) => {
-							if (disposed || !isMod) { return }
-							if (container.querySelector('.toolbox-macro-select',)) { return }
-							const host = document.createElement('span',)
-							host.classList.add('toolbox-macro-select',)
-							container.after(host,)
-							injectMacroSelect(host, RedditPlatform.Shreddit, subreddit, thingId, 'comment', false,)
-						},).catch((error: unknown,) => log.error(error,))
-					}
-
-					// Top-level post reply form: comment-composer-host added via SPA navigation
-					for (const {composerEl, postId,} of findTopLevelComposerHosts(node,)) {
-						if (document.querySelector('.toolbox-top-macro-select',)) { continue }
-						isModSub(subreddit,).then((isMod,) => {
-							if (disposed || !isMod) { return }
-							if (document.querySelector('.toolbox-top-macro-select',)) { return }
-							const host = document.createElement('span',)
-							host.classList.add('toolbox-top-macro-select',)
-							const wrapper = document.querySelector('#sticky-comment-composer-wrapper',)
-							;(wrapper ?? composerEl).after(host,)
-							injectMacroSelect(host, RedditPlatform.Shreddit, subreddit, postId, 'post', true,)
-						},).catch((error: unknown,) => log.error(error,))
-					}
-				}
-			}
+		mountShredditMacroRenderer () {
+			return renderAtLocation('commentComposerControls', {id: 'macros',}, shredditComposerControls,)
 		},
 	}
 }

@@ -6,7 +6,6 @@ import {createLifecycle,} from '../../framework/lifecycle'
 import {Module,} from '../../framework/module'
 import {macros,} from '../../framework/moduleIds'
 import {isOldReddit,} from '../../util/infra/platform'
-import {onSharedMutation,} from '../../util/ui/dom'
 import {createMacrosHandlers,} from './dom'
 import {MacrosSettings, settings,} from './settings'
 
@@ -29,7 +28,7 @@ export default new Module<MacrosSettings>({
 			(target,) => void handlers.handleReplyClick(target,),
 		)
 	} else {
-		lifecycle.mount(onSharedMutation(handlers.handleShredditMutations,),)
+		lifecycle.mount(handlers.mountShredditMacroRenderer(),)
 	}
 
 	lifecycle.on(window, 'TBNewPage', (event,) => void handlers.handleNewPage(event,),)

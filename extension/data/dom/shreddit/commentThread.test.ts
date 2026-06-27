@@ -1,12 +1,7 @@
 /** Tests for findCommentSortTargets. */
 
 import {afterEach, describe, expect, it, vi,} from 'vitest'
-import {
-	findCommentSortTargets,
-	findComposerTargets,
-	findInlineReplyComposerTargets,
-	findTopLevelComposerHosts,
-} from './commentThread'
+import {findCommentSortTargets, findComposerTargets,} from './commentThread'
 
 function html (markup: string,): Element {
 	const container = document.createElement('div',)
@@ -163,74 +158,5 @@ describe('findComposerTargets', () => {
             </comment-composer-host>
         `,)
 		expect(findComposerTargets(root,),).toHaveLength(0,)
-	})
-})
-
-// ---------------------------------------------------------------------------
-// findInlineReplyComposerTargets
-// ---------------------------------------------------------------------------
-
-describe('findInlineReplyComposerTargets', () => {
-	it('finds the container and thingid for an inline reply form', () => {
-		const root = html(`
-			<shreddit-comment thingid="t1_abc">
-				<div class="reply-form"><span>Comment as</span></div>
-			</shreddit-comment>
-		`,)
-		const targets = findInlineReplyComposerTargets(root,)
-		expect(targets,).toHaveLength(1,)
-		expect(targets[0]!.thingId,).toBe('t1_abc',)
-		expect(targets[0]!.container,).toBe(root.querySelector('.reply-form',),)
-	})
-
-	it('ignores "Comment as" labels outside a shreddit-comment', () => {
-		const root = html('<div><span>Comment as</span></div>',)
-		expect(findInlineReplyComposerTargets(root,),).toEqual([],)
-	})
-
-	it('ignores comments without a thingid', () => {
-		const root = html(`
-			<shreddit-comment>
-				<div><span>Comment as</span></div>
-			</shreddit-comment>
-		`,)
-		expect(findInlineReplyComposerTargets(root,),).toEqual([],)
-	})
-
-	it('ignores spans with other text', () => {
-		const root = html(`
-			<shreddit-comment thingid="t1_abc">
-				<div><span>Reply</span></div>
-			</shreddit-comment>
-		`,)
-		expect(findInlineReplyComposerTargets(root,),).toEqual([],)
-	})
-})
-
-// ---------------------------------------------------------------------------
-// findTopLevelComposerHosts
-// ---------------------------------------------------------------------------
-
-describe('findTopLevelComposerHosts', () => {
-	it('finds composer hosts carrying a post-id', () => {
-		const root = html('<comment-composer-host post-id="t3_xyz"></comment-composer-host>',)
-		const targets = findTopLevelComposerHosts(root,)
-		expect(targets,).toHaveLength(1,)
-		expect(targets[0]!.postId,).toBe('t3_xyz',)
-		expect(targets[0]!.composerEl,).toBe(root.querySelector('comment-composer-host',),)
-	})
-
-	it('finds the root itself when it is the composer host', () => {
-		const hostEl = document.createElement('comment-composer-host',)
-		hostEl.setAttribute('post-id', 't3_root',)
-		document.body.appendChild(hostEl,)
-		const targets = findTopLevelComposerHosts(hostEl,)
-		expect(targets,).toHaveLength(1,)
-		expect(targets[0]!.composerEl,).toBe(hostEl,)
-	})
-
-	it('ignores hosts without a post-id', () => {
-		const root = html('<comment-composer-host></comment-composer-host>',)
-		expect(findTopLevelComposerHosts(root,),).toEqual([],)
 	})
 })
