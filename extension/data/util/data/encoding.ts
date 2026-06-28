@@ -99,9 +99,12 @@ export function zlibInflate (stringThing: string,): string {
  */
 export function zlibDeflate (objThing: string,): string {
 	// Encode input as Latin-1 bytes (charCode per char) to match pako 0.2.x
-	// behavior, then deflate and base64-encode the result.
+	// behavior, then deflate and base64-encode the result. Level 9 (max) keeps
+	// wiki blobs as small as possible - wiki pages have a hard byte cap, and the
+	// output is a standard zlib stream that any decoder (legacy toolbox, older
+	// pako) reads regardless of the level it was written at.
 	const input = Uint8Array.from(objThing, (c,) => c.charCodeAt(0,) & 0xff,)
-	const compressed = pakoDeflate(input,)
+	const compressed = pakoDeflate(input, {level: 9,},)
 	return btoa(Array.from(compressed, (b,) => String.fromCharCode(b,),).join('',),)
 }
 
