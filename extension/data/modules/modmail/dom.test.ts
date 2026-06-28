@@ -41,6 +41,33 @@ const defaultSettings: ModmailSettings = {
 	previewByDefault: false,
 	searchAtTop: false,
 	showRecentMessageTime: true,
+	hideUserSidebarProfileIcon: false,
+	usernameProfileWhenSidebarOpen: false,
+}
+
+/**
+ * Builds a modmail username opener (`mod-notes-opener[trigger-source="modmail-username"]`)
+ * wrapping a profile anchor, mirroring how Reddit renders the participant username.
+ */
+function makeUsernameOpener (author = 'foo',) {
+	const opener = document.createElement('mod-notes-opener',)
+	opener.setAttribute('trigger-source', 'modmail-username',)
+	opener.setAttribute('user-name', author,)
+	const anchor = document.createElement('a',)
+	anchor.href = '#'
+	anchor.textContent = `u/${author}`
+	opener.appendChild(anchor,)
+	document.body.appendChild(opener,)
+	return {opener, anchor,}
+}
+
+/** Adds/removes a `mod-notes-rail-closer` to represent the user info sidebar open state. */
+function setSidebarState (state: 'open' | 'closed' | 'absent',) {
+	document.querySelector('mod-notes-rail-closer',)?.remove()
+	if (state === 'absent') { return }
+	const closer = document.createElement('mod-notes-rail-closer',)
+	if (state === 'closed') { closer.classList.add('hidden',) }
+	document.body.appendChild(closer,)
 }
 
 function setPath (path: string,) {
@@ -267,5 +294,92 @@ describe('createModmailHandlers', () => {
 		expect(searchForm.classList.contains('hidden',),).toBe(false,)
 		expect(searchForm.classList.contains('mt-md',),).toBe(false,)
 		expect(container.firstElementChild,).toBe(searchForm,)
+	})
+
+	describe('username opens profile when sidebar is open', () => {
+		// The interceptor is a document-level capture listener, which afterEach's innerHTML reset
+		// does not remove. Track every handler bundle and tear it down so listeners never leak
+		// into the next test. cleanup() drives an async lifecycle, so flush a macrotask after.
+		const created: Array<{cleanup: () => void}> = []
+
+		function makeHandlers (usernameProfileWhenSidebarOpen: boolean,) {
+			const handlers = createModmailHandlers({...defaultSettings, usernameProfileWhenSidebarOpen,},)
+			created.push(handlers,)
+			return handlers
+		}
+
+		afterEach(async () => {
+			for (const handlers of created.splice(0,)) { handlers.cleanup() }
+			await new Promise((resolve,) => setTimeout(resolve, 0,))
+		},)
+
+		// Simulates Reddit's mod-notes-opener click handler (opens the sidebar, cancels
+		// navigation). Returns a spy that records whether that handler ran for this click.
+		function attachRedditHandler (opener: Element,) {
+			const redditHandler = vi.fn((event: Event,) => event.preventDefault())
+			opener.addEventListener('click', redditHandler,)
+			return redditHandler
+		}
+
+		it('stops Reddit from hijacking the click when the sidebar is open', () => {
+			const {opener, anchor,} = makeUsernameOpener()
+			setSidebarState('open',)
+			const redditHandler = attachRedditHandler(opener,)
+			makeHandlers(true,)
+
+			const notCancelled = anchor.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: true,},),)
+
+			// Reddit's handler is blocked and the default anchor navigation is left intact.
+			expect(redditHandler,).not.toHaveBeenCalled()
+			expect(notCancelled,).toBe(true,)
+		})
+
+		it('lets Reddit handle the click when the sidebar is closed', () => {
+			const {opener, anchor,} = makeUsernameOpener()
+			setSidebarState('closed',)
+			const redditHandler = attachRedditHandler(opener,)
+			makeHandlers(true,)
+
+			anchor.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: true,},),)
+
+			expect(redditHandler,).toHaveBeenCalledOnce()
+		})
+
+		it('lets Reddit handle the click when the sidebar is absent', () => {
+			const {opener, anchor,} = makeUsernameOpener()
+			setSidebarState('absent',)
+			const redditHandler = attachRedditHandler(opener,)
+			makeHandlers(true,)
+
+			anchor.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: true,},),)
+
+			expect(redditHandler,).toHaveBeenCalledOnce()
+		})
+
+		it('does not intercept clicks when the option is disabled', () => {
+			const {opener, anchor,} = makeUsernameOpener()
+			setSidebarState('open',)
+			const redditHandler = attachRedditHandler(opener,)
+			makeHandlers(false,)
+
+			anchor.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: true,},),)
+
+			expect(redditHandler,).toHaveBeenCalledOnce()
+		})
+
+		it('stops intercepting after cleanup', async () => {
+			const {opener, anchor,} = makeUsernameOpener()
+			setSidebarState('open',)
+			const redditHandler = attachRedditHandler(opener,)
+			const handlers = makeHandlers(true,)
+
+			handlers.cleanup()
+			// cleanup() runs its registered teardowns through an async lifecycle; let them flush.
+			await new Promise((resolve,) => setTimeout(resolve, 0,))
+
+			anchor.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: true,},),)
+
+			expect(redditHandler,).toHaveBeenCalledOnce()
+		})
 	})
 })

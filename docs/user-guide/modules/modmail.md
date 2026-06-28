@@ -20,6 +20,8 @@ This module operates only on `www.reddit.com/mail/`. It adds mod macro support t
 
 **Compact user sidebar** — optionally hides the banner strip and profile picture at the top of the modmail user sidebar and widens the username area, for a denser text-first header.
 
+**Profile on username click** — when the user info sidebar is already open, clicking a participant's username opens their profile page (in a new tab) instead of re-opening the sidebar. Off by default.
+
 ## Settings
 
 | Setting                        | Default | Description                                                                               |
@@ -28,3 +30,4 @@ This module operates only on `www.reddit.com/mail/`. It adds mod macro support t
 | Search bar at top              | On      | Always show the modmail search bar, hide the toggle button                                |
 | Show recent message time       | On      | Show exact time for messages less than 24 hours old                                       |
 | Hide user sidebar profile icon | Off     | Hide the banner + profile picture in the modmail user sidebar and widen the username area |
+| Open profile when sidebar open | Off     | Click a username to open their profile when the user info sidebar is already open         |

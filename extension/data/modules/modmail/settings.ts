@@ -32,6 +32,14 @@ export const settings = defineSettings(
 			default: false,
 			description: 'Hide the banner and profile picture in the modmail user sidebar, widening the username area',
 		},
+		{
+			id: 'usernameProfileWhenSidebarOpen',
+			sharedPolicy: 'raw',
+			type: 'boolean',
+			default: false,
+			description:
+				'In a modmail thread, clicking a participant username opens their profile page when the user info sidebar is already open',
+		},
 	] as const,
 )
 

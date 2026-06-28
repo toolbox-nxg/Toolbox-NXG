@@ -80,6 +80,16 @@ function showRecentMessageTimes (root: Element,) {
 	}
 }
 
+/**
+ * Reports whether the modmail user info sidebar (mod notes rail) is currently expanded.
+ * Reddit toggles the `hidden` class on `mod-notes-rail-closer` to collapse the rail, so a
+ * present-and-not-hidden closer means the sidebar is open.
+ */
+function isUserSidebarOpen (): boolean {
+	const closer = document.querySelector('mod-notes-rail-closer',)
+	return !!closer && !closer.classList.contains('hidden',)
+}
+
 function getConversationId (): string {
 	const match = document.location.pathname.match(/\/mail\/[^/]+\/([^/?#]+)/,)
 	return match?.[1] ?? ''
@@ -227,7 +237,13 @@ async function applyModmailMacro (wrapper: Element, subreddit: string, macro: Ma
  * @returns Handlers for scanning new DOM nodes and cleaning up all toolbox additions.
  */
 export function createModmailHandlers (
-	{previewByDefault, searchAtTop, showRecentMessageTime, hideUserSidebarProfileIcon,}: ModmailSettings,
+	{
+		previewByDefault,
+		searchAtTop,
+		showRecentMessageTime,
+		hideUserSidebarProfileIcon,
+		usernameProfileWhenSidebarOpen,
+	}: ModmailSettings,
 ): ModmailHandlers {
 	const processedElements = new WeakSet<Element>()
 	let macroSelectIdCounter = 0
@@ -301,6 +317,19 @@ export function createModmailHandlers (
 
 	if (hideUserSidebarProfileIcon) {
 		document.body.classList.add('toolbox-modmail-hide-sidebar-profile',)
+	}
+
+	if (usernameProfileWhenSidebarOpen) {
+		// Run in the capture phase so we beat Reddit's mod-notes-opener, which hijacks the
+		// username click to (re)open the user info sidebar. When the sidebar is already open we
+		// stop that hijack but leave the default anchor navigation intact, so the slotted
+		// <a target="_blank"> opens the participant's profile in a new tab (modifier clicks too).
+		scope.on(document, 'click', (event,) => {
+			const target = event.target as Element | null
+			if (!target?.closest('mod-notes-opener[trigger-source="modmail-username"]',)) { return }
+			if (!isUserSidebarOpen()) { return }
+			event.stopImmediatePropagation()
+		}, {capture: true,},)
 	}
 
 	// The preview button lives in modmail-thread-wrapper's shadow DOM, not shreddit-composer's.
