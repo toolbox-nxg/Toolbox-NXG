@@ -18,10 +18,13 @@ This module operates only on `www.reddit.com/mail/`. It adds mod macro support t
 
 **Recent message timestamps** — messages posted within the last 24 hours show an exact time (e.g. "Jun 4, 3:05 PM") alongside the date, making it easier to gauge recency at a glance.
 
+**Compact user sidebar** — optionally hides the banner strip and profile picture at the top of the modmail user sidebar and widens the username area, for a denser text-first header.
+
 ## Settings
 
-| Setting                     | Default | Description                                                |
-| --------------------------- | ------- | ---------------------------------------------------------- |
-| Markdown preview by default | On      | Auto-enable preview when typing in the modmail composer    |
-| Search bar at top           | On      | Always show the modmail search bar, hide the toggle button |
-| Show recent message time    | On      | Show exact time for messages less than 24 hours old        |
+| Setting                        | Default | Description                                                                               |
+| ------------------------------ | ------- | ----------------------------------------------------------------------------------------- |
+| Markdown preview by default    | On      | Auto-enable preview when typing in the modmail composer                                   |
+| Search bar at top              | On      | Always show the modmail search bar, hide the toggle button                                |
+| Show recent message time       | On      | Show exact time for messages less than 24 hours old                                       |
+| Hide user sidebar profile icon | Off     | Hide the banner + profile picture in the modmail user sidebar and widen the username area |

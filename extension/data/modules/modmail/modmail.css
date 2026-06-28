@@ -21,3 +21,25 @@ body.toolbox-modmail-search-top #modmail-search-form > button:not([id]) {
 	display: none
 		!important; /* stylelint-disable-line declaration-no-important -- overrides Reddit's display on the form Cancel button */
 }
+
+/* Modmail: compact user sidebar - hide the banner strip and profile picture, then reflow the
+   username block to fill the freed width. Scoped to the right-hand user sidebar card. */
+
+/* Banner strip (the colored 76px header band) plus the avatar floated over it. The avatar is the
+   banner's next sibling (a relative h-0 wrapper) and its inner markup varies by account type - a
+   normal <img>, an NSFW placeholder <button>, or a collectible-avatar card (which only carries
+   id="profile-icon", no data-testid) - so hide the whole wrapper to cover every variant. */
+/* stylelint-disable-next-line selector-class-pattern -- Reddit utility class names (bracketed/generated) */
+body.toolbox-modmail-hide-sidebar-profile aside.right-sidebar .h-\[76px\].bg-secondary-background,
+/* stylelint-disable-next-line selector-class-pattern -- Reddit utility class names (bracketed/generated) */
+body.toolbox-modmail-hide-sidebar-profile aside.right-sidebar .h-\[76px\].bg-secondary-background + div {
+	display: none;
+}
+
+/* Username block: replace the avatar-clearing left padding with the sidebar's standard 1rem inset,
+   and add a matching 1rem top inset now that the banner above it is hidden. */
+/* stylelint-disable-next-line selector-class-pattern -- Reddit utility class name (bracketed/generated) */
+body.toolbox-modmail-hide-sidebar-profile aside.right-sidebar .ps-\[110px\] {
+	padding-inline-start: 16px; /* match the sidebar's md (1rem) inset */
+	padding-top: 16px;
+}

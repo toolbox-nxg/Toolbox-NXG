@@ -227,7 +227,7 @@ async function applyModmailMacro (wrapper: Element, subreddit: string, macro: Ma
  * @returns Handlers for scanning new DOM nodes and cleaning up all toolbox additions.
  */
 export function createModmailHandlers (
-	{previewByDefault, searchAtTop, showRecentMessageTime,}: ModmailSettings,
+	{previewByDefault, searchAtTop, showRecentMessageTime, hideUserSidebarProfileIcon,}: ModmailSettings,
 ): ModmailHandlers {
 	const processedElements = new WeakSet<Element>()
 	let macroSelectIdCounter = 0
@@ -297,6 +297,10 @@ export function createModmailHandlers (
 
 	if (searchAtTop) {
 		document.body.classList.add('toolbox-modmail-search-top',)
+	}
+
+	if (hideUserSidebarProfileIcon) {
+		document.body.classList.add('toolbox-modmail-hide-sidebar-profile',)
 	}
 
 	// The preview button lives in modmail-thread-wrapper's shadow DOM, not shreddit-composer's.
@@ -400,6 +404,7 @@ export function createModmailHandlers (
 
 	function cleanup () {
 		document.body.classList.remove('toolbox-modmail-search-top',)
+		document.body.classList.remove('toolbox-modmail-hide-sidebar-profile',)
 		for (const fn of macroSelectCleanups.values()) { fn() }
 		void scope.cleanup()
 	}

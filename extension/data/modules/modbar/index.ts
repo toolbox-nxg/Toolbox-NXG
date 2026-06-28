@@ -8,6 +8,7 @@ import {modbar,} from '../../framework/moduleIds'
 import {setSettingAsync,} from '../../util/persistence/settings'
 import {createModbarHandlers,} from './dom'
 import {createSettingsNavigationHandlers,} from './features/settingsNavigation'
+import {createShredditPinnedOffsetHandlers,} from './features/shredditPinnedOffset'
 import {ModbarSettings, settings,} from './settings'
 
 let resolveModbarExists: ((value: void | PromiseLike<void>,) => void) | null = null
@@ -39,6 +40,9 @@ const self = new Module<ModbarSettings>({
 	const settingsNav = createSettingsNavigationHandlers()
 	lifecycle.mount(settingsNav.cleanup,)
 	lifecycle.on(window, 'TBHashParams', settingsNav.handleHashParams,)
+
+	const pinnedOffset = createShredditPinnedOffsetHandlers()
+	lifecycle.mount(pinnedOffset.cleanup,)
 
 	return lifecycle.cleanup
 },)

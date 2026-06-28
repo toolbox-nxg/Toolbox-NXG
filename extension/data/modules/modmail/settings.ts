@@ -25,6 +25,13 @@ export const settings = defineSettings(
 			default: true,
 			description: 'Show the time next to modmail message dates for messages less than 24 hours old',
 		},
+		{
+			id: 'hideUserSidebarProfileIcon',
+			sharedPolicy: 'raw',
+			type: 'boolean',
+			default: false,
+			description: 'Hide the banner and profile picture in the modmail user sidebar, widening the username area',
+		},
 	] as const,
 )
 

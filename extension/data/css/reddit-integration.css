@@ -77,6 +77,38 @@
 	bottom: 31px;
 }
 
+/* Shreddit pins several widgets to the viewport bottom (or fills the viewport height), so the
+   fixed modbar overlaps them - body padding-bottom only makes room for normal-flow content. Lift
+   the light-DOM ones by the modbar height; the shadow-DOM image-post bar is handled by JS in the
+   modbar module (features/shredditPinnedOffset.ts), which CSS injected into the page cannot reach. */
+
+/* The post page's sticky "add a comment" composer (fixed bottom:0). The id selector outranks
+   Reddit's .bottom-0 utility, and Reddit animates a `transition: bottom` so this eases cleanly. */
+.toolbox-scope.toolbox-modbar-shown #sticky-comment-composer-wrapper {
+	bottom: var(--toolbox-modbar-height);
+}
+
+/* Shreddit modmail / mod hub fills the viewport height and pins the user-sidebar's "add a mod note"
+   form to the bottom of its own scroll column, which the modbar overlaps. Shrinking the aside itself
+   only clips that form into a hidden-scrollbar overflow; instead shrink the layout container that
+   sets the viewport height, so the whole content area (and the sidebar's pinned footer) recomputes
+   above the bar with the sidebar's internal scroll intact. */
+.toolbox-scope.toolbox-modbar-shown .modhub-layout {
+	height: calc(
+		100% - var(--toolbox-modbar-height) - 8px
+	); /* extra 8px so the pinned note form clears the bar comfortably */
+}
+
+/* The modmail mod-notes rail sizes itself from the viewport via an inline `height: calc(100vh - Npx)`,
+   so unlike the rest of the mod hub it ignores the modbar and its bottom "Add a mod note" control sits
+   on the bar. Its content anchors to the padding box, so padding-bottom does not move it; a transparent
+   bottom *border* (with border-box so the inline height is not enlarged) shrinks the padding box from
+   the bottom, lifting both flow and absolutely-positioned content clear of the bar by modbar + 1rem. */
+body.toolbox-scope.toolbox-modbar-shown mod-notes-rail-closer {
+	box-sizing: border-box;
+	border-bottom: calc(var(--toolbox-modbar-height) + 16px) solid transparent;
+}
+
 /*
 ========================
 
