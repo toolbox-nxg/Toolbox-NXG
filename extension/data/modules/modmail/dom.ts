@@ -9,6 +9,7 @@ import {replaceTokens,} from '../../util/data/string'
 import {RedditPlatform,} from '../../util/infra/platform'
 import {MacroSelect,} from '../macros/components/MacroSelect'
 import {MacroConfig, ThingInfo,} from '../macros/schema'
+import {UserSidebarPanel,} from './components/UserSidebarPanel'
 import type {ModmailSettings,} from './settings'
 
 /** Lifecycle callbacks returned by {@link createModmailHandlers}. */
@@ -243,11 +244,14 @@ export function createModmailHandlers (
 		showRecentMessageTime,
 		hideUserSidebarProfileIcon,
 		usernameProfileWhenSidebarOpen,
+		replaceUserSidebarTabs,
 	}: ModmailSettings,
 ): ModmailHandlers {
 	const processedElements = new WeakSet<Element>()
 	let macroSelectIdCounter = 0
 	const macroSelectCleanups = new Map<Element, () => void>()
+	let userPanelIdCounter = 0
+	const userPanelCleanups = new Map<Element, () => void>()
 	// Owns the listeners/observers/timeouts used by the preview-button auto-click logic, so a
 	// module teardown mid-wait cancels them instead of leaking or firing after cleanup.
 	const scope = createLifecycle()
@@ -311,12 +315,67 @@ export function createModmailHandlers (
 		macroSelectCleanups.set(wrapper, clean,)
 	}
 
+	/**
+	 * Mounts the stacked activity panel next to the native `<mod-notes-tabs>` widget in the user
+	 * sidebar (the native tabs are hidden by CSS while this feature is on). The tab element carries
+	 * `username`/`subreddit-name` and re-mounts per conversation, so it is both the anchor and the
+	 * single-panel key. Mirrors {@link addModmailMacroSelect}'s single-instance / re-render handling.
+	 */
+	function addUserSidebarPanel (tabs: Element,) {
+		// Reddit may leave a stale rail attached across navigations; keep exactly one panel by
+		// tearing down trackers for any other tab element. (Snapshot first; clean() mutates the map.)
+		for (const [tracked, clean,] of [...userPanelCleanups,]) {
+			if (tracked !== tabs) { clean() }
+		}
+
+		if (userPanelCleanups.has(tabs,)) {
+			// Still mounted next to this tab element: nothing to do.
+			if (tabs.nextElementSibling?.classList.contains('toolbox-modmail-user-panel',)) { return }
+			// Reddit re-rendered the rail and detached our host; release the stale root before re-mounting.
+			userPanelCleanups.get(tabs,)?.()
+		}
+
+		const user = tabs.getAttribute('username',) || getAuthorFromPage()
+		const subreddit = tabs.getAttribute('subreddit-name',) || getSubredditFromSavedResponses(document.body,)
+		if (!user || !subreddit) { return }
+		const conversationId = getConversationId()
+
+		const host = document.createElement('div',)
+		host.classList.add('toolbox-modmail-user-panel',)
+		tabs.after(host,)
+
+		const id = `modmail.userSidebar.${++userPanelIdCounter}`
+		const unprovide = provideLocation('modmailUserSidebar', host, {
+			platform: RedditPlatform.Shreddit,
+			kind: 'user',
+			subreddit,
+			author: user,
+		}, {shadow: false, hostTag: 'div',},)
+		const unrender = renderAtLocation(
+			'modmailUserSidebar',
+			{id,},
+			() => createElement(UserSidebarPanel, {subreddit, user, conversationId,},),
+		)
+
+		const clean = () => {
+			unrender()
+			unprovide()
+			host.remove()
+			userPanelCleanups.delete(tabs,)
+		}
+		userPanelCleanups.set(tabs, clean,)
+	}
+
 	if (searchAtTop) {
 		document.body.classList.add('toolbox-modmail-search-top',)
 	}
 
 	if (hideUserSidebarProfileIcon) {
 		document.body.classList.add('toolbox-modmail-hide-sidebar-profile',)
+	}
+
+	if (replaceUserSidebarTabs) {
+		document.body.classList.add('toolbox-modmail-replace-sidebar-tabs',)
 	}
 
 	if (usernameProfileWhenSidebarOpen) {
@@ -409,6 +468,10 @@ export function createModmailHandlers (
 		// is true we only need the one pass.
 		scanWith(root, 'modmail-thread-wrapper', previewByDefault ? handleThreadWrapper : addModmailMacroSelect,)
 
+		if (replaceUserSidebarTabs) {
+			scanWith(root, 'mod-notes-tabs', addUserSidebarPanel,)
+		}
+
 		if (searchAtTop) {
 			applySearchAtTop()
 		}
@@ -428,13 +491,18 @@ export function createModmailHandlers (
 			for (const [tracked, clean,] of [...macroSelectCleanups,]) {
 				if (!tracked.isConnected) { clean() }
 			}
+			for (const [tracked, clean,] of [...userPanelCleanups,]) {
+				if (!tracked.isConnected) { clean() }
+			}
 		}
 	}
 
 	function cleanup () {
 		document.body.classList.remove('toolbox-modmail-search-top',)
 		document.body.classList.remove('toolbox-modmail-hide-sidebar-profile',)
+		document.body.classList.remove('toolbox-modmail-replace-sidebar-tabs',)
 		for (const fn of macroSelectCleanups.values()) { fn() }
+		for (const fn of userPanelCleanups.values()) { fn() }
 		void scope.cleanup()
 	}
 

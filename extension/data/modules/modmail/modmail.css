@@ -43,3 +43,14 @@ body.toolbox-modmail-hide-sidebar-profile aside.right-sidebar .ps-\[110px\] {
 	padding-inline-start: 16px; /* match the sidebar's md (1rem) inset */
 	padding-top: 16px;
 }
+
+/* Modmail: replace the native user-sidebar tabs with the stacked Toolbox panel. mod-notes-tabs
+   renders its tab panels inside its own shadow root, so hiding the host hides the entire native tab
+   UI in one rule regardless of the active tab. The Toolbox panel is mounted as its next sibling. */
+body.toolbox-modmail-replace-sidebar-tabs mod-notes-tabs {
+	display: none;
+}
+
+body.toolbox-modmail-replace-sidebar-tabs .toolbox-modmail-user-panel {
+	padding: var(--toolbox-sp-16);
+}

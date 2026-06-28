@@ -9,7 +9,7 @@ const apiOauthPostJSON = vi.hoisted(() => vi.fn())
 vi.mock('../transport/http', () => ({apiOauthGetJSON, apiOauthPOST, apiOauthPostJSON,}),)
 
 import {RedditApiError,} from '../parsers/redditMutation'
-import {archiveModmail, getModmailUnreadCount, sendModmail,} from './modmail'
+import {archiveModmail, getModmailParticipant, getModmailUnreadCount, sendModmail,} from './modmail'
 import {muteUser, unmuteUser,} from './relationships'
 
 function jsonResponse (body: unknown,): Response {
@@ -47,6 +47,20 @@ describe('modmail API', () => {
 
 		expect(apiOauthPOST,).toHaveBeenCalledWith('/api/mod/conversations/conv/archive',)
 		expect(apiOauthGetJSON,).toHaveBeenCalledWith('/api/mod/conversations/unread/count',)
+	})
+
+	it('reads participant info from the conversation response user field', async () => {
+		const participant = {recentPosts: {}, recentComments: {}, recentConvos: {},}
+		apiOauthGetJSON.mockResolvedValueOnce({user: participant,},)
+
+		await expect(getModmailParticipant('conv',),).resolves.toBe(participant,)
+		expect(apiOauthGetJSON,).toHaveBeenCalledWith('/api/mod/conversations/conv',)
+	})
+
+	it('returns an empty participant when the conversation has no user', async () => {
+		apiOauthGetJSON.mockResolvedValueOnce({},)
+
+		await expect(getModmailParticipant('conv',),).resolves.toEqual({},)
 	})
 
 	it('mutes and unmutes users through OAuth with truncated notes', async () => {

@@ -40,6 +40,14 @@ export const settings = defineSettings(
 			description:
 				'In a modmail thread, clicking a participant username opens their profile page when the user info sidebar is already open',
 		},
+		{
+			id: 'replaceUserSidebarTabs',
+			sharedPolicy: 'raw',
+			type: 'boolean',
+			default: false,
+			description:
+				'Replace the modmail user-sidebar tabs (Posts/Comments/Log) with a single scrollable panel showing all sections at once',
+		},
 	] as const,
 )
 

@@ -48,6 +48,8 @@ export type UILocation =
 	| 'stylesheetEditorControls'
 	| 'userTextControls'
 	| 'modmailComposerControls'
+	/** The modmail user-info sidebar (mod notes rail); hosts the stacked activity panel. */
+	| 'modmailUserSidebar'
 	| 'contentMenuControls'
 	| 'sidebarControls'
 	| 'modbar'

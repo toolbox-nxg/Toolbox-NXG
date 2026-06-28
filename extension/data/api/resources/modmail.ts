@@ -28,6 +28,43 @@ export function sendModmail ({subreddit, to, subject, body, isAuthorHidden,}: {
 	},)
 }
 
+/**
+ * Participant info embedded in a modmail conversation under its `user` key; this is what backs
+ * Reddit's native user-info sidebar. The three `recent*` maps are keyed by Reddit fullname/id;
+ * entries are left as `unknown` and narrowed defensively by the consumer, since this is untrusted
+ * wire data.
+ */
+export interface ModmailParticipant {
+	/** Recent submissions, keyed by post fullname. Each entry carries `title`, `permalink`, `subreddit`, `date`. */
+	recentPosts?: Record<string, unknown>
+	/** Recent comments, keyed by comment fullname. Each entry adds `comment` (the body) to the post fields. */
+	recentComments?: Record<string, unknown>
+	/** Recent modmail conversations, keyed by conversation id. Each entry carries `subject`, `permalink`, `date`. */
+	recentConvos?: Record<string, unknown>
+	/** Whether the participant is shadowbanned site-wide. */
+	isShadowBanned?: boolean
+	/** Whether the participant is suspended site-wide. */
+	isSuspended?: boolean
+}
+
+/** Subset of the modmail conversation response that carries the participant's recent activity. */
+interface ModmailConversationResponse {
+	/** Participant info, including the `recent*` activity maps. Absent for internal/no-participant threads. */
+	user?: ModmailParticipant
+}
+
+/**
+ * Fetches participant info (recent posts, comments, and modmail conversations) for a modmail
+ * conversation. The data is embedded in the conversation response under `user` - the same single
+ * request that backs Reddit's native user-info sidebar - not on a separate per-user endpoint.
+ * @param conversationId The modmail conversation id (the trailing path segment of a thread URL).
+ * @returns The participant's recent-activity maps, or an empty object when the thread has no participant.
+ */
+export const getModmailParticipant = async (conversationId: string,): Promise<ModmailParticipant> => {
+	const response = await apiOauthGetJSON<ModmailConversationResponse>(`/api/mod/conversations/${conversationId}`,)
+	return response.user ?? {}
+}
+
 /** Archives a modmail conversation. */
 export const archiveModmail = (conversationId: string,): Promise<Response> =>
 	apiOauthPOST(`/api/mod/conversations/${conversationId}/archive`,)

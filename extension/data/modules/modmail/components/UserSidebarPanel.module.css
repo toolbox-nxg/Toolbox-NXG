@@ -1,0 +1,76 @@
+/* Stacked, scrollable replacement for the native modmail user-sidebar tabs. */
+
+.panel {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-16);
+	font-family: var(--toolbox-font-family);
+	color: var(--toolbox-fg);
+}
+
+.section {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-6);
+}
+
+.heading {
+	margin: 0;
+	padding-bottom: var(--toolbox-sp-3);
+	border-bottom: solid 1px var(--toolbox-divider-color);
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.muted {
+	margin: 0;
+	color: var(--toolbox-neutral-text);
+	font-size: 12px;
+}
+
+.list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-8);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.item {
+	display: flex;
+	flex-direction: column;
+	gap: var(--toolbox-sp-2);
+}
+
+.itemTitle {
+	color: var(--toolbox-link-color);
+	font-size: 13px;
+	text-decoration: none;
+	overflow-wrap: anywhere;
+}
+
+.itemTitle:hover {
+	text-decoration: underline;
+}
+
+.itemBody {
+	margin: 0;
+	color: var(--toolbox-fg);
+	font-size: 12px;
+	overflow-wrap: anywhere;
+
+	/* Keep comment previews short so the column stays scannable. */
+	display: -webkit-box;
+	-webkit-line-clamp: 3;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+.itemMeta {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--toolbox-sp-8);
+	color: var(--toolbox-neutral-text);
+	font-size: 11px;
+}
