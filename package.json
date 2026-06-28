@@ -91,7 +91,7 @@
         "rollup": "^4.62.2",
         "rollup-plugin-copy": "^3.5.0",
         "rollup-plugin-postcss": "^4.0.2",
-        "stylelint": "^17.13.0",
+        "stylelint": "^17.14.0",
         "stylelint-config-standard": "^40.0.0",
         "typedoc": "^0.28.0",
         "typedoc-plugin-markdown": "^4.6.0",
