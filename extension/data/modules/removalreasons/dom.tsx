@@ -234,14 +234,16 @@ function buildItemLink (subreddit: string, fullname: string,): string | undefine
  * @param thing The removed thing element, or null when it can't be resolved (e.g. new Reddit).
  * @param button The toolbox remove button to relabel, or null to leave the button untouched
  *   (e.g. native Old Reddit toggle buttons that manage their own label).
+ * @param label The text to write into the button - "removed" for a plain removal, "spammed" when
+ *   the action removed as spam. Defaults to "removed".
  */
-function markRemovedFeedback (thing: HTMLElement | null, button: HTMLElement | null,) {
+function markRemovedFeedback (thing: HTMLElement | null, button: HTMLElement | null, label = 'removed',) {
 	if (thing) {
 		thing.classList.remove('flaired', 'removed', 'approved',)
 		thing.classList.add('spammed',)
 	}
 	if (button) {
-		button.textContent = 'removed'
+		button.textContent = label
 	}
 }
 
@@ -886,18 +888,25 @@ export function createRemovalReasonsHandlers ({
 					// (single-sub pages); empty on multi-sub pages, handled below.
 					const thingSubreddit = thing?.dataset.subreddit || postSite
 					if (thingID && thingSubreddit && thing) {
+						// Old Reddit's spam button is also a `.remove-button` form, so it lands here too.
+						// Route it as a spam removal (trains the filter) and label it "spammed" to match;
+						// a plain remove stays a non-spam removal labelled "removed".
+						const isSpamAction = !!element.querySelector('[data-event-action="spam"]',)
 						const link = buildItemLink(thingSubreddit, thingID,)
 						const outcome = await proposeOrRemove({
 							subreddit: thingSubreddit,
 							itemId: thingID,
 							itemKind: thingID.startsWith('t1_',) ? 'comment' : 'post',
 							...(link ? {link,} : {}),
-						}, false,)
+						}, isSpamAction,)
 						// Only reflect a real removal in the DOM; a captured proposal leaves the item
-						// visually untouched (it wasn't actually removed). Native Old Reddit remove
-						// buttons manage their own "removed" toggle label, so only paint the thing here.
+						// visually untouched (it wasn't actually removed). We swallowed the click above,
+						// so Reddit's native toggle never runs - relabel the control ourselves. The
+						// `.remove-button` form wraps a `.togglebutton`; otherwise relabel the element.
 						if (outcome === 'performed') {
-							markRemovedFeedback(thing, null,)
+							const removeLabel = element.querySelector<HTMLElement>('.togglebutton',)
+								?? (element instanceof HTMLElement ? element : null)
+							markRemovedFeedback(thing, removeLabel, isSpamAction ? 'spammed' : 'removed',)
 						}
 					} else if (thingID) {
 						// Item found but no subreddit to route the gateway removal through (and not
@@ -953,11 +962,16 @@ export function createRemovalReasonsHandlers ({
 				? element
 				: eventTarget?.closest<HTMLButtonElement>('button',) ?? null
 
+			// Old Reddit's spam button is also a `.remove-button` form; flag the overlay as spam so the
+			// removal trains the filter, matching what the native button would have done.
+			const isSpamAction = !!element.querySelector('[data-event-action="spam"]',)
+
 			await openRemovalOverlay({
 				thingID,
 				thingSubreddit,
 				isComment,
 				isAddRemovalReason: false,
+				...(isSpamAction ? {spam: true,} : {}),
 				pendingRemoveButton,
 				thingElement,
 			},)

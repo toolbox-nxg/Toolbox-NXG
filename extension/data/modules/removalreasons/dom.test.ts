@@ -529,8 +529,42 @@ describe('createRemovalReasonsHandlers', () => {
 		expect(event.preventDefault,).toHaveBeenCalled()
 		expect(removeThing,).toHaveBeenCalledWith('t3_post', false,)
 		expect(document.querySelector('.thing',)!.classList.contains('spammed',),).toBe(true,)
+		expect(document.querySelector('.togglebutton',)!.textContent,).toBe('removed',)
 		expect(getApiThingInfo,).not.toHaveBeenCalled()
 		expect(showRemovalReasonsOverlay,).not.toHaveBeenCalled()
+	})
+
+	it('shift-clicks the old Reddit spam button as a spam removal and marks the thing spammed', async () => {
+		document.body.innerHTML = `
+            <div class="thing link" data-fullname="t3_post" data-subreddit="testsub">
+                <span class="remove-button">
+                    <button class="togglebutton" data-event-action="spam">spam</button>
+                </span>
+            </div>
+        `
+		const event = makeClick(document.querySelector('.togglebutton',)!, true,)
+
+		await createRemovalReasonsHandlers(handlerSettings,).handleClick(event,)
+
+		expect(removeThing,).toHaveBeenCalledWith('t3_post', true,)
+		expect(document.querySelector('.thing',)!.classList.contains('spammed',),).toBe(true,)
+		expect(document.querySelector('.togglebutton',)!.textContent,).toBe('spammed',)
+		expect(showRemovalReasonsOverlay,).not.toHaveBeenCalled()
+	})
+
+	it('flags the removal overlay as spam when the old Reddit spam button is clicked without shift', async () => {
+		document.body.innerHTML = `
+            <div class="thing link" data-fullname="t3_post" data-subreddit="testsub">
+                <span class="remove-button">
+                    <button class="togglebutton" data-event-action="spam">spam</button>
+                </span>
+            </div>
+        `
+		const event = makeClick(document.querySelector('.togglebutton',)!,)
+
+		await createRemovalReasonsHandlers(handlerSettings,).handleClick(event,)
+
+		expect(showRemovalReasonsOverlay,).toHaveBeenCalledWith(expect.objectContaining({spam: true,},),)
 	})
 
 	it('falls back to the page subreddit when a shift-clicked old Reddit thing has no data-subreddit', async () => {
