@@ -179,8 +179,8 @@
 	background: var(--toolbox-hover-overlay-strong);
 }
 
-/* selected/active variant; the explicit hover rule below beats GeneralButton's hover specificity */
-.banDurationPresetActive {
+/* selected/active variant; the :global(button) prefix lifts specificity to beat the base .banDurationPreset rule above, which also carries the button element selector and would otherwise win on background */
+:global(button).banDurationPresetActive {
 	background: var(--toolbox-link-color);
 	border-color: var(--toolbox-link-color);
 	color: var(--toolbox-bg);
