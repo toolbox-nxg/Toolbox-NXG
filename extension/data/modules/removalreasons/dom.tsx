@@ -716,7 +716,12 @@ export function createRemovalReasonsHandlers ({
 	)
 
 	renderAtLocation('thingActions', {id: 'removalreasons.remove', lifecycle,}, ({context, target,},) => {
-		if (context.isRemoved) { return null }
+		// Already-removed items normally surface "Add removal reason" (the flat-list action below)
+		// rather than Remove. But that action is suppressed on the modqueue, so an AutoMod-filtered
+		// (already removed) queue item would otherwise get no Toolbox removal control at all - leaving
+		// the mod unable to re-remove it with a reason. Keep injecting Remove for removed items on the
+		// queue; off-queue, a removed item still falls through to the Add-removal-reason action.
+		if (context.isRemoved && pageDetails.pageType !== 'queueListing') { return null }
 		const {thingId, subreddit,} = context
 		if (!thingId || !subreddit) { return null }
 		return <MountEffect effect={() => injectRemoveButton(thingId, subreddit, target,)} />

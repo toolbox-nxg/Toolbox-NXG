@@ -88,6 +88,7 @@ vi.mock('../../dom/uiLocations', () => ({
 	},),
 }),)
 
+import {pageDetails,} from '../../util/reddit/pageContext'
 import {createRemovalReasonsHandlers, injectRemoveButton,} from './dom'
 import {settings as settingDefs,} from './settings'
 import type {RemovalReasonsSettings,} from './settings'
@@ -247,6 +248,37 @@ describe('createRemovalReasonsHandlers', () => {
 
 		expect(document.querySelector<HTMLElement>('.remove-button',)!.hidden,).toBe(true,)
 		expect(document.querySelector('.toolbox-removal-reason-remove',)?.textContent,).toBe('remove',)
+	})
+
+	it('still injects Remove for an already-removed item on the modqueue (AutoMod-filtered post)', () => {
+		const original = pageDetails.pageType
+		pageDetails.pageType = 'queueListing'
+		try {
+			const render = uiLocMock.renderers.get('thingActions',)!
+			const result = render({
+				context: {thingId: 't3_post', subreddit: 'testsub', isRemoved: true,},
+				target: document.createElement('span',),
+			},)
+			// A non-null render means the Remove button (its MountEffect) is injected.
+			expect(result,).not.toBeNull()
+		} finally {
+			pageDetails.pageType = original
+		}
+	})
+
+	it('does not inject Remove for an already-removed item off the modqueue (Add removal reason applies there)', () => {
+		const original = pageDetails.pageType
+		pageDetails.pageType = 'subredditCommentsPage'
+		try {
+			const render = uiLocMock.renderers.get('thingActions',)!
+			const result = render({
+				context: {thingId: 't3_post', subreddit: 'testsub', isRemoved: true,},
+				target: document.createElement('span',),
+			},)
+			expect(result,).toBeNull()
+		} finally {
+			pageDetails.pageType = original
+		}
 	})
 
 	it('hides the native remove link and inserts a Toolbox button on subreddit listing pages (no .remove-button wrapper)', () => {
