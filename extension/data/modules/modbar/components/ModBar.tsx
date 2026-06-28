@@ -111,9 +111,20 @@ export function ModBar ({
 	const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined,)
 	const [activeDrawer, setActiveDrawer,] = useState<'mySubs' | 'recentActions' | null>(null,)
 
+	// Seeded once and refreshed on each shreddit URL change so the toggle's target
+	// tracks the current page; on old Reddit full reloads remount the bar instead.
+	const [toggleConfig, setToggleConfig,] = useState(() => enableOldNewToggle ? getDirectingTo() : null)
+
 	useEffect(() => {
 		onMount()
 	}, [],)
+
+	useEffect(() => {
+		if (!enableOldNewToggle) { return }
+		const handler = () => setToggleConfig(getDirectingTo(),)
+		window.addEventListener('TBNewPage', handler,)
+		return () => window.removeEventListener('TBNewPage', handler,)
+	}, [enableOldNewToggle,],)
 
 	useEffect(() => subscribeCounters(setCounters,), [],)
 
@@ -227,7 +238,6 @@ export function ModBar ({
 		},)
 	}
 
-	const toggleConfig = enableOldNewToggle ? getDirectingTo() : null
 	const {modqueueCount, unmoderatedCount, modmailCount, modmailCategoryCount,} = counters
 	const hasModmail = modmailCount > 0
 
