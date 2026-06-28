@@ -66,8 +66,6 @@ export function SortableReasonCard ({
 	)
 	const flairBadges = [
 		item.reason.flairText && `flair: ${item.reason.flairText}`,
-		item.reason.flairCSS && `class: ${item.reason.flairCSS}`,
-		item.reason.flairTemplateID && `template: ${item.reason.flairTemplateID}`,
 	].filter(Boolean,)
 
 	return (

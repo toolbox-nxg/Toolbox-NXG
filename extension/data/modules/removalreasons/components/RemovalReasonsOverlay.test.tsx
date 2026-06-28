@@ -306,7 +306,7 @@ describe('RemovalReasonsOverlay', () => {
 		expect(container.textContent,).not.toContain('From /r/testsub',)
 	})
 
-	it('renders flair metadata badges on reason cards', () => {
+	it('renders the flair text badge on reason cards but not class or template metadata', () => {
 		renderOverlay({}, 'Popup', [{
 			text: 'Rule reason',
 			title: 'Rule 1',
@@ -316,8 +316,8 @@ describe('RemovalReasonsOverlay', () => {
 		},],)
 
 		expect(container.textContent,).toContain('flair: Removed',)
-		expect(container.textContent,).toContain('class: removed-css',)
-		expect(container.textContent,).toContain('template: template-123',)
+		expect(container.textContent,).not.toContain('class: removed-css',)
+		expect(container.textContent,).not.toContain('template: template-123',)
 	})
 
 	it('does not render flair metadata badges when a reason has no flair metadata', () => {
