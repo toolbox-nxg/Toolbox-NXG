@@ -32,7 +32,8 @@ vi.mock('../../util/wiki/wikiPaths', () => ({
 	},
 }),)
 
-import {loadNoteIndex, readNotePage,} from './moduleapi'
+import type {SubredditNoteMeta,} from '../../util/wiki/schemas/subredditnotes/schema'
+import {loadNoteIndex, readNotePage, updateNoteIndex,} from './moduleapi'
 
 /** Marks the mocked layout for the test sub. */
 function mockLayout (state: 'legacyFallback' | 'nxg', compatibilityWrites = false,) {
@@ -197,5 +198,61 @@ describe('readNotePage', () => {
 
 		expect(result,).toEqual({ok: true, data: 'newer nxg body',},)
 		expect(postToWiki,).not.toHaveBeenCalled()
+	})
+})
+
+describe('updateNoteIndex', () => {
+	/** A minimal note meta for the given slug. */
+	function meta (slug: string,): SubredditNoteMeta {
+		return {slug, title: slug, createdAt: 1, updatedAt: 2, archived: false, tags: [],}
+	}
+
+	it('merges the caller change into the live index instead of clobbering it', async () => {
+		mockLayout('nxg',)
+		// The wiki gained note `a` after this popup opened.
+		mockWikiPagesContent({'toolbox-nxg/notes': rawIndex(2, 'a',),},)
+
+		const merged = await updateNoteIndex('sub', 'add b', (notes,) => [...notes, meta('b',),],)
+
+		expect(merged,).not.toBeNull()
+		expect(merged!.notes.map((note,) => note.slug).sort(),).toEqual(['a', 'b',],)
+		const written = postToWiki.mock.calls.find((call,) => call[1] === 'toolbox-nxg/notes')![2] as {
+			notes: SubredditNoteMeta[]
+		}
+		expect(written.notes.map((note,) => note.slug).sort(),).toEqual(['a', 'b',],)
+	})
+
+	it('does not write when the apply callback aborts with null', async () => {
+		mockLayout('nxg',)
+		mockWikiPagesContent({'toolbox-nxg/notes': rawIndex(2, 'a',),},)
+
+		const merged = await updateNoteIndex('sub', 'noop', () => null,)
+
+		expect(merged,).toBeNull()
+		expect(postToWiki,).not.toHaveBeenCalled()
+	})
+
+	it('serializes concurrent index updates for the same subreddit', async () => {
+		mockLayout('nxg',)
+		mockWikiPagesContent({'toolbox-nxg/notes': rawIndex(2, 'a',),},)
+		const order: string[] = []
+		let releaseFirst!: () => void
+		const firstGate = new Promise<void>((resolve,) => {
+			releaseFirst = resolve
+		},)
+		postToWiki.mockImplementation(async (_sub: string, page: string,) => {
+			order.push(page,)
+			if (order.length === 1) { await firstGate }
+		},)
+
+		const first = updateNoteIndex('sub', 'add b', (notes,) => [...notes, meta('b',),],)
+		const second = updateNoteIndex('sub', 'add c', (notes,) => [...notes, meta('c',),],)
+
+		await new Promise((resolve,) => setTimeout(resolve, 10,))
+		expect(order,).toHaveLength(1,)
+
+		releaseFirst()
+		await Promise.all([first, second,],)
+		expect(order,).toHaveLength(2,)
 	})
 })

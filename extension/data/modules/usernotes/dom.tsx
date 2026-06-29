@@ -51,7 +51,7 @@ import {
 	getSubredditColors,
 	getUser,
 	getUserNotes,
-	saveUserNotes,
+	updateUserNotes,
 } from '../shared/usernotes/moduleapi'
 import {applyUserNoteMutation, makeUserNoteEntry, type UserNoteMutation,} from '../shared/usernotes/noteMutations'
 import {subUsernoteRequireFromConfig,} from '../shared/usernotes/requireRules'
@@ -252,7 +252,6 @@ export function createNotesDisplay (
 		user: string,
 		mutation: UserNoteMutation,
 	) {
-		const noteSkel: UserNotesData = {ver: notesSchema, users: {},}
 		const feedbackAction = {
 			add: 'Adding',
 			delete: 'Removing',
@@ -262,33 +261,24 @@ export function createNotesDisplay (
 		}[mutation.change]
 		neutralTextFeedback(`${feedbackAction} usernote...`,)
 
-		let notes: UserNotesData
-		try {
-			notes = await getUserNotes(subreddit,)
-		} catch (error: unknown) {
-			if (error instanceof Error && error.message === 'no_page' && mutation.change === 'add') {
-				applyUserNoteMutation(noteSkel, user, mutation,)
-				await saveUserNotes(subreddit, noteSkel, 'create usernotes config',)
-					.then(() => forEachChunked(subs, 10, 200, (subreddit,) => processSub(subreddit,),))
-					.catch((err,) => log.error('Error saving usernotes', err,))
-				return noteSkel
-			}
-			log.warn('Failed to get usernotes:', error,)
-			return
-		}
+		// Read-merge-write inside the save queue: the mutation is applied to the
+		// live wiki state, not a snapshot this page may have loaded before another
+		// mod added a note, so concurrent additions are never clobbered.
+		const notes = await updateUserNotes(subreddit, (fresh,) => applyUserNoteMutation(fresh, user, mutation,),)
+			.catch((err,) => {
+				log.warn('Failed to save usernotes:', err,)
+				return undefined
+			},)
 
-		if (notes.corrupted) {
+		if (notes?.corrupted) {
 			negativeTextFeedback(
 				'Toolbox-NXG found an issue with your usernotes while they were being saved. One or more of your notes appear to be written in the wrong format; to prevent further issues these have been deleted. All is well now.',
 				{duration: 8000,},
 			)
 		}
 
-		const saveMsg = applyUserNoteMutation(notes, user, mutation,)
-
-		if (saveMsg) {
-			await saveUserNotes(subreddit, notes, saveMsg,)
-				.then(() => forEachChunked(subs, 10, 200, (subreddit,) => processSub(subreddit,),))
+		if (notes) {
+			await forEachChunked(subs, 10, 200, (subreddit,) => processSub(subreddit,),)
 		}
 		return notes
 	}
@@ -495,9 +485,16 @@ export function createNotesManager ({unManagerLink,}: UserNotesSettings,): Notes
 		}
 		const subUsernotes = notes
 
-		/** Finds a note on a user's stored record by its stable index. */
-		const findStoredNote = (user: string, noteIndex: number,) =>
-			subUsernotes.users[user]?.notes.find((note,) => note.index === noteIndex)
+		// Adopts the merged dataset returned by a queued write into the manager's
+		// working copy, so this long-lived overlay's later operations (and the
+		// prune scan) act on state that includes notes other mods saved while it
+		// was open, instead of the snapshot loaded when it first opened.
+		const adoptMerged = (merged: UserNotesData | undefined,) => {
+			if (!merged) { return }
+			subUsernotes.users = merged.users
+			if (merged.types !== undefined) { subUsernotes.types = merged.types }
+			subUsernotes.ver = merged.ver
+		}
 
 		const usersList = Object.values(subUsernotes.users,).map((u,) => ({
 			name: u.name,
@@ -521,63 +518,87 @@ export function createNotesManager ({unManagerLink,}: UserNotesSettings,): Notes
 			archivingAvailable,
 			currentUser,
 			onDeleteUser: async (user: string,) => {
-				delete subUsernotes.users[user]
-				await saveUserNotes(subreddit, subUsernotes, `deleted all notes for /u/${user}`,).catch(() => {},)
+				adoptMerged(
+					await updateUserNotes(subreddit, (fresh,) => {
+						if (!fresh.users[user]) { return undefined }
+						delete fresh.users[user]
+						return `deleted all notes for /u/${user}`
+					},).catch(() => undefined),
+				)
 			},
 			onDeleteNote: async (user: string, noteIndex: number,) => {
-				const userRecord = subUsernotes.users[user]
-				if (!userRecord) { return }
-				const position = userRecord.notes.findIndex((note,) => note.index === noteIndex)
-				if (position === -1) { return }
-				userRecord.notes.splice(position, 1,)
-				// An emptied user keeps their record so `nextIndex` survives
-				// and the deleted index is never reissued.
-				await saveUserNotes(subreddit, subUsernotes, `deleted note ${noteIndex} for /u/${user}`,)
-					.catch(() => {},)
+				// Delete is index-addressed, so it applies cleanly to the live
+				// dataset. An emptied user keeps their record so `nextIndex`
+				// survives and the deleted index is never reissued.
+				adoptMerged(
+					await updateUserNotes(
+						subreddit,
+						(fresh,) =>
+							applyUserNoteMutation(fresh, user, {change: 'delete', index: noteIndex,},)
+							&& `deleted note ${noteIndex} for /u/${user}`,
+					).catch(() => undefined),
+				)
 			},
 			onRestoreUser: async (user: string, notes: UserNoteEntry[],) => {
-				// Carry over a retained record's `nextIndex` - the restored
-				// notes may not include the highest index ever issued.
-				const existingNextIndex = subUsernotes.users[user]?.nextIndex
-				subUsernotes.users[user] = {
-					name: user,
-					notes,
-					...(existingNextIndex !== undefined ? {nextIndex: existingNextIndex,} : {}),
-				}
-				await saveUserNotes(subreddit, subUsernotes, `restored all notes for /u/${user}`,).catch(() => {},)
+				adoptMerged(
+					await updateUserNotes(subreddit, (fresh,) => {
+						// Carry over a retained record's `nextIndex` - the restored
+						// notes may not include the highest index ever issued.
+						const existingNextIndex = fresh.users[user]?.nextIndex
+						fresh.users[user] = {
+							name: user,
+							notes,
+							...(existingNextIndex !== undefined ? {nextIndex: existingNextIndex,} : {}),
+						}
+						return `restored all notes for /u/${user}`
+					},).catch(() => undefined),
+				)
 			},
 			onRestoreNote: async (user: string, note: UserNoteEntry, position: number,) => {
-				if (!subUsernotes.users[user]) {
-					subUsernotes.users[user] = {name: user, notes: [],}
-				}
-				subUsernotes.users[user].notes.splice(position, 0, note,)
-				await saveUserNotes(subreddit, subUsernotes, `restored a note for /u/${user}`,).catch(() => {},)
+				adoptMerged(
+					await updateUserNotes(subreddit, (fresh,) => {
+						if (!fresh.users[user]) { fresh.users[user] = {name: user, notes: [],} }
+						fresh.users[user].notes.splice(position, 0, note,)
+						return `restored a note for /u/${user}`
+					},).catch(() => undefined),
+				)
 			},
 			onArchiveNote: async (user: string, noteIndex: number,) => {
-				const note = findStoredNote(user, noteIndex,)
-				if (!note) { return }
-				note.archived = {by: currentUser, at: nowInSeconds(),}
-				await saveUserNotes(subreddit, subUsernotes, `archived note ${noteIndex} for /u/${user}`,)
-					.catch(() => {},)
+				adoptMerged(
+					await updateUserNotes(
+						subreddit,
+						(fresh,) =>
+							applyUserNoteMutation(fresh, user, {change: 'archive', index: noteIndex, by: currentUser,},)
+							&& `archived note ${noteIndex} for /u/${user}`,
+					).catch(() => undefined),
+				)
 			},
 			onArchiveAllNotes: async (user: string,) => {
-				const userRecord = subUsernotes.users[user]
-				if (!userRecord) { return }
-				const now = nowInSeconds()
-				for (const note of userRecord.notes) {
-					if (isNoteActive(note,)) {
-						note.archived = {by: currentUser, at: now,}
-					}
-				}
-				await saveUserNotes(subreddit, subUsernotes, `archived all notes for /u/${user}`,)
-					.catch(() => {},)
+				adoptMerged(
+					await updateUserNotes(subreddit, (fresh,) => {
+						const userRecord = fresh.users[user]
+						if (!userRecord) { return undefined }
+						const now = nowInSeconds()
+						let changed = false
+						for (const note of userRecord.notes) {
+							if (isNoteActive(note,)) {
+								note.archived = {by: currentUser, at: now,}
+								changed = true
+							}
+						}
+						return changed ? `archived all notes for /u/${user}` : undefined
+					},).catch(() => undefined),
+				)
 			},
 			onUnarchiveNote: async (user: string, noteIndex: number,) => {
-				const note = findStoredNote(user, noteIndex,)
-				if (!note) { return }
-				delete note.archived
-				await saveUserNotes(subreddit, subUsernotes, `unarchived note ${noteIndex} for /u/${user}`,)
-					.catch(() => {},)
+				adoptMerged(
+					await updateUserNotes(
+						subreddit,
+						(fresh,) =>
+							applyUserNoteMutation(fresh, user, {change: 'unarchive', index: noteIndex,},)
+							&& `unarchived note ${noteIndex} for /u/${user}`,
+					).catch(() => undefined),
+				)
 			},
 			onPrune: async (options: PruneOptions, onProgress?: (progress: PruneProgress,) => void,) => {
 				onProgress?.({stage: 'preparing', message: 'Preparing prune preview...',},)
@@ -745,35 +766,44 @@ export function createNotesManager ({unManagerLink,}: UserNotesSettings,): Notes
 					return
 				}
 				onProgress?.({stage: 'saving', message: 'Saving pruned usernotes...',},)
-				if (options.pruneAction === 'archive') {
-					// Archive matched notes in place instead of deleting them.
-					for (const [username, user,] of Object.entries(subUsernotes.users,)) {
-						const indexes = matched.get(username,)
-						if (!indexes) { continue }
-						for (const note of user.notes) {
-							if (note.index !== undefined && indexes.has(note.index,) && isNoteActive(note,)) {
-								note.archived = {by: currentUser, at: nowInSeconds(),}
+				// Apply the prune to the live dataset inside the save queue. The
+				// match set is keyed by stable note index, so notes another mod
+				// added since this overlay opened simply aren't in it and survive.
+				adoptMerged(
+					await updateUserNotes(subreddit, (fresh,) => {
+						if (options.pruneAction === 'archive') {
+							// Archive matched notes in place instead of deleting them.
+							for (const [username, user,] of Object.entries(fresh.users,)) {
+								const indexes = matched.get(username,)
+								if (!indexes) { continue }
+								for (const note of user.notes) {
+									if (note.index !== undefined && indexes.has(note.index,) && isNoteActive(note,)) {
+										note.archived = {by: currentUser, at: nowInSeconds(),}
+									}
+								}
+							}
+						} else {
+							// Remove matched notes. Purge always drops empty user records;
+							// delete on legacy v6 storage also drops them (no nextIndex to
+							// preserve), while NXG delete retains them so indexes are never reused.
+							for (const [username, user,] of Object.entries(fresh.users,)) {
+								const indexes = matched.get(username,)
+								if (!indexes || indexes.size === 0) { continue }
+								user.notes = user.notes.filter((note,) =>
+									note.index === undefined || !indexes.has(note.index,)
+								)
+							}
+							if (options.pruneAction === 'purge' || layout.state === 'legacyFallback') {
+								for (const username of Object.keys(fresh.users,)) {
+									if (fresh.users[username]!.notes.length === 0) {
+										delete fresh.users[username]
+									}
+								}
 							}
 						}
-					}
-				} else {
-					// Remove matched notes. Purge always drops empty user records;
-					// delete on legacy v6 storage also drops them (no nextIndex to
-					// preserve), while NXG delete retains them so indexes are never reused.
-					for (const [username, user,] of Object.entries(subUsernotes.users,)) {
-						const indexes = matched.get(username,)
-						if (!indexes || indexes.size === 0) { continue }
-						user.notes = user.notes.filter((note,) => note.index === undefined || !indexes.has(note.index,))
-					}
-					if (options.pruneAction === 'purge' || layout.state === 'legacyFallback') {
-						for (const username of Object.keys(subUsernotes.users,)) {
-							if (subUsernotes.users[username]!.notes.length === 0) {
-								delete subUsernotes.users[username]
-							}
-						}
-					}
-				}
-				await saveUserNotes(subreddit, subUsernotes, `prune: ${pruneReasons.join(', ',)}`,).catch(() => {},)
+						return `prune: ${pruneReasons.join(', ',)}`
+					},).catch(() => undefined),
+				)
 				onProgress?.({stage: 'complete', message: 'Prune complete.',},)
 				reloadPage()
 			},

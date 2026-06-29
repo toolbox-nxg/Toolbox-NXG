@@ -35,7 +35,7 @@ import {
 import createLogger from '../../../util/infra/logging'
 import {type ConfigState, generateConfigId,} from '../../../util/wiki/schemas/config/schema'
 import {defaultUsernoteTypes, UserNoteColor,} from '../../../util/wiki/schemas/usernotes/schema'
-import {getUserNotes, saveUserNotes,} from '../../shared/usernotes/moduleapi'
+import {getUserNotes, updateUserNotes,} from '../../shared/usernotes/moduleapi'
 import {noteTypeColorStyle,} from '../../shared/usernotes/noteTypeColorStyle'
 import css from './UsernoteTypeList.module.css'
 
@@ -465,9 +465,11 @@ export function UsernoteTypeList (
 				}
 			},
 		)
-		void getUserNotes(subreddit,).then((notes,) => {
-			notes.types = serialized
-			return saveUserNotes(subreddit, notes, 'Updated usernote types',)
+		// Merge the type list into the live dataset so a note another mod added
+		// while this config panel was open isn't overwritten by a stale snapshot.
+		void updateUserNotes(subreddit, (fresh,) => {
+			fresh.types = serialized
+			return 'Updated usernote types'
 		},).then(() => {
 			positiveTextFeedback('Usernote types saved',)
 		},)

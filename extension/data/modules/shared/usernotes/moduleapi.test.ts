@@ -67,7 +67,16 @@ import {AUTO_ARCHIVER, defaultUsernoteTypes,} from '../../../util/wiki/schemas/u
 import type {RawUsernotesBlob, UserNotesData, UsernotesUser,} from '../../../util/wiki/schemas/usernotes/schema'
 import {clearSessionShardState,} from '../../../util/wiki/schemas/usernotes/sharded'
 import type {UsernotesManifest,} from '../../../util/wiki/schemas/usernotes/sharding'
-import {activeNotes, autoArchiveOldNotes, findSubredditColor, getUser, getUserNotes, saveUserNotes,} from './moduleapi'
+import {
+	activeNotes,
+	autoArchiveOldNotes,
+	findSubredditColor,
+	getUser,
+	getUserNotes,
+	saveUserNotes,
+	updateUserNotes,
+} from './moduleapi'
+import {applyUserNoteMutation,} from './noteMutations'
 
 const NXG_PAGE = 'toolbox-nxg/usernotes'
 
@@ -621,6 +630,126 @@ describe('saveUserNotes', () => {
 				},
 			},
 		},)
+	})
+})
+
+describe('updateUserNotes', () => {
+	beforeEach(() => {
+		// Return each cache's own default (noteCache -> {}, noNotes -> []), matching the real cache shape.
+		vi.mocked(getCache,).mockImplementation(
+			(_moduleId: unknown, _key: unknown, defaultVal: unknown,) => Promise.resolve(defaultVal,),
+		)
+	},)
+
+	/** Serves the legacy v6 usernotes page carrying a single note for one user. */
+	function mockExistingUser (name: string, note: string,) {
+		const users = {[name]: {ns: [{n: note, t: 1700000000, m: 0, l: '', w: 0,},],},}
+		mockWikiPages({
+			usernotes: JSON.stringify({
+				ver: 6,
+				constants: {users: ['othermod',], warnings: [],},
+				blob: btoa(JSON.stringify(users,),),
+			},),
+		},)
+	}
+
+	it('merges the caller mutation into the live wiki state instead of clobbering it', async () => {
+		// Another mod added `existing` after this tab's snapshot; the wiki has it.
+		mockExistingUser('existing', 'their note',)
+		let captured: RawUsernotesBlob | undefined
+		vi.mocked(postToWiki,).mockImplementation(async (_sub, _page, data,) => {
+			captured = data as RawUsernotesBlob
+		},)
+
+		const merged = await updateUserNotes('sub', (fresh,) =>
+			applyUserNoteMutation(fresh, 'newuser', {
+				change: 'add',
+				note: {note: 'my note', time: 1700000001, mod: 'me', type: '', link: '',},
+			},),)
+
+		expect(merged,).toBeDefined()
+		expect(captured,).toBeDefined()
+		// Both the concurrently-added user and the caller's new note survive.
+		const savedUsers = JSON.parse(atob(captured!.blob,),) as Record<string, unknown>
+		expect(Object.keys(savedUsers,).sort(),).toEqual(['existing', 'newuser',],)
+	})
+
+	it('starts from an empty dataset when no notes page exists yet', async () => {
+		mockWikiPages({},) // every page is no_page
+		let captured: RawUsernotesBlob | undefined
+		vi.mocked(postToWiki,).mockImplementation(async (_sub, _page, data,) => {
+			captured = data as RawUsernotesBlob
+		},)
+
+		const merged = await updateUserNotes('sub', (fresh,) =>
+			applyUserNoteMutation(fresh, 'newuser', {
+				change: 'add',
+				note: {note: 'first note', time: 1700000000, mod: 'me', type: '', link: '',},
+			},),)
+
+		expect(merged?.users['newuser'],).toBeDefined()
+		expect(JSON.parse(atob(captured!.blob,),),).toHaveProperty('newuser',)
+	})
+
+	it('does not write when the transform reports a no-op', async () => {
+		mockExistingUser('existing', 'their note',)
+
+		const merged = await updateUserNotes('sub', (fresh,) =>
+			// Editing a note index that does not exist is a no-op.
+			applyUserNoteMutation(fresh, 'existing', {
+				change: 'edit',
+				index: 999,
+				note: {note: 'x', type: undefined,},
+			},),)
+
+		expect(merged,).toBeDefined()
+		expect(postToWiki,).not.toHaveBeenCalled()
+	})
+
+	it('aborts without writing when the fresh read fails for a reason other than a missing page', async () => {
+		vi.mocked(readFromWiki,).mockResolvedValue({ok: false, reason: 'unknown_error',} as WikiReadResult,)
+
+		const merged = await updateUserNotes('sub', () => 'should not be reached',)
+
+		expect(merged,).toBeUndefined()
+		expect(postToWiki,).not.toHaveBeenCalled()
+	})
+
+	it('serializes read-merge-write against a concurrent update for the same subreddit', async () => {
+		mockExistingUser('existing', 'their note',)
+		const order: string[] = []
+		let releaseFirst!: () => void
+		const firstGate = new Promise<void>((resolve,) => {
+			releaseFirst = resolve
+		},)
+		vi.mocked(postToWiki,).mockImplementation(async (_sub, page,) => {
+			order.push(String(page,),)
+			if (order.length === 1) { await firstGate }
+		},)
+
+		const first = updateUserNotes(
+			'sub',
+			(fresh,) =>
+				applyUserNoteMutation(fresh, 'a', {
+					change: 'add',
+					note: {note: 'a', time: 1, mod: 'm', type: '', link: '',},
+				},),
+		)
+		const second = updateUserNotes(
+			'sub',
+			(fresh,) =>
+				applyUserNoteMutation(fresh, 'b', {
+					change: 'add',
+					note: {note: 'b', time: 2, mod: 'm', type: '', link: '',},
+				},),
+		)
+
+		await new Promise((resolve,) => setTimeout(resolve, 10,))
+		expect(order,).toHaveLength(1,)
+
+		releaseFirst()
+		await Promise.all([first, second,],)
+		expect(order,).toHaveLength(2,)
 	})
 })
 

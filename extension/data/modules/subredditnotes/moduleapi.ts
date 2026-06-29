@@ -1,5 +1,6 @@
 /** Wiki storage operations for the Subreddit Notes module. */
 import {getWikiPages, getWikiRevisions, postToWiki, readFromWiki,} from '../../api/resources/wiki'
+import {createPerKeyQueue,} from '../../util/infra/perKeyQueue'
 import {
 	NEW_NOTE_PAGE_PREFIX,
 	NEW_WIKI_PATHS,
@@ -15,7 +16,7 @@ import {
 	mergeLegacyIndex,
 	normalizeIndex,
 } from '../../util/wiki/schemas/subredditnotes/codec'
-import type {SubredditNoteIndex,} from '../../util/wiki/schemas/subredditnotes/schema'
+import type {SubredditNoteIndex, SubredditNoteMeta,} from '../../util/wiki/schemas/subredditnotes/schema'
 
 /**
  * Reads the note index for a subreddit, normalizing and migrating as needed.
@@ -117,6 +118,42 @@ export async function writeNoteIndex (
 			true,
 			false,
 		),)
+}
+
+/** Per-subreddit serialization for note-index writes so a later update can't race an earlier one. */
+const enqueueIndexUpdate = createPerKeyQueue()
+
+/**
+ * Serialized read-merge-write for a subreddit's note index: re-reads the
+ * current index from the wiki *inside* a per-subreddit queue, hands its note
+ * list to `apply`, then writes the result.
+ *
+ * The index is a single shared page, so rewriting it from a snapshot captured
+ * when the popup opened silently drops any note a concurrent editor added
+ * since. By re-loading the live index (which also folds in the 6.x legacy
+ * mirror and rebuilds from wiki pages when the page is missing) and applying
+ * only the caller's change to it, those notes survive. `apply` must therefore
+ * express the change against whatever list it receives - typically upserting a
+ * note meta by slug - rather than assume it matches what the UI last showed.
+ * @param subreddit The subreddit whose index to update.
+ * @param reason Wiki revision reason for the write.
+ * @param apply Transforms the freshly-read note list, returning the new list or
+ *   `null` to abort the write.
+ * @returns The merged index that was written, or `null` when `apply` aborted.
+ */
+export function updateNoteIndex (
+	subreddit: string,
+	reason: string,
+	apply: (notes: SubredditNoteMeta[],) => SubredditNoteMeta[] | null,
+): Promise<SubredditNoteIndex | null> {
+	return enqueueIndexUpdate(subreddit, async () => {
+		const {index,} = await loadNoteIndex(subreddit,)
+		const nextNotes = apply(index.notes,)
+		if (nextNotes === null) { return null }
+		const merged: SubredditNoteIndex = {...index, notes: nextNotes, ...computeIndexAggregates(nextNotes,),}
+		await writeNoteIndex(subreddit, merged, reason,)
+		return merged
+	},)
 }
 
 /**

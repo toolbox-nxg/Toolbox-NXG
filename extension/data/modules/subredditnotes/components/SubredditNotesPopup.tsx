@@ -20,7 +20,7 @@ import {getCache, setCache,} from '../../../util/persistence/cache'
 import {useFetched,} from '../../../util/ui/hooks'
 import {getMarkdownParser,} from '../../../util/ui/markdown'
 import {classes, mountPopup,} from '../../../util/ui/reactMount'
-import {computeIndexAggregates, makeEmptyIndex,} from '../../../util/wiki/schemas/subredditnotes/codec'
+import {makeEmptyIndex,} from '../../../util/wiki/schemas/subredditnotes/codec'
 import type {
 	SubredditNoteIndex,
 	SubredditNoteMeta,
@@ -29,7 +29,7 @@ import type {
 import {OLD_NOTE_PAGE_PREFIX,} from '../../../util/wiki/wikiConstants'
 import {getNotePagePrefix,} from '../../../util/wiki/wikiPaths'
 import {filterAndSortNotes, getAllTags, makeTimestampUserSlug, shouldWarnUnsaved,} from '../helpers'
-import {loadNoteIndex, readNotePage, writeNoteIndex, writeNotePage,} from '../moduleapi'
+import {loadNoteIndex, readNotePage, updateNoteIndex, writeNotePage,} from '../moduleapi'
 
 import css from './SubredditNotesPopup.module.css'
 import {TagInput,} from './TagInput'
@@ -151,15 +151,37 @@ export function SubredditNotesPopup ({
 		setLastSavedAt(null,)
 	}
 
-	async function saveIndex (nextIndex: SubredditNoteIndex, reason: string,): Promise<boolean> {
-		// Refresh the v2 aggregates so the local state matches what lands on
-		// the wiki and the filter/autocomplete lists stay current.
-		nextIndex = {...nextIndex, ...computeIndexAggregates(nextIndex.notes,),}
+	/**
+	 * Upserts the freshly-read note list for a by-slug patch: patches the note
+	 * with `slug` in place (preserving fields another editor may have changed),
+	 * or returns `null` to abort when no such note exists so a note removed
+	 * concurrently is not resurrected.
+	 */
+	function patchNoteBySlug (
+		notes: SubredditNoteMeta[],
+		slug: string,
+		patch: Partial<SubredditNoteMeta>,
+	): SubredditNoteMeta[] | null {
+		if (!notes.some((note,) => note.slug === slug)) { return null }
+		return notes.map((note,) => note.slug === slug ? {...note, ...patch,} : note)
+	}
+
+	/**
+	 * Commits an index change through the serialized read-merge-write in the
+	 * module API and adopts the merged result into local state, so notes another
+	 * mod added since this popup opened are preserved rather than clobbered.
+	 * @returns true on success, false on write failure or an aborted apply.
+	 */
+	async function commitIndex (
+		reason: string,
+		apply: (notes: SubredditNoteMeta[],) => SubredditNoteMeta[] | null,
+	): Promise<boolean> {
 		try {
-			await writeNoteIndex(activeSubreddit, nextIndex, reason,)
-			setIndex(nextIndex,)
+			const merged = await updateNoteIndex(activeSubreddit, reason, apply,)
+			if (!merged) { return false }
+			setIndex(merged,)
 			if (activeSlug) {
-				const updatedActive = nextIndex.notes.find((note,) => note.slug === activeSlug)
+				const updatedActive = merged.notes.find((note,) => note.slug === activeSlug)
 				if (updatedActive) {
 					setSavedTags(updatedActive.tags,)
 					setEditTags(updatedActive.tags,)
@@ -180,7 +202,9 @@ export function SubredditNotesPopup ({
 		setIndex(loaded,)
 		setMode('ready',)
 		if (bootstrapped) {
-			saveIndex(loaded, 'toolbox subreddit notes index bootstrap',).catch(() => {},)
+			// Persist the freshly reconstructed/merged index (identity apply) to
+			// heal a missing or malformed index page, serialized with real saves.
+			commitIndex('toolbox subreddit notes index bootstrap', (notes,) => notes,).catch(() => {},)
 		}
 	}
 
@@ -250,13 +274,6 @@ export function SubredditNotesPopup ({
 		return !unsaved || confirm('You have unsaved changes. Discard them?',)
 	}
 
-	function updateNoteMeta (slug: string, patch: Partial<SubredditNoteMeta>,): SubredditNoteIndex {
-		return {
-			...index,
-			notes: index.notes.map((note,) => note.slug === slug ? {...note, ...patch,} : note),
-		}
-	}
-
 	const loadNote = async (note: SubredditNoteMeta,) => {
 		if (note.slug === activeSlug || !confirmLoseChanges()) { return }
 
@@ -301,16 +318,24 @@ export function SubredditNotesPopup ({
 		}
 	}
 
-	const saveNote = async (slug: string, data: string, reason: string, nextIndex: SubredditNoteIndex,) => {
+	const saveNote = async (
+		slug: string,
+		data: string,
+		reason: string,
+		apply: (notes: SubredditNoteMeta[],) => SubredditNoteMeta[] | null,
+	) => {
 		log.debug('posting subreddit note to wiki',)
 		setSaving(true,)
 		neutralTextFeedback('Saving note...',)
 		try {
 			await writeNotePage(activeSubreddit, slug, data, reason,)
-			const indexSaved = await saveIndex(nextIndex, 'toolbox subreddit notes index update',)
-			if (!indexSaved) { return }
+			// Merge this note's meta into the live index rather than rewriting the
+			// whole index from the snapshot loaded when the popup opened.
+			const merged = await updateNoteIndex(activeSubreddit, 'toolbox subreddit notes index update', apply,)
+			if (!merged) { return }
+			setIndex(merged,)
 			setSavedValue(data,)
-			const savedMeta = nextIndex.notes.find((note,) => note.slug === slug)
+			const savedMeta = merged.notes.find((note,) => note.slug === slug)
 			if (savedMeta) {
 				setSavedTags(savedMeta.tags,)
 				setEditTags(savedMeta.tags,)
@@ -359,15 +384,21 @@ export function SubredditNotesPopup ({
 	const handleSave = async () => {
 		if (!activeNote) { return }
 		const now = Date.now()
-		const nextMeta = {...activeNote, updatedAt: now, tags: editTags, archived: false,}
-		const nextNotes = isDraftNote
-			? [...index.notes, nextMeta,]
-			: index.notes.map((note,) => note.slug === activeNote.slug ? nextMeta : note)
+		const slug = activeNote.slug
+		const draftMeta = {...activeNote, updatedAt: now, tags: editTags, archived: false,}
+		// A draft is a brand-new slug: append it (guarding against a double-save
+		// that already landed it). An existing note is patched in place so a
+		// title another mod renamed since we opened is preserved.
+		const apply = isDraftNote
+			? (notes: SubredditNoteMeta[],) =>
+				notes.some((note,) => note.slug === slug) ? notes : [...notes, draftMeta,]
+			: (notes: SubredditNoteMeta[],) =>
+				patchNoteBySlug(notes, slug, {updatedAt: now, tags: editTags, archived: false,},)
 		await saveNote(
-			activeNote.slug,
+			slug,
 			editorValue,
 			isDraftNote ? 'toolbox new subreddit note' : 'toolbox subreddit note update',
-			{...index, notes: nextNotes,},
+			apply,
 		)
 	}
 
@@ -384,9 +415,9 @@ export function SubredditNotesPopup ({
 			return
 		}
 
-		const ok = await saveIndex(
-			updateNoteMeta(activeNote.slug, {title, updatedAt: now,},),
+		const ok = await commitIndex(
 			'toolbox subreddit note rename',
+			(notes,) => patchNoteBySlug(notes, activeNote.slug, {title, updatedAt: now,},),
 		)
 		if (ok) {
 			setLastSavedAt(now,)
@@ -398,9 +429,9 @@ export function SubredditNotesPopup ({
 		if (note.slug === activeSlug && !confirmLoseChanges()) { return }
 		const nextArchived = !note.archived
 		const now = Date.now()
-		const ok = await saveIndex(
-			updateNoteMeta(note.slug, {archived: nextArchived, updatedAt: now,},),
+		const ok = await commitIndex(
 			nextArchived ? 'toolbox subreddit note archive' : 'toolbox subreddit note restore',
+			(notes,) => patchNoteBySlug(notes, note.slug, {archived: nextArchived, updatedAt: now,},),
 		)
 		if (!ok) { return }
 

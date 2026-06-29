@@ -5,7 +5,7 @@ import {createRoot, type Root,} from 'react-dom/client'
 import {afterEach, describe, expect, it, vi,} from 'vitest'
 
 const getUserNotes = vi.hoisted(() => vi.fn())
-const saveUserNotes = vi.hoisted(() => vi.fn().mockResolvedValue(undefined,))
+const updateUserNotes = vi.hoisted(() => vi.fn().mockResolvedValue(undefined,))
 
 vi.mock('../../../util/ui/reactMount', () => ({
 	classes: (...parts: Array<string | false | null | undefined>) => parts.filter(Boolean,).join(' ',),
@@ -21,7 +21,7 @@ vi.mock('../../config/moduleapi', () => ({
 	reloadConfigFromWiki: vi.fn(),
 	saveToolboxConfig: vi.fn().mockResolvedValue(undefined,),
 }),)
-vi.mock('../../shared/usernotes/moduleapi', () => ({getUserNotes, saveUserNotes,}),)
+vi.mock('../../shared/usernotes/moduleapi', () => ({getUserNotes, updateUserNotes,}),)
 ;(globalThis as {IS_REACT_ACT_ENVIRONMENT?: boolean}).IS_REACT_ACT_ENVIRONMENT = true
 
 import {SortModeRef,} from '../../../shared/controls/SortToggleButton'
@@ -89,11 +89,27 @@ afterEach(() => {
 	document.body.innerHTML = ''
 	getUserNotes.mockReset()
 	getUserNotes.mockRejectedValue(new Error('no_page',),)
-	saveUserNotes.mockClear()
+	updateUserNotes.mockClear()
 	vi.clearAllMocks()
 },)
 
 getUserNotes.mockRejectedValue(new Error('no_page',),)
+
+/**
+ * Replays the transform the type editor handed to `updateUserNotes` against a
+ * fresh dataset, returning the subreddit, revision reason, and the type list it
+ * would persist - mirroring the queued read-merge-write in the module API.
+ */
+function serializedTypes () {
+	expect(updateUserNotes,).toHaveBeenCalledTimes(1,)
+	const [subreddit, transform,] = updateUserNotes.mock.calls[0]! as [
+		string,
+		(n: {ver: number; users: Record<string, unknown>; types?: UserNoteColor[]},) => string | undefined,
+	]
+	const fresh = {ver: 6, users: {},} as {ver: number; users: Record<string, unknown>; types?: UserNoteColor[]}
+	const reason = transform(fresh,)
+	return {subreddit, reason, types: fresh.types ?? [],}
+}
 
 describe('UsernoteTypeList', () => {
 	it('renders a card per default type with no key input', async () => {
@@ -121,11 +137,10 @@ describe('UsernoteTypeList', () => {
 			await Promise.resolve()
 		},)
 
-		expect(saveUserNotes,).toHaveBeenCalledWith(
-			'testsub',
-			expect.objectContaining({types: [{key: 'gooduser', text: 'Great Contributor', color: 'green',},],},),
-			'Updated usernote types',
-		)
+		const {subreddit, reason, types,} = serializedTypes()
+		expect(subreddit,).toBe('testsub',)
+		expect(reason,).toBe('Updated usernote types',)
+		expect(types,).toEqual([{key: 'gooduser', text: 'Great Contributor', color: 'green',},],)
 	})
 
 	it('generates a key for new types and serializes optional fields only when set', async () => {
@@ -146,8 +161,7 @@ describe('UsernoteTypeList', () => {
 			await Promise.resolve()
 		},)
 
-		expect(saveUserNotes,).toHaveBeenCalledTimes(1,)
-		const savedTypes = (saveUserNotes.mock.calls[0]![1] as {types: UserNoteColor[]}).types
+		const savedTypes = serializedTypes().types
 		expect(savedTypes,).toHaveLength(2,)
 		expect(savedTypes[0],).toEqual(
 			{key: 'gooduser', text: 'Good Contributor', color: 'green', colorDark: '#53b953',},
@@ -164,7 +178,7 @@ describe('UsernoteTypeList', () => {
 
 		act(() => saveRef.current!())
 
-		expect(saveUserNotes,).not.toHaveBeenCalled()
+		expect(updateUserNotes,).not.toHaveBeenCalled()
 		expect(host.textContent,).toContain('Name cannot be empty.',)
 	})
 

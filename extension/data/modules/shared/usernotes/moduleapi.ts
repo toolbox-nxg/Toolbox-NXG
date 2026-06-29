@@ -6,6 +6,7 @@ import {utils,} from '../../../framework/moduleIds'
 import {negativeTextFeedback, neutralTextFeedback, positiveTextFeedback,} from '../../../store/feedback'
 import {purifyObject,} from '../../../util/data/purify'
 import {nowInSeconds,} from '../../../util/data/time'
+import createLogger from '../../../util/infra/logging'
 import {createPerKeyQueue,} from '../../../util/infra/perKeyQueue'
 import {getCache, setCache,} from '../../../util/persistence/cache'
 import {
@@ -36,6 +37,8 @@ import {OLD_WIKI_PATHS,} from '../../../util/wiki/wikiConstants'
 import {compatMirrorEnabled, resolveWikiLayout,} from '../../../util/wiki/wikiPaths'
 import {ModNote, PendingNoteRequest,} from '../modnotes/schema'
 import {type FoundUser, resolveDualKeyUser,} from './noteMutations'
+
+const log = createLogger('TBUsernotes',)
 
 /** Updates the in-extension note cache for a subreddit after a load or save. */
 export async function updateNoteCache (subreddit: string, notes: UserNotesData,): Promise<void> {
@@ -321,6 +324,61 @@ async function doSaveUserNotes (subreddit: string, notes: UserNotesData, reason:
 		negativeTextFeedback(`Save failed: ${why}`, {duration: 5000,},)
 		throw error
 	}
+}
+
+/**
+ * Serialized read-merge-write for a subreddit's usernotes: re-reads the
+ * current stored dataset from the wiki *inside* the per-subreddit save queue,
+ * hands it to `transform` to mutate in place, then persists the merged result.
+ *
+ * Reading inside the queue is what makes this safe against concurrent editors:
+ * a snapshot loaded when a popup opened can be stale by save time (another mod
+ * may have added a note since), and writing that snapshot back would silently
+ * drop their note. By re-reading the live state and applying only the caller's
+ * change to it, notes added elsewhere survive. `transform` must therefore
+ * express the *change* (add/edit/delete this note, prune these users) rather
+ * than assume the dataset it receives matches what the UI last showed.
+ *
+ * A subreddit with no usernotes page yet reads as an empty dataset so an `add`
+ * transform can create the first note. When `transform` returns `undefined`
+ * (a no-op, e.g. an edit whose target note no longer exists) nothing is
+ * written.
+ * @param subreddit The subreddit whose notes to update.
+ * @param transform Mutates the freshly-read dataset in place and returns a wiki
+ *   revision reason, or `undefined` to abort the write.
+ * @returns The merged dataset (written when a reason was returned), or
+ *   `undefined` when the fresh read failed for a reason other than a missing page.
+ */
+export function updateUserNotes (
+	subreddit: string,
+	transform: (notes: UserNotesData,) => string | undefined,
+): Promise<UserNotesData | undefined> {
+	return enqueueUsernotesSave(subreddit, () => doUpdateUserNotes(subreddit, transform,),)
+}
+
+/** Core read-merge-write logic for {@link updateUserNotes}, run inside the per-subreddit save queue. */
+async function doUpdateUserNotes (
+	subreddit: string,
+	transform: (notes: UserNotesData,) => string | undefined,
+): Promise<UserNotesData | undefined> {
+	let notes: UserNotesData
+	try {
+		// Skip the cache: the whole point is to merge against the live wiki state.
+		notes = await getUserNotes(subreddit, true,)
+	} catch (error: unknown) {
+		if (error instanceof Error && error.message === 'no_page') {
+			notes = {ver: notesSchema, users: {},}
+		} else {
+			log.warn('Failed to read usernotes for update:', error,)
+			return undefined
+		}
+	}
+
+	const reason = transform(notes,)
+	if (reason === undefined) { return notes }
+
+	await doSaveUserNotes(subreddit, notes, reason,)
+	return notes
 }
 
 /**

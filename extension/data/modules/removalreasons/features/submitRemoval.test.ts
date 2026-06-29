@@ -16,8 +16,7 @@ const approveThing = vi.hoisted(() => vi.fn())
 const distinguishThing = vi.hoisted(() => vi.fn())
 const lock = vi.hoisted(() => vi.fn())
 const sendOfficialRemovalMessage = vi.hoisted(() => vi.fn())
-const getUserNotes = vi.hoisted(() => vi.fn())
-const saveUserNotes = vi.hoisted(() => vi.fn())
+const updateUserNotes = vi.hoisted(() => vi.fn())
 const publishSubredditNotes = vi.hoisted(() => vi.fn())
 
 vi.mock('webextension-polyfill', () => ({
@@ -42,7 +41,7 @@ vi.mock('../../../api/resources/things', () => ({
 	sendOfficialRemovalMessage,
 }),)
 
-vi.mock('../../shared/usernotes/moduleapi', () => ({getUserNotes, saveUserNotes,}),)
+vi.mock('../../shared/usernotes/moduleapi', () => ({updateUserNotes,}),)
 
 vi.mock('../../shared/usernotes/store', () => ({publishSubredditNotes,}),)
 
@@ -110,8 +109,10 @@ function makeParams (overrides: Partial<SubmitRemovalParams> = {},): SubmitRemov
 
 /** Returns the single note saved for the removed user, failing the test when absent. */
 function savedNote () {
-	expect(saveUserNotes,).toHaveBeenCalledOnce()
-	const notes = saveUserNotes.mock.calls[0]![1] as UserNotesData
+	expect(updateUserNotes,).toHaveBeenCalledOnce()
+	// The merged dataset is republished on a successful write; read the note back from there.
+	expect(publishSubredditNotes,).toHaveBeenCalledOnce()
+	const {notes,} = publishSubredditNotes.mock.calls[0]![1] as {notes: UserNotesData}
 	const note = notes.users[commentData.author]?.notes[0]
 	expect(note,).toBeDefined()
 	return note!
@@ -124,9 +125,16 @@ beforeEach(() => {
 	postComment.mockResolvedValue({fullname: 't1_reply',},)
 	distinguishThing.mockResolvedValue({},)
 	sendModmail.mockResolvedValue({conversation: {id: 'convo123', isInternal: false,},},)
-	// No existing usernotes page; the pipeline starts from a fresh skeleton.
-	getUserNotes.mockRejectedValue(new Error('no_page',),)
-	saveUserNotes.mockResolvedValue({},)
+	// No existing usernotes page; the pipeline starts from a fresh skeleton. The
+	// mock runs the caller's real transform against that skeleton and returns the
+	// merged dataset, mirroring the queued read-merge-write in the module API.
+	updateUserNotes.mockImplementation(
+		async (_subreddit: string, transform: (n: UserNotesData,) => string | undefined,) => {
+			const fresh: UserNotesData = {ver: 6, users: {},}
+			const reason = transform(fresh,)
+			return reason === undefined ? undefined : fresh
+		},
+	)
 },)
 
 describe('submitRemoval usernote write', () => {

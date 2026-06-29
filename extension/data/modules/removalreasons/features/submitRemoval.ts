@@ -24,9 +24,9 @@ import {removalReasons,} from '../../../framework/moduleIds'
 import {removeQuotes,} from '../../../util/data/string'
 import createLogger from '../../../util/infra/logging'
 import type {RemovalTarget,} from '../../../util/wiki/schemas/proposals/schema'
-import {notesSchema, UserNoteColor, UserNotesData,} from '../../../util/wiki/schemas/usernotes/schema'
+import {UserNoteColor,} from '../../../util/wiki/schemas/usernotes/schema'
 import {rememberMessageLink,} from '../../shared/usernotes/messageLinkCache'
-import {getUserNotes, saveUserNotes,} from '../../shared/usernotes/moduleapi'
+import {updateUserNotes,} from '../../shared/usernotes/moduleapi'
 import {applyUserNoteMutation, makeUserNoteEntry,} from '../../shared/usernotes/noteMutations'
 import {publishSubredditNotes,} from '../../shared/usernotes/store'
 import {
@@ -210,12 +210,6 @@ export async function submitRemoval (
 
 		if (leaveUsernote && usernoteText.trim()) {
 			try {
-				let notes: UserNotesData
-				try {
-					notes = await getUserNotes(data.subreddit,)
-				} catch {
-					notes = {ver: notesSchema, users: {},}
-				}
 				const newNote = makeUserNoteEntry({
 					note: usernoteText,
 					mod: data.mod,
@@ -226,10 +220,14 @@ export async function submitRemoval (
 					...(usernoteType !== undefined ? {type: usernoteType,} : {}),
 					...(usernoteIncludeMessage && removalMessageLink ? {messageLink: removalMessageLink,} : {}),
 				},)
-				const saveMsg = applyUserNoteMutation(notes, data.author, {change: 'add', note: newNote,},)
-				if (saveMsg) {
-					await saveUserNotes(data.subreddit, notes, saveMsg,)
-					publishSubredditNotes(data.subreddit, {notes, colors: subredditColors ?? [],},)
+				// Merge the new note into the live dataset inside the save queue so
+				// a note added concurrently by another mod isn't clobbered.
+				const merged = await updateUserNotes(
+					data.subreddit,
+					(fresh,) => applyUserNoteMutation(fresh, data.author, {change: 'add', note: newNote,},),
+				)
+				if (merged) {
+					publishSubredditNotes(data.subreddit, {notes: merged, colors: subredditColors ?? [],},)
 				}
 			} catch {
 				throw new Error(usernoteError,)
