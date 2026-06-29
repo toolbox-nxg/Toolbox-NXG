@@ -11,7 +11,13 @@ import {addContextItem, removeContextItem,} from '../../store/contextMenu'
 import {negativeTextFeedback,} from '../../store/feedback'
 import createLogger from '../../util/infra/logging'
 import {isOldReddit, RedditPlatform,} from '../../util/infra/platform'
-import {isModpage, isSubCommentsPage, isUserPage, TBPageContext,} from '../../util/reddit/pageContext'
+import {
+	isModpage,
+	isShredditModQueuePage,
+	isSubCommentsPage,
+	isUserPage,
+	TBPageContext,
+} from '../../util/reddit/pageContext'
 import {getThingInfo,} from '../../util/reddit/thingInfo'
 import {drawPosition,} from '../../util/ui/drawPosition'
 import {highlight,} from '../../util/ui/highlight'
@@ -182,8 +188,11 @@ export function openCommentContextPopup (commentID: string, permalink: string, e
  * Old Reddit: registers a `thingFlatListActions` renderer, limited to mod/user/permalink pages.
  * The slot is provided per-comment by `oldreddit/dom.ts`; no `TBNewThings` wiring is needed.
  *
- * Shreddit: registers a `thingActions` renderer, limited to user-profile pages (the popup is only
- * useful where comments appear out of thread context).
+ * Shreddit: registers a `thingActions` renderer limited to user-profile pages, plus a
+ * `thingFlatListActions` renderer limited to the mod queue. Both are surfaces where comments appear
+ * out of thread context (in a normal comment thread the comment is already in context, so the popup
+ * is redundant). The mod-queue button lands in the Toolbox flat-list action row alongside the
+ * Approve/Remove/Spam controls.
  *
  * @returns `{cleanup}` to be wired by `index.ts`.
  */
@@ -216,7 +225,7 @@ export function createContextPopupHandlers () {
 	// Shreddit: inject via thingActions. Only useful on user-profile pages, where comments are
 	// shown out of their thread context - in a normal comment thread the comment is already in
 	// context, so the popup is redundant (and clutters the new per-comment Toolbox action row).
-	const cleanup = renderAtLocation('thingActions', {id: 'comment.contextPopup',}, ({context,},) => {
+	const cleanupActions = renderAtLocation('thingActions', {id: 'comment.contextPopup',}, ({context,},) => {
 		if (!isUserPage) { return null }
 		if (context.kind !== 'comment') { return null }
 		const {thingId, postId, subreddit,} = context
@@ -232,5 +241,33 @@ export function createContextPopupHandlers () {
 		)
 	},)
 
-	return {cleanup,}
+	// Shreddit mod queue: queue comments are shown out of thread context, so add the popup to the
+	// Toolbox flat-list action row (where Approve/Remove/Spam live). `order: 30` places it after the
+	// order-10 mod-action set and the order-20 Reply/expand controls, at the end of the row.
+	const cleanupFlatList = renderAtLocation(
+		'thingFlatListActions',
+		{id: 'comment.contextPopup', order: 30,},
+		({context,},) => {
+			if (!isShredditModQueuePage) { return null }
+			if (context.kind !== 'comment') { return null }
+			const {thingId, postId, subreddit,} = context
+			if (!thingId?.startsWith('t1_',) || !postId || !subreddit) { return null }
+			const permalink = `/r/${subreddit}/comments/${postId.substring(3,)}/-/${thingId.substring(3,)}/`
+			return (
+				<GeneralInlineButton
+					className="context-popup"
+					onClick={(event,) => openCommentContextPopup(thingId, permalink, event.nativeEvent,)}
+				>
+					context-popup
+				</GeneralInlineButton>
+			)
+		},
+	)
+
+	return {
+		cleanup () {
+			cleanupActions()
+			cleanupFlatList()
+		},
+	}
 }
