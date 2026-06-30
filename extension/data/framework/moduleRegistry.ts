@@ -34,35 +34,43 @@ const TBModule = {
 		// single storage round-trip instead of one per module per setting.
 		const settings = await getSettings()
 		const debugMode = !!getSettingFrom(settings, utils, 'debugMode', false,)
-		// Check if each module should be enabled, then call its initializer
-		await Promise.all(TBModule.modules.map(async (module,) => {
-			// Don't do anything with modules the user has disabled
-			if (!await module.getEnabled(settings,)) {
-				return
-			}
+		// Check if each module should be enabled, then call its initializer.
+		// Each module is isolated: a rejection is caught and logged rather than
+		// propagated, and `allSettled` never rejects, so one broken module can't
+		// abort the whole init pass (which would leave `TBListenerLoaded` unfired
+		// and every other module dead on the page).
+		await Promise.allSettled(TBModule.modules.map(async (module,) => {
+			try {
+				// Don't do anything with modules the user has disabled
+				if (!await module.getEnabled(settings,)) {
+					return
+				}
 
-			// Don't do anything with dev modules unless debug mode is enabled
-			if (!debugMode && module.debugMode) {
-				// skip this module entirely
-				log.debug(`Debug mode not enabled. Skipping ${module.name} module`,)
-				return
-			}
+				// Don't do anything with dev modules unless debug mode is enabled
+				if (!debugMode && module.debugMode) {
+					// skip this module entirely
+					log.debug(`Debug mode not enabled. Skipping ${module.name} module`,)
+					return
+				}
 
-			// Skip old-reddit-only modules when running on shreddit
-			if (!isOldReddit && module.oldReddit) {
-				log.debug(`Module not suitable for shreddit. Skipping ${module.name} module`,)
-				return
-			}
+				// Skip old-reddit-only modules when running on shreddit
+				if (!isOldReddit && module.oldReddit) {
+					log.debug(`Module not suitable for shreddit. Skipping ${module.name} module`,)
+					return
+				}
 
-			// Skip shreddit-only modules when running on old Reddit
-			if (!isShreddit && module.shreddit) {
-				log.debug(`Module only suitable for shreddit. Skipping ${module.name} module`,)
-				return
-			}
+				// Skip shreddit-only modules when running on old Reddit
+				if (!isShreddit && module.shreddit) {
+					log.debug(`Module only suitable for shreddit. Skipping ${module.name} module`,)
+					return
+				}
 
-			// lock 'n load
-			log.debug(`Loading ${module.id} module`,)
-			await module.init(settings,)
+				// lock 'n load
+				log.debug(`Loading ${module.id} module`,)
+				await module.init(settings,)
+			} catch (error) {
+				log.error(`Failed to initialize ${module.id} module`, error,)
+			}
 		},),)
 	},
 
