@@ -85,27 +85,26 @@ export function htmlDecode (value: string,): string {
  * Decompresses a base64-encoded, zlib-compressed string back into its data.
  */
 export function zlibInflate (stringThing: string,): string {
-	// Decode base64 -> binary string -> Uint8Array, then inflate raw bytes.
-	// Convert result as Latin-1 (charCode per byte) to match the encoding
-	// used by pako 0.2.x, which stored data as a Latin-1 byte sequence.
-	const binary = atob(stringThing,)
-	const bytes = Uint8Array.from(binary, (c,) => c.charCodeAt(0,),)
-	const raw = pakoInflate(bytes,)
-	return Array.from(raw, (b,) => String.fromCharCode(b,),).join('',)
+	// Decode base64 -> raw bytes -> inflate -> decode as UTF-8. pako's string
+	// mode is UTF-8 (as is legacy toolbox, which compresses via `pako.deflate`
+	// on a string), so the decompressed bytes must be read as UTF-8, not
+	// Latin-1 - otherwise any character above U+00FF (emoji, CJK, curly quotes)
+	// comes back as mojibake.
+	const raw = pakoInflate(base64ToBytes(stringThing,),)
+	return new TextDecoder().decode(raw,)
 }
 
 /**
  * Compresses data with zlib and returns it as a base64-encoded string.
  */
 export function zlibDeflate (objThing: string,): string {
-	// Encode input as Latin-1 bytes (charCode per char) to match pako 0.2.x
-	// behavior, then deflate and base64-encode the result. Level 9 (max) keeps
-	// wiki blobs as small as possible - wiki pages have a hard byte cap, and the
-	// output is a standard zlib stream that any decoder (legacy toolbox, older
-	// pako) reads regardless of the level it was written at.
-	const input = Uint8Array.from(objThing, (c,) => c.charCodeAt(0,) & 0xff,)
-	const compressed = pakoDeflate(input, {level: 9,},)
-	return btoa(Array.from(compressed, (b,) => String.fromCharCode(b,),).join('',),)
+	// Encode input as UTF-8 bytes (matching pako's string mode and legacy
+	// toolbox), then deflate and base64-encode. Level 9 (max) keeps wiki blobs
+	// as small as possible - wiki pages have a hard byte cap, and the output is
+	// a standard zlib stream any decoder reads regardless of the level it was
+	// written at.
+	const compressed = pakoDeflate(new TextEncoder().encode(objThing,), {level: 9,},)
+	return bytesToBase64(compressed,)
 }
 
 /**

@@ -1,8 +1,18 @@
 /** Tests for encoding utilities. */
 
+import {deflate as pakoDeflate, inflate as pakoInflate,} from 'pako'
 import {afterEach, describe, expect, it, vi,} from 'vitest'
 
-import {htmlDecode, htmlEncode, tbDecode, unescapeJSON, zlibDeflate, zlibInflate,} from './encoding'
+import {
+	base64ToBytes,
+	bytesToBase64,
+	htmlDecode,
+	htmlEncode,
+	tbDecode,
+	unescapeJSON,
+	zlibDeflate,
+	zlibInflate,
+} from './encoding'
 
 describe('encoding utilities', () => {
 	it('decodes URI-encoded and legacy escaped strings', () => {
@@ -38,5 +48,21 @@ describe('encoding utilities', () => {
 		const input = JSON.stringify({users: {alice: [{note: 'hello',},],},},)
 
 		expect(zlibInflate(zlibDeflate(input,),),).toBe(input,)
+	})
+
+	it('round-trips non-Latin-1 text (emoji, CJK, curly quotes)', () => {
+		const input = JSON.stringify({note: 'café 日本語 \u{1f600} “quote”',},)
+
+		expect(zlibInflate(zlibDeflate(input,),),).toBe(input,)
+	})
+
+	it('interops with pako string mode in both directions (legacy toolbox / 6.x)', () => {
+		const text = 'emoji \u{1f600} CJK 日本語 curly “”'
+
+		// A blob 6.x wrote (pako.deflate on a string is UTF-8) must inflate cleanly.
+		expect(zlibInflate(bytesToBase64(pakoDeflate(text,),),),).toBe(text,)
+		// Our output must inflate back to the original UTF-8 bytes, so any pako-based
+		// decoder (legacy toolbox / 6.x) reads it.
+		expect(new TextDecoder().decode(pakoInflate(base64ToBytes(zlibDeflate(text,),),),),).toBe(text,)
 	})
 })

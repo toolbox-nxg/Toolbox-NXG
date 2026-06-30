@@ -35,7 +35,7 @@ function makeModule (initial: Record<string, unknown> = {},): NotifierStorage & 
 	set: ReturnType<typeof vi.fn>
 } {
 	const store = new Map<string, unknown>(Object.entries(initial,),)
-	const get = vi.fn((key: string,) => Promise.resolve(store.get(key,)))
+	const get = vi.fn((key: string,) => Promise.resolve(store.get(key,),))
 	const set = vi.fn((key: string, value: unknown,) => {
 		store.set(key, value,)
 		return Promise.resolve()
