@@ -30,15 +30,22 @@ describe('importSettings', () => {
 		purifyObject.mockClear()
 	},)
 
-	it('blocks import when Utils.lastversion is missing', async () => {
+	it('rejects import when the version key is absent', async () => {
 		readFromWiki.mockResolvedValue({ok: true, data: {'SomeModule.someSetting': 'value',},},)
-		await importSettings('testsub',)
+		await expect(importSettings('testsub',),).rejects.toThrow()
 		expect(writeSettings,).not.toHaveBeenCalled()
 	})
 
-	it('blocks import when Utils.lastversion < 300', async () => {
-		readFromWiki.mockResolvedValue({ok: true, data: {'Utils.lastversion': 299,},},)
-		await importSettings('testsub',)
+	it('rejects import when the version predates 3.0', async () => {
+		readFromWiki.mockResolvedValue({ok: true, data: {'Utils.lastVersion': 299,},},)
+		await expect(importSettings('testsub',),).rejects.toThrow()
+		expect(writeSettings,).not.toHaveBeenCalled()
+	})
+
+	it('reads the camelCase version key, not the legacy lowercase spelling', async () => {
+		// A backup carrying only the wrong-cased key must not read as a valid version.
+		readFromWiki.mockResolvedValue({ok: true, data: {'Utils.lastversion': 400, 'Utils.debugMode': true,},},)
+		await expect(importSettings('testsub',),).rejects.toThrow()
 		expect(writeSettings,).not.toHaveBeenCalled()
 	})
 
@@ -46,13 +53,13 @@ describe('importSettings', () => {
 		readFromWiki.mockResolvedValue({
 			ok: true,
 			data: {
-				'Utils.lastversion': 300,
+				'Utils.lastVersion': 300,
 				'Utils.debugMode': false,
 			},
 		},)
 		await importSettings('testsub',)
 		expect(writeSettings,).toHaveBeenCalledWith({
-			'Toolbox.Utils.lastversion': 300,
+			'Toolbox.Utils.lastVersion': 300,
 			'Toolbox.Utils.debugMode': false,
 		},)
 	})
@@ -61,7 +68,7 @@ describe('importSettings', () => {
 		readFromWiki.mockResolvedValue({
 			ok: true,
 			data: {
-				'Utils.lastversion': 400,
+				'Utils.lastVersion': 400,
 				'oldreddit.enabled': true,
 				'Utils.advancedMode': true,
 			},
@@ -80,7 +87,7 @@ describe('importSettings', () => {
 		readFromWiki.mockResolvedValue({
 			ok: true,
 			data: {
-				'Utils.lastversion': 400,
+				'Utils.lastVersion': 400,
 				'oldreddit.enabled': false,
 				'Utils.settingSub': 'someothersub',
 				'Utils.advancedMode': true,
@@ -100,9 +107,9 @@ describe('importSettings', () => {
 			{ok: false, reason: 'unknown_error',},
 			{ok: false, reason: 'invalid_json',},
 		] as const,
-	)('returns early without writing when wiki returns $reason', async (sentinel,) => {
+	)('throws without writing when wiki returns $reason', async (sentinel,) => {
 		readFromWiki.mockResolvedValue(sentinel,)
-		await importSettings('testsub',)
+		await expect(importSettings('testsub',),).rejects.toThrow()
 		expect(writeSettings,).not.toHaveBeenCalled()
 	},)
 })

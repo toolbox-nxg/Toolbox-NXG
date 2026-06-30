@@ -1,6 +1,7 @@
 /** Exports and imports Toolbox settings to/from a private subreddit wiki page. */
 
 import {postToWiki, readFromWiki,} from '../../api/resources/wiki'
+import {utils,} from '../../framework/moduleIds'
 import {purifyObject,} from '../data/purify'
 import {getTime,} from '../data/time'
 import createLogger from '../infra/logging'
@@ -53,15 +54,20 @@ export async function importSettings (subreddit: string,): Promise<void> {
 	const response = await readFromWiki<Record<string, unknown>>(subreddit, page, true,)
 	if (!response.ok) {
 		log.debug('Error loading wiki page',)
-		return
+		// Throw rather than return: the caller reports success on a silent return,
+		// so a failed read must surface as an error the dialog can show.
+		throw new Error(`Could not read settings backup from /r/${subreddit} (${response.reason})`,)
 	}
 	purifyObject(response.data,)
 	const data = response.data
 
-	const lastVersion = typeof data['Utils.lastversion'] === 'number' ? data['Utils.lastversion'] : 0
+	// The backup stores keys with the `Toolbox.` prefix stripped, so the version
+	// lives under `${utils}.lastVersion` (camelCase, matching how it is written).
+	const rawVersion = data[`${utils}.lastVersion`]
+	const lastVersion = typeof rawVersion === 'number' ? rawVersion : 0
 	if (lastVersion < 300) {
 		log.debug('Cannot import from a toolbox version under 3.0',)
-		return
+		throw new Error('Settings backup is from an unsupported Toolbox version (older than 3.0) or is unversioned',)
 	}
 
 	const doNotImport = [
