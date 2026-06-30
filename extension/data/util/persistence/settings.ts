@@ -80,19 +80,33 @@ export async function updateSettings (settings: Partial<SettingsObject>,) {
 }
 
 /**
+ * Reads a single setting's value from an already-fetched settings object,
+ * using a fallback when it has never been set. Lets a caller that has read the
+ * whole settings blob once (e.g. the module init pass) resolve many settings
+ * without a `browser.storage.local.get` round-trip per read.
+ * @param settings A settings object from {@link getSettings}.
+ * @param moduleID ID of the module the setting belongs to.
+ * @param setting Key of the setting.
+ * @param defaultVal Value returned when the setting is unset.
+ */
+export function getSettingFrom (
+	settings: SettingsObject,
+	moduleID: string,
+	setting: string,
+	defaultVal: unknown = undefined,
+) {
+	const value = settings[`Toolbox.${moduleID}.${setting}`]
+	return value == null ? defaultVal : value
+}
+
+/**
  * Reads a single setting's value, using a fallback when it has never been set.
  * @param moduleID ID of the module the setting belongs to.
  * @param setting Key of the setting.
  * @param defaultVal Value returned when the setting is unset.
  */
 export async function getSettingAsync (moduleID: string, setting: string, defaultVal: unknown = undefined,) {
-	const settings = await getSettings()
-	const value = settings[`Toolbox.${moduleID}.${setting}`]
-
-	if (value == null) {
-		return defaultVal
-	}
-	return value
+	return getSettingFrom(await getSettings(), moduleID, setting, defaultVal,)
 }
 
 /**

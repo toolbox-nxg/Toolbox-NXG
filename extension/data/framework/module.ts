@@ -1,6 +1,7 @@
 /** Defines the Module class, setting definition types, and related utilities for Toolbox feature modules. */
 
-import {getSettingAsync, setSettingAsync,} from '../util/persistence/settings'
+import {getSettingAsync, getSettingFrom, setSettingAsync,} from '../util/persistence/settings'
+import type {SettingsObject,} from '../util/persistence/settings'
 
 type ModuleCleanup = () => void | Promise<void>
 /**
@@ -282,8 +283,13 @@ export class Module<TSettings extends Record<string, any> = Record<string, any>,
 
 	/**
 	 * Gets the value of a setting.
+	 * @param id The setting id to read.
+	 * @param snapshot An optional already-fetched settings object (see
+	 *   {@link getSettings}). When provided, the value is read from it instead of
+	 *   a fresh storage round-trip - used by {@link init} so a whole init pass
+	 *   reads storage once.
 	 */
-	async get<K extends keyof TSettings & string,> (id: K,): Promise<TSettings[K]> {
+	async get<K extends keyof TSettings & string,> (id: K, snapshot?: SettingsObject,): Promise<TSettings[K]> {
 		const setting = this.settings.get(id,)
 		if (!setting) {
 			throw new TypeError(`Module ${this.name} does not have a setting ${id} to get`,)
@@ -297,7 +303,7 @@ export class Module<TSettings extends Record<string, any> = Record<string, any>,
 		// support defaults being functions, and we want to avoid running
 		// defaults that are functions unless we actually don't have another
 		// value - eagerly evaluating those could cause problems
-		const value = await getSettingAsync(mod, key,)
+		const value = snapshot ? getSettingFrom(snapshot, mod, key,) : await getSettingAsync(mod, key,)
 
 		if (value == null) {
 			if (typeof setting.default === 'function') {
@@ -327,11 +333,13 @@ export class Module<TSettings extends Record<string, any> = Record<string, any>,
 	/**
 	 * "Starts" the module by calling its initializer.
 	 */
-	async init (): Promise<void> {
-		// Read the current values of all registered settings
+	async init (snapshot?: SettingsObject,): Promise<void> {
+		// Read the current values of all registered settings. When the registry
+		// passes a settings snapshot, every read resolves from it instead of a
+		// storage round-trip per setting.
 		const initialValues: Record<string, unknown> = Object.create(null,)
 		await Promise.all([...this.settings.values(),].map(async (setting,) => {
-			initialValues[setting.id] = await this.get(setting.id,)
+			initialValues[setting.id] = await this.get(setting.id, snapshot,)
 		},),)
 
 		// Call the initializer if provided, passing the module instance the settings
@@ -345,12 +353,17 @@ export class Module<TSettings extends Record<string, any> = Record<string, any>,
 
 	/**
 	 * Check whether or not the module is enabled.
+	 * @param snapshot An optional already-fetched settings object; when provided
+	 *   the enabled flag is read from it instead of a fresh storage round-trip.
 	 */
-	async getEnabled (): Promise<boolean> {
+	async getEnabled (snapshot?: SettingsObject,): Promise<boolean> {
 		if (this.alwaysEnabled) {
 			return true
 		}
-		return !!await getSettingAsync(this.id, 'enabled', this.enabledByDefault,)
+		const enabled = snapshot
+			? getSettingFrom(snapshot, this.id, 'enabled', this.enabledByDefault,)
+			: await getSettingAsync(this.id, 'enabled', this.enabledByDefault,)
+		return !!enabled
 	}
 
 	/**

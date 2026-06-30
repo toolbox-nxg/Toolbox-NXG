@@ -48,6 +48,25 @@ describe('parsePositionalJson', () => {
 		expect(parsePositionalJson('"top-level string"',).value,).toBe('top-level string',)
 		expect(parsePositionalJson('-0.5e-2',).value,).toBe(-0.005,)
 	})
+
+	it('parses many numbers identically to JSON.parse with correct spans (sticky-regex path)', () => {
+		// A large array of varied number forms exercises the per-token number
+		// match; the sticky regex must match at the token, stop at its end (not
+		// swallow the following comma/bracket), and stay O(n).
+		const nums = Array.from({length: 2000,}, (_v, i,) => {
+			const forms = [i, -i, i + 0.25, i * 100, -(i + 0.5) / 10,]
+			return forms[i % forms.length]!
+		},)
+		const text = JSON.stringify(nums,)
+
+		const {value, spans,} = parsePositionalJson(text,)
+		expect(value,).toEqual(JSON.parse(text,),)
+		// Spot-check a span still maps to exactly the token, proving the match
+		// did not overrun into the following separator. Index 3 uses the `i*100`
+		// form -> a plain integer whose JSON text equals String().
+		const span = spans.get('3',)!
+		expect(text.slice(span.from, span.to,),).toBe(String(nums[3],),)
+	})
 })
 
 describe('offsetToLine', () => {

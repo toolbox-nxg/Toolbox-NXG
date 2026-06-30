@@ -12,7 +12,41 @@ vi.mock('webextension-polyfill', () => ({
 
 vi.mock('../data/purify', () => ({purifyObject,}),)
 
-import {getAnonymizedSettings, sharedSettingPolicies,} from './settings'
+import {getAnonymizedSettings, getSettingAsync, getSettingFrom, sharedSettingPolicies,} from './settings'
+
+describe('getSettingFrom', () => {
+	const settings = {
+		'Toolbox.Notifier.checkInterval': 5,
+		'Toolbox.Notifier.modNotifications': false,
+	}
+
+	it('reads a value from an already-fetched settings object', () => {
+		expect(getSettingFrom(settings, 'Notifier', 'checkInterval',),).toBe(5,)
+		// A stored `false` is a real value, not "unset".
+		expect(getSettingFrom(settings, 'Notifier', 'modNotifications', true,),).toBe(false,)
+	})
+
+	it('returns the default for unset keys', () => {
+		expect(getSettingFrom(settings, 'Notifier', 'missing', 'fallback',),).toBe('fallback',)
+		expect(getSettingFrom({}, 'Notifier', 'checkInterval', 1,),).toBe(1,)
+	})
+
+	it('does not read storage (pure, no round-trip)', () => {
+		getSettingFrom(settings, 'Notifier', 'checkInterval',)
+		expect(storageLocal.get,).not.toHaveBeenCalled()
+	})
+})
+
+describe('getSettingAsync', () => {
+	beforeEach(() => {
+		storageLocal.get.mockReset().mockResolvedValue({tbsettings: {'Toolbox.Notifier.checkInterval': 5,},},)
+	},)
+
+	it('resolves a single setting from the stored blob', async () => {
+		await expect(getSettingAsync('Notifier', 'checkInterval',),).resolves.toBe(5,)
+		await expect(getSettingAsync('Notifier', 'missing', 'fallback',),).resolves.toBe('fallback',)
+	})
+})
 
 describe('settings utilities', () => {
 	beforeEach(() => {

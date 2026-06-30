@@ -1,15 +1,81 @@
-/** Tests for coerceSetting. */
+/** Tests for coerceSetting and the settings-snapshot read path. */
 
 // @vitest-environment node
-import {describe, expect, it, vi,} from 'vitest'
+import {beforeEach, describe, expect, it, vi,} from 'vitest'
 
-vi.mock('../util/persistence/settings', () => ({}),)
+const getSettingAsync = vi.hoisted(() => vi.fn())
+const setSettingAsync = vi.hoisted(() => vi.fn())
+// Real behavior for the pure snapshot reader so `get`/`init` resolve from the passed object.
+const getSettingFrom = vi.hoisted(() =>
+	vi.fn((settings: Record<string, unknown>, mod: string, key: string, dflt?: unknown,) => {
+		const value = settings[`Toolbox.${mod}.${key}`]
+		return value == null ? dflt : value
+	},)
+)
 
-import {coerceSetting,} from './module'
+vi.mock('../util/persistence/settings', () => ({getSettingAsync, getSettingFrom, setSettingAsync,}),)
+
+import {coerceSetting, Module,} from './module'
 
 function def (type: string, defaultVal: unknown = undefined,) {
 	return {type, default: defaultVal,}
 }
+
+/** A test module with two settings and an optional initializer. */
+function makeModule (
+	initializer?: (values: {count: number; label: string},) => void,
+) {
+	return new Module<{count: number; label: string}>({
+		name: 'Test',
+		id: 'Test',
+		enabledByDefault: false,
+		settings: [
+			{id: 'count', type: 'number', default: 3,},
+			{id: 'label', type: 'text', default: 'x',},
+		],
+	}, initializer,)
+}
+
+describe('settings snapshot reads', () => {
+	beforeEach(() => {
+		getSettingAsync.mockReset()
+		getSettingFrom.mockClear()
+		setSettingAsync.mockReset()
+	},)
+
+	it('get reads from a passed snapshot without a storage round-trip', async () => {
+		await expect(makeModule().get('count', {'Toolbox.Test.count': 42,},),).resolves.toBe(42,)
+		expect(getSettingAsync,).not.toHaveBeenCalled()
+	})
+
+	it('get returns the coerced default when the snapshot lacks the key', async () => {
+		await expect(makeModule().get('count', {},),).resolves.toBe(3,)
+		expect(getSettingAsync,).not.toHaveBeenCalled()
+	})
+
+	it('get falls back to a storage read when no snapshot is passed', async () => {
+		getSettingAsync.mockResolvedValue(7,)
+		await expect(makeModule().get('count',),).resolves.toBe(7,)
+		expect(getSettingAsync,).toHaveBeenCalledWith('Test', 'count',)
+	})
+
+	it('getEnabled reads the enabled flag from the snapshot', async () => {
+		await expect(makeModule().getEnabled({'Toolbox.Test.enabled': true,},),).resolves.toBe(true,)
+		// Missing key falls back to enabledByDefault (false here).
+		await expect(makeModule().getEnabled({},),).resolves.toBe(false,)
+		expect(getSettingAsync,).not.toHaveBeenCalled()
+	})
+
+	it('init resolves every initial value from a single snapshot', async () => {
+		let received: {count: number; label: string} | undefined
+		const module = makeModule((values,) => {
+			received = values
+		},)
+		await module.init({'Toolbox.Test.count': 9, 'Toolbox.Test.label': 'hi',},)
+		expect(received,).toEqual({count: 9, label: 'hi',},)
+		expect(getSettingAsync,).not.toHaveBeenCalled()
+	})
+})
 
 describe('coerceSetting', () => {
 	describe('boolean', () => {

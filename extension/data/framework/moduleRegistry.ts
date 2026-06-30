@@ -7,7 +7,7 @@ import {SettingsDialog,} from '../modules/shared/settings/SettingsDialog'
 import store from '../store/index'
 import createLogger from '../util/infra/logging'
 import {isOldReddit, isShreddit,} from '../util/infra/platform'
-import {getSettingAsync,} from '../util/persistence/settings'
+import {getSettingFrom, getSettings,} from '../util/persistence/settings'
 import {exportSettings, importSettings,} from '../util/persistence/settingsPortability'
 import {reactRenderer,} from '../util/ui/reactMount'
 import {throwIfErrors,} from './lifecycle'
@@ -29,15 +29,20 @@ const TBModule = {
 
 	init: async function tbInit () {
 		log.debug('loading modules',)
+		// Read the whole settings blob once for the entire init pass and thread it
+		// through every enabled-check and module initializer, so startup does a
+		// single storage round-trip instead of one per module per setting.
+		const settings = await getSettings()
+		const debugMode = !!getSettingFrom(settings, utils, 'debugMode', false,)
 		// Check if each module should be enabled, then call its initializer
 		await Promise.all(TBModule.modules.map(async (module,) => {
 			// Don't do anything with modules the user has disabled
-			if (!await module.getEnabled()) {
+			if (!await module.getEnabled(settings,)) {
 				return
 			}
 
 			// Don't do anything with dev modules unless debug mode is enabled
-			if (!await getSettingAsync(utils, 'debugMode', false,) && module.debugMode) {
+			if (!debugMode && module.debugMode) {
 				// skip this module entirely
 				log.debug(`Debug mode not enabled. Skipping ${module.name} module`,)
 				return
@@ -57,7 +62,7 @@ const TBModule = {
 
 			// lock 'n load
 			log.debug(`Loading ${module.id} module`,)
-			await module.init()
+			await module.init(settings,)
 		},),)
 	},
 

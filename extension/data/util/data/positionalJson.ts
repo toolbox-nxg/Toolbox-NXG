@@ -50,6 +50,15 @@ export class JsonSyntaxError extends Error {
 const WHITESPACE = new Set([' ', '\t', '\n', '\r',],)
 
 /**
+ * Matches one JSON number token. Sticky (`y`) so it anchors at `lastIndex`
+ * without scanning forward and without copying the tail of the document per
+ * token (a plain `.slice(pos).match()` is O(n) per number, O(n^2) overall).
+ * No leading `^`: the `y` flag already anchors at `lastIndex`, and `^` would
+ * instead require `lastIndex === 0`.
+ */
+const NUMBER_RE = /-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/y
+
+/**
  * Parses JSON text, recording the source span of every node.
  * @param text The JSON document.
  * @throws {JsonSyntaxError} When the text is not valid JSON.
@@ -187,7 +196,8 @@ export function parsePositionalJson (text: string,): PositionalJsonResult {
 		} else if (ch === '"') {
 			value = parseString()
 		} else if (ch === '-' || (ch >= '0' && ch <= '9')) {
-			const match = text.slice(pos,).match(/^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/,)
+			NUMBER_RE.lastIndex = pos
+			const match = NUMBER_RE.exec(text,)
 			if (!match) { fail('invalid number',) }
 			value = Number(match[0],)
 			pos += match[0].length

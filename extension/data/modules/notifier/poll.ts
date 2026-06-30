@@ -178,7 +178,6 @@ export function createNotifierHandlers (
 		checkIntervalMillis,
 	} = options
 
-	let newLoad = true
 	let now = new Date().getTime()
 
 	const updateAllTabs = async () => {
@@ -210,12 +209,15 @@ export function createNotifierHandlers (
 		modmailCount = await module.get('modmailCount',)
 		modmailCategoryCount = toModmailCategoryCount(await module.get('modmailCategoryCount',),)
 
-		if (!newLoad && now - lastChecked < checkIntervalMillis) {
+		// Throttle every poll by the check interval, including the one fired on a
+		// fresh page load. A navigation lands within the interval of the last
+		// cross-tab poll, so we render the stored counts and skip the redundant
+		// modqueue/unmoderated/modmail fetches. A genuine first run still fetches:
+		// `lastChecked` defaults to -1, so `now - lastChecked` far exceeds the interval.
+		if (now - lastChecked < checkIntervalMillis) {
 			updateCounters({modqueueCount, unmoderatedCount, modmailCount, modmailCategoryCount,},)
 			return
 		}
-
-		newLoad = false
 
 		let updateCountdown = unmoderatedOn ? 3 : 2
 		const finishCounterUpdate = () => {
