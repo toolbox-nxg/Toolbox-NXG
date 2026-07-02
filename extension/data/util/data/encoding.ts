@@ -85,13 +85,21 @@ export function htmlDecode (value: string,): string {
  * Decompresses a base64-encoded, zlib-compressed string back into its data.
  */
 export function zlibInflate (stringThing: string,): string {
-	// Decode base64 -> raw bytes -> inflate -> decode as UTF-8. pako's string
-	// mode is UTF-8 (as is legacy toolbox, which compresses via `pako.deflate`
-	// on a string), so the decompressed bytes must be read as UTF-8, not
-	// Latin-1 - otherwise any character above U+00FF (emoji, CJK, curly quotes)
-	// comes back as mojibake.
+	// Decode base64 -> raw bytes -> inflate. pako's string mode is UTF-8 (as is
+	// legacy toolbox, which compresses via `pako.deflate` on a string), so the
+	// decompressed bytes are read as UTF-8.
 	const raw = pakoInflate(base64ToBytes(stringThing,),)
-	return new TextDecoder().decode(raw,)
+	try {
+		// Strict decode: a pre-fix NXG blob was deflated as Latin-1 (one byte per
+		// char), so any accented char is a lone high byte that is invalid UTF-8
+		// and makes this throw.
+		return new TextDecoder('utf-8', {fatal: true,},).decode(raw,)
+	} catch {
+		// Legacy Latin-1 read for those old blobs (one char per byte), matching how
+		// the pre-fix codec wrote them. Re-saving the notes rewrites them as UTF-8,
+		// so this branch only ever serves data written before the UTF-8 fix.
+		return Array.from(raw, (b,) => String.fromCharCode(b,),).join('',)
+	}
 }
 
 /**

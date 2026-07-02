@@ -56,6 +56,15 @@ describe('encoding utilities', () => {
 		expect(zlibInflate(zlibDeflate(input,),),).toBe(input,)
 	})
 
+	it('still reads legacy Latin-1-encoded blobs (pre-fix NXG data) via fallback', () => {
+		const text = JSON.stringify({note: 'café résumé señor',},)
+		// Reproduce exactly how the pre-fix zlibDeflate wrote data: one Latin-1
+		// byte per char (charCode & 0xff), deflated, base64-encoded.
+		const latin1Blob = bytesToBase64(pakoDeflate(Uint8Array.from(text, (c,) => c.charCodeAt(0,) & 0xff,),),)
+
+		expect(zlibInflate(latin1Blob,),).toBe(text,)
+	})
+
 	it('interops with pako string mode in both directions (legacy toolbox / 6.x)', () => {
 		const text = 'emoji \u{1f600} CJK 日本語 curly “”'
 
