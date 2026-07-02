@@ -3,9 +3,12 @@
 
 import {type ReactNode, useEffect, useMemo, useState,} from 'react'
 import type {MaybeAsyncIterable,} from '../../util/data/iter'
+import createLogger from '../../util/infra/logging'
 import {classes,} from '../../util/ui/reactMount'
 import {GeneralButton,} from '../controls/GeneralButton'
 import css from './Pager.module.css'
+
+const log = createLogger('Pager',)
 
 /**
  * Displays one page at a time from an iterable of sequential content pages,
@@ -79,13 +82,22 @@ export const Pager = ({
 		}
 
 		setAwaitingNextPage(true,)
-		const {value, done,} = await iterator.next()
-		if (done) {
+		try {
+			const {value, done,} = await iterator.next()
+			if (done) {
+				setPagesDone(true,)
+			} else {
+				setCachedPages((pages,) => [...pages, value,])
+			}
+		} catch (error: unknown) {
+			// A failed page fetch must not wedge the pager: `finally` clears the
+			// in-flight flag, and marking paging done stops a tight retry loop for
+			// what is almost always a persistent error (there's nothing more to load).
+			log.error('Failed to load next page', error,)
 			setPagesDone(true,)
-		} else {
-			setCachedPages((pages,) => [...pages, value,])
+		} finally {
+			setAwaitingNextPage(false,)
 		}
-		setAwaitingNextPage(false,)
 	}
 
 	// Pull new pages off our iterator as needed
