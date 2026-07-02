@@ -9,7 +9,7 @@ import createLogger from '../util/infra/logging'
 import {isOldReddit, isShreddit,} from '../util/infra/platform'
 import {getSettingFrom, getSettings,} from '../util/persistence/settings'
 import {exportSettings, importSettings,} from '../util/persistence/settingsPortability'
-import {reactRenderer,} from '../util/ui/reactMount'
+import {mountReactInBody,} from '../util/ui/reactMount'
 import {throwIfErrors,} from './lifecycle'
 import {Module,} from './module'
 import {utils,} from './moduleIds'
@@ -76,25 +76,33 @@ const TBModule = {
 
 	showSettings () {
 		if (document.querySelector('.toolbox-settings-dialog-host',)) { return }
-		const host = reactRenderer(
+		// Mount via mountReactInBody so close tears down the React root (via
+		// `unmount()`), not just the host element. A bare `host.remove()` leaves
+		// the root mounted, leaking the dialog's document-level Escape listener so
+		// every later Escape re-runs a stale onClose. The `mounted = null` guard
+		// makes a second close a no-op.
+		let mounted: {host: HTMLElement; unmount: () => void} | null = null
+		const close = () => {
+			mounted?.unmount()
+			mounted = null
+			if (!document.body.querySelectorAll('.toolbox-page-overlay',).length) {
+				document.body.style.overflow = 'auto'
+			}
+		}
+		mounted = mountReactInBody(
 			// eslint-disable-next-line react/no-children-prop -- manual createElement call; children-in-props is the idiomatic non-JSX form
 			createElement(Provider, {
 				store,
 				children: createElement(SettingsDialog, {
 					modules: TBModule.modules,
-					onClose: () => {
-						host.remove()
-						if (!document.body.querySelectorAll('.toolbox-page-overlay',).length) {
-							document.body.style.overflow = 'auto'
-						}
-					},
+					onClose: close,
 					onExport: exportSettings,
 					onImport: importSettings,
 				},),
 			},),
+			'settings',
 		)
-		host.classList.add('toolbox-settings-dialog-host',)
-		document.body.appendChild(host,)
+		mounted.host.classList.add('toolbox-settings-dialog-host',)
 		document.body.style.overflow = 'hidden'
 	},
 
