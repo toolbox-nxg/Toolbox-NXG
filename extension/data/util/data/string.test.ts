@@ -33,6 +33,15 @@ describe('string utilities', () => {
 		expect(replaceTokens({user: 'alice',}, 'Hi {user}, bye {USER}.',),).toBe('Hi alice, bye alice.',)
 	})
 
+	it('inserts values literally, without expanding $ replacement patterns', () => {
+		// A user-controlled title with `$&`, `$'`, `` $` ``, `$$` must appear verbatim,
+		// not splice in the match or surrounding template text.
+		const title = `weird $& $\` $' $$ title`
+		expect(replaceTokens({title,}, 'Post: {title}!',),).toBe(`Post: ${title}!`,)
+		// `$1` must also stay literal (there are no capture groups to reference).
+		expect(replaceTokens({body: 'see $1 here',}, '[{body}]',),).toBe('[see $1 here]',)
+	})
+
 	it('removes ASCII quotes', () => {
 		expect(removeQuotes(`"quoted" and 'single'`,),).toBe('quoted and single',)
 	})

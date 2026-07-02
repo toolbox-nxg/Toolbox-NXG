@@ -46,7 +46,11 @@ export function removeLastDirectoryPartOf (url: string,): string {
 export function replaceTokens (info: Record<string, string>, content: string,): string {
 	for (const i of Object.keys(info,)) {
 		const pattern = new RegExp(`{${i}}`, 'mig',)
-		content = content.replace(pattern, info[i]!,)
+		// Use a replacer function, not a raw replacement string: the values are
+		// user-controlled (post titles/bodies), and String.replace expands `$&`,
+		// `$'`, `` $` ``, `$$`, `$n` in a replacement string, which would splice
+		// template/match text into the message. A function return is inserted literally.
+		content = content.replace(pattern, () => info[i]!,)
 	}
 
 	return content
