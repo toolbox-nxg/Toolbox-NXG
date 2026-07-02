@@ -47,6 +47,18 @@ describe('time utilities', () => {
 		expect(niceDateDiff(new Date('2024-01-15T00:00:00Z',), new Date('2024-01-15T00:00:00Z',),),).toBe('0 days',)
 	})
 
+	it('never renders negative days across an end-of-month borrow', () => {
+		// Jan 31 -> Mar 1 must not report "-1 days" (regression): February is
+		// shorter than the origin day, so the borrow clamps to Feb's length.
+		expect(niceDateDiff(new Date('2020-01-31T00:00:00Z',), new Date('2020-03-01T00:00:00Z',),),).toBe(
+			'1 month and 1 day',
+		)
+	})
+
+	it('handles a year-boundary diff without being a day early', () => {
+		expect(niceDateDiff(new Date('2020-12-31T00:00:00Z',), new Date('2021-01-01T00:00:00Z',),),).toBe('1 day',)
+	})
+
 	it('converts unix timestamps to UTC readable strings', () => {
 		expect(timeConverterRead(0,),).toBe('01-01-1970 00:00:00 UTC',)
 		expect(timeConverterRead(1705320000,),).toBe('15-01-2024 12:00:00 UTC',)

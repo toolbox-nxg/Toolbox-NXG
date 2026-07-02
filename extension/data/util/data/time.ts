@@ -123,27 +123,25 @@ export function niceDateDiff (origdate: Date, newdate: Date = new Date(),): stri
 	const m = [31, f, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31,]
 
 	let dyear = tyear - ayear
-
 	let dmonth = tmonth - amonth
-	if (dmonth < 0 && dyear > 0) {
-		dmonth += 12
-		dyear--
+	let dday = tday - aday
+
+	// Borrow a month when the day-of-month underflows. The origin day may not
+	// exist in the borrowed month (e.g. Jan 31 -> Mar 1 borrows February), so
+	// clamp it to that month's length; without the clamp dday stays negative and
+	// renders as "-1 days".
+	if (dday < 0) {
+		// 0-based index of the month before tmonth in the days-per-month array.
+		const borrowIdx = (tmonth - 2 + 12) % 12
+		const borrowLen = m[borrowIdx]!
+		dday = borrowLen - Math.min(aday, borrowLen,) + tday
+		dmonth--
 	}
 
-	let dday = tday - aday
-	if (dday < 0) {
-		if (dmonth > 0) {
-			// 0-based index of the month before tmonth in the days-per-month array.
-			const ma = (tmonth - 2 + 12) % 12
-			dday += m[ma]!
-			dmonth--
-			if (dmonth < 0) {
-				dyear--
-				dmonth += 12
-			}
-		} else {
-			dday = 0
-		}
+	// Borrow a year when the month underflows (including one just spent above).
+	if (dmonth < 0) {
+		dmonth += 12
+		dyear--
 	}
 
 	let returnString = ''
