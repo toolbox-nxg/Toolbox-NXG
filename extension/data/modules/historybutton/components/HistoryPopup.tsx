@@ -1,5 +1,5 @@
 /** Draggable popup that displays a user's submission and comment history broken down by domain and subreddit. */
-import {useState,} from 'react'
+import {useMemo, useState,} from 'react'
 import {Provider,} from 'react-redux'
 
 import {historyButton,} from '../../../framework/moduleIds'
@@ -53,9 +53,14 @@ export function HistoryPopup ({user, subreddit: currentSubreddit, initialPositio
 	const includeNsfwSearches = useSetting(historyButton, 'includeNsfwSearches', false,)
 	const alwaysComments = useSetting(historyButton, 'alwaysComments', true,)
 
-	const userInfo = useFetched(getUserInfo(user,),)
-	const submissionData = useFetched(getSubmissionHistoryData(user,),)
-	const commentData = useFetched(getCommentHistoryData(user, commentCount,),)
+	// Memoize the fetch promises: invoking these in the render body created a new
+	// promise (and fired the paginated API requests, ~10 of them) on every
+	// re-render, e.g. when toggling the comment report. useFetched only ever
+	// subscribes to the first render's promise, so the rest were wasted requests
+	// with unhandled rejections.
+	const userInfo = useFetched(useMemo(() => getUserInfo(user,), [user,],),)
+	const submissionData = useFetched(useMemo(() => getSubmissionHistoryData(user,), [user,],),)
+	const commentData = useFetched(useMemo(() => getCommentHistoryData(user, commentCount,), [user, commentCount,],),)
 
 	const [commentReportShown, setCommentReportShown,] = useState(alwaysComments,)
 
