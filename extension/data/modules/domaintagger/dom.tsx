@@ -281,6 +281,16 @@ export function createDomainTaggerHandlers (
 ): DomainTaggerHandlers {
 	const lifecycle = createLifecycle()
 
+	// One mod-status MutationObserver per shreddit post. Keyed by the post element
+	// so re-processing a post (which happens after every tag save) reuses the
+	// existing observer instead of stacking another - N stacked observers would
+	// fire N times on a single approval and inflate the wiki stat counter.
+	const shredditObservers = new Map<Element, MutationObserver>()
+	lifecycle.mount(() => {
+		for (const observer of shredditObservers.values()) { observer.disconnect() }
+		shredditObservers.clear()
+	},)
+
 	// Renders the "T" edit button (old Reddit) or the full indicator+button (Shreddit).
 	// handleTagButtonClick is referenced here but assigned later in this closure; it is always
 	// defined by the time any provider calls this renderer.
@@ -576,6 +586,9 @@ export function createDomainTaggerHandlers (
 	 */
 	function attachShredditActionObserver (postEl: Element, subreddit: string, domain: string,) {
 		if (!domain) { return }
+		// Already observing this post (a prior processing pass attached one); don't
+		// stack a second observer that would double-count the same mod action.
+		if (shredditObservers.has(postEl,)) { return }
 
 		let lastStatus = postEl.getAttribute('mod-status',) ?? ''
 
@@ -601,7 +614,7 @@ export function createDomainTaggerHandlers (
 		},)
 
 		observer.observe(postEl, {attributes: true, attributeFilter: ['mod-status',],},)
-		lifecycle.mount(() => observer.disconnect())
+		shredditObservers.set(postEl, observer,)
 	}
 
 	/**
