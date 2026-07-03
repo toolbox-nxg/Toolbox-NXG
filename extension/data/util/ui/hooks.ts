@@ -29,21 +29,54 @@ export const useSaveRef = (saveRef: SaveRef | undefined, handleSave: () => void,
 }
 
 /**
- * Registers a document-level `keydown` listener that invokes `callback` when the
- * Escape key is pressed. The latest `callback` is always called via an internal
- * ref, so callers may pass a fresh closure each render without re-registering
- * the listener.
- * @param callback Invoked on Escape; pass `undefined` to do nothing.
+ * Shared LIFO stack of active Escape handlers. A single document listener drives
+ * them so one Escape press dismisses only the top-most (most recently mounted)
+ * dialog, giving stacked dialogs modal discipline instead of every mounted dialog
+ * closing at once - e.g. Escape closes a drawer's discard-confirmation alert
+ * without also discarding the drawer's unsent draft underneath.
+ */
+const escapeHandlers: Array<{current: (() => void) | undefined}> = []
+let escapeListenerAttached = false
+
+function handleGlobalEscape (event: KeyboardEvent,) {
+	if (event.key !== 'Escape') { return }
+	// Fire the top-most handler that is actually active; skip handlers currently
+	// opted out (callback `undefined`) so they don't swallow Escape from the
+	// dialog beneath them.
+	for (let i = escapeHandlers.length - 1; i >= 0; i--) {
+		const callback = escapeHandlers[i]!.current
+		if (callback) {
+			callback()
+			return
+		}
+	}
+}
+
+/**
+ * Registers an Escape handler in a shared stack so a single Escape press invokes
+ * only the top-most active dialog's callback, not every mounted dialog's. The
+ * latest `callback` is always called via an internal ref, so callers may pass a
+ * fresh closure each render without re-registering.
+ * @param callback Invoked on Escape when this is the top-most active handler;
+ *   pass `undefined` to opt out (Escape falls through to the dialog beneath).
  */
 export const useEscapeKey = (callback: (() => void) | undefined,) => {
 	const callbackRef = useRef(callback,)
 	callbackRef.current = callback
 	useEffect(() => {
-		const onKeyDown = (event: KeyboardEvent,) => {
-			if (event.key === 'Escape') { callbackRef.current?.() }
+		escapeHandlers.push(callbackRef,)
+		if (!escapeListenerAttached) {
+			document.addEventListener('keydown', handleGlobalEscape,)
+			escapeListenerAttached = true
 		}
-		document.addEventListener('keydown', onKeyDown,)
-		return () => document.removeEventListener('keydown', onKeyDown,)
+		return () => {
+			const index = escapeHandlers.indexOf(callbackRef,)
+			if (index !== -1) { escapeHandlers.splice(index, 1,) }
+			if (escapeHandlers.length === 0 && escapeListenerAttached) {
+				document.removeEventListener('keydown', handleGlobalEscape,)
+				escapeListenerAttached = false
+			}
+		}
 	}, [],)
 }
 
