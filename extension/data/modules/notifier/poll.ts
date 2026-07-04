@@ -250,7 +250,11 @@ export function createNotifierHandlers (
 			}
 			updateCounters({modqueueCount: count, modqueueBySubreddit,},)
 
-			if (modNotifications && count > modqueueCount) {
+			// Notify on any item not already in `modqueuePushed`, regardless of the
+			// count. Gating on `count > modqueueCount` missed new items whenever the
+			// queue churned one-in-one-out (count unchanged) or sat pinned at the
+			// 100-item listing cap; the pushed-items set is the real dedup.
+			if (modNotifications) {
 				const pusheditems = await module.get('modqueuePushed',)
 				if (consolidatedMessages) {
 					const newItems = json.data.children.filter((v,) => !pusheditems.includes(v.data.name,))
@@ -315,7 +319,10 @@ export function createNotifierHandlers (
 			},).then(async (json,) => {
 				const count = json.data.children.length || 0
 
-				if (unmoderatedNotifications && count > unmoderatedCount) {
+				// Same as the modqueue path: don't gate on the count (which misses
+				// churn and a capped queue); the `lastSeenUnmoderated` timestamp
+				// below is what filters to genuinely new items.
+				if (unmoderatedNotifications) {
 					const lastSeen = await module.get('lastSeenUnmoderated',)
 
 					if (consolidatedMessages) {

@@ -131,3 +131,56 @@ describe('notifier poll throttle', () => {
 		expect(getModerationQueueListing,).toHaveBeenCalledTimes(1,)
 	})
 })
+
+describe('notifier new-item detection', () => {
+	it('notifies for a new modqueue item even when the count is unchanged (churn)', async () => {
+		const module = makeModule({
+			lastChecked: NOW - (INTERVAL + 1), // stale -> fetch
+			modqueueCount: 1, // same as the new count: a one-in-one-out churn
+			modqueuePushed: ['t3_old',], // the item that rotated out was already notified
+		},)
+		getModerationQueueListing.mockResolvedValue({
+			data: {
+				children: [
+					{
+						kind: 't3',
+						data: {name: 't3_new', permalink: '/r/s/x', title: 'New', author: 'a', subreddit: 's',},
+					},
+				],
+			},
+		},)
+		const {getmessages,} = createNotifierHandlers(makeOptions({modNotifications: true,},), module,)
+
+		await getmessages()
+		await flush()
+
+		// The count didn't grow, but the unseen item still fires a notification...
+		expect(notification,).toHaveBeenCalledTimes(1,)
+		// ...and is recorded so it won't be notified again.
+		expect(module.set,).toHaveBeenCalledWith('modqueuePushed', expect.arrayContaining(['t3_new',],),)
+	})
+
+	it('does not renotify an item already in modqueuePushed', async () => {
+		const module = makeModule({
+			lastChecked: NOW - (INTERVAL + 1),
+			modqueueCount: 0,
+			modqueuePushed: ['t3_seen',],
+		},)
+		getModerationQueueListing.mockResolvedValue({
+			data: {
+				children: [
+					{
+						kind: 't3',
+						data: {name: 't3_seen', permalink: '/r/s/x', title: 'Seen', author: 'a', subreddit: 's',},
+					},
+				],
+			},
+		},)
+		const {getmessages,} = createNotifierHandlers(makeOptions({modNotifications: true,},), module,)
+
+		await getmessages()
+		await flush()
+
+		expect(notification,).not.toHaveBeenCalled()
+	})
+})
