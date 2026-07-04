@@ -17,6 +17,21 @@ enum SettingsInitialLoadState {
 	Failed,
 }
 
+/**
+ * Change-detection equality for setting values. `storage.onChanged` hands us
+ * freshly deserialized objects, so array/map settings are always new references
+ * even when unchanged; a `!==` comparison would fire `tb-setting-changed` on
+ * every write. Compare objects/arrays by content (values are JSON-serializable,
+ * and both sides come from the same storage serialization so key order matches).
+ */
+function settingValuesEqual (a: unknown, b: unknown,): boolean {
+	if (a === b) { return true }
+	if (typeof a === 'object' && a !== null && typeof b === 'object' && b !== null) {
+		return JSON.stringify(a,) === JSON.stringify(b,)
+	}
+	return false
+}
+
 interface SettingsState {
 	initialLoadState: SettingsInitialLoadState
 	values: SettingsObject
@@ -108,7 +123,7 @@ export const loadSettings = (): AppThunk<Promise<void>> => async (dispatch,) => 
 					const next = (newValue ?? {}) as SettingsObject
 					const allKeys = new Set([...Object.keys(prev,), ...Object.keys(next,),],)
 					for (const settingKey of allKeys) {
-						if (prev[settingKey] !== next[settingKey]) {
+						if (!settingValuesEqual(prev[settingKey], next[settingKey],)) {
 							window.dispatchEvent(
 								new CustomEvent('tb-setting-changed', {
 									detail: {key: settingKey, newValue: next[settingKey],},

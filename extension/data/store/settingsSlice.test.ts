@@ -59,6 +59,46 @@ describe('settingsSlice', () => {
 		},)
 	})
 
+	it('does not fire tb-setting-changed when an object setting is structurally unchanged', async () => {
+		getSettings.mockResolvedValue({},)
+		const dispatch = vi.fn()
+		await loadSettings()(dispatch,)
+		const listener = addListener.mock.calls[0]![0]
+		const spy = vi.spyOn(window, 'dispatchEvent',)
+
+		// Same content, different reference (as storage.onChanged always hands us).
+		listener({
+			tbsettings: {
+				oldValue: {'Toolbox.X.list': ['a', 'b',],},
+				newValue: {'Toolbox.X.list': ['a', 'b',],},
+			},
+		}, 'local',)
+
+		const changes = spy.mock.calls.filter(([e,],) => (e as CustomEvent).type === 'tb-setting-changed')
+		expect(changes,).toHaveLength(0,)
+		spy.mockRestore()
+	})
+
+	it('fires tb-setting-changed when an object setting actually changes', async () => {
+		getSettings.mockResolvedValue({},)
+		const dispatch = vi.fn()
+		await loadSettings()(dispatch,)
+		const listener = addListener.mock.calls[0]![0]
+		const spy = vi.spyOn(window, 'dispatchEvent',)
+
+		listener({
+			tbsettings: {
+				oldValue: {'Toolbox.X.list': ['a',],},
+				newValue: {'Toolbox.X.list': ['a', 'b',],},
+			},
+		}, 'local',)
+
+		const changes = spy.mock.calls.filter(([e,],) => (e as CustomEvent).type === 'tb-setting-changed')
+		expect(changes,).toHaveLength(1,)
+		expect((changes[0]![0] as CustomEvent).detail,).toEqual({key: 'Toolbox.X.list', newValue: ['a', 'b',],},)
+		spy.mockRestore()
+	})
+
 	it('dispatches a failure action when initial settings load rejects', async () => {
 		getSettings.mockRejectedValue(new Error('boom',),)
 		const dispatch = vi.fn()
