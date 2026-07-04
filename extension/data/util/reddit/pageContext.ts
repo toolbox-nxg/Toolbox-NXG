@@ -38,25 +38,54 @@ export let pageDetails: TBPageContext = {
 	pageDetails: {},
 }
 
-export const isEditUserPage = location.pathname.match(/\/about\/(?:contributors|moderator|banned)\/?/,)
-export const isModpage = location.pathname.match(/\/about\/(?:reports|modqueue|spam|unmoderated|edited)\/?/,)
-export const isModLogPage = location.pathname.match(/\/about\/(?:log)\/?/,)
-export const isShredditModLogPage = location.pathname.match(/^\/mod\/([^/]+)\/log\/?$/,)
-export const isShredditModQueuePage = location.pathname.match(/^\/mod\/(?:queue|[^/]+\/queue)\/?$/,)
-export const isModQueuePage = location.pathname.match(/\/about\/(?:modqueue)\/?/,)
-export const isUnmoderatedPage = location.pathname.match(/\/about\/(?:unmoderated)\/?/,)
-export const isUserPage = location.pathname.match(/\/(?:user)\/?/,)
-export const isCommentsPage = location.pathname.match(/\?*\/(?:comments)\/?/,)
-export const isSubCommentsPage = location.pathname.match(/\/r\/.*?\/(?:comments)\/?/,)
-export const isSubAllCommentsPage = location.pathname.match(/\/r\/.*?\/(?:comments)\/?$/,)
-export const isModFakereddit = location.pathname.match(/^\/r\/mod\b/,) || location.pathname.match(/^\/me\/f\/mod\b/,)
+// URL-path-derived page-type flags. On Shreddit these must be recomputed on soft
+// navigation (via refreshPageFlags, called from refreshPathContext) - otherwise a
+// value frozen at content-script load leaves e.g. the comment context button
+// missing after navigating to a profile. Importers read these at call time, and
+// ES module live bindings mean reassigning here updates every consumer.
+export let isEditUserPage: RegExpMatchArray | null = null
+export let isModpage: RegExpMatchArray | null = null
+export let isModLogPage: RegExpMatchArray | null = null
+export let isShredditModLogPage: RegExpMatchArray | null = null
+export let isShredditModQueuePage: RegExpMatchArray | null = null
+export let isModQueuePage: RegExpMatchArray | null = null
+export let isUnmoderatedPage: RegExpMatchArray | null = null
+export let isUserPage: RegExpMatchArray | null = null
+export let isCommentsPage: RegExpMatchArray | null = null
+export let isSubCommentsPage: RegExpMatchArray | null = null
+export let isSubAllCommentsPage: RegExpMatchArray | null = null
+export let isModFakereddit: RegExpMatchArray | null = null
+export let postSite = ''
 
 const invalidPostSites = ['subreddits you moderate', 'mod (filtered)', 'all',]
-const urlSubMatch = window.location.pathname.match(/^\/r\/([^/]+)/,)
-export let postSite: string = isModFakereddit ? '' : (urlSubMatch ? decodeURIComponent(urlSubMatch[1]!,) : '')
-if (!postSite || invalidPostSites.includes(postSite.toLowerCase(),)) {
-	postSite = ''
+
+/** Recomputes the URL-derived page-type flags from the current location; call on every navigation. */
+function refreshPageFlags () {
+	const path = location.pathname
+	isEditUserPage = path.match(/\/about\/(?:contributors|moderator|banned)\/?/,)
+	isModpage = path.match(/\/about\/(?:reports|modqueue|spam|unmoderated|edited)\/?/,)
+	isModLogPage = path.match(/\/about\/(?:log)\/?/,)
+	isShredditModLogPage = path.match(/^\/mod\/([^/]+)\/log\/?$/,)
+	isShredditModQueuePage = path.match(/^\/mod\/(?:queue|[^/]+\/queue)\/?$/,)
+	isModQueuePage = path.match(/\/about\/(?:modqueue)\/?/,)
+	isUnmoderatedPage = path.match(/\/about\/(?:unmoderated)\/?/,)
+	// Anchored to the path start so subreddits like /r/userexperience are not
+	// mistaken for a user profile page.
+	isUserPage = path.match(/^\/user\/?/,)
+	isCommentsPage = path.match(/\?*\/(?:comments)\/?/,)
+	isSubCommentsPage = path.match(/\/r\/.*?\/(?:comments)\/?/,)
+	isSubAllCommentsPage = path.match(/\/r\/.*?\/(?:comments)\/?$/,)
+	isModFakereddit = path.match(/^\/r\/mod\b/,) || path.match(/^\/me\/f\/mod\b/,)
+
+	const urlSubMatch = path.match(/^\/r\/([^/]+)/,)
+	postSite = isModFakereddit ? '' : (urlSubMatch ? decodeURIComponent(urlSubMatch[1]!,) : '')
+	if (!postSite || invalidPostSites.includes(postSite.toLowerCase(),)) {
+		postSite = ''
+	}
 }
+
+// Initialize at module load so importers reading during startup see correct values.
+refreshPageFlags()
 
 let watchingForURLChanges = false
 let locationHref: string | undefined
@@ -101,6 +130,8 @@ function refreshPathContext () {
 	if (!samePage) {
 		const oldHref = locationHref
 		locationHref = location.href
+		// Keep the URL-derived page-type flags in sync with soft navigations.
+		refreshPageFlags()
 
 		const contextObject: {
 			oldHref: string | undefined
