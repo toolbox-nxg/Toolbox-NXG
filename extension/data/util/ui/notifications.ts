@@ -11,8 +11,10 @@ import {getSettingAsync,} from '../persistence/settings'
  * @param title Notification title.
  * @param body Notification body text.
  * @param path URL path the notification links to (relative to `location.origin`).
+ * @param dedupeKey Optional stable id; notifications sharing one collapse into a
+ *   single notification, suppressing cross-tab duplicates for the same item.
  */
-export async function notification (title: string, body: string, path: string,) {
+export async function notification (title: string, body: string, path: string, dedupeKey?: string,) {
 	const notificationTimeout = 6000
 	const notificationID = await browser.runtime.sendMessage(
 		{
@@ -22,6 +24,7 @@ export async function notification (title: string, body: string, path: string,) 
 				title,
 				body,
 				url: `${location.origin}${path}`,
+				...(dedupeKey !== undefined ? {dedupeKey,} : {}),
 			},
 		} satisfies TbNotificationMessage,
 	) as string

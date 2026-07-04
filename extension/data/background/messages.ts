@@ -91,6 +91,13 @@ export interface TbNotificationDetails {
 	body: string
 	/** URL to open when the notification is clicked. */
 	url: string
+	/**
+	 * Optional stable identifier. Notifications sharing a `dedupeKey` collapse
+	 * into a single notification (the same browser notification id / in-page id
+	 * is reused), which suppresses cross-tab duplicates when two tabs raise a
+	 * notification for the same underlying item.
+	 */
+	dedupeKey?: string
 }
 
 /** Requests the background to show a notification. */

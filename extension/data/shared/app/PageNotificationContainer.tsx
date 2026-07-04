@@ -43,7 +43,13 @@ export function PageNotificationContainer () {
 				//       overwriting each other; we have to use the "update
 				//       function" form of the `useState` setter for safety.
 				//       https://react.dev/reference/react/useState#updating-state-based-on-the-previous-state
-				setNotifications((currentNotifications,) => [msg.details, ...currentNotifications,])
+				// Drop a duplicate id: two tabs can broadcast the same dedupeKey'd
+				// notification, and it should appear once, not stacked.
+				setNotifications((currentNotifications,) =>
+					currentNotifications.some((notif,) => notif.id === msg.details.id)
+						? currentNotifications
+						: [msg.details, ...currentNotifications,]
+				)
 			} else if (msg.action === 'toolbox-clear-page-notification') {
 				setNotifications((currentNotifications,) =>
 					currentNotifications.filter((notif,) => notif.id !== msg.id)

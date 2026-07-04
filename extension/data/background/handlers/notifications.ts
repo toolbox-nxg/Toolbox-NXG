@@ -57,7 +57,7 @@ async function containerLabel (cookieStoreId: string | undefined,): Promise<stri
  * Raises a native OS/browser notification.
  */
 async function sendNativeNotification (
-	{title, body, url,}: TbNotificationDetails,
+	{title, body, url, dedupeKey,}: TbNotificationDetails,
 	cookieStoreId?: string,
 ): Promise<string> {
 	// If we have the getPermissionLevel function, check if we have permission
@@ -75,7 +75,9 @@ async function sendNativeNotification (
 	// Differentiate notifications coming from different containers, since the user
 	// may be logged into a different account in each.
 	const label = await containerLabel(cookieStoreId,)
-	const notificationID = await browser.notifications.create(crypto.randomUUID(), {
+	// A shared dedupeKey reuses the same notification id, so a second tab raising
+	// the same notification updates the existing one instead of stacking a duplicate.
+	const notificationID = await browser.notifications.create(dedupeKey ?? crypto.randomUUID(), {
 		type: 'basic',
 		iconUrl: browser.runtime.getURL('data/images/icon48.png',),
 		title: label ? `${title} (${label})` : title,
@@ -90,10 +92,12 @@ async function sendNativeNotification (
  * Pushes an in-page notification to every open Reddit tab.
  */
 async function sendPageNotification (
-	{title, body, url,}: TbNotificationDetails,
+	{title, body, url, dedupeKey,}: TbNotificationDetails,
 	cookieStoreId?: string,
 ): Promise<string> {
-	const notificationID = crypto.randomUUID()
+	// Reuse the dedupeKey as the in-page id so the container can drop a duplicate
+	// broadcast for the same item (see PageNotificationContainer's dedup on show).
+	const notificationID = dedupeKey ?? crypto.randomUUID()
 	await notificationMetaStore.set(notificationID, {type: 'page', url, cookieStoreId,},)
 	const message = {
 		action: 'toolbox-show-page-notification',

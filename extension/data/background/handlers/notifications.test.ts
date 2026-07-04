@@ -90,6 +90,28 @@ describe('notification handlers', () => {
 		expect(alarms.create,).toHaveBeenCalledWith('toolbox-notification-native-id', {delayInMinutes: 1,},)
 	})
 
+	it('reuses a dedupeKey as the notification id so duplicates collapse', async () => {
+		registerNotificationHandlers()
+
+		// Native: the create id is the dedupeKey (a repeat create with the same id updates in place).
+		await handlerFor('toolbox-notification',)(
+			{native: true, details: {...details, dedupeKey: 'mq:t3_x',},},
+			sender(),
+		)
+		expect(notifications.create,).toHaveBeenCalledWith('mq:t3_x', expect.objectContaining({title: 'Title',},),)
+
+		// Page: the broadcast id is the dedupeKey (the container dedupes by id).
+		const pageID = await handlerFor('toolbox-notification',)(
+			{native: false, details: {...details, dedupeKey: 'mq:t3_x',},},
+			sender(),
+		)
+		expect(pageID,).toBe('mq:t3_x',)
+		expect(tabs.sendMessage,).toHaveBeenCalledWith(1, {
+			action: 'toolbox-show-page-notification',
+			details: {id: 'mq:t3_x', title: 'Title', body: 'Body',},
+		},)
+	})
+
 	it('creates page notifications on reddit tabs', async () => {
 		registerNotificationHandlers()
 

@@ -63,6 +63,8 @@ function processMqComments (mqlinkid: string, mqreportauthor: string, mqidname: 
 			`Modqueue - /r/${subreddit} - comment: `,
 			`${mqreportauthor}'s comment in: ${title}`,
 			`${permalink + mqidname.substring(3,)}?context=3`,
+			// Key on the item's fullname so a duplicate from another tab collapses.
+			`mq:${mqidname}`,
 		)
 	},).catch((error: unknown,) => log.error(error,))
 }
@@ -105,14 +107,16 @@ function notifyConsolidated (
 		pluralNoun: string
 		moreSuffix: string
 		url: string
+		/** Stable id derived from the summarized items so concurrent tabs collapse into one summary. */
+		dedupeKey: string
 	},
 ): void {
 	const count = labels.length
 	if (count === 0) { return }
-	const {singularTitle, pluralNoun, moreSuffix, url,} = opts
+	const {singularTitle, pluralNoun, moreSuffix, url, dedupeKey,} = opts
 	const {body, xmore,} = buildConsolidatedBody(labels,)
 	const fullBody = xmore > 0 ? `${body}\n and: ${xmore.toString()} more items${moreSuffix}` : body
-	void notification(count === 1 ? singularTitle : `${count.toString()} ${pluralNoun}`, fullBody, url,)
+	void notification(count === 1 ? singularTitle : `${count.toString()} ${pluralNoun}`, fullBody, url, dedupeKey,)
 }
 
 /** Runtime options passed to {@link createNotifierHandlers}. */
@@ -264,6 +268,10 @@ export function createNotifierHandlers (
 							? `post from: ${author}, in: ${subreddit}\n`
 							: `comment from: ${author}, in: ${subreddit}\n`
 					},)
+					// Key on the exact set of summarized items (sorted) so two tabs
+					// summarizing the same items collapse to one, while a later,
+					// different batch still gets its own notification.
+					const modqueueDedupeKey = `mq:consolidated:${newItems.map((v,) => v.data.name).sort().join(',',)}`
 					for (const v of newItems) {
 						pusheditems.push(v.data.name,)
 					}
@@ -272,6 +280,7 @@ export function createNotifierHandlers (
 						pluralNoun: 'new modqueue items!',
 						moreSuffix: ' \n',
 						url: modQueueURL,
+						dedupeKey: modqueueDedupeKey,
 					},)
 				} else {
 					json.data.children.forEach((value,) => {
@@ -288,6 +297,7 @@ export function createNotifierHandlers (
 								`Modqueue: /r/${mqsubreddit} - post`,
 								`${mqtitle} By: ${mqauthor}`,
 								mqpermalink,
+								`mq:${value.data.name}`,
 							)
 						} else {
 							const reportauthor = value.data.author
@@ -332,11 +342,15 @@ export function createNotifierHandlers (
 						const labels = newItems.map(
 							(v,) => `post from: ${v.data.author}, in: ${v.data.subreddit}\n`,
 						)
+						const unmoderatedDedupeKey = `um:consolidated:${
+							newItems.map((v,) => v.data.name).sort().join(',',)
+						}`
 						notifyConsolidated(labels, {
 							singularTitle: 'One new unmoderated item!',
 							pluralNoun: 'new unmoderated items!',
 							moreSuffix: '\n',
 							url: unModeratedURL,
+							dedupeKey: unmoderatedDedupeKey,
 						},)
 					} else {
 						json.data.children.forEach((value,) => {
@@ -350,6 +364,7 @@ export function createNotifierHandlers (
 									`Unmoderated: /r/${uqsubreddit} - post`,
 									`${uqtitle} By: ${uqauthor}`,
 									uqpermalink,
+									`um:${value.data.name}`,
 								)
 							}
 						},)
