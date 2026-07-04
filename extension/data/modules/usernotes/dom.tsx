@@ -105,6 +105,10 @@ export function createNotesDisplay (
 	const subs: string[] = []
 	const pendingSubs = new Set<string>()
 	let queueTimeout: ReturnType<typeof setTimeout> | undefined
+	// Clear any pending debounce timer on teardown so it can't fire (and process
+	// subs / touch the DOM) after the module has been cleaned up. Registered once,
+	// not per debounce, so the cleanup list doesn't grow with each schedule.
+	lifecycle.mount(() => clearTimeout(queueTimeout,))
 
 	function foundSubreddit (subreddit: string,) {
 		if (!subs.includes(subreddit,)) { subs.push(subreddit,) }
