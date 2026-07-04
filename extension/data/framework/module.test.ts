@@ -133,5 +133,13 @@ describe('coerceSetting', () => {
 			const factory = () => 99
 			expect(coerceSetting({type: 'number', default: factory,}, 'NaN',),).toBe(99,)
 		})
+
+		it('does not evaluate a function default when the stored value is valid', () => {
+			// Function defaults can have side effects (e.g. a storage read), so they
+			// must not run when the stored value is already usable.
+			const factory = vi.fn(() => 99)
+			expect(coerceSetting({type: 'number', default: factory,}, 42,),).toBe(42,)
+			expect(factory,).not.toHaveBeenCalled()
+		})
 	})
 })

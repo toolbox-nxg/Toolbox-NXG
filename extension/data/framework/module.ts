@@ -135,13 +135,25 @@ export function coerceSetting (
 	setting: Pick<SettingDefinition, 'type' | 'default' | 'min' | 'max' | 'values'>,
 	raw: unknown,
 ): unknown {
-	const def = typeof setting.default === 'function' ? setting.default() : setting.default
+	// Evaluate a function-valued default lazily and at most once: it only runs
+	// when the stored value is actually being rejected. A function default can
+	// have side effects (e.g. profile settings fire a storage read), so computing
+	// it eagerly here would run on every read even when the stored value is valid.
+	let defaultComputed: unknown
+	let defaultDone = false
+	const def = (): unknown => {
+		if (!defaultDone) {
+			defaultComputed = typeof setting.default === 'function' ? setting.default() : setting.default
+			defaultDone = true
+		}
+		return defaultComputed
+	}
 	switch (setting.type) {
 		case 'boolean':
-			return typeof raw === 'boolean' ? raw : def
+			return typeof raw === 'boolean' ? raw : def()
 		case 'number': {
 			const n = typeof raw === 'number' ? raw : (typeof raw === 'string' ? Number(raw,) : NaN)
-			if (Number.isNaN(n,)) { return def }
+			if (Number.isNaN(n,)) { return def() }
 			const lo = setting.min != null ? Math.max(setting.min, n,) : n
 			return setting.max != null ? Math.min(setting.max, lo,) : lo
 		}
@@ -149,18 +161,18 @@ export function coerceSetting (
 		case 'list':
 		case 'sublist':
 		case 'stringlist':
-			return Array.isArray(raw,) ? raw : def
+			return Array.isArray(raw,) ? raw : def()
 		case 'map':
-			return (typeof raw === 'object' && raw !== null && !Array.isArray(raw,)) ? raw : def
+			return (typeof raw === 'object' && raw !== null && !Array.isArray(raw,)) ? raw : def()
 		case 'selector':
-			if (typeof raw !== 'string') { return def }
+			if (typeof raw !== 'string') { return def() }
 			// Fall back to default if the stored value is no longer a valid option
-			return (setting.values == null || setting.values.includes(raw,)) ? raw : def
+			return (setting.values == null || setting.values.includes(raw,)) ? raw : def()
 		case 'page':
 			return raw
 		default:
 			// text, textarea, code, syntaxTheme, subreddit, and anything unknown
-			return stringTypes.has(setting.type,) ? (typeof raw === 'string' ? raw : def) : raw
+			return stringTypes.has(setting.type,) ? (typeof raw === 'string' ? raw : def()) : raw
 	}
 }
 
