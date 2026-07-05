@@ -23,13 +23,6 @@ export function TBContextMenu () {
 	const [open, setOpen,] = useState(false,)
 	const [showAttention, setShowAttention,] = useState(false,)
 
-	// Toggle the body class so global CSS can shift the page over
-	useEffect(() => {
-		const cls = `toolbox-has-context-${location}`
-		document.body.classList.add(cls,)
-		return () => document.body.classList.remove(cls,)
-	}, [location,],)
-
 	// Briefly highlight the menu when an item is added
 	useEffect(() => {
 		if (!attentionId) { return }
