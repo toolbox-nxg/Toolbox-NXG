@@ -42,6 +42,16 @@ describe('parsePositionalJson', () => {
 		expect(() => parsePositionalJson(text,)).toThrowError(messagePart,)
 	},)
 
+	it('parses a "__proto__" key as an own property, matching JSON.parse', () => {
+		const {value,} = parsePositionalJson('{"__proto__": {"polluted": true}, "safe": 1}',)
+		// It must be an own enumerable property, not a changed prototype.
+		expect(Object.prototype.hasOwnProperty.call(value, '__proto__',),).toBe(true,)
+		expect(Object.getPrototypeOf(value,),).toBe(Object.prototype,)
+		expect(value.safe,).toBe(1,)
+		// And a plain object (not something with a "polluted" inherited key).
+		expect(({} as {polluted?: boolean}).polluted,).toBeUndefined()
+	})
+
 	it('parses documents JSON.parse accepts that look like edge cases', () => {
 		expect(parsePositionalJson('  [ ]  ',).value,).toEqual([],)
 		expect(parsePositionalJson('{ }',).value,).toEqual({},)

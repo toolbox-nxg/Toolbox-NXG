@@ -159,7 +159,17 @@ export function parsePositionalJson (text: string,): PositionalJsonResult {
 					skipWhitespace()
 					if (text[pos] !== ':') { fail('expected ":" after key',) }
 					pos++
-					value[key] = parseValue(childPath(path, key,),)
+					// Define the property rather than `value[key] = ...`: a plain
+					// assignment to the key `__proto__` would hit the prototype
+					// setter instead of creating an own property, diverging from
+					// JSON.parse (which the save path uses). defineProperty creates a
+					// normal own property for every key, `__proto__` included.
+					Object.defineProperty(value, key, {
+						value: parseValue(childPath(path, key,),),
+						writable: true,
+						enumerable: true,
+						configurable: true,
+					},)
 					skipWhitespace()
 					if (text[pos] === ',') {
 						pos++
