@@ -59,6 +59,21 @@ export const LAYOUT_CACHE_KEY = 'wikiLayoutCache'
 export const sessionLayouts = new Map<string, WikiLayout>()
 
 /**
+ * Serializes read-modify-write cycles on the single persistent layout-cache blob
+ * so two resolutions running concurrently in the same tab don't both read the
+ * blob, each add their own entry, and clobber the other's write. (Writes from
+ * *different* tabs can still race on storage, but the only consequence is a
+ * dropped cache entry that gets re-resolved, so in-tab serialization suffices.)
+ */
+let layoutCacheWrites: Promise<unknown> = Promise.resolve()
+function serializeLayoutCacheWrite<T,> (task: () => Promise<T>,): Promise<T> {
+	const run = layoutCacheWrites.then(task, task,)
+	// Absorb rejections on the stored tail so one failure doesn't block later writes.
+	layoutCacheWrites = run.then(() => {}, () => {},)
+	return run
+}
+
+/**
  * Clears the cached wiki layout for a subreddit (or all subreddits), both
  * in-session and persistent. Call after compat toggles or repair migrations
  * so the next resolution re-reads the wiki.
@@ -67,15 +82,17 @@ export const sessionLayouts = new Map<string, WikiLayout>()
 export async function clearWikiLayoutCache (subreddit?: string,): Promise<void> {
 	if (subreddit === undefined) {
 		sessionLayouts.clear()
-		await setCache(utils, LAYOUT_CACHE_KEY, {},)
+		await serializeLayoutCacheWrite(() => setCache(utils, LAYOUT_CACHE_KEY, {},))
 		return
 	}
 	sessionLayouts.delete(subreddit,)
-	const persisted = await getCache(utils, LAYOUT_CACHE_KEY, {},) as Record<string, WikiLayout>
-	if (persisted[subreddit] !== undefined) {
-		delete persisted[subreddit]
-		await setCache(utils, LAYOUT_CACHE_KEY, persisted,)
-	}
+	await serializeLayoutCacheWrite(async () => {
+		const persisted = await getCache(utils, LAYOUT_CACHE_KEY, {},) as Record<string, WikiLayout>
+		if (persisted[subreddit] !== undefined) {
+			delete persisted[subreddit]
+			await setCache(utils, LAYOUT_CACHE_KEY, persisted,)
+		}
+	},)
 }
 
 /**
@@ -88,9 +105,11 @@ export async function clearWikiLayoutCache (subreddit?: string,): Promise<void> 
 export async function setCachedWikiLayout (layout: WikiLayout, persist: boolean,): Promise<void> {
 	sessionLayouts.set(layout.subreddit, layout,)
 	if (!persist) { return }
-	const persisted = await getCache(utils, LAYOUT_CACHE_KEY, {},) as Record<string, WikiLayout>
-	persisted[layout.subreddit] = layout
-	await setCache(utils, LAYOUT_CACHE_KEY, persisted,)
+	await serializeLayoutCacheWrite(async () => {
+		const persisted = await getCache(utils, LAYOUT_CACHE_KEY, {},) as Record<string, WikiLayout>
+		persisted[layout.subreddit] = layout
+		await setCache(utils, LAYOUT_CACHE_KEY, persisted,)
+	},)
 }
 
 /**
