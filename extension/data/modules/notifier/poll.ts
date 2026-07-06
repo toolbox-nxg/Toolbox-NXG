@@ -218,7 +218,7 @@ export function createNotifierHandlers (
 		// cross-tab poll, so we render the stored counts and skip the redundant
 		// modqueue/unmoderated/modmail fetches. A genuine first run still fetches:
 		// `lastChecked` defaults to -1, so `now - lastChecked` far exceeds the interval.
-		if (now - lastChecked < checkIntervalMillis) {
+		if (lastChecked <= now && now - lastChecked < checkIntervalMillis) {
 			updateCounters({modqueueCount, unmoderatedCount, modmailCount, modmailCategoryCount,},)
 			return
 		}
