@@ -9,13 +9,18 @@ import {getModuleSettingAsync,} from '../../util/persistence/settings'
 import {createNotifierHandlers, toModmailCategoryCount,} from './poll'
 import {NotifierSettings, settings,} from './settings'
 
+// Always enabled: the poll it runs is the only source of the modbar's queue and
+// modmail counters, which must keep updating even when the user has turned
+// notifications off. The `showNotifications` setting gates the notifications
+// themselves, so switching them off no longer freezes the counters.
 export default new Module<NotifierSettings>({
 	name: 'Notifier',
 	id: 'Notifier',
 	docSlug: 'notifier',
-	enabledByDefault: true,
+	alwaysEnabled: true,
 	settings,
 }, async function init (this: Module<NotifierSettings>, {
+	showNotifications,
 	modNotifications,
 	unmoderatedNotifications,
 	consolidatedMessages,
@@ -37,6 +42,7 @@ export default new Module<NotifierSettings>({
 	const checkIntervalMillis = minutesToMilliseconds(checkInterval,)
 
 	const {getmessages, handleCounterUpdate,} = createNotifierHandlers({
+		showNotifications,
 		modNotifications,
 		unmoderatedNotifications,
 		consolidatedMessages,

@@ -51,6 +51,7 @@ function makeModule (initial: Record<string, unknown> = {},): NotifierStorage & 
 
 function makeOptions (overrides: Partial<ModbarCounterOptions> = {},): ModbarCounterOptions {
 	return {
+		showNotifications: true,
 		modNotifications: false,
 		unmoderatedNotifications: false,
 		consolidatedMessages: false,
@@ -181,6 +182,109 @@ describe('notifier new-item detection', () => {
 		await getmessages()
 		await flush()
 
+		expect(notification,).not.toHaveBeenCalled()
+	})
+})
+
+describe('notifier showNotifications master switch', () => {
+	/** A single unseen modqueue item, which would notify if notifications were on. */
+	function makeUnseenItemModule () {
+		const module = makeModule({
+			lastChecked: NOW - (INTERVAL + 1), // stale -> fetch
+			modqueueCount: 0,
+			modqueuePushed: [],
+		},)
+		getModerationQueueListing.mockResolvedValue({
+			data: {
+				children: [
+					{
+						kind: 't3',
+						data: {name: 't3_new', permalink: '/r/s/x', title: 'New', author: 'a', subreddit: 's',},
+					},
+				],
+			},
+		},)
+		return module
+	}
+
+	it('still fetches and updates counters when notifications are off', async () => {
+		const module = makeUnseenItemModule()
+		getModmailUnreadCount.mockResolvedValue({new: 3,},)
+		const {getmessages,} = createNotifierHandlers(
+			makeOptions({showNotifications: false, modNotifications: true,},),
+			module,
+		)
+
+		await getmessages()
+		await flush()
+
+		// The counters are the whole point: they must keep polling and publishing.
+		expect(getModerationQueueListing,).toHaveBeenCalledTimes(1,)
+		expect(updateCounters,).toHaveBeenCalledWith(
+			expect.objectContaining({modqueueCount: 1,},),
+		)
+		expect(updateCounters,).toHaveBeenCalledWith(
+			expect.objectContaining({modmailCount: 3,},),
+		)
+		expect(module.set,).toHaveBeenCalledWith('modqueueCount', 1,)
+	})
+
+	it('fires no notification when off, even with the per-queue toggle on', async () => {
+		const module = makeUnseenItemModule()
+		const {getmessages,} = createNotifierHandlers(
+			makeOptions({showNotifications: false, modNotifications: true,},),
+			module,
+		)
+
+		await getmessages()
+		await flush()
+
+		expect(notification,).not.toHaveBeenCalled()
+	})
+
+	it('fires notifications when on and the per-queue toggle is on', async () => {
+		const module = makeUnseenItemModule()
+		const {getmessages,} = createNotifierHandlers(
+			makeOptions({showNotifications: true, modNotifications: true,},),
+			module,
+		)
+
+		await getmessages()
+		await flush()
+
+		expect(notification,).toHaveBeenCalledTimes(1,)
+	})
+
+	it('skips the unmoderated fetch when only its notifications would have driven it', async () => {
+		const module = makeModule({lastChecked: NOW - (INTERVAL + 1),},)
+		const {getmessages,} = createNotifierHandlers(
+			makeOptions({showNotifications: false, unmoderatedNotifications: true, unmoderatedOn: false,},),
+			module,
+		)
+
+		await getmessages()
+		await flush()
+
+		// Only the modqueue listing; the unmoderated one is neither displayed nor notified.
+		expect(getModerationQueueListing,).toHaveBeenCalledTimes(1,)
+		expect(getModerationQueueListing,).toHaveBeenCalledWith(
+			expect.objectContaining({page: 'modqueue',},),
+		)
+	})
+
+	it('still fetches unmoderated for the counter when notifications are off', async () => {
+		const module = makeModule({lastChecked: NOW - (INTERVAL + 1),},)
+		const {getmessages,} = createNotifierHandlers(
+			makeOptions({showNotifications: false, unmoderatedNotifications: true, unmoderatedOn: true,},),
+			module,
+		)
+
+		await getmessages()
+		await flush()
+
+		expect(getModerationQueueListing,).toHaveBeenCalledWith(
+			expect.objectContaining({page: 'unmoderated',},),
+		)
 		expect(notification,).not.toHaveBeenCalled()
 	})
 })

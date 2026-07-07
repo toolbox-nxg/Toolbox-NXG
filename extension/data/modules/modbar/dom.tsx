@@ -46,7 +46,9 @@ export async function createModbarHandlers (
 		getModuleSettingAsync(notifier, 'modqueueCount', 0,),
 		getModuleSettingAsync(notifier, 'unmoderatedCount', 0,),
 		getModuleSettingAsync(notifier, 'modmailCount', 0,),
-		getModuleSettingAsync(notifier, 'enabled', true,),
+		// The Notifier is always enabled now (its poll feeds these counters), so the
+		// hover tooltip keys off whether notifications are on rather than a module toggle.
+		getModuleSettingAsync(notifier, 'showNotifications', true,),
 	],)
 
 	const modmailUrl = 'https://www.reddit.com/mail/all'

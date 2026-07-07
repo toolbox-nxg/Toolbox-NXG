@@ -65,7 +65,7 @@ interface ModBarProps {
 	modQueueUrl: string
 	/** URL for the unmoderated queue, or `null` if the unmoderated icon is disabled. */
 	unModQueueUrl: string | null
-	/** Whether the Notifier module is enabled (affects hover tooltip behavior). */
+	/** Whether Notifier notifications are switched on (affects hover tooltip behavior). */
 	notifierEnabled: boolean
 	/** Whether debug mode is on (shows the reload-toolbox button). */
 	debugMode: boolean

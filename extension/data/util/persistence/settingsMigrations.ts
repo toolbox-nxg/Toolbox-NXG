@@ -243,6 +243,19 @@ export async function doSettingsUpdates () {
 		migratedDeletes.push(showActionReasonKey,)
 	}
 
+	// The Notifier became always-enabled so its poll keeps the modbar counters fresh. Its old
+	// on/off toggle is replaced by "showNotifications", which silences notifications only.
+	// Carry an explicit "off" across so previously-disabled users don't suddenly start getting
+	// notifications (modNotifications defaults to on); an old "on"/absent leaves the new default.
+	const oldNotifierEnabledKey = 'Toolbox.Notifier.enabled'
+	if (oldNotifierEnabledKey in allSettings) {
+		const newKey = 'Toolbox.Notifier.showNotifications'
+		if (allSettings[oldNotifierEnabledKey] === false && !(newKey in allSettings)) {
+			migratedWrites[newKey] = false
+		}
+		migratedDeletes.push(oldNotifierEnabledKey,)
+	}
+
 	const oldQueueToolsEnabled = allSettings['Toolbox.QueueTools.enabled'] as unknown
 	if (oldQueueToolsEnabled !== undefined) {
 		for (const newModule of ['MassModeration', 'ModViewEnhancements',]) {

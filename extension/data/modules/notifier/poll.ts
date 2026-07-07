@@ -121,6 +121,13 @@ function notifyConsolidated (
 
 /** Runtime options passed to {@link createNotifierHandlers}. */
 export interface ModbarCounterOptions {
+	/**
+	 * Master switch for notifications. When `false`, no notification is fired for any
+	 * queue, but the counters still poll and update. Gating the `notification()` calls
+	 * covers both delivery modes, since the native-vs-in-page choice is made inside that
+	 * helper via the `nativeNotifications` setting.
+	 */
+	showNotifications: boolean
 	/** Whether to fire browser notifications for new modqueue items. */
 	modNotifications: boolean
 	/** Whether to fire browser notifications for new unmoderated items. */
@@ -173,6 +180,7 @@ export function createNotifierHandlers (
 	} = options
 
 	const {
+		showNotifications,
 		modNotifications,
 		unmoderatedNotifications,
 		consolidatedMessages,
@@ -181,6 +189,10 @@ export function createNotifierHandlers (
 		unmoderatedOn,
 		checkIntervalMillis,
 	} = options
+
+	// Resolved once: the per-queue toggles only apply while notifications are on at all.
+	const notifyModqueue = showNotifications && modNotifications
+	const notifyUnmoderated = showNotifications && unmoderatedNotifications
 
 	let now = new Date().getTime()
 
@@ -258,7 +270,7 @@ export function createNotifierHandlers (
 			// count. Gating on `count > modqueueCount` missed new items whenever the
 			// queue churned one-in-one-out (count unchanged) or sat pinned at the
 			// 100-item listing cap; the pushed-items set is the real dedup.
-			if (modNotifications) {
+			if (notifyModqueue) {
 				const pusheditems = await module.get('modqueuePushed',)
 				if (consolidatedMessages) {
 					const newItems = json.data.children.filter((v,) => !pusheditems.includes(v.data.name,))
@@ -319,7 +331,7 @@ export function createNotifierHandlers (
 			log.error(error,)
 		},).finally(finishCounterUpdate,)
 
-		if (unmoderatedOn || unmoderatedNotifications) {
+		if (unmoderatedOn || notifyUnmoderated) {
 			const unModeratedURL = `/r/${unmoderatedSubreddits}/about/unmoderated`
 
 			getModerationQueueListing<RedditSubmission>({
@@ -332,7 +344,7 @@ export function createNotifierHandlers (
 				// Same as the modqueue path: don't gate on the count (which misses
 				// churn and a capped queue); the `lastSeenUnmoderated` timestamp
 				// below is what filters to genuinely new items.
-				if (unmoderatedNotifications) {
+				if (notifyUnmoderated) {
 					const lastSeen = await module.get('lastSeenUnmoderated',)
 
 					if (consolidatedMessages) {

@@ -92,6 +92,36 @@ describe('settings migrations', () => {
 		expect(store.has('Toolbox.QueueTools.showAutomodActionReason',),).toBe(false,)
 	})
 
+	it('carries a disabled Notifier over to showNotifications off', async () => {
+		store.set('Toolbox.Notifier.enabled', false,)
+
+		await doSettingsUpdates()
+
+		// The Notifier is always enabled now, so the old toggle is dropped; the user's "off"
+		// survives as notifications-off while the modbar counters keep updating.
+		expect(store.has('Toolbox.Notifier.enabled',),).toBe(false,)
+		expect(store.get('Toolbox.Notifier.showNotifications',),).toBe(false,)
+	})
+
+	it('drops an enabled Notifier toggle without touching showNotifications', async () => {
+		store.set('Toolbox.Notifier.enabled', true,)
+
+		await doSettingsUpdates()
+
+		expect(store.has('Toolbox.Notifier.enabled',),).toBe(false,)
+		// Unset -> the default (on) applies, matching the previous behavior.
+		expect(store.has('Toolbox.Notifier.showNotifications',),).toBe(false,)
+	})
+
+	it('does not overwrite an existing showNotifications choice', async () => {
+		store.set('Toolbox.Notifier.enabled', false,)
+		store.set('Toolbox.Notifier.showNotifications', true,)
+
+		await doSettingsUpdates()
+
+		expect(store.get('Toolbox.Notifier.showNotifications',),).toBe(true,)
+	})
+
 	it('drops showActionReason without forcing the per-state toggles off when it was on', async () => {
 		store.set('Toolbox.QueueTools.showActionReason', true,)
 

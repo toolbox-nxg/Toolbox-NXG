@@ -21,6 +21,13 @@ export const settings = defineSettings(
 			description: 'Multireddit of subs you want displayed in the unmoderated counter',
 		},
 		{
+			id: 'showNotifications',
+			sharedPolicy: 'raw',
+			type: 'boolean',
+			default: true,
+			description: 'Show notifications for new items. Turning this off keeps the modbar counters updating.',
+		},
+		{
 			id: 'consolidatedMessages',
 			sharedPolicy: 'raw',
 			type: 'boolean',
