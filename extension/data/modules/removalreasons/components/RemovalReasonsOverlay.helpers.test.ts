@@ -64,6 +64,24 @@ describe('renderReasonHtml', () => {
 		expect(html,).toContain('value="first"',)
 	})
 
+	it('renders every select when one opens with a blank option (issue #22)', () => {
+		const html = renderReasonHtml(
+			parser,
+			'<select id="first"><option>A1</option><option>A2</option></select>'
+				+ '<select id="second"><option></option><option>B1</option></select>',
+		)
+		const doc = new DOMParser().parseFromString(html, 'text/html',)
+		const groups = doc.querySelectorAll('.toolbox-radio-group',)
+		expect(groups.length,).toBe(2,)
+
+		const radios = Array.from(groups[1]!.querySelectorAll<HTMLInputElement>('input[type="radio"]',),)
+		expect(radios.map((radio,) => radio.value),).toEqual(['', 'B1',],)
+		// The blank placeholder stays selected, so picking the reason inserts nothing
+		// until a real rule is chosen - matching the 6.x dropdown default.
+		expect(radios[0]!.hasAttribute('checked',),).toBe(true,)
+		expect(doc.querySelector<HTMLInputElement>('input[type="hidden"]#second',)?.value,).toBe('',)
+	})
+
 	it('renders an inline (not own-line) choice marker literally', () => {
 		const html = renderReasonHtml(parser, 'Pick one: {choice#x} now',)
 		expect(html,).not.toContain('toolbox-radio-group',)

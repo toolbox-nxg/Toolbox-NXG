@@ -103,6 +103,28 @@ describe('parseReasonSegments', () => {
 		],)
 	})
 
+	it('keeps a blank leading option instead of ending the block (issue #22)', () => {
+		const segments = parseReasonSegments('{choice#r}\n- \n- Rule 1\n- Rule 2',)
+		expect(segments,).toEqual([
+			{type: 'token', token: {kind: 'choice', id: 'r', placeholder: '', options: ['', 'Rule 1', 'Rule 2',],},},
+		],)
+	})
+
+	it('reads a bare bullet with no trailing space as a blank option', () => {
+		const segments = parseReasonSegments('{choice#r}\n- a\n-',)
+		expect(segments,).toEqual([
+			{type: 'token', token: {kind: 'choice', id: 'r', placeholder: '', options: ['a', '',],},},
+		],)
+	})
+
+	it('still ends the block at a bullet glued to its text', () => {
+		const segments = parseReasonSegments('{choice}\n- a\n-notanoption',)
+		expect(segments,).toEqual([
+			{type: 'token', token: {kind: 'choice', placeholder: '', options: ['a',],},},
+			{type: 'text', text: '\n-notanoption',},
+		],)
+	})
+
 	it('parses two choice blocks separated by text', () => {
 		const segments = parseReasonSegments('{choice#a}\n- 1\n\nand\n\n{choice#b}\n- 2',)
 		expect(segments.filter((s,) => s.type === 'token'),).toEqual([
@@ -138,6 +160,16 @@ describe('canonicalizeChoiceBlocks', () => {
 		const canonical = 'Heading\n\n{choice#r}\n- a\n- b\n\nBody'
 		expect(canonicalizeChoiceBlocks(messy,),).toBe(canonical,)
 		expect(canonicalizeChoiceBlocks(canonical,),).toBe(canonical,)
+	})
+
+	it('stays idempotent for a block whose last option is blank', () => {
+		// The blank-option line loses its trailing space to the blank-line collapse, so
+		// the bare bullet it leaves behind has to re-parse as the same blank option.
+		const once = canonicalizeChoiceBlocks(
+			htmlFieldsToTokens('<select id="r"><option>a</option><option></option></select>',),
+		)
+		expect(once,).toBe('{choice#r}\n- a\n-',)
+		expect(canonicalizeChoiceBlocks(once,),).toBe(once,)
 	})
 
 	it('leaves text with no choice block untouched', () => {
@@ -201,6 +233,25 @@ describe('htmlFieldsToTokens', () => {
 				'<select><option>**No slurs.** \\[See the rule.\\]\\(https://example.com/rule\\)</option></select>',
 			),
 		),).toBe('{choice}\n- **No slurs.** [See the rule.](https://example.com/rule)',)
+	})
+
+	it('keeps a blank placeholder <option> as a blank choice option', () => {
+		expect(canonicalizeChoiceBlocks(
+			htmlFieldsToTokens('<select id="r"><option></option><option>Rule 1</option></select>',),
+		),).toBe('{choice#r}\n- \n- Rule 1',)
+	})
+
+	it('converts every select when an earlier one opens with a blank option (issue #22)', () => {
+		const html = '<select id="a"><option>A1</option><option>A2</option></select>'
+			+ '<select id="b"><option></option><option>B1</option></select>'
+			+ '<select id="c"><option></option><option>C1</option></select>'
+		const tokens = parseReasonSegments(htmlFieldsToTokens(html,),)
+			.flatMap((s,) => s.type === 'token' ? [s.token,] : [])
+		expect(tokens,).toEqual([
+			{kind: 'choice', id: 'a', placeholder: '', options: ['A1', 'A2',],},
+			{kind: 'choice', id: 'b', placeholder: '', options: ['', 'B1',],},
+			{kind: 'choice', id: 'c', placeholder: '', options: ['', 'C1',],},
+		],)
 	})
 
 	it('converts inputs and textareas with id and placeholder', () => {
@@ -279,6 +330,13 @@ describe('tokenToLegacyHtml / tokensToHtmlFields', () => {
 
 	it('round-trips an id-less choice block', () => {
 		const text = '{choice}\n- a\n- b'
+		expect(canonicalizeChoiceBlocks(htmlFieldsToTokens(tokensToHtmlFields(text,),),),).toBe(text,)
+	})
+
+	it('round-trips a blank option through the legacy mirror', () => {
+		const text = '{choice#r}\n- \n- a'
+		expect(tokensToHtmlFields(text,),)
+			.toBe('<select id="r"><option></option><option>a</option></select>',)
 		expect(canonicalizeChoiceBlocks(htmlFieldsToTokens(tokensToHtmlFields(text,),),),).toBe(text,)
 	})
 

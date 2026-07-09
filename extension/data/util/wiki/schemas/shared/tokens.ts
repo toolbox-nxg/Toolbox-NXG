@@ -136,8 +136,15 @@ const INLINE_TOKEN_RE = /\{(input|textarea)(?:#([\w-]+))?\s*:([^}]*)\}/gi
 /** Matches a choice marker line (`{choice}` or `{choice#id}`) on its own line; group 1 is the id. */
 const CHOICE_MARKER_RE = /^[ \t]*\{choice(?:#([\w-]+))?\}[ \t]*\r?$/
 
-/** Matches a markdown list item line; group 1 is the option text (trailing whitespace trimmed). */
-const CHOICE_OPTION_RE = /^[ \t]*(?:[-*+]|\d+[.)])[ \t]+(.+?)[ \t]*\r?$/
+/**
+ * Matches a markdown list item line; group 1 is the option text (trailing whitespace
+ * trimmed), or undefined for a bullet with no text. The text is optional so a blank
+ * option - the classic 6.x "nothing picked yet" placeholder `<option></option>` -
+ * survives as an empty option instead of ending the block. Both `- ` and a bare `-`
+ * parse to '', because canonicalization strips the trailing space of a blank option
+ * that sits last in a block. A bullet glued to its text (`-word`) still fails.
+ */
+const CHOICE_OPTION_RE = /^[ \t]*(?:[-*+]|\d+[.)])(?:[ \t]+(.+?))?[ \t]*\r?$/
 
 /** Matches a whole slug-safe id/name. */
 const SLUG_RE = /^[\w-]+$/
@@ -240,7 +247,7 @@ export function parseReasonSegments (text: string,): ReasonSegment[] {
 				const le2 = nl2 === -1 ? n : nl2
 				const optionMatch = CHOICE_OPTION_RE.exec(text.slice(scan, le2,),)
 				if (!optionMatch) { break }
-				options.push(optionMatch[1]!,)
+				options.push(optionMatch[1] ?? '',)
 				optionsEnd = le2
 				scan = nl2 === -1 ? n : nl2 + 1
 			}
