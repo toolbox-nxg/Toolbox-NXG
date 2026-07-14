@@ -242,10 +242,10 @@ export interface ComposedReason {
 
 /**
  * Composes the final reason markdown and flair values from the selected reasons,
- * in display order. For reasons without an edited override, each interactive
- * token in the markdown is substituted with the corresponding user-entered
- * value; the tokens and the rendered controls share the same document order,
- * so the values map 1:1.
+ * in display order. Each interactive token is substituted with the corresponding
+ * user-entered value - in the edited-override text as well as the original
+ * markdown, since an edited reason still renders its controls; the tokens and the
+ * rendered controls share the same document order, so the values map 1:1.
  * @param checkedOrdered Selected reasons in their current display order.
  * @param getOverride Returns the edited markdown override for a reason, if any.
  * @param getInputValues Returns the current user-input values inside a reason's
@@ -270,8 +270,12 @@ export function composeReasonText (
 		// concatenation spacing below is preserved exactly as before.
 		let body: string
 		if (override !== undefined) {
-			body = override
-			reason += `${override}\n\n`
+			// An edited reason still renders its interactive controls, so its values are
+			// substituted just like the non-override path. The draft is healed first because
+			// the editor may have typed raw legacy HTML, which the overrideHtml render also
+			// heals - both must parse the same text for tokens and controls to line up 1:1.
+			body = substituteTokenValues(htmlFieldsToTokens(override,), getInputValues(r.id,),)
+			reason += `${body}\n\n`
 		} else {
 			body = substituteTokenValues(r.markdown, getInputValues(r.id,),)
 			reason += body

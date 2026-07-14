@@ -143,6 +143,27 @@ describe('composeReasonText', () => {
 		expect(result.reason,).toBe('edited text\n\n',)
 	})
 
+	it('substitutes input values into an override, not the literal field markup', () => {
+		const result = composeReasonText(
+			[rendered('a', 'original',),],
+			() => 'Choose:\n\n{choice}\n- o\n\nthen {input: why} end',
+			() => ['picked', 'because',],
+		)
+		expect(result.reason,).toBe('Choose:\n\npicked\n\nthen because end\n\n',)
+		expect(result.reason,).not.toContain('{choice}',)
+		expect(result.reason,).not.toContain('{input:',)
+	})
+
+	it('substitutes input values into an override that still uses legacy HTML fields', () => {
+		const result = composeReasonText(
+			[rendered('a', 'original',),],
+			() => 'Reason: <input id="why"> end',
+			() => ['because',],
+		)
+		expect(result.reason,).toBe('Reason: because end\n\n',)
+		expect(result.reason,).not.toContain('<input',)
+	})
+
 	it('substitutes input and choice values for tokens in document order', () => {
 		const result = composeReasonText(
 			[rendered('a', 'Choose:\n\n{choice}\n- o\n\nthen {input: why} end',),],
