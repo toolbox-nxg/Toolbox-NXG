@@ -169,6 +169,40 @@ describe('FlatListModActions', () => {
 		expect(buttonByText(host, 'Distinguish',),).toBeTruthy()
 	})
 
+	it('offers Sticky on the viewer\'s own top-level comment and distinguishes-and-stickies it', async () => {
+		const host = await render(commentProps({isTopLevelComment: true,},),)
+		const button = buttonByText(host, 'Sticky',)
+		expect(button,).toBeTruthy()
+		await click(button,)
+		// Stickying a comment is distinguish-with-sticky: gateway called with sticky = true.
+		expect(proposeOrDistinguish,).toHaveBeenCalledWith(
+			expect.objectContaining({itemId: 't1_y', itemKind: 'comment',},),
+			true,
+		)
+		// A real sticky flips the toggle to Unsticky.
+		expect(buttonByText(host, 'Unsticky',),).toBeTruthy()
+	})
+
+	it('unstickies an already-stickied own top-level comment via distinguish-without-sticky', async () => {
+		const host = await render(commentProps({isTopLevelComment: true, initialStickied: true,},),)
+		const button = buttonByText(host, 'Unsticky',)
+		expect(button,).toBeTruthy()
+		await click(button,)
+		expect(proposeOrDistinguish,).toHaveBeenCalledWith(expect.objectContaining({itemId: 't1_y',},), false,)
+	})
+
+	it('does not offer Sticky on a nested (non-top-level) own comment', async () => {
+		const host = await render(commentProps({isTopLevelComment: false,},),)
+		expect(buttonByText(host, 'Sticky',),).toBeFalsy()
+		// Distinguish is still available on the nested comment.
+		expect(buttonByText(host, 'Distinguish',),).toBeTruthy()
+	})
+
+	it('does not offer Sticky on another user\'s top-level comment', async () => {
+		const host = await render(commentProps({author: 'someone-else', isTopLevelComment: true,},),)
+		expect(buttonByText(host, 'Sticky',),).toBeFalsy()
+	})
+
 	it('hides Spam and Remove when the item is already removed', async () => {
 		const host = await render(postProps({isRemoved: true,},),)
 		expect(buttonByText(host, 'Spam',),).toBeFalsy()

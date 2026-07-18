@@ -328,15 +328,16 @@ body.toolbox-scope
 	vertical-align: initial !important;
 }
 
-/* Show the mod sticky + save button only where it belongs. Doing this in JS is
+/* Show the distinguish + sticky toggle only where it belongs. Doing this in JS is
    awkward because Reddit clones the reply field from the top-level one, and the
-   button should appear on top-level comments but not on nested replies. */
-/* stylelint-disable-next-line no-descending-specificity -- intentional: hides the button globally before the scoped show-rule below */
-button.save-sticky {
+   toggle should appear on top-level comments but not on nested replies (Reddit only
+   allows a top-level comment to be stickied). */
+/* stylelint-disable-next-line no-descending-specificity -- intentional: hides the row globally before the scoped show-rule below */
+.toolbox-mod-sticky-row {
 	display: none !important;
 }
-:is(.toolbox-scope, :host) .commentarea > form button.save-sticky {
-	display: inline-block !important;
+:is(.toolbox-scope, :host) .commentarea > form .toolbox-mod-sticky-row {
+	display: inline-flex !important;
 }
 
 :is(body.toolbox-scope, :host) .toolbox-action-button:focus {

@@ -38,6 +38,9 @@ export function createModActionsSlot (): () => void {
 			const link = thing?.getAttribute('permalink',) ?? undefined
 			// Comment author, used to limit Distinguish to the viewer's own comments.
 			const author = thing?.getAttribute('author',) ?? undefined
+			// Reddit only lets a mod distinguish-and-sticky a top-level comment (`depth="0"`); nested
+			// replies can be distinguished but never stickied, so the Sticky action is gated on this.
+			const isTopLevelComment = kind === 'comment' && thing?.getAttribute('depth',) === '0'
 
 			return (
 				<FlatListModActions
@@ -50,6 +53,7 @@ export function createModActionsSlot (): () => void {
 					initialStickied={initialStickied}
 					link={link}
 					author={author}
+					isTopLevelComment={isTopLevelComment}
 				/>
 			)
 		},

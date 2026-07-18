@@ -1,8 +1,9 @@
 /**
  * Inline moderator-action buttons rendered into a Shreddit thing's flat-list row
  * (`toolbox-flat-list-slot`). Surfaces the mod actions that otherwise live in Reddit's lazy ⋯
- * overflow menu - Remove as Spam, Lock/Unlock, Distinguish (comments), Sticky/Unsticky and
- * Mark/Unmark NSFW (posts) - so a moderator can act without opening the menu. Every action routes
+ * overflow menu - Remove as Spam, Lock/Unlock, Distinguish (comments) plus Sticky/Unsticky on the
+ * viewer's own top-level comments, and Sticky/Unsticky and Mark/Unmark NSFW (posts) - so a moderator
+ * can act without opening the menu. Every action routes
  * through the proposals gateway, so training-mode capture and the second-opinion flow apply
  * uniformly (UI must never call the moderation API primitives directly). The per-item recent-actions
  * history is surfaced separately by the Queue Tools module (its `thingDetails` table), on both
@@ -59,6 +60,12 @@ export interface FlatListModActionsProps {
 	link?: string | undefined
 	/** Comment author (comments only); Distinguish is only offered on the viewer's own comments. */
 	author?: string | undefined
+	/**
+	 * Whether a comment is top-level (`depth="0"`). Only top-level comments can be
+	 * distinguish-and-stickied, so the Sticky action is offered only when this is true.
+	 * Comment-only; ignored for posts.
+	 */
+	isTopLevelComment?: boolean
 }
 
 /** Visual/interaction state of a single action button. */
@@ -133,8 +140,18 @@ function ModActionButton (
 
 /** Renders the inline mod-action buttons for a Shreddit post/comment when the viewer is a mod. */
 export function FlatListModActions (
-	{subreddit, itemId, itemKind, isRemoved, initialNsfw, initialLocked, initialStickied, link, author,}:
-		FlatListModActionsProps,
+	{
+		subreddit,
+		itemId,
+		itemKind,
+		isRemoved,
+		initialNsfw,
+		initialLocked,
+		initialStickied,
+		link,
+		author,
+		isTopLevelComment = false,
+	}: FlatListModActionsProps,
 ) {
 	// Only moderators of the sub may act; `null` until the cached check resolves.
 	const isMod = useIsMod(subreddit,)
@@ -244,6 +261,18 @@ export function FlatListModActions (
 					performedLabel="distinguished"
 					capturedMessage="Distinguish sent for review"
 					run={() => proposeOrDistinguish(ctx, false,)}
+				/>
+			)}
+			{isOwnComment && isTopLevelComment && (
+				// Stickying a comment IS distinguish-with-sticky in Reddit's API, so this one action both
+				// distinguishes and pins. Unstickying re-distinguishes with `sticky: false`, which drops the
+				// pin while leaving the comment distinguished. Reddit only allows this on top-level comments.
+				<ModActionButton
+					label={stickied ? 'Unsticky' : 'Sticky'}
+					title={stickied ? 'Unsticky this comment' : 'Distinguish and sticky this comment'}
+					capturedMessage="Sticky change sent for review"
+					onPerformed={() => setStickied((v,) => !v)}
+					run={() => proposeOrDistinguish(ctx, !stickied,)}
 				/>
 			)}
 			{isPost && (

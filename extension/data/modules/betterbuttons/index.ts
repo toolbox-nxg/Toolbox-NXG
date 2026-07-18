@@ -6,7 +6,7 @@ import {isMod,} from '../../util/reddit/pageContext'
 import {createAutoApproveHandlers,} from './features/autoApprove'
 import {createAutoIgnoreReportsHandlers,} from './features/autoIgnoreReports'
 import {createCommentLockHandlers,} from './features/commentLock'
-import {createDistinguishToggleHandlers,} from './features/distinguishToggle'
+import {createDistinguishToggleHandlers, distinguishFormSelector,} from './features/distinguishToggle'
 import {createModSaveHandlers,} from './features/modSave'
 import {createRemoveButtonsHandlers,} from './features/removeButtons'
 import {createRemoveConfirmationHandlers,} from './features/removeConfirmation'
@@ -34,16 +34,23 @@ export default new Module<BetterButtonsSettings>({
 	const lifecycle = createLifecycle()
 
 	if (enableModSave) {
-		const {handleModSaveClick, handleStickySaveClick, cleanup,} = createModSaveHandlers()
-		lifecycle.delegate(document.body, 'click', 'button.save-mod', handleModSaveClick,)
-		lifecycle.delegate(document.body, 'click', 'button.save-sticky', handleStickySaveClick,)
+		const {handleToggleChange, handleSaveClick, cleanup,} = createModSaveHandlers()
+		// Delegated because Reddit clones the reply form for every inline reply box: the clones carry
+		// the toggle classes but no listeners of their own.
+		lifecycle.delegate(
+			document.body,
+			'change',
+			'.toolbox-mod-distinguish-toggle, .toolbox-mod-sticky-toggle',
+			handleToggleChange,
+		)
+		lifecycle.delegate(document.body, 'click', '.commentarea form.usertext button.save', handleSaveClick,)
 		lifecycle.mount(cleanup,)
 	}
 	if (enableDistinguishToggle) {
 		const {addSticky, distinguishClicked, cleanup,} = createDistinguishToggleHandlers()
 		lifecycle.mount(cleanup,)
 		lifecycle.on(window, 'TBNewThings', addSticky,)
-		lifecycle.delegate(document.body, 'click', 'form[action="/post/distinguish"]', distinguishClicked,)
+		lifecycle.delegate(document.body, 'click', distinguishFormSelector, distinguishClicked,)
 		addSticky()
 	}
 	if (removeRemoveConfirmation) {

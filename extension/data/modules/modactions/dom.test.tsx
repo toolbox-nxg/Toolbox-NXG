@@ -107,6 +107,32 @@ describe('createModActionsSlot', () => {
 		expect((node as any).props.initialLocked,).toBe(true,)
 	})
 
+	it('marks a depth-0 comment top-level and a deeper one not (drives the Sticky action)', () => {
+		const render = getRenderer()
+
+		const top = document.createElement('shreddit-comment',)
+		top.setAttribute('depth', '0',)
+		const topSlot = document.createElement('span',)
+		top.appendChild(topSlot,)
+		const topNode = render({
+			context: {kind: 'comment', thingId: 't1_top', subreddit: 'sub', isRemoved: false,},
+			target: topSlot,
+		},)
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- inspect the element's props.
+		expect((topNode as any).props.isTopLevelComment,).toBe(true,)
+
+		const nested = document.createElement('shreddit-comment',)
+		nested.setAttribute('depth', '2',)
+		const nestedSlot = document.createElement('span',)
+		nested.appendChild(nestedSlot,)
+		const nestedNode = render({
+			context: {kind: 'comment', thingId: 't1_nested', subreddit: 'sub', isRemoved: false,},
+			target: nestedSlot,
+		},)
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- inspect the element's props.
+		expect((nestedNode as any).props.isTopLevelComment,).toBe(false,)
+	})
+
 	it('does not mark a comment locked from a nested reply\'s lock badge', () => {
 		const comment = document.createElement('shreddit-comment',)
 		// The parent's own meta has no lock badge; only a nested reply does.

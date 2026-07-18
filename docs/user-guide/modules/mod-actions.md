@@ -14,8 +14,8 @@ This module runs only on the Shreddit UI. On old Reddit, Toolbox-NXG provides it
 
 - **Remove as Spam** and **Remove** — remove the item, optionally feeding into removal reasons.
 - **Lock** — lock the post or comment.
-- **Distinguish** — distinguish the item as a moderator.
-- **Sticky** — sticky a comment.
+- **Distinguish** — distinguish your own comment as a moderator (Reddit only allows distinguishing your own comments).
+- **Sticky / Unsticky** — pin a post to the subreddit, or distinguish-and-sticky your own top-level comment. Reddit only allows stickying top-level comments, so the control is not offered on nested replies.
 - **Mark NSFW** — toggle the item's NSFW flag.
 
 The recent moderator actions taken on an item are surfaced separately, by the [Queue Tools](queue-tools.md) module's recent-actions table (available on both old and new Reddit).

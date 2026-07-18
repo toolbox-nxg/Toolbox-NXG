@@ -10,9 +10,9 @@ The module injects additional buttons and tweaks button behaviour throughout old
 
 ## Features
 
-**Mod-save button** — adds a combined "save and distinguish" button to the comment reply box, saving and distinguishing in one click.
+**Mod-save toggles** — adds "distinguish" and "distinguish + sticky" toggles to the comment reply box. Flip one before saving and the reply is distinguished (and optionally stickied) as soon as it posts. The two are mutually exclusive, since stickying already distinguishes. Because Reddit only allows a top-level comment to be stickied, the sticky toggle is hidden on nested reply boxes; when the thread already has a stickied comment, the toggle notes that using it replaces that comment.
 
-**Distinguish and sticky toggle** — replaces the native distinguish button with a toggle that cycles through distinguished, distinguished-and-stickied, and undistinguished states.
+**Distinguish and sticky toggle** — adds a "sticky" shortcut link to your own top-level comments, and skips Reddit's confirmation step so distinguishing takes one click instead of two.
 
 **Skip remove/approve confirmation** — removes the native confirmation dialog shown when removing or approving items.
 
@@ -30,14 +30,14 @@ The module injects additional buttons and tweaks button behaviour throughout old
 
 ## Settings
 
-| Setting                                      | Default | Description                                               |
-| -------------------------------------------- | ------- | --------------------------------------------------------- |
-| Mod-save button                              | Off     | Combined save-and-distinguish button on comment reply box |
-| Distinguish and sticky toggle                | Off     | Cycle distinguish → distinguish+sticky → undistinguished  |
-| Remove remove/approve confirmation           | Off     | Skip native remove/approve confirmation dialogs           |
-| Approve on ignore                            | Off     | Auto-approve when ignoring reports                        |
-| Ignore on approve                            | Off     | Auto-ignore reports when approving                        |
-| Spam button on ham-removed items             | Off     | Show spam button on non-spam removals                     |
-| Remove (not spam) on spam-removed items      | Off     | Show remove button on spam removals                       |
-| Add sticky/unsticky buttons to post listings | Off     | Sticky controls in listing view                           |
-| Add comment lock button                      | On      | Lock/unlock button on comments                            |
+| Setting                                      | Default | Description                                                |
+| -------------------------------------------- | ------- | ---------------------------------------------------------- |
+| Mod-save toggles                             | Off     | Distinguish / distinguish + sticky toggles on reply box    |
+| Distinguish and sticky toggle                | Off     | Sticky shortcut on comments; skip distinguish confirmation |
+| Remove remove/approve confirmation           | Off     | Skip native remove/approve confirmation dialogs            |
+| Approve on ignore                            | Off     | Auto-approve when ignoring reports                         |
+| Ignore on approve                            | Off     | Auto-ignore reports when approving                         |
+| Spam button on ham-removed items             | Off     | Show spam button on non-spam removals                      |
+| Remove (not spam) on spam-removed items      | Off     | Show remove button on spam removals                        |
+| Add sticky/unsticky buttons to post listings | Off     | Sticky controls in listing view                            |
+| Add comment lock button                      | On      | Lock/unlock button on comments                             |

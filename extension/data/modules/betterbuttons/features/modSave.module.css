@@ -1,0 +1,21 @@
+/** Styling for the mod-save distinguish/sticky toggles injected into old Reddit's comment composer. */
+
+/* The shared slider look, applied directly to the checkbox so the control survives Reddit cloning
+   the reply form (a clone keeps the classes, and all behaviour is document-delegated). */
+.toggle {
+	composes: toggle from "../../../css/Base.module.css";
+}
+
+.row {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--toolbox-sp-3);
+	margin-left: var(--toolbox-sp-5);
+	cursor: pointer;
+	vertical-align: middle;
+}
+
+.warning {
+	opacity: 0.8;
+	font-style: italic;
+}

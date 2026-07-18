@@ -6,14 +6,14 @@ export const settings = defineSettings(
 		{
 			id: 'enableModSave',
 			sharedPolicy: 'raw',
-			description: 'Enable mod-save button, will save and distinguish comments.',
+			description: 'Add distinguish and distinguish + sticky toggles to the comment reply box.',
 			type: 'boolean',
 			default: false,
 		},
 		{
 			id: 'enableDistinguishToggle',
 			sharedPolicy: 'raw',
-			description: 'Enable distinguish and sticky toggling.',
+			description: 'Add a sticky shortcut to your comments and skip the distinguish confirmation step.',
 			type: 'boolean',
 			default: false,
 		},
