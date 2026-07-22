@@ -4,6 +4,7 @@ import {createElement,} from 'react'
 import {Provider,} from 'react-redux'
 
 import {SettingsDialog,} from '../modules/shared/settings/SettingsDialog'
+import type {SettingsTarget,} from '../modules/shared/settings/SettingsDialog'
 import store from '../store/index'
 import createLogger from '../util/infra/logging'
 import {isOldReddit, isShreddit,} from '../util/infra/platform'
@@ -74,7 +75,11 @@ const TBModule = {
 		},),)
 	},
 
-	showSettings () {
+	/**
+	 * Opens the settings dialog, optionally scrolled to a specific module/setting.
+	 * @param target Module (and optionally setting) the dialog should open on.
+	 */
+	showSettings (target?: SettingsTarget,) {
 		if (document.querySelector('.toolbox-settings-dialog-host',)) { return }
 		// Mount via mountReactInBody so close tears down the React root (via
 		// `unmount()`), not just the host element. A bare `host.remove()` leaves
@@ -98,6 +103,7 @@ const TBModule = {
 					onClose: close,
 					onExport: exportSettings,
 					onImport: importSettings,
+					...(target && {target,}),
 				},),
 			},),
 			'settings',

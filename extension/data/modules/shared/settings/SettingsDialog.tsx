@@ -487,12 +487,15 @@ function ModuleSettingsTab ({
 	updateValue,
 	debugMode,
 	advancedMode,
+	highlightSetting,
 }: {
 	module: Module
 	localValues: Record<string, unknown>
 	updateValue: (key: string, value: unknown,) => void
 	debugMode: boolean
 	advancedMode: boolean
+	/** Lowercased ID of a deep-linked setting to highlight (and force-show) in this tab. */
+	highlightSetting?: string
 },) {
 	const enabled = module.alwaysEnabled || !!(localValues[`Toolbox.${module.id}.enabled`] ?? module.enabledByDefault)
 
@@ -512,7 +515,9 @@ function ModuleSettingsTab ({
 					if (setting.debug && !debugMode) { return null }
 					if (setting.hidden && !debugMode) { return null }
 					const storageKey = `Toolbox.${module.id}.${setting.id}`
-					const shown = !setting.advanced || advancedMode
+					const highlighted = setting.id.toLowerCase() === highlightSetting
+					// A deep link wins over the advanced-settings filter, so the linked row is never hidden.
+					const shown = !setting.advanced || advancedMode || highlighted
 					return (
 						<SettingRow
 							key={setting.id}
@@ -521,6 +526,7 @@ function ModuleSettingsTab ({
 							value={localValues[storageKey]}
 							onChange={(v,) => updateValue(storageKey, v,)}
 							shown={shown}
+							highlighted={highlighted}
 						/>
 					)
 				},)}
@@ -532,6 +538,14 @@ function ModuleSettingsTab ({
 
 // ----- Main dialog -----
 
+/** A settings entry to open the dialog on, from a `#?tbsettings=<module>&setting=<id>` deep link. */
+export interface SettingsTarget {
+	/** Module ID, case-insensitive. */
+	module: string
+	/** Setting ID within that module, case-insensitive. */
+	setting?: string
+}
+
 /**
  * Renders the main Toolbox settings dialog with a sidebar of module tabs and a settings search box.
  * @param props Component properties.
@@ -539,18 +553,23 @@ function ModuleSettingsTab ({
  * @param onClose Called when the dialog should be dismissed.
  * @param onExport Called with the chosen subreddit name when the user triggers a settings backup.
  * @param onImport Called with the chosen subreddit name when the user triggers a settings restore.
+ * @param target Optional module/setting the dialog should open on, from a settings deep link.
  */
 export function SettingsDialog ({
 	modules,
 	onClose,
 	onExport,
 	onImport,
+	target,
 }: {
 	modules: Module[]
 	onClose: () => void
 	onExport: (subreddit: string,) => Promise<void>
 	onImport: (subreddit: string,) => Promise<void>
+	target?: SettingsTarget
 },) {
+	const targetModule = target?.module.toLowerCase()
+	const targetSetting = target?.setting?.toLowerCase()
 	const [localValues, setLocalValues,] = useState<Record<string, unknown>>(
 		() => ({...store.getState().settings.values,}),
 	)
@@ -657,6 +676,7 @@ export function SettingsDialog ({
 				updateValue={updateValue}
 				debugMode={debugMode}
 				advancedMode={advancedMode}
+				{...(targetSetting && m.id.toLowerCase() === targetModule && {highlightSetting: targetSetting,})}
 			/>
 		),
 	})
@@ -727,6 +747,11 @@ export function SettingsDialog ({
 		}
 	}
 
+	// Deep links name a module by its lowercased ID; open the dialog on that module's tab.
+	const targetTabIndex = targetModule
+		? [...tabIndexToModuleId.entries(),].find(([, id,],) => id.toLowerCase() === targetModule)?.[0] ?? 0
+		: 0
+
 	const matchingModuleIds = new Set(matchingModules.map(({module: m,},) => m.id),)
 	const hiddenTabIndices = searchActive
 		? new Set(
@@ -784,7 +809,7 @@ export function SettingsDialog ({
 			<TabbedDialog
 				title="Toolbox-NXG Settings"
 				tabs={normalTabs}
-				defaultTabIndex={0}
+				defaultTabIndex={targetTabIndex}
 				sidebarHeader={sidebarHeader}
 				hiddenTabIndices={hiddenTabIndices}
 				contentOverride={searchContent}

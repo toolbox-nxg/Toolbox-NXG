@@ -1,7 +1,6 @@
 /** Renders a single setting row inside the SettingsDialog, dispatching to the appropriate input control by type. */
 
-import {useState,} from 'react'
-import {useEffect, useRef,} from 'react'
+import {useEffect, useRef, useState,} from 'react'
 import type {SettingDefinition,} from '../../framework/module'
 import {syntaxThemes,} from '../../modules/syntax/syntaxThemes'
 import type {SyntaxTheme,} from '../../modules/syntax/syntaxThemes'
@@ -90,6 +89,7 @@ function SyntaxThemeSetting ({value, onChange,}: {value: string; onChange: (v: s
  * @param value The current (locally-buffered) value of the setting.
  * @param onChange Called with the new value when the user changes the input.
  * @param shown When false, the row renders nothing (used to hide advanced settings).
+ * @param highlighted When true, the row is visually highlighted and scrolled into view (deep links).
  */
 export function SettingRow ({
 	settingDef,
@@ -97,14 +97,22 @@ export function SettingRow ({
 	value,
 	onChange,
 	shown,
+	highlighted = false,
 }: {
 	settingDef: SettingDefinition
 	moduleId: string
 	value: unknown
 	onChange: (newValue: unknown,) => void
 	shown: boolean
+	highlighted?: boolean
 },) {
 	const [linkExpanded, setLinkExpanded,] = useState(false,)
+	const rowRef = useRef<HTMLDivElement>(null,)
+
+	useEffect(() => {
+		// scrollIntoView is guarded because jsdom does not implement it.
+		if (highlighted) { rowRef.current?.scrollIntoView?.({behavior: 'smooth', block: 'center',},) }
+	}, [highlighted,],)
 
 	if (!shown) { return null }
 
@@ -113,8 +121,11 @@ export function SettingRow ({
 	const redditLink = `[${settingDef.id}](#?tbsettings=${moduleName}&setting=${settingName})`
 	const internetLink = `https://www.reddit.com/#?tbsettings=${moduleName}&setting=${settingName}`
 
+	const rowClass = `${css.row} ${highlighted ? css.highlighted : ''}`
 	const rowProps = {
+		'ref': rowRef,
 		'id': `toolbox-${moduleName}-${settingName}`,
+		'className': rowClass,
 		'data-module': moduleId,
 		'data-setting': settingDef.id,
 	}
@@ -145,7 +156,7 @@ export function SettingRow ({
 	if (settingDef.type === 'action') {
 		if (!settingDef.event || !settingDef.class) { return null }
 		return (
-			<div className={css.row} id={`toolbox-${moduleName}-${settingName}`}>
+			<div {...rowProps}>
 				<ActionButton type="button" onClick={() => sendEvent(settingDef.event!,)}>
 					{settingDef.description}
 				</ActionButton>
@@ -163,7 +174,7 @@ export function SettingRow ({
 			? <span dangerouslySetInnerHTML={{__html: desc,}} />
 			: desc
 		return (
-			<div className={css.row} {...rowProps}>
+			<div {...rowProps}>
 				<div className={css.labelRow}>
 					<CheckboxInput
 						label={labelNode}
@@ -360,7 +371,7 @@ export function SettingRow ({
 	}
 
 	return (
-		<div className={css.row} {...rowProps}>
+		<div {...rowProps}>
 			<div className={css.labelRow}>
 				<span className={css.label}>{settingDef.description}:</span> {linkButton}
 			</div>

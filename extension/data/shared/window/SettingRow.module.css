@@ -6,6 +6,12 @@
 	border-bottom: none;
 }
 
+/* Deep-linked setting (#?tbsettings=<module>&setting=<id>) - marks the row the link points at. */
+.highlighted {
+	background: var(--toolbox-caution-bg);
+	box-shadow: inset 3px 0 0 var(--toolbox-caution-accent);
+}
+
 .row input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="button"]):not([type="color"]),
 .row textarea {
 	box-sizing: border-box;
