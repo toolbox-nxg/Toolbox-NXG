@@ -77,21 +77,36 @@
 	background-color: rgb(152 251 152);
 }
 
-.toolbox-scope .thing.removed {
-	background-color: rgb(211 211 211);
-}
-
+/* Removals share the spam tint: native Reddit and RES both colour any removed thing the same way,
+   regardless of whether it was removed as spam. */
+.toolbox-scope .thing.removed,
 .toolbox-scope .thing.spammed {
 	background-color: rgb(255 99 71);
 }
 
-/* In dark mode, match RES nightmode's muted spam tint instead of the bright tomato above */
+.toolbox-scope .thing.flaired {
+	background-color: rgb(175 238 238);
+}
+
+/* In dark mode the highlights above are light enough to swallow the light body text (RES nightmode
+   and our own dark theme both leave the text colour alone), so use muted tints of the same hues. */
+.res-nightmode .toolbox-scope .thing.removed,
 .res-nightmode .toolbox-scope .thing.spammed,
+.theme-dark.toolbox-scope .thing.removed,
 .theme-dark.toolbox-scope .thing.spammed,
+.toolbox-os-dark .toolbox-scope .thing.removed,
 .toolbox-os-dark .toolbox-scope .thing.spammed {
 	background-color: rgb(61 41 41);
 }
 
-.toolbox-scope .thing.flaired {
-	background-color: rgb(175 238 238);
+.res-nightmode .toolbox-scope .thing.approved,
+.theme-dark.toolbox-scope .thing.approved,
+.toolbox-os-dark .toolbox-scope .thing.approved {
+	background-color: rgb(41 61 41);
+}
+
+.res-nightmode .toolbox-scope .thing.flaired,
+.theme-dark.toolbox-scope .thing.flaired,
+.toolbox-os-dark .toolbox-scope .thing.flaired {
+	background-color: rgb(41 56 61);
 }

@@ -357,11 +357,13 @@ describe('queue modtools auto-refresh', () => {
 
 	it('colors and relabels a queue item removed by another mod, and updates the count', async () => {
 		setBigModQueueHtml()
+		getModLog.mockResolvedValue({data: {children: [],},},)
+		const handlers = createModtoolsHandlers({set: vi.fn(),} as unknown as Module, settings,)
+		await handlers.syncModlogActions()
+
 		getModLog.mockResolvedValue({
 			data: {children: [{data: {target_fullname: 't3_x', action: 'removelink', mod: 'otheruser',},},],},
 		},)
-		const handlers = createModtoolsHandlers({set: vi.fn(),} as unknown as Module, settings,)
-
 		await handlers.syncModlogActions()
 
 		const thing = document.querySelector<HTMLElement>('[data-fullname="t3_x"]',)!
@@ -377,11 +379,13 @@ describe('queue modtools auto-refresh', () => {
 
 	it('marks a spammed item as spammed and an approved item as approved', async () => {
 		setBigModQueueHtml()
+		getModLog.mockResolvedValue({data: {children: [],},},)
+		const handlers = createModtoolsHandlers({set: vi.fn(),} as unknown as Module, settings,)
+		await handlers.syncModlogActions()
+
 		getModLog.mockResolvedValue({
 			data: {children: [{data: {target_fullname: 't3_x', action: 'spamlink', mod: 'spamcop',},},],},
 		},)
-		const handlers = createModtoolsHandlers({set: vi.fn(),} as unknown as Module, settings,)
-
 		await handlers.syncModlogActions()
 
 		const thing = document.querySelector<HTMLElement>('[data-fullname="t3_x"]',)!
@@ -407,15 +411,37 @@ describe('queue modtools auto-refresh', () => {
 
 	it('does not re-count an item already reconciled on a prior run', async () => {
 		setBigModQueueHtml()
+		getModLog.mockResolvedValue({data: {children: [],},},)
+		const handlers = createModtoolsHandlers({set: vi.fn(),} as unknown as Module, settings,)
+		await handlers.syncModlogActions()
+
 		getModLog.mockResolvedValue({
 			data: {children: [{data: {target_fullname: 't3_x', action: 'removelink', mod: 'otheruser',},},],},
+		},)
+		await handlers.syncModlogActions()
+		await handlers.syncModlogActions()
+
+		// The decrement happened only once, on the first reconcile.
+		expect(updateCounters,).toHaveBeenCalledTimes(1,)
+	})
+
+	it('leaves an item the mod log already described when it was first seen untouched', async () => {
+		// Most of the queue is there because AutoModerator, the spam filter, or reddit already removed
+		// it; the page is rendered with that state, so those log entries must not be replayed as fresh
+		// actions - doing so recolored unrelated items and relabeled their remove buttons.
+		setBigModQueueHtml()
+		getModLog.mockResolvedValue({
+			data: {children: [{data: {target_fullname: 't3_x', action: 'removelink', mod: 'reddit',},},],},
 		},)
 		const handlers = createModtoolsHandlers({set: vi.fn(),} as unknown as Module, settings,)
 
 		await handlers.syncModlogActions()
 		await handlers.syncModlogActions()
 
-		// The decrement happened only once, on the first reconcile.
-		expect(updateCounters,).toHaveBeenCalledTimes(1,)
+		const thing = document.querySelector<HTMLElement>('[data-fullname="t3_x"]',)!
+		expect(thing.classList.contains('removed',),).toBe(false,)
+		const removeButton = document.querySelector('.big-mod-buttons .pretty-button.neutral',)!
+		expect(removeButton.textContent,).toBe('remove',)
+		expect(updateCounters,).not.toHaveBeenCalled()
 	})
 })
