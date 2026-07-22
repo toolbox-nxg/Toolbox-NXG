@@ -700,10 +700,16 @@ export function createModtoolsHandlers (
 
 	/**
 	 * Fetches the recent moderation log and reconciles the queue with actions taken elsewhere - by
-	 * other mods, or by this user on another queue page. Each queue item already approved/removed/
+	 * other mods, or by this user on another queue page. Each queue item newly approved/removed/
 	 * spammed gets the matching color, its action buttons replaced with an "Approved/Removed by <mod>"
 	 * status, and the modbar count decremented. Items already actioned locally (or reconciled on a
 	 * previous run) carry the `toolbox-modlog-actioned` marker and are skipped so each counts once.
+	 *
+	 * The first run an item is present for only establishes its baseline (`toolbox-modlog-baselined`):
+	 * much of the queue is there *because* something already removed it - AutoModerator, the spam
+	 * filter, or reddit itself - and the page HTML was rendered with that state, so treating those
+	 * log entries as fresh actions would recolor untouched items and decrement the count for them.
+	 * Only an entry that appears after an item has been seen without one is a real new action.
 	 * @returns The number of items newly reconciled on this run (0 if the fetch is skipped or fails).
 	 */
 	async function syncModlogActions (): Promise<number> {
@@ -740,7 +746,15 @@ export function createModtoolsHandlers (
 				const fullname = getThingFullname(thing,)
 				if (!fullname) { return }
 				const entry = actionsByFullname.get(fullname,)
+				const baselined = thing.classList.contains('toolbox-modlog-baselined',)
+				thing.classList.add('toolbox-modlog-baselined',)
 				if (!entry) { return }
+				if (!baselined) {
+					// Pre-existing state the queue was already rendered with - record it so later runs
+					// skip the item, but leave its appearance and the modbar count alone.
+					thing.classList.add('toolbox-modlog-actioned',)
+					return
+				}
 				applyModlogActionToThing(thing, entry.family, entry.spam, entry.mod,)
 				resolved += 1
 			},)

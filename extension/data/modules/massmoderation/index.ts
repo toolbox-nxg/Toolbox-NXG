@@ -41,6 +41,9 @@ function init (options: MassModerationSettings,) {
 		if (mt.sidebarSort.handleSortClick) {
 			lifecycle.delegate(body, 'click', '.toolbox-sort-subs', mt.sidebarSort.handleSortClick,)
 		}
+		// Baseline the queue against the mod log right away, so items the log already describes (spam
+		// filter / AutoModerator removals awaiting review) aren't mistaken for fresh actions later.
+		void mt.syncModlogActions()
 	}
 
 	if (setup.hasQueueToolsTab) {

@@ -1,6 +1,9 @@
 /** Tests for createRemovalReasonsHandlers. */
 
-import {beforeEach, describe, expect, it, vi,} from 'vitest'
+import type {ReactElement,} from 'react'
+import {act,} from 'react'
+import {createRoot, type Root,} from 'react-dom/client'
+import {afterEach, beforeEach, describe, expect, it, vi,} from 'vitest'
 
 const platform = vi.hoisted(() => ({isOldReddit: true,}))
 const showRemovalReasonsOverlay = vi.hoisted(() => vi.fn(() => vi.fn()))
@@ -8,6 +11,7 @@ const getApiThingInfo = vi.hoisted(() => vi.fn())
 const getConfig = vi.hoisted(() => vi.fn())
 const getThingFromDescendant = vi.hoisted(() => vi.fn((element: Element,) => element.closest('.thing',)))
 const removeThing = vi.hoisted(() => vi.fn())
+const negativeTextFeedback = vi.hoisted(() => vi.fn())
 // Renderer registry for the uiLocations mock — keyed by location name.
 const uiLocMock = vi.hoisted(() => ({renderers: new Map<string, (...args: unknown[]) => unknown>(),}))
 
@@ -51,6 +55,10 @@ vi.mock('../../api/resources/things', () => ({
 
 vi.mock('../config/moduleapi', () => ({
 	getConfig,
+}),)
+
+vi.mock('../../store/feedback', () => ({
+	negativeTextFeedback,
 }),)
 
 // Personal usernote-requirement settings: return each setting's default so the
@@ -163,6 +171,59 @@ function makeThingInfo (id: string, kind = 'submission',) {
 	}
 }
 
+/** Points the config mock at an arbitrary reason list (only the kind flags matter here). */
+function setReasons (reasons: Partial<{removePosts: boolean; removeComments: boolean}>[],) {
+	getConfig.mockResolvedValue({
+		removalReasons: {
+			pmsubject: '',
+			logreason: '',
+			header: '',
+			footer: '',
+			logsub: '',
+			logtitle: '',
+			reasons: reasons.map((flags,) => ({
+				text: 'Rule reason',
+				title: '',
+				flairText: '',
+				flairCSS: '',
+				...flags,
+			})),
+		},
+	},)
+}
+
+;(globalThis as {IS_REACT_ACT_ENVIRONMENT?: boolean}).IS_REACT_ACT_ENVIRONMENT = true
+
+const roots: Root[] = []
+
+/**
+ * Runs the registered `thingFlatListActions` renderer for a context and mounts whatever it returns,
+ * flushing the "does any reason apply to this kind" check the pill gates itself on.
+ */
+async function renderFlatListActions (context: Record<string, unknown>,): Promise<HTMLElement> {
+	const render = uiLocMock.renderers.get('thingFlatListActions',)
+	const host = document.createElement('div',)
+	document.body.appendChild(host,)
+	const element = render?.({context, target: host,},) as ReactElement | null
+	if (!element) { return host }
+	const root = createRoot(host,)
+	roots.push(root,)
+	await act(async () => {
+		root.render(element,)
+	},)
+	return host
+}
+
+/** Context for a removed thing in the flat-list slot. */
+function removedThingContext (kind: 'post' | 'comment',) {
+	return {
+		kind,
+		thingId: kind === 'comment' ? 't1_comment' : 't3_post',
+		subreddit: 'testsub',
+		isRemoved: true,
+	}
+}
+
 function makeClick (target: Element, shiftKey = false,) {
 	const event = new MouseEvent('click', {bubbles: true, cancelable: true, shiftKey,},)
 	Object.defineProperty(event, 'target', {value: target,},)
@@ -184,6 +245,12 @@ beforeEach(() => {
 	removeThing.mockResolvedValue({},)
 	// Register the thingNativeActionReplacement renderer so injectRemoveButton works.
 	createRemovalReasonsHandlers(handlerSettings,)
+},)
+
+afterEach(() => {
+	for (const root of roots.splice(0,)) {
+		act(() => root.unmount())
+	}
 },)
 
 describe('createRemovalReasonsHandlers', () => {
@@ -708,5 +775,76 @@ describe('createRemovalReasonsHandlers', () => {
 
 		expect(removeThing,).toHaveBeenCalledWith('t3_post', false,)
 		expect(showRemovalReasonsOverlay,).not.toHaveBeenCalled()
+	})
+
+	describe('Add removal reason control', () => {
+		/** Finds the rendered pill, if the renderer decided to show one. */
+		const pill = (host: HTMLElement,) => host.querySelector('.toolbox-add-removal-reason',)
+
+		it('hides the control on comments when no reason applies to comments', async () => {
+			setReasons([{removePosts: true,},],)
+			createRemovalReasonsHandlers({...handlerSettings, commentReasons: false,},)
+
+			expect(pill(await renderFlatListActions(removedThingContext('comment',),),),).toBeNull()
+		})
+
+		it('shows the control on comments when a reason is flagged for comments, even with the setting off', async () => {
+			setReasons([{removePosts: true, removeComments: true,},],)
+			createRemovalReasonsHandlers({...handlerSettings, commentReasons: false,},)
+
+			expect(pill(await renderFlatListActions(removedThingContext('comment',),),),).toBeTruthy()
+		})
+
+		it('shows the control on comments when the comment-reasons setting is on', async () => {
+			setReasons([{removePosts: true,},],)
+			createRemovalReasonsHandlers({...handlerSettings, commentReasons: true,},)
+
+			const host = await renderFlatListActions(removedThingContext('comment',),)
+			expect(pill(host,)?.getAttribute('data-id',),).toBe('t1_comment',)
+		})
+
+		it('hides the control on posts when every reason is comment-only', async () => {
+			setReasons([{removePosts: false, removeComments: true,},],)
+			createRemovalReasonsHandlers(handlerSettings,)
+
+			expect(pill(await renderFlatListActions(removedThingContext('post',),),),).toBeNull()
+		})
+
+		it('shows the control on posts when a reason applies to posts', async () => {
+			setReasons([{removePosts: true,},],)
+			createRemovalReasonsHandlers(handlerSettings,)
+
+			expect(pill(await renderFlatListActions(removedThingContext('post',),),),).toBeTruthy()
+		})
+
+		it('renders nothing for a thing that is not removed', async () => {
+			setReasons([{removePosts: true,},],)
+			createRemovalReasonsHandlers(handlerSettings,)
+
+			const host = await renderFlatListActions({...removedThingContext('post',), isRemoved: false,},)
+			expect(host.childElementCount,).toBe(0,)
+		})
+
+		it('reports instead of re-removing when an Add removal reason open finds no applicable reason', async () => {
+			platform.isOldReddit = false
+			getApiThingInfo.mockResolvedValue(makeThingInfo('t1_comment', 'comment',),)
+			setReasons([{removePosts: true,},],)
+			document.body.innerHTML = `
+                <div class="toolbox-frontend-container" data-toolbox-type="TBcomment">
+                    <span
+                        class="toolbox-general-button toolbox-add-removal-reason"
+                        data-id="t1_comment"
+                        data-subreddit="testsub"
+                    >Add removal reason</span>
+                </div>
+            `
+			const event = makeClick(document.querySelector('.toolbox-add-removal-reason',)!,)
+
+			await createRemovalReasonsHandlers({...handlerSettings, commentReasons: false,},).handleClick(event,)
+
+			expect(removeThing,).not.toHaveBeenCalled()
+			expect(showRemovalReasonsOverlay,).not.toHaveBeenCalled()
+			expect(negativeTextFeedback,).toHaveBeenCalledOnce()
+		})
 	})
 })

@@ -128,6 +128,23 @@ describe('coerceSetting', () => {
 		})
 	})
 
+	describe('selector values', () => {
+		// `values` holds display labels; storage holds the derived key form.
+		const selector = {
+			type: 'selector' as const,
+			default: 'toolbox_notes',
+			values: ['Toolbox Notes', 'Native Notes',] as const,
+		}
+
+		it('accepts the derived key form of an option', () =>
+			expect(coerceSetting(selector, 'native_notes',),).toBe('native_notes',))
+
+		it('accepts a stored raw label', () => expect(coerceSetting(selector, 'Native Notes',),).toBe('Native Notes',))
+
+		it('falls back to default for an unknown option', () =>
+			expect(coerceSetting(selector, 'mod_notes',),).toBe('toolbox_notes',))
+	})
+
 	describe('function default', () => {
 		it('calls the default factory when falling back', () => {
 			const factory = () => 99

@@ -23,7 +23,7 @@ describe('settings navigation', () => {
 		vi.useRealTimers()
 	},)
 
-	it('highlights the requested setting and opens settings after the delay', async () => {
+	it('opens settings on the requested module and setting after the delay', async () => {
 		const lifecycle = createLifecycle()
 		const {handleHashParams,} = createSettingsNavigationHandlers()
 		lifecycle.on(window, 'TBHashParams', handleHashParams,)
@@ -35,14 +35,12 @@ describe('settings navigation', () => {
 		)
 		await vi.advanceTimersByTimeAsync(500,)
 
-		expect(document.head.querySelector('style',)?.textContent,).toContain('#toolbox-modbar-enabled',)
-		expect(document.head.querySelector('style',)?.textContent,).toContain('.toolbox-setting-link-enabled',)
-		expect(showSettings,).toHaveBeenCalledOnce()
+		expect(showSettings,).toHaveBeenCalledExactlyOnceWith({module: 'ModBar', setting: 'Enabled',},)
 
 		await lifecycle.cleanup()
 	})
 
-	it('opens settings without adding highlight CSS when only a module is requested', async () => {
+	it('opens settings with no setting target when only a module is requested', async () => {
 		const lifecycle = createLifecycle()
 		const {handleHashParams,} = createSettingsNavigationHandlers()
 		lifecycle.on(window, 'TBHashParams', handleHashParams,)
@@ -54,8 +52,7 @@ describe('settings navigation', () => {
 		)
 		await vi.advanceTimersByTimeAsync(500,)
 
-		expect(document.head.querySelector('style',),).toBeNull()
-		expect(showSettings,).toHaveBeenCalledOnce()
+		expect(showSettings,).toHaveBeenCalledExactlyOnceWith({module: 'Notifier',},)
 
 		await lifecycle.cleanup()
 	})

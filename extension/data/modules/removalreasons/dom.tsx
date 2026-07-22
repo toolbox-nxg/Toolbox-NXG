@@ -1,5 +1,6 @@
 /** DOM manipulation and event handlers for the removal reasons module, including button injection and overlay orchestration. */
 
+import {useEffect, useState,} from 'react'
 import {
 	getNativeRemoveButton as getNativeRemoveButtonOld,
 	getThingFromDescendant as getThingOld,
@@ -109,7 +110,10 @@ function buildOverlayData (baseData: OverlayBaseData, response: RemovalReasonsCo
 }
 
 /**
- * Filters the configured reasons down to those applicable to the target kind.
+ * Filters the configured reasons down to those applicable to the target kind. Also the source of
+ * truth for whether the "Add removal reason" control renders at all: when this comes back empty
+ * there is nothing for the overlay to offer, so the control would be dead (see
+ * {@link createRemovalReasonsHandlers}'s `hasVisibleReasons`).
  * @param reasons All configured reasons.
  * @param isComment Whether the target is a comment.
  * @param commentReasons Whether the "removal reasons for comments" setting is on (only
@@ -128,6 +132,49 @@ function selectVisibleReasons (
 		visible = visible.filter((r,) => r.removeComments)
 	}
 	return visible
+}
+
+/** Props for {@link AddRemovalReasonAction}. */
+interface AddRemovalReasonActionProps {
+	/** Fullname of the removed thing the control acts on. */
+	thingId: string
+	/** Bare subreddit name the thing belongs to. */
+	subreddit: string
+	/** Whether the thing is a comment (decides which reasons would be offered). */
+	isComment: boolean
+	/** Resolves whether any configured reason applies to this thing's kind. */
+	hasReasons: (subreddit: string, isComment: boolean,) => Promise<boolean>
+}
+
+/**
+ * The "Add removal reason" pill for an already-removed thing, rendered only once
+ * {@link AddRemovalReasonActionProps.hasReasons} confirms the overlay would have something to
+ * offer for this thing's kind - otherwise the control is dead (the overlay resolves no visible
+ * reasons and closes without doing anything). The check reads the subreddit config, so it can
+ * only be answered asynchronously; the pill appears when it resolves.
+ *
+ * The pill carries no `onClick`: the click is handled by the document-level capture handler,
+ * which matches the `toolbox-add-removal-reason` class, opens the overlay, and stops the event
+ * so it can't reach Shreddit's full-post overlay. Same contract as the Remove pill - so
+ * {@link FlatListAction} leaves the event alone.
+ */
+function AddRemovalReasonAction ({thingId, subreddit, isComment, hasReasons,}: AddRemovalReasonActionProps,) {
+	const [show, setShow,] = useState(false,)
+	useEffect(() => {
+		let active = true
+		void hasReasons(subreddit, isComment,).then((has,) => {
+			if (active) { setShow(has,) }
+		},)
+		return () => {
+			active = false
+		}
+	}, [subreddit, isComment, hasReasons,],)
+	if (!show) { return null }
+	return (
+		<FlatListAction className="toolbox-add-removal-reason" data-id={thingId} data-subreddit={subreddit}>
+			Add removal reason
+		</FlatListAction>
+	)
 }
 
 /** Inert overlay delivery settings; every value is overridden by a proposal pre-seed. */
@@ -446,6 +493,22 @@ export function createRemovalReasonsHandlers ({
 			}
 		}
 
+		/**
+		 * Exit taken when no reason would be shown for this item's kind. A Remove click still has to
+		 * act, so it falls through to a plain removal. An "Add removal reason" click must not: the
+		 * item is already removed, so removing it again would silently do nothing visible - tell the
+		 * mod instead. This is also the only backstop for Reddit's own overflow-menu "Add removal
+		 * reason" item, which Toolbox intercepts but cannot hide.
+		 */
+		const bailWithoutVisibleReasons = async (link?: string,) => {
+			if (isAddRemovalReason) {
+				negativeTextFeedback('No removal reasons apply to this item',)
+			} else {
+				await continueRemovalWithoutOverlay(link,)
+			}
+			resetRemoveButton()
+		}
+
 		const overlayKey = `${thingSubreddit}|${thingID}`
 		const registryKey = drawerMode ? 'drawer' : overlayKey
 		const existingOverlay = openOverlays.get(registryKey,)
@@ -517,8 +580,7 @@ export function createRemovalReasonsHandlers ({
 
 		if (!response || response.reasons.length < 1) {
 			if (!alwaysShow) {
-				await continueRemovalWithoutOverlay(baseData.url,)
-				resetRemoveButton()
+				await bailWithoutVisibleReasons(baseData.url,)
 				return
 			}
 
@@ -538,8 +600,7 @@ export function createRemovalReasonsHandlers ({
 		const visibleReasons = selectVisibleReasons(data.reasons, isComment, commentReasons,)
 
 		if (!visibleReasons.length) {
-			await continueRemovalWithoutOverlay(data.url,)
-			resetRemoveButton()
+			await bailWithoutVisibleReasons(data.url,)
 			return
 		}
 
@@ -678,6 +739,23 @@ export function createRemovalReasonsHandlers ({
 		return matchedIds.some((id,) => visibleIds.has(id,))
 	}
 
+	/**
+	 * Resolves whether the overlay would offer at least one reason for an item of this kind,
+	 * mirroring the resolution {@link openRemovalOverlay} does: no configured reasons falls back to
+	 * the single custom reason only when `alwaysShow` is on, then the per-kind filter decides. The
+	 * config read behind `getRemovalReasons` is cached, so this costs one cached read per thing.
+	 */
+	async function hasVisibleReasons (subreddit: string, isComment: boolean,): Promise<boolean> {
+		const response = await getRemovalReasons(subreddit,).catch(() => false as const)
+		const configured = response ? response.reasons : []
+		const reasons = configured.length > 0
+			? configured
+			: alwaysShow
+			? [{text: customRemovalReason, title: '', flairText: '', flairCSS: '', flairTemplateID: '',},]
+			: []
+		return selectVisibleReasons(reasons, isComment, commentReasons,).length > 0
+	}
+
 	renderAtLocation(
 		'thingNativeActionReplacement',
 		{id: 'removalreasons.nativeRemoveButton', lifecycle,},
@@ -740,14 +818,17 @@ export function createRemovalReasonsHandlers ({
 		if (pageDetails.pageType === 'queueListing') { return null }
 		const {thingId, subreddit,} = context
 		if (!thingId || !subreddit) { return null }
+		// The pill itself decides whether to render: it only appears once `hasVisibleReasons` says the
+		// overlay would offer something for this kind. A comment on a sub whose reasons are all
+		// post-only (the common case with "removal reasons for comments" off) gets nothing rather than
+		// a control that opens an empty overlay.
 		return (
-			// Rendered into the flat-list slot; the click is handled by the document-level capture
-			// handler (it matches the `toolbox-add-removal-reason` class, opens the overlay, and stops
-			// the event so it can't reach Shreddit's full-post overlay). No `onClick` here - the same
-			// contract as the Remove pill - so {@link FlatListAction} leaves the event for that handler.
-			<FlatListAction className="toolbox-add-removal-reason" data-id={thingId} data-subreddit={subreddit}>
-				Add removal reason
-			</FlatListAction>
+			<AddRemovalReasonAction
+				thingId={thingId}
+				subreddit={subreddit}
+				isComment={context.kind === 'comment'}
+				hasReasons={hasVisibleReasons}
+			/>
 		)
 	},)
 
