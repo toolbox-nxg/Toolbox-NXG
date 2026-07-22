@@ -77,7 +77,7 @@ export function UserSidebarPanel ({subreddit, user, conversationId,}: UserSideba
 			<ActivitySection title="Recent Modmail" state={state} pick={(data,) => data.convos} />
 			<section className={css.section}>
 				<h3 className={css.heading}>Log</h3>
-				<ModNotesPager user={user} subreddit={subreddit} filter="MOD_ACTION" />
+				<ModNotesPager user={user} subreddit={subreddit} filter="MOD_ACTION" layout="card" />
 			</section>
 		</div>
 	)

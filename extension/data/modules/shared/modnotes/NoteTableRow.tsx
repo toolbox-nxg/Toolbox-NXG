@@ -14,13 +14,13 @@ interface NoteTableRowProps {
 	/** Called when the user clicks the delete button on a `NOTE`-type entry. */
 	onDelete: () => void
 	/** When true, renders as a compact card instead of a `<tr>`. */
-	notesOnly?: boolean
+	card?: boolean
 }
 
 /**
- * Renders a single mod note as either a table row (default) or a compact card (when `notesOnly` is true).
+ * Renders a single mod note as either a table row (default) or a compact card (when `card` is true).
  */
-export function NoteTableRow ({note, onDelete, notesOnly = false,}: NoteTableRowProps,) {
+export function NoteTableRow ({note, onDelete, card = false,}: NoteTableRowProps,) {
 	const createdAt = new Date(note.created_at * 1000,)
 	let mod = note.operator
 	if (note.user_note_data?.label === 'USER_SUMMARY') {
@@ -30,23 +30,35 @@ export function NoteTableRow ({note, onDelete, notesOnly = false,}: NoteTableRow
 	const contextURL = useFetched(getContextURL(note,),)
 	const noteText = note.user_note_data?.note
 	const label = note.user_note_data?.label
+	const action = note.mod_action_data?.action
 
-	if (notesOnly) {
+	if (card) {
+		// Mod-action entries carry no user note, so their summary stands in as the card body.
+		const actionDetails = note.mod_action_data?.details ? ` (${note.mod_action_data.details})` : ''
+		const actionDescription = note.mod_action_data?.description ? `: ${note.mod_action_data.description}` : ''
+		const bodyText = noteText
+			?? (action ? `Took action "${action}"${actionDetails}${actionDescription}` : undefined)
 		return (
 			<article className={css.nativeNoteCard}>
 				<div className={css.nativeNoteRow}>
-					{label && (
-						<span
-							className={css.nativeNoteTypeChip}
-							style={{borderColor: labelColors[label], color: labelColors[label],}}
-						>
-							{labelNames[label] || label}
-						</span>
-					)}
-					<span className={css.nativeNoteBody}>
-						{noteText && contextURL
-							? <a className={css.nativeNoteText} href={contextURL}>{noteText}</a>
-							: <span className={css.nativeNoteText}>{noteText}</span>}
+					{label
+						? (
+							<span
+								className={css.nativeNoteTypeChip}
+								style={{borderColor: labelColors[label], color: labelColors[label],}}
+							>
+								{labelNames[label] || label}
+							</span>
+						)
+						: note.type !== 'NOTE' && (
+							<span className={css.nativeNoteTypeChip}>
+								{typeNames[note.type] || note.type}
+							</span>
+						)}
+					<span className={`${css.nativeNoteBody} ${noteText ? '' : css.actionSummary}`}>
+						{bodyText && contextURL
+							? <a className={css.nativeNoteText} href={contextURL}>{bodyText}</a>
+							: <span className={css.nativeNoteText}>{bodyText}</span>}
 					</span>
 					<span className={css.nativeNoteModChip}>/u/{mod}</span>
 					{note.type === 'NOTE' && (

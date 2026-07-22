@@ -19,15 +19,20 @@ interface ModNotesPagerProps {
 	subreddit: string
 	/** Optional note type filter passed to the API (e.g. `'NOTE'` to show only manual notes). */
 	filter?: string
+	/**
+	 * Presentation of each entry. Defaults to a table, except for the `'NOTE'` filter which uses cards.
+	 * Card layout reflows in narrow containers where the table's columns would overflow.
+	 */
+	layout?: 'table' | 'card'
 }
 
 /**
- * Renders a paginated table (or card list when filter is `'NOTE'`) of Reddit mod notes
- * for a given user/subreddit, with a delete button on each note.
+ * Renders a paginated table or card list of Reddit mod notes for a given user/subreddit,
+ * with a delete button on each note.
  */
-export function ModNotesPager ({user, subreddit, filter: noteFilter,}: ModNotesPagerProps,) {
+export function ModNotesPager ({user, subreddit, filter: noteFilter, layout,}: ModNotesPagerProps,) {
 	const [refreshKey, setRefreshKey,] = useState(0,)
-	const notesOnly = noteFilter === 'NOTE'
+	const asCards = layout ? layout === 'card' : noteFilter === 'NOTE'
 
 	const deleteNote = useCallback(async (noteID: string,) => {
 		try {
@@ -46,14 +51,14 @@ export function ModNotesPager ({user, subreddit, filter: noteFilter,}: ModNotesP
 				getAllModNotes(subreddit, user, noteFilter,),
 				page(20,),
 				map((pageItems,) =>
-					notesOnly
+					asCards
 						? (
 							<div className={css.nativeNoteList}>
 								{pageItems.map((note,) => (
 									<NoteTableRow
 										key={note.id}
 										note={note}
-										notesOnly
+										card
 										onDelete={() => void deleteNote(note.id,)}
 									/>
 								))}
@@ -82,7 +87,7 @@ export function ModNotesPager ({user, subreddit, filter: noteFilter,}: ModNotesP
 						)
 				),
 			),
-		[subreddit, user, noteFilter, notesOnly, refreshKey, deleteNote,],
+		[subreddit, user, noteFilter, asCards, refreshKey, deleteNote,],
 	)
 
 	return (
