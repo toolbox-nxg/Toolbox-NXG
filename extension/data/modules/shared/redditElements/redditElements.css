@@ -206,10 +206,10 @@
 	margin-right: var(--toolbox-sp-10);
 }
 
-.toolbox-scope .toolbox-comment-button.toolbox-comment-context-popup,
-.toolbox-scope .toolbox-comment-button-spam,
-.toolbox-scope .toolbox-comment-button-remove,
-.toolbox-scope .toolbox-comment-button-approve {
+/* Action buttons (spam/remove/approve/lock/nsfw/context-popup) are hrefless <a>s driven by
+   delegated click handlers, so they need an explicit pointer; navigation buttons carry an href. */
+.toolbox-scope .toolbox-submission-button:not([href]),
+.toolbox-scope .toolbox-comment-button:not([href]) {
 	cursor: pointer;
 }
 
