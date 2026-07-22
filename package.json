@@ -85,7 +85,7 @@
         "eslint-plugin-react": "^7.37.5",
         "eslint-plugin-react-hooks": "^7.1.1",
         "globals": "^17.7.0",
-        "happy-dom": "^20.10.6",
+        "happy-dom": "^20.11.0",
         "jsdom": "^29.1.1",
         "patch-package": "^8.0.1",
         "rollup": "^4.62.2",
@@ -100,6 +100,6 @@
         "vitest": "^4.1.8"
     },
     "optionalDependencies": {
-        "@rolldown/binding-linux-x64-gnu": "^1.1.2"
+        "@rolldown/binding-linux-x64-gnu": "^1.2.0"
     }
 }
