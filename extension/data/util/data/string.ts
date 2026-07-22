@@ -60,3 +60,12 @@ export function replaceTokens (info: Record<string, string>, content: string,): 
  * Strips ASCII single and double quote characters out of a string.
  */
 export const removeQuotes = (string: string,): string => string.replace(/['"]/g, '',)
+
+/**
+ * Derives the persisted value of a `selector` setting option from its display label:
+ * lower-cased with whitespace replaced by underscores. Selector definitions list human
+ * readable labels, but only this derived form is ever written to storage (the format is
+ * shared with Toolbox 6.x), so label and stored value must be compared through this.
+ * @param label The option label as written in the setting definition.
+ */
+export const selectorOptionKey = (label: string,): string => label.toLowerCase().replace(/\s/g, '_',)

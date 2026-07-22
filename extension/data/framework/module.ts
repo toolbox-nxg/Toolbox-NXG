@@ -1,5 +1,6 @@
 /** Defines the Module class, setting definition types, and related utilities for Toolbox feature modules. */
 
+import {selectorOptionKey,} from '../util/data/string'
 import {getSettingAsync, getSettingFrom, setSettingAsync,} from '../util/persistence/settings'
 import type {SettingsObject,} from '../util/persistence/settings'
 
@@ -166,8 +167,16 @@ export function coerceSetting (
 			return (typeof raw === 'object' && raw !== null && !Array.isArray(raw,)) ? raw : def()
 		case 'selector':
 			if (typeof raw !== 'string') { return def() }
-			// Fall back to default if the stored value is no longer a valid option
-			return (setting.values == null || setting.values.includes(raw,)) ? raw : def()
+			// Fall back to default if the stored value is no longer a valid option. `values`
+			// holds display labels while storage holds the derived key form, so a stored value
+			// counts as valid when it matches either (older data may hold a raw label).
+			return (
+					setting.values == null
+					|| setting.values.includes(raw,)
+					|| setting.values.some((value,) => selectorOptionKey(value,) === raw)
+				)
+				? raw
+				: def()
 		case 'page':
 			return raw
 		default:

@@ -5,6 +5,7 @@ import {useEffect, useRef,} from 'react'
 import type {SettingDefinition,} from '../../framework/module'
 import {syntaxThemes,} from '../../modules/syntax/syntaxThemes'
 import type {SyntaxTheme,} from '../../modules/syntax/syntaxThemes'
+import {selectorOptionKey,} from '../../util/data/string'
 import {sendEvent,} from '../../util/reddit/events'
 import {cleanSubredditName,} from '../../util/reddit/reddit-domain'
 import {createEditor,} from '../../util/ui/codemirrorSetup'
@@ -287,7 +288,7 @@ export function SettingRow ({
 			const vals = settingDef.values ?? []
 			const rawVal = (value ?? settingDef.default ?? '') as string
 			// Normalize to match how SingleSelect computes values from labels
-			const currentVal = rawVal.toLowerCase().replace(/\s/g, '_',)
+			const currentVal = selectorOptionKey(rawVal,)
 			inputEl = (
 				<SingleSelect
 					options={[...vals,]}

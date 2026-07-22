@@ -1,6 +1,7 @@
 /** Radio-button group that presents a set of options as inline selectable chips. */
 
 import {useId,} from 'react'
+import {selectorOptionKey,} from '../../util/data/string'
 import css from './SingleSelect.module.css'
 
 /**
@@ -29,7 +30,7 @@ export const SingleSelect = ({
 	return (
 		<div className={css.group}>
 			{options.map((label,) => {
-				const val = label.toLowerCase().replace(/\s/g, '_',)
+				const val = selectorOptionKey(label,)
 				const id = `${groupName}-${val}`
 				return (
 					<span key={val} className={css.option}>
