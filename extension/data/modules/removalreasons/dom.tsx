@@ -921,7 +921,14 @@ export function createRemovalReasonsHandlers ({
 			let element = eventTarget?.closest(nonButtonSelectorNoAddReason,) ?? null
 			if (!element) {
 				const button = eventTarget?.closest('button',) ?? null
-				if (button && !(button.getRootNode() instanceof ShadowRoot)) {
+				if (
+					button
+					&& !(button.getRootNode() instanceof ShadowRoot)
+					// Never swallow clicks on Toolbox's own React-rendered buttons (e.g. the mass-moderation
+					// toolbar's "remove selected"/"removed selected") - this fallback exists to catch native
+					// Reddit remove controls without a recognized class, not Toolbox's own UI.
+					&& !button.closest('.toolbox-react-light-host',)
+				) {
 					const text = button.textContent ?? ''
 					if (/\bremov(e|al)\b/i.test(text,)) {
 						element = button
