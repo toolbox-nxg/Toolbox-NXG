@@ -346,9 +346,10 @@ export function RemovalSettingsTab ({state, saveRef, onSave,}: Props,) {
 			<div className={css.section}>
 				<div className={css.sectionTitle}>Reddit&apos;s removal reasons</div>
 				<p className={css.sectionDesc}>
-					Import this subreddit&apos;s native removal reasons (the ones set in Reddit&apos;s Mod Tools) and
-					keep them up to date. Reddit owns each imported reason&apos;s title and message; flair, usernote
-					defaults, and the post/comment settings stay here in toolbox.
+					Import this subreddit&apos;s native removal reasons (the ones set in Reddit&apos;s mod tools under
+					Saved Responses &rarr; Removals, not your community rules) and keep them up to date. Reddit owns
+					each imported reason&apos;s title and message; flair, usernote defaults, and the post/comment
+					settings stay here in toolbox.
 				</p>
 				<CheckboxInput
 					label="Keep toolbox removal reasons in sync with Reddit's"

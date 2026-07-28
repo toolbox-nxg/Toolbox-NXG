@@ -130,7 +130,9 @@ function ManagedByRedditHint ({subreddit,}: {subreddit: string | undefined},) {
 			Managed by Reddit. {subreddit
 				? (
 					<a
-						href={`https://www.reddit.com/r/${subreddit}/about/removal`}
+						// Reddit keeps native removal reasons under Saved Responses in the new mod
+						// tools; the old /r/<sub>/about/removal path is not where they live.
+						href={`https://sh.reddit.com/mod/${subreddit}/saved-responses/removals`}
 						target="_blank"
 						rel="noopener noreferrer"
 					>

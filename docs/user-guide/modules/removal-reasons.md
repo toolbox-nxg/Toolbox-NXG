@@ -92,7 +92,7 @@ Pre-selection is a personal preference: turn off **Pre-select suggested removal 
 
 ## Syncing Reddit's removal reasons
 
-Reddit has its own removal reasons, configured in **Mod Tools → Removal Reasons**. If your subreddit already maintains them there, toolbox can import them instead of making you write everything out a second time.
+Reddit has its own removal reasons, configured in the new mod tools under **Saved Responses → Removals** (`https://sh.reddit.com/mod/<subreddit>/saved-responses/removals`). Note that these are _not_ your community rules - having rules configured does not give you removal reasons, and a subreddit that has never created one has nothing for toolbox to import. If your subreddit already maintains them there, toolbox can import them instead of making you write everything out a second time.
 
 Turn on **Keep toolbox removal reasons in sync with Reddit's** under _Removal reasons settings_ in the toolbox config editor. Imported reasons then appear alongside your own, marked with a **Native** chip.
 
