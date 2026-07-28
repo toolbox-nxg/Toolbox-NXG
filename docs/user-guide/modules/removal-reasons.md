@@ -136,11 +136,14 @@ In a subreddit that has **no** toolbox removal reasons, the overlay offers Reddi
 
 It is deliberately either/or — you never see toolbox reasons and native ones mixed together. As soon as a subreddit has a single toolbox reason configured, the fallback stops applying there and syncing becomes the way to combine the two.
 
-Because there is no toolbox config behind them, fallback reasons are more limited than configured ones:
+Fallback reasons behave like your own in most respects. Fill-in fields (`{input:…}`, `{textarea:…}`, `{select:…}`) and substitution tokens (`{author}`, `{subreddit}`, …) work exactly as they do in configured reasons, and if your subreddit has a message template — header, footer, modmail subject, removal-log settings — it is applied to them too. Only the reason list itself is coming from Reddit.
 
-- they are read-only, and cannot be reordered or edited from the overlay
-- no header, footer, or custom modmail subject is applied to the message
-- no post flair is applied, and no removal is written to a removal-log subreddit
+They are more limited in two ways:
+
+- they are read-only: Reddit owns the wording, so they cannot be edited or reordered from the overlay
+- no post flair, usernote default, or post/comment restriction is attached, because those live in a toolbox reason and these are not stored anywhere
+
+A subreddit with no toolbox config at all has no message template to apply, so there the message is just the reason text.
 
 As with imported reasons, removing something with a native reason registers that reason against the item in Reddit's own mod log.
 

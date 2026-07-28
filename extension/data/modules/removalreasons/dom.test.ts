@@ -840,6 +840,64 @@ describe('createRemovalReasonsHandlers', () => {
 			expect(props.visibleReasons[0],).toMatchObject({title: 'Spam', nativeReasonId: 'rr1',},)
 		})
 
+		it('keeps the subreddit message template when falling back to native reasons', async () => {
+			// The sub has a header/footer/subject configured but no reasons of its own; only
+			// the reason list is missing, so only the reason list should be substituted.
+			getNativeRemovalReasons.mockResolvedValue([{id: 'rr1', title: 'Spam', message: 'No spam allowed',},],)
+			getConfig.mockResolvedValue({
+				removalReasons: {
+					reasons: [],
+					header: 'Hello from the mods',
+					footer: 'Reply to appeal',
+					pmsubject: 'Your post was removed',
+					logsub: 'testsublog',
+					logtitle: 'Removed: {title}',
+				},
+			},)
+			document.body.innerHTML = `
+                <div class="thing link" data-fullname="t3_post" data-subreddit="testsub">
+                    <span class="remove-button">
+                        <button class="togglebutton">remove</button>
+                    </span>
+                </div>
+            `
+			const event = makeClick(document.querySelector('.togglebutton',)!,)
+			await createRemovalReasonsHandlers({
+				...handlerSettings,
+				nativeReasonsFallback: true,
+				alwaysShow: false,
+			},).handleClick(event,)
+
+			const props = showRemovalReasonsOverlay.mock.calls[0]![0]
+			expect(props.nativeMode,).toBe(true,)
+			expect(props.data.header,).toBe('Hello from the mods',)
+			expect(props.data.footer,).toBe('Reply to appeal',)
+			expect(props.visibleReasons[0],).toMatchObject({nativeReasonId: 'rr1',},)
+		})
+
+		it('leaves the message template blank when the subreddit has no config at all', async () => {
+			getNativeRemovalReasons.mockResolvedValue([{id: 'rr1', title: 'Spam', message: 'No spam allowed',},],)
+			getConfig.mockResolvedValue(undefined,)
+			document.body.innerHTML = `
+                <div class="thing link" data-fullname="t3_post" data-subreddit="testsub">
+                    <span class="remove-button">
+                        <button class="togglebutton">remove</button>
+                    </span>
+                </div>
+            `
+			const event = makeClick(document.querySelector('.togglebutton',)!,)
+			await createRemovalReasonsHandlers({
+				...handlerSettings,
+				nativeReasonsFallback: true,
+				alwaysShow: false,
+			},).handleClick(event,)
+
+			const props = showRemovalReasonsOverlay.mock.calls[0]![0]
+			expect(props.nativeMode,).toBe(true,)
+			expect(props.data.header,).toBe('',)
+			expect(props.data.footer,).toBe('',)
+		})
+
 		it('shows native reasons on a comment even when the comment-reasons setting is off (bypasses the kind filter)', async () => {
 			platform.isOldReddit = false
 			setThingInfo('comment',)

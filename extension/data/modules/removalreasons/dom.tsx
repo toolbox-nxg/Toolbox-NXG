@@ -595,6 +595,12 @@ export function createRemovalReasonsHandlers ({
 			}
 			if (native.length) {
 				nativeMode = true
+				// A subreddit can have a configured message template and no reasons to go with
+				// it. Only the reason list is missing, so only the reason list is replaced: the
+				// header, footer, modmail subject and removal-log settings carry over, and the
+				// same native reason sends the same message whether or not the sub has opted
+				// into syncing. The literals below are the defaults for a sub with no config at
+				// all, which is the other way into this branch.
 				response = {
 					pmsubject: '',
 					logreason: '',
@@ -603,6 +609,7 @@ export function createRemovalReasonsHandlers ({
 					logsub: '',
 					logtitle: '',
 					getfrom: '',
+					...response,
 					reasons: native.map((n,) => ({
 						text: n.message,
 						title: n.title,
