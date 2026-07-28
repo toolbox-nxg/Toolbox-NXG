@@ -44,12 +44,34 @@ export interface NativeSyncOutcome {
 	/**
 	 * `disabled` - not opted in (or no config); `redirected` - the subreddit takes its
 	 * reasons from elsewhere; `throttled` - attempted too recently; `unchanged` - nothing
-	 * upstream moved; `synced` - the config was rewritten; `failed` - the fetch failed.
+	 * upstream moved; `noneUpstream` - Reddit has no removal reasons configured at all;
+	 * `allIgnored` - Reddit has some, but every one was deleted here; `synced` - the config
+	 * was rewritten; `failed` - the fetch or the write failed.
+	 *
+	 * The last three "nothing happened" cases are kept apart on purpose. Reporting them all
+	 * as `unchanged` tells a moderator their reasons are in sync when in fact none exist to
+	 * import, which is indistinguishable from success and sends them hunting for a bug.
 	 */
-	status: 'disabled' | 'redirected' | 'throttled' | 'unchanged' | 'synced' | 'failed'
+	status: 'disabled' | 'redirected' | 'throttled' | 'unchanged' | 'noneUpstream' | 'allIgnored' | 'synced' | 'failed'
 	added?: number
 	updated?: number
 	removed?: number
+}
+
+/**
+ * Explains why a run had nothing to do, so the editor can say something truer than
+ * "already up to date".
+ * @param native The native reasons just fetched.
+ * @param ignored Native ids the moderator deleted locally.
+ */
+function idleStatus (
+	native: {id: string}[],
+	ignored?: string[],
+): 'unchanged' | 'noneUpstream' | 'allIgnored' {
+	if (native.length < 1) { return 'noneUpstream' }
+	const ignoredIds = new Set(ignored ?? [],)
+	if (native.every((reason,) => ignoredIds.has(reason.id,))) { return 'allIgnored' }
+	return 'unchanged'
 }
 
 /** Clears the in-session throttle. Exposed for tests. */
@@ -193,13 +215,24 @@ export async function syncNativeReasons (
 	// An empty native list is a legitimate result - every native reason was deleted - and
 	// the merge below is what removes the toolbox copies.
 	const fingerprint = nativeReasonsFingerprint(native,)
-	if (fingerprint === nativeSync.fingerprint) { return {status: 'unchanged',} }
+	log.debug(
+		`sync /r/${subreddit}: fetched ${native.length} native reasons; `
+			+ `fingerprint ${fingerprint} vs stored ${nativeSync.fingerprint ?? '(none)'}; `
+			+ `${nativeSync.ignored?.length ?? 0} ignored; ${config.removalReasons.reasons.length} configured`,
+	)
+	if (fingerprint === nativeSync.fingerprint) {
+		return {status: idleStatus(native, nativeSync.ignored,),}
+	}
 
 	const result = mergeNativeReasons(config.removalReasons.reasons, native, nativeSync.ignored,)
+	log.debug(
+		`sync /r/${subreddit}: merge -> ${result.added} added, ${result.updated} updated, `
+			+ `${result.removed} removed, changed=${result.changed}`,
+	)
 	if (!result.changed) {
 		// The fingerprint is order-independent, so this is near-unreachable. Recomputing an
 		// O(n) merge on the next open is cheaper than burning a wiki revision to store it.
-		return {status: 'unchanged',}
+		return {status: idleStatus(native, nativeSync.ignored,),}
 	}
 
 	// Build a fresh object rather than mutating the cached config in place.

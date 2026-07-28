@@ -2,6 +2,7 @@
 
 import {utils,} from '../../framework/moduleIds'
 import {assertActionAllowed,} from '../../util/infra/captureGuard'
+import createLogger from '../../util/infra/logging'
 import {getCache, setCache,} from '../../util/persistence/cache'
 import {postRedditApiVoid,} from '../parsers/redditMutation'
 import {apiOauthGetJSON,} from '../transport/http'
@@ -22,6 +23,8 @@ interface NativeRemovalReasonsResponse {
 	data: Record<string, NativeRemovalReason>
 	order: string[]
 }
+
+const log = createLogger('TBNativeReasons',)
 
 /** Cache key holding every subreddit's last-fetched native reasons, keyed by subreddit. */
 const nativeReasonsCacheKey = 'nativeRemovalReasons'
@@ -65,7 +68,20 @@ async function fetchNativeRemovalReasons (subreddit: string,): Promise<NativeRem
 	// absent or stale. `noUncheckedIndexedAccess` widens the lookup to `| undefined`, so drop
 	// any id in `order` that no longer has a matching entry.
 	const ids = response.order?.length ? response.order : Object.keys(byId,)
-	return ids.map((id,) => byId[id]).filter((reason,): reason is NativeRemovalReason => Boolean(reason,))
+	const reasons = ids.map((id,) => byId[id]).filter((reason,): reason is NativeRemovalReason => Boolean(reason,))
+	// An unexpected response shape yields an empty list rather than an error, which is
+	// indistinguishable from "this subreddit has none configured" everywhere downstream.
+	// Log the shape so that case is diagnosable instead of silent.
+	log.debug(
+		`native removal reasons for /r/${subreddit}: ${reasons.length} usable`,
+		{
+			topLevelKeys: Object.keys(response ?? {},),
+			dataEntries: Object.keys(byId,).length,
+			orderEntries: response?.order?.length ?? 0,
+			response,
+		},
+	)
+	return reasons
 }
 
 /**

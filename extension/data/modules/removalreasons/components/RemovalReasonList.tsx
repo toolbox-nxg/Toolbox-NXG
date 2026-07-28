@@ -668,6 +668,14 @@ export function RemovalReasonList ({state, addRef, disabledRef, sortRef, syncRef
 			setSyncNotice(
 				outcome.status === 'unchanged'
 					? 'Already up to date with Reddit.'
+					// Distinct from "up to date": nothing was imported because there is nothing
+					// to import. Saying otherwise reads as success and hides the real next step.
+					: outcome.status === 'noneUpstream'
+					? 'This subreddit has no removal reasons set up on Reddit, so there was nothing to import. '
+						+ 'Add them in Reddit\'s mod tools, then sync again.'
+					: outcome.status === 'allIgnored'
+					? 'Every removal reason from Reddit was deleted here, so nothing was imported. '
+						+ 'Turn syncing off and back on in "Removal reasons settings" to start over.'
 					: outcome.status === 'redirected'
 					? 'This subreddit takes its removal reasons from another subreddit; nothing to sync.'
 					: outcome.status === 'disabled'

@@ -11,7 +11,7 @@ const setCache = vi.hoisted(() => vi.fn())
 
 vi.mock('../../../framework/moduleIds', () => ({utils: 'utils',}),)
 vi.mock('../../../util/infra/logging', () => ({
-	default: () => ({debug: vi.fn(), warn: vi.fn(), error: vi.fn(),}),
+	default: () => ({debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(),}),
 }),)
 vi.mock('../../../util/persistence/cache', () => ({getCache, setCache,}),)
 vi.mock('../../config/moduleapi', () => ({getConfig, saveToolboxConfig,}),)
@@ -411,5 +411,66 @@ describe('syncNativeReasons save failures', () => {
 		)
 
 		await expect(syncNativeReasons('sub', {force: true,},),).resolves.toMatchObject({status: 'synced',},)
+	})
+})
+
+describe('syncNativeReasons idle outcomes', () => {
+	it('reports that Reddit has no reasons rather than claiming to be up to date', async () => {
+		// The case that sent a real moderator hunting for a bug: an empty upstream list used
+		// to report `unchanged`, which reads as "your reasons are in sync".
+		getNativeReasons.mockResolvedValue([],)
+
+		await expect(syncNativeReasons('sub', {force: true,},),).resolves.toEqual({status: 'noneUpstream',},)
+	})
+
+	it('still reports noneUpstream when the empty list matches the stored fingerprint', async () => {
+		getNativeReasons.mockResolvedValue([],)
+		getConfig.mockResolvedValue(
+			makeConfig({nativeSync: {enabled: true, fingerprint: nativeReasonsFingerprint([],),},},),
+		)
+
+		await expect(syncNativeReasons('sub', {force: true,},),).resolves.toEqual({status: 'noneUpstream',},)
+	})
+
+	it('reports that every reason was ignored rather than claiming to be up to date', async () => {
+		getConfig.mockResolvedValue(makeConfig({nativeSync: {enabled: true, ignored: ['n1', 'n2',],},},),)
+
+		await expect(syncNativeReasons('sub', {force: true,},),).resolves.toEqual({status: 'allIgnored',},)
+	})
+
+	it('still reports unchanged when the reasons really are in sync', async () => {
+		getConfig.mockResolvedValue(makeConfig({
+			nativeSync: {enabled: true, fingerprint: nativeReasonsFingerprint(nativeReasons,),},
+		},),)
+
+		await expect(syncNativeReasons('sub', {force: true,},),).resolves.toEqual({status: 'unchanged',},)
+	})
+
+	it('does not mistake a partially ignored list for a fully ignored one', async () => {
+		getConfig.mockResolvedValue(makeConfig({nativeSync: {enabled: true, ignored: ['n1',],},},),)
+
+		await expect(syncNativeReasons('sub', {force: true,},),).resolves.toMatchObject({status: 'synced', added: 1,},)
+	})
+
+	it('still removes toolbox copies when every native reason is deleted upstream', async () => {
+		// An empty upstream list is not inert: linked reasons must go. Reporting noneUpstream
+		// must not short-circuit that removal.
+		getNativeReasons.mockResolvedValue([],)
+		getConfig.mockResolvedValue(makeConfig({
+			nativeSync: {enabled: true, fingerprint: 'stale',},
+			reasons: [{
+				title: 'Gone',
+				text: 'body',
+				flairText: '',
+				flairCSS: '',
+				flairTemplateID: '',
+				nativeReasonId: 'n1',
+			},],
+		},),)
+
+		await expect(syncNativeReasons('sub', {force: true,},),).resolves.toMatchObject({
+			status: 'synced',
+			removed: 1,
+		},)
 	})
 })
