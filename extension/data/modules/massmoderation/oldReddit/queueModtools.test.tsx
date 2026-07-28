@@ -99,6 +99,7 @@ const settings: MassModerationSettings = {
 describe('queue modtools auto-refresh', () => {
 	let autoRefreshTick: (() => Promise<void>) | undefined
 	let onActionButton: ((type: string,) => Promise<number>) | undefined
+	let onToggleReports: ((expanded: boolean,) => void) | undefined
 
 	beforeEach(() => {
 		document.body.innerHTML = `
@@ -111,9 +112,11 @@ describe('queue modtools auto-refresh', () => {
 		`
 		autoRefreshTick = undefined
 		onActionButton = undefined
+		onToggleReports = undefined
 		ModtoolsToolbar.mockImplementation((props,) => {
 			autoRefreshTick = props.onAutoRefreshTick
 			onActionButton = props.onActionButton
+			onToggleReports = props.onToggleReports
 			props.onMount({
 				setHiddenCount: vi.fn(),
 				setSelectAll: vi.fn(),
@@ -443,5 +446,26 @@ describe('queue modtools auto-refresh', () => {
 		const removeButton = document.querySelector('.big-mod-buttons .pretty-button.neutral',)!
 		expect(removeButton.textContent,).toBe('remove',)
 		expect(updateCounters,).not.toHaveBeenCalled()
+	})
+
+	it('toggles the reports-expanded class on the site table from the toolbar', () => {
+		createModtoolsHandlers({set: vi.fn(),} as unknown as Module, settings,)
+		const siteTable = document.querySelector('#siteTable',)!
+
+		onToggleReports?.(true,)
+		expect(siteTable.classList.contains('toolbox-reports-expanded',),).toBe(true,)
+
+		onToggleReports?.(false,)
+		expect(siteTable.classList.contains('toolbox-reports-expanded',),).toBe(false,)
+	})
+
+	it('removes the mass-moderation body class on cleanup', async () => {
+		const handlers = createModtoolsHandlers({set: vi.fn(),} as unknown as Module, settings,)
+		expect(document.body.classList.contains('toolbox-mm-active',),).toBe(true,)
+
+		await handlers.cleanup()
+
+		// Left behind, this keeps reddit's own .menuarea sort bar hidden with no toolbar to replace it.
+		expect(document.body.classList.contains('toolbox-mm-active',),).toBe(false,)
 	})
 })

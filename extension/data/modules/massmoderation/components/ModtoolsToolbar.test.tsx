@@ -1,4 +1,4 @@
-/** Tests for ModtoolsToolbar auto-refresh backoff. */
+/** Tests for ModtoolsToolbar auto-refresh backoff and selection-control stability. */
 
 import {act,} from 'react'
 import {createRoot, type Root,} from 'react-dom/client'
@@ -57,6 +57,19 @@ function renderToolbar (overrides: Partial<ModtoolsToolbarProps>,) {
 	act(() => {
 		root.render(<ModtoolsToolbar {...defaultProps(overrides,)} />,)
 	},)
+	return host
+}
+
+/**
+ * Finds a rendered button by its exact label. Queries by text rather than CSS-module class,
+ * because vitest runs with `css: false` so the hashed class names are not real.
+ * @param label The button's trimmed text content.
+ */
+function buttonByText (label: string,): HTMLButtonElement {
+	const button = Array.from(document.querySelectorAll('button',),)
+		.find((element,) => element.textContent?.trim() === label)
+	if (!button) { throw new Error(`no button labelled "${label}"`,) }
+	return button
 }
 
 /** Advances fake timers (and flushes the async tick) inside an act() boundary. */
@@ -156,5 +169,131 @@ describe('ModtoolsToolbar auto-refresh backoff', () => {
 		expect(onAutoRefreshTick,).toHaveBeenCalledTimes(3,)
 		await advance(1000,)
 		expect(onAutoRefreshTick,).toHaveBeenCalledTimes(4,)
+	})
+})
+
+describe('ModtoolsToolbar selection controls', () => {
+	/** Every control whose enabled state depends on the current selection. */
+	const bulkLabels = [
+		'invert',
+		'unhide all',
+		'hide selected',
+		'spam selected',
+		'remove selected',
+		'approve selected',
+		'ignore reports on selected',
+	]
+
+	afterEach(() => {
+		act(() => {
+			roots.forEach((root,) => root.unmount())
+		},)
+		roots.length = 0
+		document.body.innerHTML = ''
+	},)
+
+	/** Renders a toolbar with auto-refresh off and returns its host plus imperative controls. */
+	function renderIdle () {
+		let controls: ModtoolsToolbarControls | undefined
+		const host = renderToolbar({
+			initialAutoRefresh: false,
+			onMount: (c,) => {
+				controls = c
+			},
+		},)
+		return {host, controls: controls!,}
+	}
+
+	it('renders every bulk control before anything is selected', () => {
+		renderIdle()
+
+		// The layout-stability guarantee: these used to mount on first selection, which grew the
+		// toolbar by a flex row and pushed the queue down under the user's cursor mid-click.
+		for (const label of bulkLabels) {
+			expect(() => buttonByText(label,)).not.toThrow()
+		}
+	})
+
+	it('mounts and unmounts nothing as the selection changes', () => {
+		const {host, controls,} = renderIdle()
+		const idleButtons = host.querySelectorAll('button',).length
+
+		// A single checked item leaves select-all indeterminate - the exact case from the bug report.
+		act(() => {
+			controls.setSelectAll(false, true,)
+			controls.setSelectedCount(1,)
+		},)
+		expect(host.querySelectorAll('button',).length,).toBe(idleButtons,)
+
+		act(() => {
+			controls.setSelectAll(true, false,)
+			controls.setSelectedCount(3,)
+		},)
+		expect(host.querySelectorAll('button',).length,).toBe(idleButtons,)
+	})
+
+	it('disables every bulk control while nothing is selected', () => {
+		renderIdle()
+
+		for (const label of bulkLabels) {
+			expect(buttonByText(label,).disabled,).toBe(true,)
+		}
+	})
+
+	it('enables the selection-dependent controls once items are selected', () => {
+		const {controls,} = renderIdle()
+
+		act(() => {
+			controls.setSelectAll(true, false,)
+			controls.setSelectedCount(2,)
+		},)
+
+		expect(buttonByText('hide selected',).disabled,).toBe(false,)
+		expect(buttonByText('spam selected',).disabled,).toBe(false,)
+		expect(buttonByText('remove selected',).disabled,).toBe(false,)
+		expect(buttonByText('approve selected',).disabled,).toBe(false,)
+		expect(buttonByText('ignore reports on selected',).disabled,).toBe(false,)
+		expect(document.body.textContent,).toContain('2 selected',)
+		// Nothing is hidden, so unhide stays inert.
+		expect(buttonByText('unhide all',).disabled,).toBe(true,)
+	})
+
+	it('enables unhide all only once items are hidden', () => {
+		const {controls,} = renderIdle()
+
+		act(() => {
+			controls.setHiddenCount(3,)
+		},)
+
+		expect(buttonByText('unhide all',).disabled,).toBe(false,)
+		expect(buttonByText('spam selected',).disabled,).toBe(true,)
+	})
+
+	it('ignores a bulk action fired against an empty selection', () => {
+		const onActionButton = vi.fn<(type: string,) => Promise<number>>().mockResolvedValue(0,)
+		let controls: ModtoolsToolbarControls | undefined
+		renderToolbar({
+			initialAutoRefresh: false,
+			onActionButton,
+			onMount: (c,) => {
+				controls = c
+			},
+		},)
+
+		// `disabled` is what stops this; handleActionClick's own !anySelected check is defence in
+		// depth for the accessKey path and is not reachable from here. The invariant is what matters.
+		act(() => {
+			buttonByText('spam selected',).dispatchEvent(new MouseEvent('click', {bubbles: true,},),)
+		},)
+		expect(onActionButton,).not.toHaveBeenCalled()
+
+		act(() => {
+			controls!.setSelectAll(true, false,)
+			controls!.setSelectedCount(1,)
+		},)
+		act(() => {
+			buttonByText('spam selected',).dispatchEvent(new MouseEvent('click', {bubbles: true,},),)
+		},)
+		expect(onActionButton,).toHaveBeenCalledWith('negative',)
 	})
 })

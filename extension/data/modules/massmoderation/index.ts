@@ -5,6 +5,7 @@ import './massmoderation.css'
 import {createLifecycle,} from '../../framework/lifecycle'
 import {Module,} from '../../framework/module'
 import {isModpage,} from '../../util/reddit/pageContext'
+import {createExpandReportsHandlers,} from './oldReddit/expandReports'
 import {createMassModerationSetup, createModtoolsActivator,} from './oldReddit/queueModtools'
 import {settings,} from './settings'
 import type {MassModerationSettings,} from './settings'
@@ -25,6 +26,10 @@ function init (options: MassModerationSettings,) {
 	// Both factory calls happen after createLifecycle() above - ordering is correct.
 	const setup = createMassModerationSetup()
 	lifecycle.mount(setup.cleanup,)
+
+	// Mounted after the setup cleanup so the LIFO drain clears the class once the toolbar is gone.
+	const reportExpansion = createExpandReportsHandlers(options,)
+	lifecycle.mount(reportExpansion.cleanup,)
 
 	// activateModtools is a pure-wiring local: only lifecycle calls and a factory invocation.
 	// The one-shot guard lives in the createModtoolsActivator closure, not here.

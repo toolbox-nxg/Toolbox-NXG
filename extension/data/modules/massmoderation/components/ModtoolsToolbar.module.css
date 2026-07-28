@@ -53,15 +53,17 @@ button.neutral {
 }
 
 /* intentional: hover and pressed states are hard-coded darkened shades of the semantic base colors */
-button.negative:hover {
+/* :not(:disabled) because these buttons are now always mounted and greyed out until items are
+   selected - without it, hovering an inert action button lights it up as though it were live */
+button.negative:hover:not(:disabled) {
 	background-color: rgb(201 161 162);
 	border-color: rgb(201 161 162);
 }
-button.positive:hover {
+button.positive:hover:not(:disabled) {
 	background-color: rgb(178 199 162);
 	border-color: rgb(178 199 162);
 }
-button.neutral:hover {
+button.neutral:hover:not(:disabled) {
 	background-color: rgb(181 181 181);
 	border-color: rgb(181 181 181);
 }
@@ -153,6 +155,22 @@ button.neutral.pressed {
 	font-weight: bold;
 	margin: 0 var(--toolbox-sp-2);
 	white-space: nowrap;
+}
+
+/* Idle "0 selected" badge, greyed to match the disabled buttons beside it. Declared after
+   .selectedCount so its font-weight wins at equal (0,1,0) specificity. */
+.idleCount {
+	color: var(--toolbox-text-muted);
+	font-weight: normal;
+}
+
+/* Selection-dependent bulk actions, grouped so they enable and disable as one unit. Kept mounted
+   at all times so the toolbar's height never changes when the user checks an item. */
+.actions {
+	display: inline-flex;
+	align-items: center;
+	flex-wrap: nowrap;
+	gap: var(--toolbox-sp-2);
 }
 
 /* Action log row - flex-basis:100% forces it onto its own line within the flex container */
