@@ -92,6 +92,7 @@ Domain tags and usernote type colors were previously stored here as `domainTags:
 | `typeLockThread`         | no       | boolean                    | Whether the target thread is locked after removal by default                                                                                                                             |
 | `editableReasonsEnabled` | no       | boolean                    | When true, moderators may edit reason text before sending                                                                                                                                |
 | `suggestedReasons`       | no       | `SuggestedReasonMapping[]` | NXG-only. Maps report text to removal reasons that are pre-selected in the removal overlay when a queue item's report matches. Dropped entirely when empty; stripped from the v1 mirror. |
+| `nativeSync`             | no       | `NativeReasonSyncState`    | NXG-only. State for the opt-in one-way import of Reddit's native removal reasons. Dropped entirely when empty; stripped from the v1 mirror.                                              |
 
 ### `RemovalReason`
 
@@ -114,20 +115,21 @@ Domain tags and usernote type colors were previously stored here as `domainTags:
 }
 ```
 
-| Field               | Required | Type                 | Description                                                                                    |
-| ------------------- | -------- | -------------------- | ---------------------------------------------------------------------------------------------- |
-| `id`                | no       | string               | Stable 8-character base-36 identifier; assigned by NXG, absent in v1 mirrors                   |
-| `title`             | yes      | string               | Display title shown in the removal overlay                                                     |
-| `text`              | yes      | string               | Markdown body of the removal message; may contain substitution and interactive tokens (v2)     |
-| `selects`           | no       | `SelectDefinition[]` | Named pick-one choice definitions referenced from `text` as `{select:name}`; omitted when none |
-| `removePosts`       | no       | boolean              | When `false`, this reason is hidden for posts; defaults to `true` when absent                  |
-| `removeComments`    | no       | boolean              | `true` always shows for comments; absent defers to per-mod setting; `false` always hides       |
-| `flairText`         | yes      | string               | Post flair text to apply after removal; empty string for none                                  |
-| `flairCSS`          | yes      | string               | Post flair CSS class to apply; empty string for none                                           |
-| `flairTemplateID`   | yes      | string               | Post flair template ID to apply; empty string for none                                         |
-| `editable`          | no       | boolean              | When true, the moderator may edit this reason's text before sending                            |
-| `default_note`      | no       | string               | Default usernote text pre-filled when this reason is selected                                  |
-| `default_note_type` | no       | string               | Key of the usernote type (`UserNoteColor.key`) to pre-select when leaving a note               |
+| Field               | Required | Type                 | Description                                                                                                                                                                                                                  |
+| ------------------- | -------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                | no       | string               | Stable 8-character base-36 identifier; assigned by NXG, absent in v1 mirrors                                                                                                                                                 |
+| `title`             | yes      | string               | Display title shown in the removal overlay                                                                                                                                                                                   |
+| `text`              | yes      | string               | Markdown body of the removal message; may contain substitution and interactive tokens (v2)                                                                                                                                   |
+| `selects`           | no       | `SelectDefinition[]` | Named pick-one choice definitions referenced from `text` as `{select:name}`; omitted when none                                                                                                                               |
+| `removePosts`       | no       | boolean              | When `false`, this reason is hidden for posts; defaults to `true` when absent                                                                                                                                                |
+| `removeComments`    | no       | boolean              | `true` always shows for comments; absent defers to per-mod setting; `false` always hides                                                                                                                                     |
+| `flairText`         | yes      | string               | Post flair text to apply after removal; empty string for none                                                                                                                                                                |
+| `flairCSS`          | yes      | string               | Post flair CSS class to apply; empty string for none                                                                                                                                                                         |
+| `flairTemplateID`   | yes      | string               | Post flair template ID to apply; empty string for none                                                                                                                                                                       |
+| `editable`          | no       | boolean              | When true, the moderator may edit this reason's text before sending                                                                                                                                                          |
+| `default_note`      | no       | string               | Default usernote text pre-filled when this reason is selected                                                                                                                                                                |
+| `default_note_type` | no       | string               | Key of the usernote type (`UserNoteColor.key`) to pre-select when leaving a note                                                                                                                                             |
+| `nativeReasonId`    | no       | string               | NXG-only. Reddit's id for the native removal reason this reason mirrors; registers the reason in Reddit's mod log on removal, and links the reason for syncing. Reasons carrying it are excluded from the v1 mirror entirely |
 
 ### `SelectDefinition`
 
@@ -138,6 +140,30 @@ Stored in `RemovalReason.selects`; referenced from reason text as `{select:name}
 | `name`    | yes      | string     | Slug-safe name (`[\w-]+`), unique within the reason; used as the `{select:name}` reference |
 | `prompt`  | no       | string     | Optional label shown above the choices; omitted (never `""`) when empty                    |
 | `options` | yes      | `string[]` | Choice texts; each is both the visible label and the value inserted into the message       |
+
+### `NativeReasonSyncState`
+
+NXG-only. Stored in `RemovalReasonsConfig.nativeSync`; stripped from the v1 mirror. Tracks the opt-in, one-way import of a subreddit's **native** removal reasons (those configured in Reddit's own Mod Tools) into its toolbox reasons.
+
+Reddit owns each imported reason's `title` and `text`, which are overwritten on every sync. Everything else on the reason -- flair, usernote defaults, `removePosts`/`removeComments`, `editable` -- stays under moderator control and is preserved. A reason deleted upstream is removed from the toolbox list; a reason deleted in the toolbox editor is added to `ignored` so it is not re-imported.
+
+Imported reasons are **not** written to the legacy `toolbox` mirror at all, since 6.x cannot register a native reason id and rebuilds reason objects wholesale on save. A subreddit whose reasons are all imported therefore writes an empty `reasons` list to the mirror, and moderators still on 6.x will not see them.
+
+```json
+{
+    "enabled": true,
+    "fingerprint": "3a7f21c49b0e8d55",
+    "lastSyncedAt": 1700000000000,
+    "ignored": ["a1b2c3d4-..."]
+}
+```
+
+| Field          | Required | Type       | Description                                                                                                                             |
+| -------------- | -------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`      | no       | boolean    | Whether the sync is on for this subreddit. Only ever stored as `true`; turning it off removes the key rather than writing `false`       |
+| `fingerprint`  | no       | string     | Order-independent digest of the native reason set as of the last applied sync, used to skip the merge when nothing upstream has changed |
+| `lastSyncedAt` | no       | number     | Epoch milliseconds of the last applied sync; displayed in the config editor                                                             |
+| `ignored`      | no       | `string[]` | Native reason ids a moderator deleted locally; never re-imported. Dropped entirely when empty                                           |
 
 ### `SuggestedReasonMapping`
 

@@ -36,6 +36,8 @@ Removal reasons are configured per-subreddit in the Config overlay (Removal Reas
 
 **Suggested removal reasons** — map report text to removal reasons so the right reasons are pre-selected when you open the overlay on a reported item (see [Suggested removal reasons](#suggested-removal-reasons)).
 
+**Sync Reddit's removal reasons** — import the removal reasons configured in Reddit's own Mod Tools and keep them up to date, so you only maintain them in one place (see [Syncing Reddit's removal reasons](#syncing-reddits-removal-reasons)).
+
 ## Removal reason format
 
 Reason text supports two kinds of tokens:
@@ -85,6 +87,34 @@ In the queue and overlay:
 - Inside the overlay, suggested reasons are pre-checked and marked with a **Suggested** badge, and a notice at the top lets you **Clear suggested** in one click.
 
 Pre-selection is a personal preference: turn off **Pre-select suggested removal reasons** in this module's settings to ignore mappings entirely (no pre-selection and no "(suggestions)" label), without changing the subreddit's configuration.
+
+## Syncing Reddit's removal reasons
+
+Reddit has its own removal reasons, configured in **Mod Tools → Removal Reasons**. If your subreddit already maintains them there, toolbox can import them instead of making you write everything out a second time.
+
+Turn on **Keep toolbox removal reasons in sync with Reddit's** under _Removal reasons settings_ in the toolbox config editor. Imported reasons then appear alongside your own, marked with a **Native** chip.
+
+**What Reddit owns, and what you own.** The sync is one way. Reddit owns each imported reason's **title** and **message** — both are read-only in the toolbox editor, and any change you make in Mod Tools replaces them on the next sync. Everything else belongs to toolbox and is preserved across syncs:
+
+- post flair to apply on removal
+- the default usernote and note type
+- whether the reason applies to posts, comments, or both
+
+So the normal workflow is to write the wording in Mod Tools and attach the toolbox-only extras here.
+
+**Staying in sync.** Toolbox re-checks in the background when you open the removal drawer or the config editor, at most once every 15 minutes per subreddit, and only writes when something actually changed upstream. Because the check happens in the background, an edit you just made in Mod Tools usually appears the _next_ time you open the drawer. Press **Sync from Reddit** in the _Edit removal reasons_ footer to pull changes immediately.
+
+**Deleting.** Deleting a reason in Mod Tools removes the toolbox copy on the next sync. Deleting an imported reason in the toolbox editor keeps it out for good — it will not be re-imported — but leaves it untouched on Reddit.
+
+**Removals are recorded in Reddit's mod log.** Because an imported reason keeps its link to Reddit's reason, removing something with it also registers that reason against the item in Reddit's own mod log, which a hand-written toolbox reason does not do.
+
+```{note}
+Imported reasons are not written to the legacy toolbox 6.x config page, so moderators still using toolbox 6.x will not see them. If every reason in your subreddit is imported, 6.x users will see no removal reasons at all.
+```
+
+```{note}
+A subreddit that pulls its removal reasons from another subreddit (the **Get reasons from** advanced setting) is never synced into — its own reason list is unused. Turn syncing on in the source subreddit instead.
+```
 
 ## Settings
 
