@@ -4,7 +4,7 @@
 import {describe, expect, it,} from 'vitest'
 
 import type {NativeRemovalReason,} from '../../api/resources/removalReasons'
-import {mergeNativeReasons, nativeReasonsFingerprint,} from './nativeSync'
+import {mergeNativeReasons, nativeReasonsFingerprint, stripNativeReasons,} from './nativeSync'
 import type {RemovalReason,} from './schema'
 
 /** Builds a native reason. */
@@ -250,5 +250,61 @@ describe('nativeReasonsFingerprint', () => {
 		const input = [native('n2', 'Second', 'b',), native('n1', 'First', 'a',),]
 		nativeReasonsFingerprint(input,)
 		expect(input.map((r,) => r.id),).toEqual(['n2', 'n1',],)
+	})
+})
+
+describe('stripNativeReasons', () => {
+	it('drops linked reasons and keeps hand-written ones in order', () => {
+		const kept1 = reason({title: 'Hand written',},)
+		const kept2 = reason({title: 'Also mine',},)
+		const result = stripNativeReasons([
+			kept1,
+			reason({title: 'Imported', nativeReasonId: 'n1',},),
+			kept2,
+			reason({title: 'Also imported', nativeReasonId: 'n2',},),
+		],)
+
+		expect(result.reasons,).toEqual([kept1, kept2,],)
+		expect(result.removed,).toBe(2,)
+	})
+
+	it('drops a linked reason even when it carries toolbox-owned extras', () => {
+		// The extras are exactly what the confirm prompt warns about losing.
+		const result = stripNativeReasons([
+			reason({nativeReasonId: 'n1', flairText: 'spam', default_note: 'note',},),
+		],)
+
+		expect(result.reasons,).toEqual([],)
+		expect(result.removed,).toBe(1,)
+	})
+
+	it('reports nothing removed when no reason is linked', () => {
+		const existing = [reason({title: 'One',},), reason({title: 'Two',},),]
+		const result = stripNativeReasons(existing,)
+
+		expect(result.removed,).toBe(0,)
+		// Unchanged entries keep identity, so a caller can skip the write.
+		expect(result.reasons[0],).toBe(existing[0],)
+		expect(result.reasons[1],).toBe(existing[1],)
+	})
+
+	it('handles an empty list', () => {
+		expect(stripNativeReasons([],),).toEqual({reasons: [], removed: 0,},)
+	})
+
+	it('does not mutate its input', () => {
+		const input = [reason({nativeReasonId: 'n1',},), reason({title: 'Mine',},),]
+		stripNativeReasons(input,)
+		expect(input,).toHaveLength(2,)
+	})
+
+	it('leaves nothing behind for a fully imported list, so re-enabling re-imports cleanly', () => {
+		const result = stripNativeReasons([
+			reason({nativeReasonId: 'n1',},),
+			reason({nativeReasonId: 'n2',},),
+		],)
+
+		expect(result.reasons,).toEqual([],)
+		expect(result.removed,).toBe(2,)
 	})
 })

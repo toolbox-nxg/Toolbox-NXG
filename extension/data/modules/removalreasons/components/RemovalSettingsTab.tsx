@@ -17,6 +17,7 @@ import {
 	substitutionTokens,
 } from '../../../util/wiki/schemas/shared/tokens'
 import {makeDeliveryOption,} from '../../shared/removalReasons/DeliveryOption'
+import {stripNativeReasons,} from '../nativeSync'
 import css from './RemovalSettingsTab.module.css'
 
 /**
@@ -72,6 +73,30 @@ export function RemovalSettingsTab ({state, saveRef, onSave,}: Props,) {
 
 	function handleSave () {
 		if (!state.subreddit) { return }
+
+		// Turning the sync off takes the imported reasons with it, and clears the whole
+		// bookkeeping block rather than just the flag. That makes re-enabling a clean full
+		// re-import, which is also the only way back for a reason that was deleted locally
+		// and thereby added to `ignored`.
+		let syncEnabled = nativeSyncEnabled
+		let reasons = rr.reasons || []
+		if (!syncEnabled && rr.nativeSync) {
+			const stripped = stripNativeReasons(reasons,)
+			const confirmed = stripped.removed < 1 || confirm(
+				`Turning off syncing will remove ${stripped.removed} imported removal `
+					+ `${stripped.removed === 1 ? 'reason' : 'reasons'} from toolbox, along with any flair and `
+					+ 'usernote settings you added to them. They are left in place on Reddit. Are you sure?',
+			)
+			if (confirmed) {
+				reasons = stripped.reasons
+			} else {
+				// Declining the removal means declining the switch-off; flipping the checkbox
+				// back keeps what is on screen matching what is about to be written.
+				syncEnabled = true
+				setNativeSyncEnabled(true,)
+			}
+		}
+
 		state.config.removalReasons = {
 			...rr,
 			header,
@@ -90,22 +115,13 @@ export function RemovalSettingsTab ({state, saveRef, onSave,}: Props,) {
 			logtitle,
 
 			logreason,
-			reasons: rr.reasons || [],
-			// Spread `rr` above already carried the fingerprint, timestamp, and ignored
-			// list; only the opt-in flag is edited here. Turning the sync off drops the
-			// key rather than writing false, matching how the rest of the config stores
-			// its booleans, but keeps the bookkeeping so re-enabling picks up where it
-			// left off.
-			...(nativeSyncEnabled || rr.nativeSync
-				? {
-					nativeSync: {
-						...rr.nativeSync,
-						...(nativeSyncEnabled ? {enabled: true,} : {}),
-					},
-				}
-				: {}),
+			reasons,
+			...(syncEnabled ? {nativeSync: {...rr.nativeSync, enabled: true,},} : {}),
 		}
-		if (!nativeSyncEnabled) { delete state.config.removalReasons.nativeSync?.enabled }
+		// The `...rr` spread above carried the old block across even when the sync is off,
+		// so drop it outright. Absent rather than `enabled: false` matches how the rest of
+		// the config stores its booleans.
+		if (!syncEnabled) { delete state.config.removalReasons.nativeSync }
 		onSave(state.config, 'updated removal reason settings',)
 		positiveTextFeedback('Removal reasons settings are saved',)
 	}
@@ -312,6 +328,7 @@ export function RemovalSettingsTab ({state, saveRef, onSave,}: Props,) {
 					onChange={(e,) => setNativeSyncEnabled(e.target.checked,)}
 				/>
 				<span className={css.fieldHint}>
+					Turning this off removes the imported reasons from toolbox again; they are left in place on Reddit.
 					Imported reasons are not written to the legacy toolbox 6.x page, so moderators still on 6.x will not
 					see them. {lastSyncedLabel}
 				</span>

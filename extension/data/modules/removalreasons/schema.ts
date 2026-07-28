@@ -84,7 +84,8 @@ export interface RemovalReasonsConfig {
 export interface NativeReasonSyncState {
 	/**
 	 * Whether the sync is enabled for this subreddit. Only ever written as `true` -
-	 * turning the sync off removes the key rather than writing `false`.
+	 * turning the sync off removes this whole block rather than writing `false`, and
+	 * takes the imported reasons with it, so re-enabling is always a full re-import.
 	 */
 	enabled?: boolean
 	/**
@@ -98,7 +99,8 @@ export interface NativeReasonSyncState {
 	/**
 	 * Native reason ids a moderator deleted locally. They are never re-imported, so
 	 * deleting a synced reason in the toolbox editor sticks instead of reappearing on
-	 * the next sync.
+	 * the next sync. Cleared along with the rest of this block when the sync is turned
+	 * off, which is how a moderator undoes an ignore they did not mean.
 	 */
 	ignored?: string[]
 }

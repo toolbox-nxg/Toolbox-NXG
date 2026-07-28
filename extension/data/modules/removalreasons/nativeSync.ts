@@ -138,3 +138,18 @@ export function mergeNativeReasons (
 
 	return {reasons, changed: added + updated + removed > 0, added, updated, removed,}
 }
+
+/**
+ * Drops every reason linked to a native one, for when a subreddit turns the sync off.
+ *
+ * A linked reason's title and message are Reddit's, so what would survive the sync being
+ * switched off is a frozen copy nobody maintains. The toolbox-owned extras on those
+ * reasons (flair, usernote defaults) go with them, which is why the caller confirms first.
+ *
+ * The input is never mutated, and the surviving entries are returned by reference.
+ * @param existing The currently configured reasons.
+ */
+export function stripNativeReasons (existing: RemovalReason[],): {reasons: RemovalReason[]; removed: number} {
+	const reasons = existing.filter((reason,) => reason.nativeReasonId === undefined)
+	return {reasons, removed: existing.length - reasons.length,}
+}

@@ -104,7 +104,11 @@ So the normal workflow is to write the wording in Mod Tools and attach the toolb
 
 **Staying in sync.** Toolbox re-checks in the background when you open the removal drawer or the config editor, at most once every 15 minutes per subreddit, and only writes when something actually changed upstream. Because the check happens in the background, an edit you just made in Mod Tools usually appears the _next_ time you open the drawer. Press **Sync from Reddit** in the _Edit removal reasons_ footer to pull changes immediately.
 
-**Deleting.** Deleting a reason in Mod Tools removes the toolbox copy on the next sync. Deleting an imported reason in the toolbox editor keeps it out for good — it will not be re-imported — but leaves it untouched on Reddit.
+**Deleting.** Deleting a reason in Mod Tools removes the toolbox copy on the next sync. Deleting an imported reason in the toolbox editor keeps it out — it will not be re-imported — but leaves it untouched on Reddit.
+
+**Turning it off.** Switching **Keep toolbox removal reasons in sync with Reddit's** back off removes the imported reasons from toolbox, along with any flair and usernote settings you attached to them. Your hand-written reasons are untouched, and nothing changes on Reddit's side. Toolbox asks for confirmation first, and tells you how many reasons will go.
+
+This is also how you undo a deletion you did not mean: turn syncing off and then on again, and the whole set is imported afresh, including anything you had previously deleted.
 
 **Removals are recorded in Reddit's mod log.** Because an imported reason keeps its link to Reddit's reason, removing something with it also registers that reason against the item in Reddit's own mod log, which a hand-written toolbox reason does not do.
 
