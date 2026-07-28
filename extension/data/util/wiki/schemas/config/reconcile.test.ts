@@ -27,6 +27,8 @@ vi.mock('../../store/feedback', () => ({
 	neutralTextFeedback: vi.fn(),
 	positiveTextFeedback: vi.fn(),
 }),)
+import {mergeNativeReasons,} from '../../../../modules/removalreasons/nativeSync'
+import {encodeClassicConfig,} from './codec'
 import {adoptLegacyConfigFields, legacyOwnedFieldsEqual, reconcileConfigFromLegacy,} from './reconcile'
 import {normalizeConfig,} from './schema'
 import type {ToolboxConfig,} from './schema'
@@ -302,5 +304,97 @@ describe('reconcileConfigFromLegacy', () => {
 		expect(result.changed,).toBe(true,)
 		expect(result.config.removalReasons.reasons.map((r,) => r.title),).toEqual(['Spam', 'Added',],)
 		expect(result.config.removalReasons.reasons[0]!.id,).toBe('reason01',)
+	})
+})
+
+describe('native reason sync across the legacy mirror', () => {
+	/** A config holding one hand-written reason and two reasons synced from Reddit. */
+	function nxgWithSyncedReasons () {
+		return makeConfig({
+			removalReasons: {
+				reasons: [
+					{id: 'reason01', title: 'Spam', text: 'no spam',},
+					{id: 'reason02', title: 'Rule 1', text: 'from reddit 1', nativeReasonId: 'native-1',},
+					{id: 'reason03', title: 'Rule 2', text: 'from reddit 2', nativeReasonId: 'native-2',},
+				],
+				nativeSync: {enabled: true, fingerprint: 'deadbeefdeadbeef', lastSyncedAt: 1700000000000,},
+			},
+		},)
+	}
+
+	it('treats an untouched mirror as equal, so a read never clobbers synced reasons', () => {
+		// The regression test for the clobber-on-every-read hazard: the mirror is a
+		// deterministic down-convert that omits synced reasons entirely, so comparing it
+		// against the full NXG list must not register as a 6.x edit.
+		const nxg = nxgWithSyncedReasons()
+		const mirror = encodeClassicConfig(nxg,) as unknown as Record<string, unknown>
+		normalizeConfig(mirror,)
+
+		expect(legacyOwnedFieldsEqual(nxg, mirror as unknown as ToolboxConfig,),).toBe(true,)
+	})
+
+	it('still detects a real 6.x edit alongside synced reasons', () => {
+		const nxg = nxgWithSyncedReasons()
+		const mirror = encodeClassicConfig(nxg,) as unknown as Record<string, unknown>
+		normalizeConfig(mirror,)
+		;(mirror as unknown as ToolboxConfig).removalReasons.reasons[0]!.text = 'edited in 6.x'
+
+		expect(legacyOwnedFieldsEqual(nxg, mirror as unknown as ToolboxConfig,),).toBe(false,)
+	})
+
+	it('carries synced reasons and nativeSync back when adopting a 6.x edit', () => {
+		const nxg = nxgWithSyncedReasons()
+		const legacy = makeConfig({
+			removalReasons: {reasons: [{title: 'Spam', text: 'edited in 6.x',},],},
+		},)
+
+		const adopted = adoptLegacyConfigFields(nxg, legacy,)
+
+		expect(adopted.removalReasons.reasons.map((r,) => r.title),).toEqual(['Spam', 'Rule 1', 'Rule 2',],)
+		expect(adopted.removalReasons.reasons[0]!.text,).toBe('edited in 6.x',)
+		expect(adopted.removalReasons.reasons[1]!.nativeReasonId,).toBe('native-1',)
+		expect(adopted.removalReasons.reasons[2]!.nativeReasonId,).toBe('native-2',)
+		expect(adopted.removalReasons.nativeSync?.fingerprint,).toBe('deadbeefdeadbeef',)
+	})
+
+	it('survives a full 6.x round trip without orphaning or duplicating a synced reason', () => {
+		const nxg = nxgWithSyncedReasons()
+		const nativeReasons = [
+			{id: 'native-1', title: 'Rule 1', message: 'from reddit 1',},
+			{id: 'native-2', title: 'Rule 2', message: 'from reddit 2',},
+		]
+
+		// Down-convert to the mirror: only the hand-written reason survives.
+		const mirror = encodeClassicConfig(nxg,) as unknown as Record<string, unknown>
+		expect((mirror as unknown as ToolboxConfig).removalReasons.reasons,).toHaveLength(1,)
+		// Simulate a 6.x save: it edits a reason and rebuilds entries without stable ids.
+		normalizeConfig(mirror,)
+		const saved = mirror as unknown as ToolboxConfig
+		saved.removalReasons.reasons = [{
+			title: 'Spam',
+			text: 'edited in 6.x',
+			flairText: '',
+			flairCSS: '',
+			flairTemplateID: '',
+		},]
+
+		readFromWiki.mockResolvedValue({ok: true, data: saved,},)
+		return reconcileConfigFromLegacy('sub', nxg,).then((result,) => {
+			expect(result.changed,).toBe(true,)
+			const reasons = result.config.removalReasons.reasons
+			// The 6.x edit was adopted. Its stable id is not preserved, because
+			// preserveIdsByContent matches on title+text and 6.x changed the text - that is
+			// pre-existing behavior for any 6.x-edited reason, not specific to the sync.
+			expect(reasons[0]!.text,).toBe('edited in 6.x',)
+			// Both sync links survived with their stable ids, and nothing was duplicated.
+			expect(reasons.filter((r,) => r.nativeReasonId).map((r,) => r.nativeReasonId),)
+				.toEqual(['native-1', 'native-2',],)
+			expect(reasons.filter((r,) => r.nativeReasonId).map((r,) => r.id),)
+				.toEqual(['reason02', 'reason03',],)
+			expect(reasons,).toHaveLength(3,)
+			expect(result.config.removalReasons.nativeSync?.enabled,).toBe(true,)
+			// The clincher: a sync against the unchanged native set now has nothing to do.
+			expect(mergeNativeReasons(reasons, nativeReasons,).changed,).toBe(false,)
+		},)
 	})
 })

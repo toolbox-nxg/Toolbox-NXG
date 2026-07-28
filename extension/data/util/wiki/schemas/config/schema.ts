@@ -1,7 +1,11 @@
 /** Config schema version constants, default config object, version validation, and migration infrastructure. */
 import type {MacroConfig,} from '../../../../modules/macros/schema'
 import type {BanMacros,} from '../../../../modules/modbutton/schema'
-import type {RemovalReasonsConfig, SuggestedReasonMapping,} from '../../../../modules/removalreasons/schema'
+import type {
+	NativeReasonSyncState,
+	RemovalReasonsConfig,
+	SuggestedReasonMapping,
+} from '../../../../modules/removalreasons/schema'
 import {tbDecode,} from '../../../data/encoding'
 import createLogger from '../../../infra/logging'
 import {PROPOSED_ACTION_KINDS,} from '../proposals/schema'
@@ -242,6 +246,40 @@ function coerceSuggestedReasons (config: ToolboxConfig,): void {
 }
 
 /**
+ * Sanitizes the `removalReasons.nativeSync` block so a hand-edited wiki page can't
+ * feed the sync runner junk: a non-object becomes absent, `enabled` is stored only
+ * when literally true, and the bookkeeping fields are kept only when well-formed.
+ * An empty result drops the field entirely.
+ * @param config The config whose `removalReasons.nativeSync` to coerce, mutated in-place.
+ */
+function coerceNativeSync (config: ToolboxConfig,): void {
+	const raw = (config.removalReasons as {nativeSync?: unknown}).nativeSync
+	if (raw === undefined) { return }
+	if (!raw || typeof raw !== 'object' || Array.isArray(raw,)) {
+		delete config.removalReasons.nativeSync
+		return
+	}
+	const {enabled, fingerprint, lastSyncedAt, ignored,} = raw as Record<string, unknown>
+	const cleaned: NativeReasonSyncState = {}
+	if (enabled === true) { cleaned.enabled = true }
+	if (typeof fingerprint === 'string' && fingerprint !== '') { cleaned.fingerprint = fingerprint }
+	if (typeof lastSyncedAt === 'number' && Number.isFinite(lastSyncedAt,) && lastSyncedAt >= 0) {
+		cleaned.lastSyncedAt = Math.floor(lastSyncedAt,)
+	}
+	if (Array.isArray(ignored,)) {
+		const ids = [
+			...new Set(ignored.filter((value,): value is string => typeof value === 'string' && value !== ''),),
+		]
+		if (ids.length > 0) { cleaned.ignored = ids }
+	}
+	if (Object.keys(cleaned,).length > 0) {
+		config.removalReasons.nativeSync = cleaned
+	} else {
+		delete config.removalReasons.nativeSync
+	}
+}
+
+/**
  * Converts legacy limited-HTML form elements (`<select>`, `<input>`,
  * `<textarea>`) in removal reason text, header, and footer to brace tokens,
  * first decoding any number of layers of HTML-entity-escaped angle brackets.
@@ -381,6 +419,8 @@ export function normalizeConfig (configInput: unknown,): asserts configInput is 
 	delete config.removalReasons.bantitle
 	// suggestedReasons: NXG-only report→reason mapping list; sanitize hand-edited/legacy shapes.
 	coerceSuggestedReasons(config as ToolboxConfig,)
+	// nativeSync: NXG-only native removal reason sync state; sanitize hand-edited shapes.
+	coerceNativeSync(config as ToolboxConfig,)
 
 	// Array fields: coerce legacy empty-string (and any other non-array) to []
 	if (!Array.isArray(config.modMacros,)) { config.modMacros = [] }

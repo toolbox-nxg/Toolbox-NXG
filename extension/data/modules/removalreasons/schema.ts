@@ -64,6 +64,43 @@ export interface RemovalReasonsConfig {
 	 * NXG-only; stripped from the legacy v1 mirror in `encodeClassicConfig`.
 	 */
 	suggestedReasons?: SuggestedReasonMapping[]
+	/**
+	 * State for the one-way import of Reddit's native removal reasons into this
+	 * config. NXG-only; stripped from the legacy v1 mirror in `encodeClassicConfig`.
+	 */
+	nativeSync?: NativeReasonSyncState
+}
+
+/**
+ * Per-subreddit state for syncing Reddit's native removal reasons into the toolbox
+ * config. The sync is one-way: Reddit owns each linked reason's title and message,
+ * while the toolbox-only extras (flair, usernote defaults, post/comment applicability)
+ * stay under moderator control.
+ *
+ * This lives in the wiki config rather than in per-user settings on purpose: the
+ * fingerprint is shared, so the first moderator to notice a change upstream performs
+ * the single write and everyone else sees it already applied.
+ */
+export interface NativeReasonSyncState {
+	/**
+	 * Whether the sync is enabled for this subreddit. Only ever written as `true` -
+	 * turning the sync off removes the key rather than writing `false`.
+	 */
+	enabled?: boolean
+	/**
+	 * Digest of the native reason set as of the last applied sync, used to skip the
+	 * merge entirely when nothing upstream has changed. Deliberately order-independent
+	 * (see `nativeReasonsFingerprint`), so it changes only when a merge would do work.
+	 */
+	fingerprint?: string
+	/** Epoch milliseconds of the last applied sync; displayed in the editor. */
+	lastSyncedAt?: number
+	/**
+	 * Native reason ids a moderator deleted locally. They are never re-imported, so
+	 * deleting a synced reason in the toolbox editor sticks instead of reappearing on
+	 * the next sync.
+	 */
+	ignored?: string[]
 }
 
 /**
@@ -116,10 +153,15 @@ export interface RemovalReason {
 	/** Key of the usernote type (UserNoteColor.key) to pre-select. */
 	default_note_type?: string
 	/**
-	 * When set, this reason is one of Reddit's native (Reddit-configured) removal
-	 * reasons rather than a Toolbox reason; the value is Reddit's reason id, which is
-	 * registered against the removed item via the modactions API on submit. Native
-	 * reasons are only surfaced as a fallback when the subreddit has no Toolbox reasons.
+	 * Reddit's reason id, set when this reason comes from Reddit's own removal reasons
+	 * rather than being written in toolbox. It is registered against the removed item
+	 * via the modactions API on submit, so the removal also lands in Reddit's mod log.
+	 *
+	 * Set on two kinds of reason: the ephemeral ones synthesized when a subreddit has no
+	 * toolbox reasons at all (see the `nativeReasonsFallback` setting), and the persisted
+	 * ones imported by the opt-in sync (see {@link NativeReasonSyncState}). On a persisted
+	 * reason it is the sync link, so it must survive edits and the legacy mirror
+	 * round-trip - dropping it orphans the reason and the next sync re-imports a duplicate.
 	 */
 	nativeReasonId?: string
 }

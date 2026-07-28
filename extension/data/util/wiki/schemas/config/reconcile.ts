@@ -48,10 +48,12 @@ function deepEqualIgnoringIds (a: unknown, b: unknown,): boolean {
 		return a.every((item, i,) => deepEqualIgnoringIds(item, b[i],))
 	}
 	if (a && b && typeof a === 'object' && typeof b === 'object') {
-		// `suggestedReasons` is an NXG-only mapping that the legacy mirror never carries, so it must
-		// not count as a difference (otherwise the NXG config always "differs" from the mirror and the
-		// reconcile fires on every read, clobbering it). `id`s are stripped by the legacy round-trip.
-		const ignored = (key: string,) => key === 'id' || key === 'suggestedReasons'
+		// `suggestedReasons` and `nativeSync` are NXG-only and the legacy mirror never carries them, so
+		// they must not count as a difference (otherwise the NXG config always "differs" from the
+		// mirror and the reconcile fires on every read, clobbering it). `id`s are stripped by the
+		// legacy round-trip. Synced reasons are excluded from the mirror too, but they are whole array
+		// entries rather than keys - `legacyOwnedFieldsEqual` filters those out before comparing.
+		const ignored = (key: string,) => key === 'id' || key === 'suggestedReasons' || key === 'nativeSync'
 		const aKeys = Object.keys(a,).filter((key,) => !ignored(key,))
 		const bKeys = Object.keys(b,).filter((key,) => !ignored(key,))
 		if (aKeys.length !== bKeys.length) { return false }
@@ -64,11 +66,29 @@ function deepEqualIgnoringIds (a: unknown, b: unknown,): boolean {
 }
 
 /**
+ * Returns the NXG value of a 6.x-owned field as the mirror would carry it, so the two
+ * sides are compared like for like. Only `removalReasons` needs adjusting: reasons
+ * synced from Reddit are excluded from the mirror by `encodeClassicConfig`, so they
+ * have to come out of the comparison too - otherwise every read sees a difference the
+ * mirror can never account for and the reconcile clobbers them.
+ */
+function comparableLegacyField (config: ToolboxConfig, field: typeof LEGACY_OWNED_FIELDS[number],): unknown {
+	if (field !== 'removalReasons') { return config[field] }
+	return {
+		...config.removalReasons,
+		reasons: config.removalReasons.reasons.filter((reason,) => !reason.nativeReasonId),
+	}
+}
+
+/**
  * Returns `true` when the 6.x-owned fields of two normalized configs agree,
- * ignoring stable `id`s (which the legacy round-trip strips).
+ * ignoring stable `id`s (which the legacy round-trip strips) and reasons synced
+ * from Reddit (which the mirror never carries).
  */
 export function legacyOwnedFieldsEqual (nxg: ToolboxConfig, legacy: ToolboxConfig,): boolean {
-	return LEGACY_OWNED_FIELDS.every((field,) => deepEqualIgnoringIds(nxg[field], legacy[field],))
+	return LEGACY_OWNED_FIELDS.every((field,) =>
+		deepEqualIgnoringIds(comparableLegacyField(nxg, field,), legacy[field],)
+	)
 }
 
 /**
@@ -116,7 +136,19 @@ export function adoptLegacyConfigFields (nxg: ToolboxConfig, legacy: ToolboxConf
 	if (nxg.removalReasons.suggestedReasons) {
 		adopted.removalReasons.suggestedReasons = structuredClone(nxg.removalReasons.suggestedReasons,)
 	}
+	// Same for the native-reason sync state, which the mirror also never carries.
+	if (nxg.removalReasons.nativeSync) {
+		adopted.removalReasons.nativeSync = structuredClone(nxg.removalReasons.nativeSync,)
+	}
 	preserveIdsByContent(adopted.removalReasons.reasons, nxg.removalReasons.reasons,)
+	// Reasons synced from Reddit are excluded from the mirror, so the wholesale replace dropped
+	// them. Re-append them from the NXG config, or a single 6.x save would wipe every synced
+	// reason and the next sync would re-import the lot as duplicates. They land at the end: their
+	// original interleaving is not recoverable from a mirror that never held them.
+	const synced = nxg.removalReasons.reasons.filter((reason,) => reason.nativeReasonId)
+	if (synced.length) {
+		adopted.removalReasons.reasons.push(...structuredClone(synced,),)
+	}
 	preserveIdsByContent(adopted.modMacros, nxg.modMacros,)
 	ensureStableIds(adopted,)
 	return adopted

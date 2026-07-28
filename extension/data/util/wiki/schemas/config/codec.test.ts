@@ -191,3 +191,65 @@ describe('encodeClassicConfig', () => {
 		expect(fromEmpty,).not.toHaveProperty('usernoteColors',)
 	})
 })
+
+describe('encodeClassicConfig native reason sync', () => {
+	it('drops reasons synced from Reddit and keeps hand-written ones', () => {
+		const config = v2Config({
+			removalReasons: {
+				reasons: [
+					{
+						id: 'aaaaaaaa',
+						title: 'Hand written',
+						text: 'local',
+						flairText: '',
+						flairCSS: '',
+						flairTemplateID: '',
+					},
+					{
+						id: 'bbbbbbbb',
+						title: 'From Reddit',
+						text: 'native',
+						flairText: '',
+						flairCSS: '',
+						flairTemplateID: '',
+						nativeReasonId: 'native-1',
+					},
+				],
+			},
+		},)
+
+		const classic = encodeClassicConfig(config,)
+
+		expect(classic.removalReasons.reasons.map((r,) => r.title),).toEqual(['Hand written',],)
+		expect(config.removalReasons.reasons,).toHaveLength(2,)
+	})
+
+	it('strips the NXG-only nativeSync block', () => {
+		const config = v2Config({
+			removalReasons: {
+				reasons: [],
+				nativeSync: {enabled: true, fingerprint: 'abc', lastSyncedAt: 1, ignored: ['x',],},
+			},
+		},)
+
+		expect(encodeClassicConfig(config,).removalReasons.nativeSync,).toBeUndefined()
+		expect(config.removalReasons.nativeSync?.enabled,).toBe(true,)
+	})
+
+	it('writes an empty reasons list when every reason is synced', () => {
+		const config = v2Config({
+			removalReasons: {
+				reasons: [{
+					title: 'From Reddit',
+					text: 'native',
+					flairText: '',
+					flairCSS: '',
+					flairTemplateID: '',
+					nativeReasonId: 'native-1',
+				},],
+			},
+		},)
+
+		expect(encodeClassicConfig(config,).removalReasons.reasons,).toEqual([],)
+	})
+})

@@ -185,6 +185,69 @@ describe('normalizeConfig', () => {
 		expect(configData.removalReasons,).not.toHaveProperty('suggestedReasons',)
 	})
 
+	it('keeps a well-formed nativeSync block', () => {
+		const configData: unknown = {
+			removalReasons: {
+				reasons: [],
+				nativeSync: {
+					enabled: true,
+					fingerprint: 'abcd1234abcd1234',
+					lastSyncedAt: 1700000000000,
+					ignored: ['n1',],
+				},
+			},
+		}
+
+		normalizeConfig(configData,)
+
+		expect(configData.removalReasons.nativeSync,).toEqual({
+			enabled: true,
+			fingerprint: 'abcd1234abcd1234',
+			lastSyncedAt: 1700000000000,
+			ignored: ['n1',],
+		},)
+	})
+
+	it('coerces junk nativeSync fields and drops the block when nothing survives', () => {
+		const configData: unknown = {
+			removalReasons: {
+				// enabled is only ever stored as literal true; the rest are malformed.
+				reasons: [],
+				nativeSync: {enabled: 'yes', fingerprint: '', lastSyncedAt: -1, ignored: 'nope',},
+			},
+		}
+
+		normalizeConfig(configData,)
+
+		expect(configData.removalReasons,).not.toHaveProperty('nativeSync',)
+	})
+
+	it('floors a fractional lastSyncedAt and dedupes ignored ids, dropping an empty list', () => {
+		const configData: unknown = {
+			removalReasons: {
+				reasons: [],
+				nativeSync: {enabled: true, lastSyncedAt: 12.9, ignored: ['n1', 'n1', '', 7,],},
+			},
+		}
+
+		normalizeConfig(configData,)
+
+		expect(configData.removalReasons.nativeSync?.lastSyncedAt,).toBe(12,)
+		expect(configData.removalReasons.nativeSync?.ignored,).toEqual(['n1',],)
+
+		const emptyIgnored: unknown = {removalReasons: {reasons: [], nativeSync: {enabled: true, ignored: [],},},}
+		normalizeConfig(emptyIgnored,)
+		expect(emptyIgnored.removalReasons.nativeSync,).toEqual({enabled: true,},)
+	})
+
+	it('drops a non-object nativeSync field', () => {
+		const configData: unknown = {removalReasons: {reasons: [], nativeSync: ['nope',],},}
+
+		normalizeConfig(configData,)
+
+		expect(configData.removalReasons,).not.toHaveProperty('nativeSync',)
+	})
+
 	it('removes domainTags from config (domain tags now live on a dedicated wiki page)', () => {
 		const configData: unknown = {domainTags: [{name: 'example.com', color: 'red',},],}
 

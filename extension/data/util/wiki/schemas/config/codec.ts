@@ -78,10 +78,21 @@ export function encodeClassicConfig (
 	// legacy mirror entirely.
 	delete classic.removalReasons?.suggestedReasons
 
+	// NXG-only native removal reason sync state; 6.x has no concept of it.
+	delete classic.removalReasons?.nativeSync
+
 	// Guarded throughout: callers normally pass a normalized config, but the
 	// down-convert must never throw on a partial object (e.g. a config a mod
 	// hand-edited on the wiki between normalize and save).
 	if (Array.isArray(classic.removalReasons?.reasons,)) {
+		// Reasons synced from Reddit's own removal reasons are deliberately not
+		// back-propagated: 6.x cannot register a native reason id and rebuilds reason
+		// objects wholesale on save, so mirroring them would only pollute the legacy
+		// page with entries it would strip the link off anyway. The reconcile path
+		// compares against this same filtered view and re-appends them on adopt.
+		classic.removalReasons.reasons = classic.removalReasons.reasons.filter(
+			(reason,) => !reason.nativeReasonId,
+		)
 		for (const reason of classic.removalReasons.reasons) {
 			if (typeof reason.text === 'string') {
 				reason.text = encodeClassicText(reason.text,)
