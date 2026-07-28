@@ -23,6 +23,13 @@ export const settings = defineSettings(
 			default: false,
 			description: 'Use a monospace font in the text editor',
 		},
+		{
+			id: 'renderMarkdown',
+			sharedPolicy: 'raw',
+			type: 'boolean',
+			default: true,
+			description: 'Render markdown in the note view (off shows the raw note text)',
+		},
 	] as const,
 )
 

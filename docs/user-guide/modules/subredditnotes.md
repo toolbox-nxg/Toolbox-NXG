@@ -28,6 +28,8 @@ Access the Subreddit Notes panel from the Modbar.
 
 **Monospace editor** — optionally use a monospace font in the note editor for text-based tables or code snippets.
 
+**Markdown rendering** — notes are rendered as markdown in the note view by default. Turn this off to see the raw note text instead (useful for notes that are plain text or that store markup you want to read literally); with rendering off, the editor's preview toggle is hidden.
+
 **Default subreddit** — configure a default subreddit for the notes panel, so it opens to that subreddit's notes without requiring selection each time.
 
 ## Settings
@@ -37,3 +39,4 @@ Access the Subreddit Notes panel from the Modbar.
 | Default subreddit for notes  | _(empty)_ | Subreddit to open notes for by default                         |
 | Default to current subreddit | Off       | When on a subreddit you moderate, open its notes automatically |
 | Monospace font in editor     | Off       | Use a monospace font in the note text editor                   |
+| Render markdown in note view | On        | Render markdown in the note view; off shows the raw note text  |

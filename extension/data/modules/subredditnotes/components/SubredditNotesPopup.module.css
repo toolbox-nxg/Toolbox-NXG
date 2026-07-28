@@ -395,6 +395,11 @@
 	color: var(--toolbox-fg);
 }
 
+.previewPlain {
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
 .landing {
 	min-height: 260px;
 	padding: var(--toolbox-sp-20);

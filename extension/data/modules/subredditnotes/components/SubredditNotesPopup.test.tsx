@@ -80,6 +80,7 @@ function renderPopup (props: Partial<React.ComponentProps<typeof SubredditNotesP
 			<SubredditNotesPopup
 				notewiki="notesub"
 				monospace={false}
+				renderMarkdown={true}
 				defaultToCurrentSub={false}
 				onClose={vi.fn()}
 				{...props}
@@ -435,6 +436,41 @@ describe('SubredditNotesPopup', () => {
 
 		expect(host.querySelector('textarea',),).toBeNull()
 		expect(host.querySelector('.md',)?.innerHTML,).toContain('bold',)
+	})
+
+	it('shows the raw note text and hides the mode toggle when markdown rendering is off', async () => {
+		readFromWiki.mockImplementation((_sub: string, page: string,) => {
+			if (page === 'notes/index') {
+				return Promise.resolve({
+					ok: true,
+					data: {
+						version: 1,
+						notes: [{
+							slug: 'alpha',
+							title: 'Alpha',
+							createdAt: 1,
+							updatedAt: 2,
+							archived: false,
+							tags: [],
+						},],
+					},
+				},)
+			}
+			return Promise.resolve({ok: true, data: '**bold**',},)
+		},)
+		const host = renderPopup({renderMarkdown: false,},)
+
+		await vi.waitFor(() => expect(host.textContent,).toContain('Alpha',))
+		await clickByText(host, 'Alpha',)
+		// The note view shows the raw source verbatim rather than parsed HTML.
+		await vi.waitFor(() => expect(host.textContent,).toContain('**bold**',))
+		expect(host.querySelector('.md',),).toBeNull()
+
+		// With rendering off, editing offers no preview: the edit/preview toggle is absent.
+		await clickByText(host, 'edit',)
+		await vi.waitFor(() => expect(host.querySelector<HTMLTextAreaElement>('textarea',)?.value,).toBe('**bold**',))
+		const toggleButtons = Array.from(host.querySelectorAll('button',),).map((b,) => b.textContent)
+		expect(toggleButtons,).not.toContain('preview',)
 	})
 
 	it('archives notes through index metadata instead of hiding wiki pages', async () => {

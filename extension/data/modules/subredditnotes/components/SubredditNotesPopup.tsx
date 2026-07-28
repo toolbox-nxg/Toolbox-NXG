@@ -47,6 +47,8 @@ interface SubredditNotesPopupProps {
 	notewiki: string
 	/** Whether to use a monospace font in the text editor. */
 	monospace: boolean
+	/** Whether to render markdown in the note view; when false, the raw note text is shown. */
+	renderMarkdown: boolean
 	/** When true and currentSubreddit is a modded subreddit, open to that subreddit instead of notewiki. */
 	defaultToCurrentSub: boolean
 	/** Subreddit of the current Reddit page (from URL), if any. */
@@ -77,6 +79,7 @@ function toggleArrayItem<T,> (prev: T[], item: T,): T[] {
 export function SubredditNotesPopup ({
 	notewiki,
 	monospace,
+	renderMarkdown,
 	defaultToCurrentSub,
 	currentSubreddit,
 	onClose,
@@ -743,7 +746,7 @@ export function SubredditNotesPopup ({
 											onChange={setEditTags}
 										/>
 									</div>
-									{(isEditing || isDraftNote) && (
+									{renderMarkdown && (isEditing || isDraftNote) && (
 										<div className={css.editorActions}>
 											<div className={css.modeToggle} aria-label="Editor mode">
 												<button
@@ -769,7 +772,12 @@ export function SubredditNotesPopup ({
 								{editorMode === 'preview'
 									? (
 										<div className={css.previewPane}>
-											<div className="md" dangerouslySetInnerHTML={{__html: previewHtml,}} />
+											{renderMarkdown
+												? <div
+													className="md"
+													dangerouslySetInnerHTML={{__html: previewHtml,}}
+												/>
+												: <div className={css.previewPlain}>{editorValue}</div>}
 										</div>
 									)
 									: (

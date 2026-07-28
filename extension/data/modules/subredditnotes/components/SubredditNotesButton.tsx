@@ -7,7 +7,9 @@ import type {SubredditNotesSettings,} from '../settings'
 import {showSubredditNotesPopup,} from './SubredditNotesPopup'
 
 /** Modbar button that toggles the Subreddit Notes popup open and closed. */
-export function SubredditNotesButton ({noteWiki, monospace, defaultToCurrentSub,}: SubredditNotesSettings,) {
+export function SubredditNotesButton (
+	{noteWiki, monospace, defaultToCurrentSub, renderMarkdown,}: SubredditNotesSettings,
+) {
 	const [activated, setActivated,] = useState(false,)
 	const closeRef = useRef<(() => void) | null>(null,)
 
@@ -21,6 +23,7 @@ export function SubredditNotesButton ({noteWiki, monospace, defaultToCurrentSub,
 			notewiki: noteWiki,
 			monospace,
 			defaultToCurrentSub,
+			renderMarkdown,
 			...(postSite ? {currentSubreddit: postSite,} : {}),
 			onClose: () => {
 				setActivated(false,)
