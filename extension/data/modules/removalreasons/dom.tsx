@@ -32,6 +32,7 @@ import {
 	type RemovalReasonsOverlayPreseed,
 	showRemovalReasonsOverlay,
 } from './components/RemovalReasonsOverlay'
+import {syncNativeReasons,} from './features/syncNativeReasons'
 import {getNativeReasons, getRemovalReasons,} from './moduleapi'
 import {setRemovalOverlayOpener,} from './overlayOpener'
 import {
@@ -746,6 +747,14 @@ export function createRemovalReasonsHandlers ({
 			},
 		},)
 		openOverlays.set(registryKey, {close, resetRemoveButton,},)
+
+		// Refresh this subreddit's synced native reasons in the background, once the overlay is
+		// already up. Deliberately not awaited: a removal click must not wait on a network round
+		// trip, and any drift lands in the config for the next open rather than re-rendering
+		// under the moderator. Because it touches no UI, it needs no staleness re-check.
+		if (reqConfig?.removalReasons?.nativeSync?.enabled && !reqConfig.removalReasons.getfrom) {
+			void syncNativeReasons(baseData.subreddit,).catch(() => {},)
+		}
 	}
 
 	// Expose the overlay opener to other modules (e.g. the ModActions "Spam" button, which opens

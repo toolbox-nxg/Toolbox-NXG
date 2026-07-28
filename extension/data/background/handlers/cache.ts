@@ -49,6 +49,7 @@ const shortCacheList = [
 	'Utils.noteCache',
 	'Utils.noConfig',
 	'Utils.noNotes',
+	'Utils.nativeRemovalReasons',
 ]
 
 /** Returns the storage-key prefix for all cache entries belonging to `userId`. */

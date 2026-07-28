@@ -30,14 +30,19 @@ export async function getRemovalReasons (
 }
 
 /**
- * Fetches a subreddit's native (Reddit-configured) removal reasons, used as a fallback
- * for the removal overlay when the subreddit has no Toolbox reasons configured. Kept here
- * so `dom.tsx` reads native reasons through the module's api layer rather than importing
+ * Fetches a subreddit's native (Reddit-configured) removal reasons, used both as a
+ * fallback for the removal overlay when the subreddit has no Toolbox reasons configured
+ * and as the source for the opt-in native reason sync. Kept here so `dom.tsx` and the
+ * sync runner read native reasons through the module's api layer rather than importing
  * an `api/resources` module directly.
  * @param subreddit The bare subreddit name.
+ * @param options Fetch options. `fresh` bypasses the cache and refreshes it.
  */
-export function getNativeReasons (subreddit: string,): Promise<NativeRemovalReason[]> {
-	return getNativeRemovalReasons(subreddit,)
+export function getNativeReasons (
+	subreddit: string,
+	options?: {fresh?: boolean},
+): Promise<NativeRemovalReason[]> {
+	return getNativeRemovalReasons(subreddit, options,)
 }
 
 /**

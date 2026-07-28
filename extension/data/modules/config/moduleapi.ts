@@ -511,15 +511,30 @@ const enqueueConfigSave = createPerKeyQueue()
  * @param subreddit The subreddit whose toolbox config to write.
  * @param config The full toolbox config object.
  * @param reason The wiki revision note.
+ * @param options Write options. `silent` reports progress and failures to the log
+ * instead of the feedback toasts, for background writes the moderator did not ask
+ * for - where a toast (especially a failure they can do nothing about, such as
+ * missing wiki permission) would be noise.
  */
-export function saveToolboxConfig (subreddit: string, config: ToolboxConfig, reason: string,): Promise<void> {
-	return enqueueConfigSave(subreddit, () => doSaveToolboxConfig(subreddit, config, reason,),)
+export function saveToolboxConfig (
+	subreddit: string,
+	config: ToolboxConfig,
+	reason: string,
+	options?: {silent?: boolean},
+): Promise<void> {
+	return enqueueConfigSave(subreddit, () => doSaveToolboxConfig(subreddit, config, reason, options,),)
 }
 
 /** Core write logic for {@link saveToolboxConfig}, called inside the per-subreddit save queue. */
-async function doSaveToolboxConfig (subreddit: string, config: ToolboxConfig, reason: string,): Promise<void> {
+async function doSaveToolboxConfig (
+	subreddit: string,
+	config: ToolboxConfig,
+	reason: string,
+	options?: {silent?: boolean},
+): Promise<void> {
+	const silent = options?.silent === true
 	log.debug('posting config to wiki',)
-	neutralTextFeedback('saving to wiki',)
+	if (!silent) { neutralTextFeedback('saving to wiki',) }
 	try {
 		const layout = await resolveWikiLayout(subreddit,)
 		const [canonicalPage, ...mirrorPages] = await getWikiWritePaths('settings', subreddit,)
@@ -560,9 +575,13 @@ async function doSaveToolboxConfig (subreddit: string, config: ToolboxConfig, re
 			// rev too) so a reload reads fresh, and tell the user their change was not
 			// saved (no clobber, no merge).
 			await clearCache()
-			negativeTextFeedback(
-				'Settings changed elsewhere since you loaded them - your change was not saved. Reload before saving.',
-			)
+			if (silent) {
+				log.warn(`Config for /r/${subreddit} changed elsewhere; skipped the background save.`,)
+			} else {
+				negativeTextFeedback(
+					'Settings changed elsewhere since you loaded them - your change was not saved. Reload before saving.',
+				)
+			}
 			return
 		}
 		if (!writeResult.ok) {
@@ -576,7 +595,7 @@ async function doSaveToolboxConfig (subreddit: string, config: ToolboxConfig, re
 				await apiPostToWiki(subreddit, page, payloadFor(page,), reason, true, false,)
 			} catch (mirrorError: unknown) {
 				log.warn(`Failed to refresh the config mirror at ${page}:`, mirrorError,)
-				negativeTextFeedback('Settings saved, but the 6.x mirror page could not be updated.',)
+				if (!silent) { negativeTextFeedback('Settings saved, but the 6.x mirror page could not be updated.',) }
 			}
 		}
 
@@ -585,12 +604,16 @@ async function doSaveToolboxConfig (subreddit: string, config: ToolboxConfig, re
 		// rev so the next save re-stashes a fresh one via getConfig rather than condition
 		// on this old one.
 		await clearCache()
-		positiveTextFeedback('wiki page saved',)
+		if (!silent) { positiveTextFeedback('wiki page saved',) }
 	} catch (err: unknown) {
 		log.debug(err,)
 		const responseText = err && typeof err === 'object' && 'responseText' in err
 			? String(err.responseText,)
 			: String(err,)
-		negativeTextFeedback(responseText,)
+		if (silent) {
+			log.warn(`Background config save for /r/${subreddit} failed:`, responseText,)
+		} else {
+			negativeTextFeedback(responseText,)
+		}
 	}
 }

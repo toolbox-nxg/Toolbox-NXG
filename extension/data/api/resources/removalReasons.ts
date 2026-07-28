@@ -1,6 +1,8 @@
 /** API functions for reading Reddit's native subreddit removal reasons and registering them on removed items. */
 
+import {utils,} from '../../framework/moduleIds'
 import {assertActionAllowed,} from '../../util/infra/captureGuard'
+import {getCache, setCache,} from '../../util/persistence/cache'
 import {postRedditApiVoid,} from '../parsers/redditMutation'
 import {apiOauthGetJSON,} from '../transport/http'
 
@@ -21,12 +23,40 @@ interface NativeRemovalReasonsResponse {
 	order: string[]
 }
 
+/** Cache key holding every subreddit's last-fetched native reasons, keyed by subreddit. */
+const nativeReasonsCacheKey = 'nativeRemovalReasons'
+
 /**
- * Gets a subreddit's native (Reddit-configured) removal reasons, in the
- * moderator-configured display order. Returns an empty array when the subreddit
- * has none configured.
+ * How long an in-memory entry stays fresh. The persisted layer has its own TTL from
+ * the background cache handler; this shorter one keeps a single page session from
+ * pinning a stale list indefinitely, which is what the equivalent module-level cache
+ * in `modSubs.ts` does (it never expires and its clear function is never called).
  */
-export const getNativeRemovalReasons = async (subreddit: string,): Promise<NativeRemovalReason[]> => {
+const inMemoryTtlMs = 60_000
+
+/** Per-subreddit in-memory cache, so repeated drawer opens skip background IPC. */
+const inMemoryNativeReasons = new Map<string, {reasons: NativeRemovalReason[]; expiresAt: number}>()
+
+/**
+ * Coalesces concurrent callers onto one in-flight fetch, keyed by subreddit so two
+ * drawers opening on different subreddits don't share a result.
+ */
+const ongoingFetches = new Map<string, Promise<NativeRemovalReason[]>>()
+
+/**
+ * Clears cached native removal reasons.
+ * @param subreddit The subreddit to forget; omit to clear every subreddit.
+ */
+export function clearNativeReasonsCache (subreddit?: string,): void {
+	if (subreddit === undefined) {
+		inMemoryNativeReasons.clear()
+		return
+	}
+	inMemoryNativeReasons.delete(subreddit,)
+}
+
+/** Reads and orders a subreddit's native removal reasons straight from the API. */
+async function fetchNativeRemovalReasons (subreddit: string,): Promise<NativeRemovalReason[]> {
 	const response = await apiOauthGetJSON<NativeRemovalReasonsResponse>(
 		`/api/v1/${subreddit}/removal_reasons`,
 	)
@@ -36,6 +66,58 @@ export const getNativeRemovalReasons = async (subreddit: string,): Promise<Nativ
 	// any id in `order` that no longer has a matching entry.
 	const ids = response.order?.length ? response.order : Object.keys(byId,)
 	return ids.map((id,) => byId[id]).filter((reason,): reason is NativeRemovalReason => Boolean(reason,))
+}
+
+/**
+ * Gets a subreddit's native (Reddit-configured) removal reasons, in the
+ * moderator-configured display order. Returns an empty array when the subreddit
+ * has none configured.
+ *
+ * Cached in memory and in extension storage, because the removal drawer consults
+ * this on every open once a subreddit opts into syncing native reasons. A failed
+ * fetch is never cached, so the next call retries.
+ * @param subreddit The subreddit whose native reasons to read.
+ * @param options Fetch options. `fresh` bypasses both cache layers and refreshes them.
+ */
+export const getNativeRemovalReasons = async (
+	subreddit: string,
+	options?: {fresh?: boolean},
+): Promise<NativeRemovalReason[]> => {
+	if (!options?.fresh) {
+		const memory = inMemoryNativeReasons.get(subreddit,)
+		if (memory && memory.expiresAt > Date.now()) { return memory.reasons }
+
+		const ongoing = ongoingFetches.get(subreddit,)
+		if (ongoing) { return ongoing }
+	}
+
+	const fetching = (async () => {
+		if (!options?.fresh) {
+			const cached = await getCache(utils, nativeReasonsCacheKey, {},) as Record<
+				string,
+				NativeRemovalReason[]
+			>
+			const stored = cached[subreddit]
+			if (stored) {
+				inMemoryNativeReasons.set(subreddit, {reasons: stored, expiresAt: Date.now() + inMemoryTtlMs,},)
+				return stored
+			}
+		}
+
+		const reasons = await fetchNativeRemovalReasons(subreddit,)
+		inMemoryNativeReasons.set(subreddit, {reasons, expiresAt: Date.now() + inMemoryTtlMs,},)
+		const cached = await getCache(utils, nativeReasonsCacheKey, {},) as Record<
+			string,
+			NativeRemovalReason[]
+		>
+		await setCache(utils, nativeReasonsCacheKey, {...cached, [subreddit]: reasons,},)
+		return reasons
+	})().finally(() => {
+		ongoingFetches.delete(subreddit,)
+	},)
+
+	ongoingFetches.set(subreddit, fetching,)
+	return fetching
 }
 
 /**

@@ -12,6 +12,7 @@ const getConfig = vi.hoisted(() => vi.fn())
 const getThingFromDescendant = vi.hoisted(() => vi.fn((element: Element,) => element.closest('.thing',)))
 const removeThing = vi.hoisted(() => vi.fn())
 const getNativeRemovalReasons = vi.hoisted(() => vi.fn())
+const syncNativeReasons = vi.hoisted(() => vi.fn())
 const negativeTextFeedback = vi.hoisted(() => vi.fn())
 // Renderer registry for the uiLocations mock — keyed by location name.
 const uiLocMock = vi.hoisted(() => ({renderers: new Map<string, (...args: unknown[]) => unknown>(),}))
@@ -60,6 +61,10 @@ vi.mock('../config/moduleapi', () => ({
 
 vi.mock('../../api/resources/removalReasons', () => ({
 	getNativeRemovalReasons,
+}),)
+
+vi.mock('./features/syncNativeReasons', () => ({
+	syncNativeReasons,
 }),)
 
 vi.mock('../../store/feedback', () => ({
@@ -250,6 +255,7 @@ beforeEach(() => {
 	setThingInfo()
 	removeThing.mockResolvedValue({},)
 	getNativeRemovalReasons.mockResolvedValue([],)
+	syncNativeReasons.mockResolvedValue({status: 'disabled',},)
 	// Register the thingNativeActionReplacement renderer so injectRemoveButton works.
 	createRemovalReasonsHandlers(handlerSettings,)
 },)
@@ -955,5 +961,79 @@ describe('createRemovalReasonsHandlers', () => {
 			expect(showRemovalReasonsOverlay,).not.toHaveBeenCalled()
 			expect(negativeTextFeedback,).toHaveBeenCalledOnce()
 		})
+	})
+})
+
+describe('native reason sync on drawer open', () => {
+	/** Points the config mock at a reason list plus a nativeSync block. */
+	function setSyncConfig (removalReasons: Record<string, unknown>,) {
+		getConfig.mockResolvedValue({
+			removalReasons: {
+				pmsubject: '',
+				logreason: '',
+				header: '',
+				footer: '',
+				logsub: '',
+				logtitle: '',
+				reasons: [{text: 'Rule reason', title: 'A reason', flairText: '', flairCSS: '', flairTemplateID: '',},],
+				...removalReasons,
+			},
+		},)
+	}
+
+	/** Renders a removable thing and clicks its Toolbox remove button. */
+	async function openDrawer () {
+		document.body.innerHTML = `
+            <div class="thing link" data-fullname="t3_post" data-subreddit="testsub">
+                <div class="entry">
+                    <ul class="buttons">
+                        <li class="remove-button">
+                            <button class="togglebutton">remove</button>
+                            <button class="yes">yes</button>
+                        </li>
+                    </ul>
+                    <span data-name="toolbox"></span>
+                </div>
+            </div>
+        `
+		const target = document.querySelector<HTMLElement>('[data-name="toolbox"]',)!
+		const handlers = createRemovalReasonsHandlers(handlerSettings,)
+		injectRemoveButton('t3_post', 'testsub', target,)
+		await handlers.handleClick(makeClick(document.querySelector('.toolbox-removal-reason-remove',)!,),)
+	}
+
+	it('schedules a sync after opening when the subreddit opts in', async () => {
+		setSyncConfig({nativeSync: {enabled: true,},},)
+
+		await openDrawer()
+
+		expect(showRemovalReasonsOverlay,).toHaveBeenCalledOnce()
+		expect(syncNativeReasons,).toHaveBeenCalledWith('testsub',)
+	})
+
+	it('does not sync when the subreddit has not opted in', async () => {
+		setSyncConfig({},)
+
+		await openDrawer()
+
+		expect(showRemovalReasonsOverlay,).toHaveBeenCalledOnce()
+		expect(syncNativeReasons,).not.toHaveBeenCalled()
+	})
+
+	it('does not sync a subreddit that takes its reasons from elsewhere', async () => {
+		setSyncConfig({nativeSync: {enabled: true,}, getfrom: 'othersub',},)
+
+		await openDrawer()
+
+		expect(syncNativeReasons,).not.toHaveBeenCalled()
+	})
+
+	it('does not let a sync failure disturb the overlay', async () => {
+		setSyncConfig({nativeSync: {enabled: true,},},)
+		syncNativeReasons.mockRejectedValue(new Error('boom',),)
+
+		await openDrawer()
+
+		expect(showRemovalReasonsOverlay,).toHaveBeenCalledOnce()
 	})
 })
