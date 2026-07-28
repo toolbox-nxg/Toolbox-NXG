@@ -48,6 +48,7 @@ import {getCounterState, updateCounters,} from '../../notifier/store'
 import {isTrainingCaptureActive,} from '../../shared/proposals/gateway'
 import {ModtoolsToolbar, type ModtoolsToolbarControls,} from '../components/ModtoolsToolbar'
 import type {MassModerationSettings,} from '../settings'
+import {reportsExpandedClass,} from './expandReports'
 import {createSidebarSortHandlers,} from './queueSidebarSorting'
 import {appendNewItems, groupBySubreddit, sortThings, ungroupBySubreddit,} from './queueSorting'
 
@@ -267,6 +268,9 @@ export function createModtoolsHandlers (
 
 	removeUnmoddable()
 	document.body.classList.add('toolbox-mm-active',)
+	// Without this, teardown leaves Reddit's own `.menuarea` sort bar hidden (massmoderation.css)
+	// with no toolbar left to replace it.
+	lifecycle.mount(() => document.body.classList.remove('toolbox-mm-active',))
 
 	const modtoolsOnEl = document.querySelector('.modtools-on',)
 	modtoolsOnEl?.parentElement?.remove()
@@ -439,7 +443,7 @@ export function createModtoolsHandlers (
 					syncHiddenCount()
 				}}
 				onToggleReports={(expanded,) => {
-					siteTable?.classList.toggle('toolbox-reports-expanded', expanded,)
+					siteTable?.classList.toggle(reportsExpandedClass, expanded,)
 				}}
 				onActionButton={async (type,) => {
 					const approve = type === 'positive'
@@ -641,8 +645,6 @@ export function createModtoolsHandlers (
 
 	const things = getThings()
 	things.forEach((element,) => element.classList.add('mte-processed',))
-
-	if (expandReports) { siteTable?.classList.add('toolbox-reports-expanded',) }
 
 	function replaceSubLinks (element: Element,) {
 		const subLink = element.querySelector('a.subreddit',)
