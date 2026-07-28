@@ -12,15 +12,18 @@
  * Renders the inline set: Spam and the Toolbox Remove link (shown until the item is removed), then
  * Approve (always shown, so a reported-but-not-removed item can be approved too), then Lock and the
  * post/comment-specific toggles. Reddit's own inline mod actions are hidden by CSS, so these stand in
- * for them. The Remove link carries the `toolbox-removal-reason-remove` class so the removalreasons
- * document-level handler drives its click; this component only emits the markup (it already depends
- * on removalreasons for the Spam -> removal-overlay path).
+ * for them. That hide is gated on the `toolbox-mod-actions-present` marker this component adds to its
+ * host thing once mod status resolves (see toolbox-buttons.css), so a thing whose Toolbox row never
+ * renders keeps its native controls. The Remove link carries the `toolbox-removal-reason-remove`
+ * class so the removalreasons document-level handler drives its click; this component only emits the
+ * markup (it already depends on removalreasons for the Spam -> removal-overlay path).
  */
 
 import {useEffect, useState,} from 'react'
 
 import {getCurrentUser,} from '../../../api/resources/me'
 import {FlatListAction,} from '../../../shared/controls/FlatListAction'
+import {useAncestorClass,} from '../../../shared/controls/useAncestorClass'
 import {useIsMod,} from '../../../shared/controls/useIsMod'
 import {positiveTextFeedback,} from '../../../store/feedback'
 import createLogger from '../../../util/infra/logging'
@@ -66,6 +69,12 @@ export interface FlatListModActionsProps {
 	 * Comment-only; ignored for posts.
 	 */
 	isTopLevelComment?: boolean
+	/**
+	 * The host `shreddit-post`/`shreddit-comment` element. Marked with `toolbox-mod-actions-present`
+	 * once mod status resolves so the native-control-hiding CSS applies only where these Toolbox mod
+	 * buttons actually render (see toolbox-buttons.css). Null when the ancestor couldn't be resolved.
+	 */
+	host?: Element | null
 }
 
 /** Visual/interaction state of a single action button. */
@@ -151,10 +160,16 @@ export function FlatListModActions (
 		link,
 		author,
 		isTopLevelComment = false,
+		host,
 	}: FlatListModActionsProps,
 ) {
 	// Only moderators of the sub may act; `null` until the cached check resolves.
 	const isMod = useIsMod(subreddit,)
+	// Mark the host thing so the native-control-hiding CSS (toolbox-buttons.css) applies only once
+	// these Toolbox mod buttons are confirmed to render. Runs before the `isMod` early return below so
+	// the hook order stays stable; the class is added only when `isMod === true` and removed on unmount
+	// or if mod status flips - a comment/post whose replacement never mounts keeps its native controls.
+	useAncestorClass(host ?? null, 'toolbox-mod-actions-present', isMod === true,)
 	// Logged-in username, used to limit Distinguish to the viewer's own comments (Reddit only allows
 	// distinguishing your own). `null` until resolved.
 	const [currentUser, setCurrentUser,] = useState<string | null>(null,)

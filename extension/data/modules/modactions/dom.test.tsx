@@ -133,6 +133,40 @@ describe('createModActionsSlot', () => {
 		expect((nestedNode as any).props.isTopLevelComment,).toBe(false,)
 	})
 
+	it('passes the resolved ancestor thing as host (used to mark the native-hide CSS)', () => {
+		const render = getRenderer()
+
+		const post = document.createElement('shreddit-post',)
+		const postSlot = document.createElement('span',)
+		post.appendChild(postSlot,)
+		const postNode = render({
+			context: {kind: 'post', thingId: 't3_x', subreddit: 'sub', isRemoved: false,},
+			target: postSlot,
+		},)
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- inspect the element's props.
+		expect((postNode as any).props.host,).toBe(post,)
+
+		const comment = document.createElement('shreddit-comment',)
+		const commentSlot = document.createElement('span',)
+		comment.appendChild(commentSlot,)
+		const commentNode = render({
+			context: {kind: 'comment', thingId: 't1_c', subreddit: 'sub', isRemoved: false,},
+			target: commentSlot,
+		},)
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- inspect the element's props.
+		expect((commentNode as any).props.host,).toBe(comment,)
+	})
+
+	it('passes host null when the target has no thing ancestor', () => {
+		const render = getRenderer()
+		const node = render({
+			context: {kind: 'post', thingId: 't3_x', subreddit: 'sub', isRemoved: false,},
+			target: document.createElement('span',),
+		},)
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- inspect the element's props.
+		expect((node as any).props.host,).toBeNull()
+	})
+
 	it('does not mark a comment locked from a nested reply\'s lock badge', () => {
 		const comment = document.createElement('shreddit-comment',)
 		// The parent's own meta has no lock badge; only a nested reply does.
