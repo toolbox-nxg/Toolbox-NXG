@@ -47,7 +47,7 @@ function makeConfig (removalReasons: Record<string, unknown> = {},) {
 beforeEach(() => {
 	resetNativeSyncThrottle()
 	getConfig.mockReset().mockResolvedValue(makeConfig(),)
-	saveToolboxConfig.mockReset().mockResolvedValue(undefined,)
+	saveToolboxConfig.mockReset().mockResolvedValue({ok: true,},)
 	getNativeReasons.mockReset().mockResolvedValue(nativeReasons,)
 	getCache.mockReset().mockImplementation((_moduleId: unknown, _key: unknown, fallback: unknown,) =>
 		Promise.resolve(fallback,)
@@ -338,5 +338,78 @@ describe('native sync failures', () => {
 		getCache.mockResolvedValue({sub: failure,},)
 
 		await expect(getLastNativeSyncFailure('sub',),).resolves.toEqual(failure,)
+	})
+})
+
+describe('syncNativeReasons save failures', () => {
+	/** Returns the value last written to the failure cache, or undefined if none was. */
+	function lastFailures () {
+		const call = setCache.mock.calls.findLast((c: unknown[],) => c[1] === 'nativeSyncFailure')
+		return call?.[2] as Record<string, {at: number; stage: string; message: string}> | undefined
+	}
+
+	it('treats a returned save failure as failed, not synced', async () => {
+		// saveToolboxConfig reports failures by returning, not throwing, and a silent
+		// background write suppresses its toasts - so the result is the only signal.
+		saveToolboxConfig.mockResolvedValue({ok: false, reason: 'error', message: 'you must be a moderator',},)
+
+		await expect(syncNativeReasons('sub',),).resolves.toEqual({status: 'failed',},)
+		expect(lastFailures()?.sub,).toMatchObject({stage: 'save', message: 'you must be a moderator',},)
+	})
+
+	it('treats a losing conflict as failed rather than a successful sync', async () => {
+		saveToolboxConfig.mockResolvedValue({ok: false, reason: 'conflict',},)
+
+		await expect(syncNativeReasons('sub',),).resolves.toEqual({status: 'failed',},)
+		expect(lastFailures()?.sub,).toMatchObject({stage: 'save',},)
+	})
+
+	it('backs off a subreddit whose last write failed, instead of refetching every cooldown', async () => {
+		getCache.mockImplementation((_moduleId: unknown, key: unknown, fallback: unknown,) =>
+			Promise.resolve(
+				key === 'nativeSyncFailure'
+					? {sub: {at: Date.now() - 60 * 60 * 1000, stage: 'save', message: 'nope',},}
+					: fallback,
+			)
+		)
+
+		await expect(syncNativeReasons('sub',),).resolves.toEqual({status: 'throttled',},)
+		expect(getNativeReasons,).not.toHaveBeenCalled()
+	})
+
+	it('retries once the write backoff has elapsed', async () => {
+		getCache.mockImplementation((_moduleId: unknown, key: unknown, fallback: unknown,) =>
+			Promise.resolve(
+				key === 'nativeSyncFailure'
+					? {sub: {at: Date.now() - 24 * 60 * 60 * 1000, stage: 'save', message: 'nope',},}
+					: fallback,
+			)
+		)
+
+		await expect(syncNativeReasons('sub',),).resolves.toMatchObject({status: 'synced',},)
+	})
+
+	it('does not back off a read failure, which is usually transient', async () => {
+		getCache.mockImplementation((_moduleId: unknown, key: unknown, fallback: unknown,) =>
+			Promise.resolve(
+				key === 'nativeSyncFailure'
+					? {sub: {at: Date.now() - 1000, stage: 'fetch', message: 'network',},}
+					: fallback,
+			)
+		)
+
+		await expect(syncNativeReasons('sub',),).resolves.toMatchObject({status: 'synced',},)
+	})
+
+	it('lets a forced sync through the write backoff, so fixing permissions can be retried', async () => {
+		getCache.mockImplementation((_moduleId: unknown, key: unknown, fallback: unknown,) =>
+			Promise.resolve(
+				key === 'nativeSyncFailure'
+					? {sub: {at: Date.now() - 1000, stage: 'save', message: 'nope',},}
+					: fallback,
+			)
+		)
+
+		await expect(syncNativeReasons('sub', {force: true,},),).resolves.toMatchObject({status: 'synced',},)
 	})
 })

@@ -366,9 +366,11 @@ export function RemovalSettingsTab ({state, saveRef, onSave,}: Props,) {
 						{lastFailure.stage === 'fetch'
 							? 'Could not read Reddit\'s removal reasons'
 							: 'Could not save the reasons imported from Reddit'}{' '}
-						{formatRelativeTime(new Date(lastFailure.at,),)}:{' '}
-						{lastFailure.message}. Syncing will keep retrying; press <strong>Sync from Reddit</strong>{' '}
-						on the <em>Edit removal reasons</em> tab to try again now.
+						{formatRelativeTime(new Date(lastFailure.at,),)}: {lastFailure.message}.{' '}
+						{lastFailure.stage === 'save'
+							? 'Toolbox has stopped retrying for now; if this is a permissions problem, ask for the "wiki" moderator permission.'
+							: 'Toolbox will try again shortly.'} Press <strong>Sync from Reddit</strong> on the{' '}
+						<em>Edit removal reasons</em> tab to retry immediately.
 					</p>
 				)}
 			</div>

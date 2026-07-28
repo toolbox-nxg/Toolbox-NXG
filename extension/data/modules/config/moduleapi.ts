@@ -490,6 +490,24 @@ export async function saveWikiEditorPage (
 const enqueueConfigSave = createPerKeyQueue()
 
 /**
+ * Outcome of a config save. Returned rather than thrown, so fire-and-forget callers
+ * keep working unchanged while a caller that needs to know - a background write whose
+ * failure nobody would otherwise see - can check.
+ */
+export interface ConfigSaveResult {
+	/** Whether the canonical page was written. */
+	ok: boolean
+	/**
+	 * Why it was not written. `conflict` - another moderator's edit landed first and
+	 * the write was skipped rather than clobbering it; `error` - the write failed,
+	 * most often because the account lacks wiki permission.
+	 */
+	reason?: 'conflict' | 'error'
+	/** The underlying failure text, for a caller that reports it. */
+	message?: string
+}
+
+/**
  * Writes a full toolbox config object to a subreddit's config wiki page(s),
  * with the standard save feedback and cache invalidation. Shared by every
  * module that persists its slice of the config (mod macros, removal reasons,
@@ -506,8 +524,9 @@ const enqueueConfigSave = createPerKeyQueue()
  * awaits the first before writing, preventing a later write from silently
  * discarding changes made by an earlier in-flight write.
  *
- * Never rejects - failures are reported through the feedback toasts, so
- * fire-and-forget callers don't need their own error handling.
+ * Never rejects - failures are reported through the feedback toasts and returned as
+ * a {@link ConfigSaveResult}, so fire-and-forget callers don't need their own error
+ * handling and a silent background caller can still tell whether the write landed.
  * @param subreddit The subreddit whose toolbox config to write.
  * @param config The full toolbox config object.
  * @param reason The wiki revision note.
@@ -521,7 +540,7 @@ export function saveToolboxConfig (
 	config: ToolboxConfig,
 	reason: string,
 	options?: {silent?: boolean},
-): Promise<void> {
+): Promise<ConfigSaveResult> {
 	return enqueueConfigSave(subreddit, () => doSaveToolboxConfig(subreddit, config, reason, options,),)
 }
 
@@ -531,7 +550,7 @@ async function doSaveToolboxConfig (
 	config: ToolboxConfig,
 	reason: string,
 	options?: {silent?: boolean},
-): Promise<void> {
+): Promise<ConfigSaveResult> {
 	const silent = options?.silent === true
 	log.debug('posting config to wiki',)
 	if (!silent) { neutralTextFeedback('saving to wiki',) }
@@ -582,7 +601,7 @@ async function doSaveToolboxConfig (
 					'Settings changed elsewhere since you loaded them - your change was not saved. Reload before saving.',
 				)
 			}
-			return
+			return {ok: false, reason: 'conflict',}
 		}
 		if (!writeResult.ok) {
 			throw writeResult.error
@@ -605,6 +624,7 @@ async function doSaveToolboxConfig (
 		// on this old one.
 		await clearCache()
 		if (!silent) { positiveTextFeedback('wiki page saved',) }
+		return {ok: true,}
 	} catch (err: unknown) {
 		log.debug(err,)
 		const responseText = err && typeof err === 'object' && 'responseText' in err
@@ -615,5 +635,6 @@ async function doSaveToolboxConfig (
 		} else {
 			negativeTextFeedback(responseText,)
 		}
+		return {ok: false, reason: 'error', message: responseText,}
 	}
 }

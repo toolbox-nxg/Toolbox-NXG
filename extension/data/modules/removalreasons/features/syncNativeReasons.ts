@@ -24,6 +24,16 @@ const failureCacheKey = 'nativeSyncFailure'
 const cooldownMs = 15 * 60 * 1000
 
 /**
+ * How long to wait after a failed *write* before trying again. A sync that cannot write -
+ * most often an account without the `wiki` mod permission - fails the same way every time,
+ * so retrying it on the ordinary cooldown burns a fetch and a write every 15 minutes for
+ * as long as the moderator keeps working. Read failures are left on the ordinary cooldown
+ * instead: those are usually a transient network problem, and backing off half a day would
+ * strand a subreddit whose sync is fine.
+ */
+const saveFailureBackoffMs = 12 * 60 * 60 * 1000
+
+/**
  * Subreddits already attempted in this page session. Cheaper than the persisted
  * cooldown and covers repeated drawer opens on one page.
  */
@@ -148,6 +158,11 @@ export async function syncNativeReasons (
 
 	if (!force) {
 		if (attempted.has(subreddit,)) { return {status: 'throttled',} }
+		const failure = (await readFailures())[subreddit]
+		if (failure?.stage === 'save' && Date.now() - failure.at < saveFailureBackoffMs) {
+			attempted.add(subreddit,)
+			return {status: 'throttled',}
+		}
 		const last = (await readCooldowns())[subreddit]
 		if (typeof last === 'number' && Date.now() - last < cooldownMs) {
 			attempted.add(subreddit,)
@@ -197,13 +212,29 @@ export async function syncNativeReasons (
 		},
 	}
 
+	// saveToolboxConfig never rejects - it reports through toasts, which a silent background
+	// write suppresses - so its returned result is the only way to tell a write that landed
+	// from one that did not. Getting this wrong would be invisible in exactly the case that
+	// matters: a moderator without wiki permission, whose sync can never succeed.
+	let saveResult
 	try {
-		await saveToolboxConfig(subreddit, next, 'sync removal reasons from Reddit', {silent,},)
+		saveResult = await saveToolboxConfig(subreddit, next, 'sync removal reasons from Reddit', {silent,},)
 	} catch (error: unknown) {
-		// saveToolboxConfig reports its own failures and is documented not to reject, but a
-		// background caller must not be the one to discover otherwise.
+		// Documented not to reject, but a background caller must not be the one to find out.
 		log.warn(`Could not save synced removal reasons for /r/${subreddit}:`, error,)
 		await recordFailure(subreddit, 'save', error,)
+		return {status: 'failed',}
+	}
+	if (!saveResult.ok) {
+		log.warn(`Could not save synced removal reasons for /r/${subreddit}: ${saveResult.reason}`,)
+		await recordFailure(
+			subreddit,
+			'save',
+			saveResult.message
+				?? (saveResult.reason === 'conflict'
+					? 'another moderator changed the config first'
+					: 'the config could not be written'),
+		)
 		return {status: 'failed',}
 	}
 	log.debug(

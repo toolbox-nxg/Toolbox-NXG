@@ -110,6 +110,8 @@ Two times are shown under the setting, and they mean different things. **Last im
 
 If a background sync fails — Reddit is unreachable, or your account cannot edit the config wiki page — the failure is reported here in red, with what went wrong and when. Background syncing never interrupts a removal to tell you, so this is where a persistently broken sync shows up. The message clears itself as soon as a run succeeds.
 
+A failure to _write_ is treated as the more serious kind, because the usual cause is an account without the **wiki** moderator permission, which will not fix itself. Toolbox stops retrying that subreddit for half a day rather than re-checking every 15 minutes to fail the same way. A failure to _read_ is assumed to be a passing network problem and retries normally. **Sync from Reddit** ignores the backoff, so once the permission is granted you can retry straight away.
+
 **Deleting.** Deleting a reason in Mod Tools removes the toolbox copy on the next sync. Deleting an imported reason in the toolbox editor keeps it out — it will not be re-imported — but leaves it untouched on Reddit.
 
 **Turning it off.** Switching **Keep toolbox removal reasons in sync with Reddit's** back off removes the imported reasons from toolbox, along with any flair and usernote settings you attached to them. Your hand-written reasons are untouched, and nothing changes on Reddit's side. Toolbox asks for confirmation first, and tells you how many reasons will go.
