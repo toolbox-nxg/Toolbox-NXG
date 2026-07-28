@@ -21,13 +21,16 @@ button.generalButton {
 	box-shadow: none;
 }
 
-button.generalButton:hover {
-	background-color: var(--toolbox-selected-bg);
-	border-color: var(--toolbox-border-color);
-	text-decoration: none;
-}
-
 button.generalButton:disabled {
 	opacity: 0.5;
 	cursor: default;
+}
+
+/* :not(:disabled) so a disabled button never looks interactive on hover. Most visible in dark mode,
+   where --toolbox-selected-bg contrasts sharply with --toolbox-action-bg, but it applies in both.
+   Declared after :disabled to keep specificity ascending (stylelint no-descending-specificity). */
+button.generalButton:hover:not(:disabled) {
+	background-color: var(--toolbox-selected-bg);
+	border-color: var(--toolbox-border-color);
+	text-decoration: none;
 }

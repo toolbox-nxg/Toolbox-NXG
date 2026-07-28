@@ -4,6 +4,7 @@ import {useCallback, useEffect, useLayoutEffect, useRef, useState,} from 'react'
 
 import {GeneralButton,} from '../../../shared/controls/GeneralButton'
 import {reactAlert,} from '../../../shared/controls/ReactAlert'
+import {classes,} from '../../../util/ui/reactMount'
 
 import css from './ModtoolsToolbar.module.css'
 
@@ -243,6 +244,16 @@ export function ModtoolsToolbar ({
 			'position': 'relative',
 		},)
 
+		// Observed rather than measured inside the scroll handler alone: the toolbar also grows and
+		// shrinks without scrolling (the action log row, the toast), and a stale spacer height while
+		// the toolbar is fixed makes the queue below it jump.
+		const syncSpacerHeight = () => {
+			duplicate.style.height = `${menu.offsetHeight}px`
+		}
+		syncSpacerHeight()
+		const spacerObserver = new ResizeObserver(syncSpacerHeight,)
+		spacerObserver.observe(menu,)
+
 		let animFrame: number | null = null
 		const handleScroll = () => {
 			if (animFrame) { cancelAnimationFrame(animFrame,) }
@@ -256,13 +267,13 @@ export function ModtoolsToolbar ({
 					position,
 				},)
 				duplicate.style.display = position === 'fixed' ? 'block' : 'none'
-				duplicate.style.height = `${menu.offsetHeight}px`
 			},)
 		}
 
 		window.addEventListener('scroll', handleScroll,)
 		return () => {
 			window.removeEventListener('scroll', handleScroll,)
+			spacerObserver.disconnect()
 			if (animFrame) { cancelAnimationFrame(animFrame,) }
 		}
 	}, [],)
@@ -346,6 +357,11 @@ export function ModtoolsToolbar ({
 		},)
 	}, [],)
 
+	// Declared above the handlers so handleActionClick can guard on the selection without
+	// tripping no-use-before-define.
+	const anySelected = selectAllChecked || selectAllIndeterminate
+	const anyHidden = hiddenCount > 0
+
 	// --- Handlers ---
 
 	/**
@@ -411,6 +427,9 @@ export function ModtoolsToolbar ({
 		type: 'negative' | 'neutral' | 'positive' | 'ignore',
 		event?: React.MouseEvent<HTMLButtonElement>,
 	) => {
+		// Alt+S/R/A/G reach these buttons by accessKey; browsers suppress activation of a disabled
+		// button, but guard here too so a bulk action can never run against an empty selection.
+		if (!anySelected) { return }
 		if (selectedCount >= BULK_CONFIRM_THRESHOLD) {
 			const label = type === 'negative'
 				? 'spam'
@@ -451,7 +470,6 @@ export function ModtoolsToolbar ({
 		}
 	}
 
-	const anySelected = selectAllChecked || selectAllIndeterminate
 	const sortChoices = ['age', 'edited', 'removed', ...(!viewingspam ? ['reports',] : []), 'score', 'author',]
 	// Keep ref in sync so the Alt+O handler can read the current choices without re-running
 	sortChoicesRef.current = sortChoices
@@ -469,15 +487,14 @@ export function ModtoolsToolbar ({
 					checked={selectAllChecked}
 					onChange={handleSelectAllChange}
 				/>
-				{selectAllIndeterminate && (
-					<GeneralButton
-						accessKey="I"
-						title="invert selection (Alt+I)"
-						onClick={onInvert}
-					>
-						invert
-					</GeneralButton>
-				)}
+				<GeneralButton
+					accessKey="I"
+					title="invert selection (Alt+I)"
+					disabled={!selectAllIndeterminate}
+					onClick={onInvert}
+				>
+					invert
+				</GeneralButton>
 				<GeneralButton
 					title="expand or collapse all expando boxes"
 					onClick={handleExpandosClick}
@@ -503,81 +520,85 @@ export function ModtoolsToolbar ({
 				</GeneralButton>
 			</div>
 
-			{/* Group 2: hide/unhide and bulk actions - shown when items are selected or hidden */}
-			{(anySelected || hiddenCount > 0) && (
-				<div className={css.group}>
-					{anySelected && <span className={css.selectedCount}>{selectedCount} selected</span>}
-					{hiddenCount > 0 && (
-						<GeneralButton
-							accessKey="U"
-							title="unhide all hidden items (Alt+U)"
-							onClick={onUnhideSelected}
-						>
-							unhide all
-						</GeneralButton>
-					)}
+			{
+				/* Group 2: hide/unhide and bulk actions. Always mounted so the toolbar's height and
+			    flex-wrap points never change - mounting it on the first selection grew the toolbar
+			    and pushed the whole queue down under the user's cursor. */
+			}
+			<div className={css.group}>
+				<span className={classes(css.selectedCount, !anySelected && css.idleCount,)}>
+					{selectedCount} selected
+				</span>
+				<GeneralButton
+					accessKey="U"
+					title="unhide all hidden items (Alt+U)"
+					disabled={!anyHidden}
+					onClick={onUnhideSelected}
+				>
+					unhide all
+				</GeneralButton>
+				<span className={css.actions}>
 					<GeneralButton
 						accessKey="H"
 						title="hide selected items (Alt+H)"
+						disabled={!anySelected}
 						onClick={onHideSelected}
 					>
 						hide selected
 					</GeneralButton>
-					{anySelected && <>
-						<GeneralButton
-							className={`${css.negative}${pressed === 'negative' ? ` ${css.pressed}` : ''}`}
-							accessKey="S"
-							tabIndex={3}
-							title="spam selected items (Alt+S)"
-							disabled={actionsPending}
-							onClick={() => {
-								void handleActionClick('negative',)
-							}}
-						>
-							spam selected
-						</GeneralButton>
-						<GeneralButton
-							className={`${css.neutral}${
-								(pressed === 'neutral' || shiftRemoveFeedback) ? ` ${css.pressed}` : ''
-							}`}
-							accessKey="R"
-							tabIndex={4}
-							title="remove selected items (Alt+R)"
-							disabled={actionsPending}
-							onClick={(event,) => {
-								void handleActionClick('neutral', event,)
-							}}
-						>
-							{shiftRemoveFeedback ? 'removed selected' : 'remove selected'}
-						</GeneralButton>
-						<GeneralButton
-							className={`${css.positive}${pressed === 'positive' ? ` ${css.pressed}` : ''}`}
-							accessKey="A"
-							tabIndex={5}
-							title="approve selected items (Alt+A)"
-							disabled={actionsPending}
-							onClick={() => {
-								void handleActionClick('positive',)
-							}}
-						>
-							approve selected
-						</GeneralButton>
-						<GeneralButton
-							className={`${css.neutral}${pressed === 'ignore' ? ` ${css.pressed}` : ''}`}
-							accessKey="G"
-							tabIndex={6}
-							title="ignore reports on selected items (Alt+G)"
-							disabled={actionsPending}
-							onClick={() => {
-								void handleActionClick('ignore',)
-							}}
-						>
-							ignore reports on selected
-						</GeneralButton>
-						{toast && <span className={css.toast}>{toast}</span>}
-					</>}
-				</div>
-			)}
+					<GeneralButton
+						className={`${css.negative}${pressed === 'negative' ? ` ${css.pressed}` : ''}`}
+						accessKey="S"
+						tabIndex={3}
+						title="spam selected items (Alt+S)"
+						disabled={actionsPending || !anySelected}
+						onClick={() => {
+							void handleActionClick('negative',)
+						}}
+					>
+						spam selected
+					</GeneralButton>
+					<GeneralButton
+						className={`${css.neutral}${
+							(pressed === 'neutral' || shiftRemoveFeedback) ? ` ${css.pressed}` : ''
+						}`}
+						accessKey="R"
+						tabIndex={4}
+						title="remove selected items (Alt+R)"
+						disabled={actionsPending || !anySelected}
+						onClick={(event,) => {
+							void handleActionClick('neutral', event,)
+						}}
+					>
+						{shiftRemoveFeedback ? 'removed selected' : 'remove selected'}
+					</GeneralButton>
+					<GeneralButton
+						className={`${css.positive}${pressed === 'positive' ? ` ${css.pressed}` : ''}`}
+						accessKey="A"
+						tabIndex={5}
+						title="approve selected items (Alt+A)"
+						disabled={actionsPending || !anySelected}
+						onClick={() => {
+							void handleActionClick('positive',)
+						}}
+					>
+						approve selected
+					</GeneralButton>
+					<GeneralButton
+						className={`${css.neutral}${pressed === 'ignore' ? ` ${css.pressed}` : ''}`}
+						accessKey="G"
+						tabIndex={6}
+						title="ignore reports on selected items (Alt+G)"
+						disabled={actionsPending || !anySelected}
+						onClick={() => {
+							void handleActionClick('ignore',)
+						}}
+					>
+						ignore reports on selected
+					</GeneralButton>
+					{toast && <span className={css.toast}>{toast}</span>}
+				</span>
+			</div>
 
 			{/* Action log row - flex-basis:100% forces it onto its own line */}
 			{actionLog.length > 0 && (
