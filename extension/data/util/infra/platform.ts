@@ -103,6 +103,7 @@ const pathMappings: PathMapping[] = [
 	// --- generic per-subreddit mappings ---
 	perSubMapping('log', 'log',),
 	perSubMapping('reports', 'queue', null,),
+	perSubMapping('modqueue', 'queue', 'mod',),
 	perSubMapping('edited', 'queue', 'edited',),
 	perSubMapping('spam', 'queue', 'removed',),
 	perSubMapping('traffic', 'insights',),
@@ -118,6 +119,23 @@ function remapURL (url: URL, goingToShreddit: boolean,): URL {
 		if (result) { return result }
 	}
 	return url
+}
+
+/**
+ * Rewrites an old-Reddit moderation path (e.g. `/r/mod/about/unmoderated`) to its
+ * native shreddit form as a relative path + query + hash (e.g.
+ * `/mod/queue?queueType=unmoderated`). Returns `null` when no mapping applies, so
+ * callers can fall back to the original string untouched rather than round-tripping
+ * it through the URL parser (which would re-encode query strings). Pure and
+ * platform-independent; the origin passed here is only a parsing base and never
+ * appears in the result. Consumed by {@link link} and its tests.
+ */
+export function remapModPath (oldPath: string,): string | null {
+	const url = new URL(oldPath, 'https://www.reddit.com',)
+	const remapped = remapURL(url, true,)
+	// remapURL returns the same reference when nothing matched.
+	if (remapped === url) { return null }
+	return remapped.pathname + remapped.search + remapped.hash
 }
 
 /** Returns the URL and label for the old↔new Reddit toggle button, or null if the button should be hidden. */

@@ -3,6 +3,8 @@
  * Parses the current URL into a typed page context and fires `TBNewPage` events on navigation.
  */
 
+import {isShreddit, remapModPath,} from '../infra/platform'
+
 /** Detail payload dispatched with `TBNewPage` custom events when the page URL changes. */
 export interface TBPageContext {
 	oldHref: string | undefined
@@ -22,8 +24,18 @@ export const isMod = document.body.matches('body.moderator',)
 /** The protocol + hostname of the current page (e.g. `https://old.reddit.com`). */
 export const baseDomain = `https://${window.location.hostname}`
 
-/** Returns the URL as-is. Exists as a hook point for future URL transformation needs. */
-export const link = (l: string,) => l
+/**
+ * Resolves an old-Reddit-style path to a link appropriate for the current frontend.
+ * On shreddit, relative moderation paths (e.g. `/r/mod/about/unmoderated`) are
+ * rewritten to their native shreddit form so the browser never depends on Reddit's
+ * own old->new redirect - which, for the unmoderated queue, appends a stray trailing
+ * slash and lands on Needs Review. Absolute URLs and any path without a mapping are
+ * returned unchanged, so non-moderation links (users, wikis, comments) pass through.
+ */
+export const link = (l: string,): string => {
+	if (!isShreddit || !l.startsWith('/',)) { return l }
+	return remapModPath(l,) ?? l
+}
 
 /**
  * The page context from the most recent `TBNewPage` event. This is the whole

@@ -1,7 +1,7 @@
 /** Tests for URL-derived page-type flags and their refresh on navigation. */
 
 // @vitest-environment jsdom
-import {beforeEach, describe, expect, it, vi,} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi,} from 'vitest'
 
 /** Reloads pageContext.ts fresh with the given path as the current location. */
 function loadWithPath (path: string,) {
@@ -36,5 +36,37 @@ describe('page-type flags', () => {
 		expect(ctx.isUserPage,).toBeNull()
 		expect(ctx.isModQueuePage,).not.toBeNull()
 		expect(ctx.postSite,).toBe('pics',)
+	})
+})
+
+describe('link', () => {
+	// `currentPlatform` (hence `isShreddit`) is computed once at module load from the
+	// DOM, so each case sets up the document and re-imports the module fresh.
+	async function loadLink (dom: string,) {
+		document.body.innerHTML = dom
+		vi.resetModules()
+		return (await import('./pageContext')).link
+	}
+
+	afterEach(() => {
+		document.body.innerHTML = ''
+	},)
+
+	it('remaps relative moderation paths to shreddit form on shreddit', async () => {
+		const link = await loadLink('<shreddit-app></shreddit-app>',)
+		expect(link('/r/mod/about/unmoderated',),).toBe('/mod/queue?queueType=unmoderated',)
+	})
+
+	it('passes non-moderation and absolute links through unchanged on shreddit', async () => {
+		const link = await loadLink('<shreddit-app></shreddit-app>',)
+		expect(link('/user/someone',),).toBe('/user/someone',)
+		expect(link('/r/somesub/wiki/index',),).toBe('/r/somesub/wiki/index',)
+		expect(link('https://www.reddit.com/mail/all',),).toBe('https://www.reddit.com/mail/all',)
+	})
+
+	it('leaves paths untouched on old Reddit', async () => {
+		// old Reddit is detected by the `#header` element; no shreddit-app present.
+		const link = await loadLink('<div id="header"></div>',)
+		expect(link('/r/mod/about/unmoderated',),).toBe('/r/mod/about/unmoderated',)
 	})
 })
