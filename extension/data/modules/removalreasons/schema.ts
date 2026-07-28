@@ -94,7 +94,11 @@ export interface NativeReasonSyncState {
 	 * (see `nativeReasonsFingerprint`), so it changes only when a merge would do work.
 	 */
 	fingerprint?: string
-	/** Epoch milliseconds of the last applied sync; displayed in the editor. */
+	/**
+	 * Epoch milliseconds of the last sync that actually changed something; displayed in
+	 * the editor. Not a last-checked time: checks that find nothing new return without
+	 * writing, so this stands still while the sync is working normally.
+	 */
 	lastSyncedAt?: number
 	/**
 	 * Native reason ids a moderator deleted locally. They are never re-imported, so

@@ -38,6 +38,8 @@ Removal reasons are configured per-subreddit in the Config overlay (Removal Reas
 
 **Sync Reddit's removal reasons** — import the removal reasons configured in Reddit's own Mod Tools and keep them up to date, so you only maintain them in one place (see [Syncing Reddit's removal reasons](#syncing-reddits-removal-reasons)).
 
+**Fall back to Reddit's removal reasons** — in subreddits with no toolbox reasons at all, offer Reddit's native ones rather than nothing (see [Falling back to Reddit's removal reasons](#falling-back-to-reddits-removal-reasons)).
+
 ## Removal reason format
 
 Reason text supports two kinds of tokens:
@@ -104,6 +106,8 @@ So the normal workflow is to write the wording in Mod Tools and attach the toolb
 
 **Staying in sync.** Toolbox re-checks in the background when you open the removal drawer or the config editor, at most once every 15 minutes per subreddit, and only writes when something actually changed upstream. Because the check happens in the background, an edit you just made in Mod Tools usually appears the _next_ time you open the drawer. Press **Sync from Reddit** in the _Edit removal reasons_ footer to pull changes immediately.
 
+The date shown under the setting is the last time a sync actually brought something across, not the last time toolbox looked. An old date means Reddit's reasons have not changed since then, which is the normal state for a settled subreddit.
+
 **Deleting.** Deleting a reason in Mod Tools removes the toolbox copy on the next sync. Deleting an imported reason in the toolbox editor keeps it out — it will not be re-imported — but leaves it untouched on Reddit.
 
 **Turning it off.** Switching **Keep toolbox removal reasons in sync with Reddit's** back off removes the imported reasons from toolbox, along with any flair and usernote settings you attached to them. Your hand-written reasons are untouched, and nothing changes on Reddit's side. Toolbox asks for confirmation first, and tells you how many reasons will go.
@@ -120,20 +124,37 @@ Imported reasons are not written to the legacy toolbox 6.x config page, so moder
 A subreddit that pulls its removal reasons from another subreddit (the **Get reasons from** advanced setting) is never synced into — its own reason list is unused. Turn syncing on in the source subreddit instead.
 ```
 
+## Falling back to Reddit's removal reasons
+
+Syncing is something a subreddit opts into, and it writes to that subreddit's config. The fallback is the opposite: it is your own setting, it changes nothing for anyone else, and it needs no configuration at all.
+
+In a subreddit that has **no** toolbox removal reasons, the overlay offers Reddit's native ones instead of coming up empty. This is on by default; turn off **Use Reddit's removal reasons as a fallback** in this module's settings to go back to the empty box.
+
+It is deliberately either/or — you never see toolbox reasons and native ones mixed together. As soon as a subreddit has a single toolbox reason configured, the fallback stops applying there and syncing becomes the way to combine the two.
+
+Because there is no toolbox config behind them, fallback reasons are more limited than configured ones:
+
+- they are read-only, and cannot be reordered or edited from the overlay
+- no header, footer, or custom modmail subject is applied to the message
+- no post flair is applied, and no removal is written to a removal-log subreddit
+
+As with imported reasons, removing something with a native reason registers that reason against the item in Reddit's own mod log.
+
 ## Settings
 
-| Setting                              | Default       | Description                                                                                                         |
-| ------------------------------------ | ------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Enable comment removal reasons       | Off           | Show removal reasons when removing comments                                                                         |
-| Always show empty removal box        | Off           | Show the dialog even for subreddits with no configured reasons                                                      |
-| Display mode                         | Drawer        | Show reasons as a side drawer or legacy popup                                                                       |
-| Silent removal for deleted users     | Off           | Skip the dialog and silently remove deleted-user content                                                            |
-| Reply method                         | Comment reply | How the removal message is sent (comment, PM, both, or none)                                                        |
-| Send as subreddit                    | Off           | Send removal messages as the subreddit account                                                                      |
-| Auto-archive sent PM                 | Off           | Archive the removal PM after sending                                                                                |
-| Sticky removal comment               | Off           | Sticky the removal reason comment                                                                                   |
-| Reply as /u/subreddit-ModTeam        | Off           | Send removal comment as ModTeam account                                                                             |
-| Lock thread after removal            | Off           | Lock the thread when removing                                                                                       |
-| Lock removal comment                 | Off           | Lock the removal reason comment                                                                                     |
-| Disable remove button after removal  | Off           | Grey out the remove button after an item is removed                                                                 |
-| Pre-select suggested removal reasons | On            | Pre-select reasons mapped from an item's reports, and flag matching items with "(suggestions)" on the remove button |
+| Setting                                    | Default       | Description                                                                                                         |
+| ------------------------------------------ | ------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Enable comment removal reasons             | Off           | Show removal reasons when removing comments                                                                         |
+| Always show empty removal box              | Off           | Show the dialog even for subreddits with no configured reasons                                                      |
+| Use Reddit's removal reasons as a fallback | On            | Offer Reddit's native removal reasons in subreddits that have no toolbox reasons                                    |
+| Display mode                               | Drawer        | Show reasons as a side drawer or legacy popup                                                                       |
+| Silent removal for deleted users           | Off           | Skip the dialog and silently remove deleted-user content                                                            |
+| Reply method                               | Comment reply | How the removal message is sent (comment, PM, both, or none)                                                        |
+| Send as subreddit                          | Off           | Send removal messages as the subreddit account                                                                      |
+| Auto-archive sent PM                       | Off           | Archive the removal PM after sending                                                                                |
+| Sticky removal comment                     | Off           | Sticky the removal reason comment                                                                                   |
+| Reply as /u/subreddit-ModTeam              | Off           | Send removal comment as ModTeam account                                                                             |
+| Lock thread after removal                  | Off           | Lock the thread when removing                                                                                       |
+| Lock removal comment                       | Off           | Lock the removal reason comment                                                                                     |
+| Disable remove button after removal        | Off           | Grey out the remove button after an item is removed                                                                 |
+| Pre-select suggested removal reasons       | On            | Pre-select reasons mapped from an item's reports, and flag matching items with "(suggestions)" on the remove button |

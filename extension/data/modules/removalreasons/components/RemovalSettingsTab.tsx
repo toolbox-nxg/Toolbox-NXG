@@ -129,10 +129,15 @@ export function RemovalSettingsTab ({state, saveRef, onSave,}: Props,) {
 
 	const subreddit = state.subreddit ?? ''
 
+	// Phrased as "imported a change" rather than "synced", because the timestamp only moves
+	// when a sync actually rewrote something. Checks happen far more often than that and
+	// deliberately do not write, so a plain "last synced" date reads as a stalled sync when
+	// it really means Reddit's reasons have been stable since then.
 	const lastSyncedAt = rr.nativeSync?.lastSyncedAt
 	const lastSyncedLabel = lastSyncedAt
-		? `Last synced ${new Date(lastSyncedAt,).toLocaleString()}.`
-		: 'Not synced yet.'
+		? `Last imported a change from Reddit on ${new Date(lastSyncedAt,).toLocaleString()}; `
+			+ 'checked regularly since.'
+		: 'Nothing imported from Reddit yet.'
 
 	return (
 		<div id="toolbox-removal-reason-settings">
