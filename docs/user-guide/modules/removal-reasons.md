@@ -106,7 +106,9 @@ So the normal workflow is to write the wording in Mod Tools and attach the toolb
 
 **Staying in sync.** Toolbox re-checks in the background when you open the removal drawer or the config editor, at most once every 15 minutes per subreddit, and only writes when something actually changed upstream. Because the check happens in the background, an edit you just made in Mod Tools usually appears the _next_ time you open the drawer. Press **Sync from Reddit** in the _Edit removal reasons_ footer to pull changes immediately.
 
-The date shown under the setting is the last time a sync actually brought something across, not the last time toolbox looked. An old date means Reddit's reasons have not changed since then, which is the normal state for a settled subreddit.
+Two times are shown under the setting, and they mean different things. **Last imported a change** is the last time a sync actually brought something across; an old date there just means Reddit's reasons have not changed since, which is the normal state for a settled subreddit. **Last checked** is the last time your browser read Reddit's list at all, so it keeps moving even when nothing changes — that is the one to look at to confirm syncing is working. It is local to you, so a moderator who has not opened the subreddit recently will see an older time than a colleague who has.
+
+If a background sync fails — Reddit is unreachable, or your account cannot edit the config wiki page — the failure is reported here in red, with what went wrong and when. Background syncing never interrupts a removal to tell you, so this is where a persistently broken sync shows up. The message clears itself as soon as a run succeeds.
 
 **Deleting.** Deleting a reason in Mod Tools removes the toolbox copy on the next sync. Deleting an imported reason in the toolbox editor keeps it out — it will not be re-imported — but leaves it untouched on Reddit.
 

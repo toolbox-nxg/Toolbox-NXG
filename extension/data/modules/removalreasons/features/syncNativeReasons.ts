@@ -13,6 +13,9 @@ const log = createLogger('TBNativeReasonSync',)
 /** Cache key holding the epoch ms of the last sync attempt per subreddit. */
 const cooldownCacheKey = 'nativeSyncCooldown'
 
+/** Cache key holding the most recent failed sync per subreddit. */
+const failureCacheKey = 'nativeSyncFailure'
+
 /**
  * How long to wait before attempting a subreddit again. Matches the native reason
  * cache TTL: attempting more often than the data can change is pure waste. Persisted
@@ -44,13 +47,82 @@ export function resetNativeSyncThrottle (): void {
 	attempted.clear()
 }
 
+/** Reads the per-subreddit map of last-check times. */
+async function readCooldowns (): Promise<Record<string, number>> {
+	return await getCache(utils, cooldownCacheKey, {},) as Record<string, number>
+}
+
+/**
+ * Epoch milliseconds of the last time this browser successfully read Reddit's removal
+ * reasons for a subreddit, or undefined if it never has.
+ *
+ * Local to this user rather than shared through the config, and the only evidence the
+ * editor can show that the sync is alive: `lastSyncedAt` moves only when a sync changes
+ * something, so it stands still for a subreddit whose reasons have settled.
+ * @param subreddit The subreddit to look up.
+ */
+export async function getLastNativeSyncCheck (subreddit: string,): Promise<number | undefined> {
+	return (await readCooldowns())[subreddit]
+}
+
+/** A background sync run that did not complete, kept so the editor can report it. */
+export interface NativeSyncFailure {
+	/** Epoch milliseconds the failure happened. */
+	at: number
+	/** Whether the fetch or the config write was what failed. */
+	stage: 'fetch' | 'save'
+	/** The underlying error's message, for the editor to show verbatim. */
+	message: string
+}
+
+/** Reads the per-subreddit map of recorded failures. */
+async function readFailures (): Promise<Record<string, NativeSyncFailure>> {
+	return await getCache(utils, failureCacheKey, {},) as Record<string, NativeSyncFailure>
+}
+
+/**
+ * Records that a run failed, so the config editor can say so. Background runs are
+ * otherwise silent by design, which leaves a subreddit whose sync never works looking
+ * exactly like one that simply has nothing to import.
+ * @param subreddit The subreddit whose run failed.
+ * @param stage Which half of the run failed.
+ * @param error The thrown value.
+ */
+async function recordFailure (subreddit: string, stage: 'fetch' | 'save', error: unknown,): Promise<void> {
+	const message = error instanceof Error ? error.message : String(error,)
+	const failures = await readFailures()
+	await setCache(utils, failureCacheKey, {...failures, [subreddit]: {at: Date.now(), stage, message,},},)
+}
+
+/**
+ * Forgets any recorded failure for a subreddit, called once a run gets through. Skips
+ * the write when there is nothing to clear, which is the overwhelmingly common case.
+ * @param subreddit The subreddit that just succeeded.
+ */
+async function clearFailure (subreddit: string,): Promise<void> {
+	const failures = await readFailures()
+	if (!(subreddit in failures)) { return }
+	const {[subreddit]: _cleared, ...rest} = failures
+	await setCache(utils, failureCacheKey, rest,)
+}
+
+/**
+ * The last recorded failure for a subreddit, or undefined if its most recent run got
+ * through. Local to this user, like {@link getLastNativeSyncCheck}.
+ * @param subreddit The subreddit to look up.
+ */
+export async function getLastNativeSyncFailure (subreddit: string,): Promise<NativeSyncFailure | undefined> {
+	return (await readFailures())[subreddit]
+}
+
 /**
  * Imports a subreddit's native removal reasons into its toolbox config, one way.
  *
  * Cheap gates run first so the common case (not opted in) costs nothing, and the
  * stored fingerprint short-circuits before any merge when nothing upstream changed.
- * Never rejects: this runs in the background off a drawer open, so every failure is
- * logged rather than surfaced.
+ * Never rejects: this runs in the background off a drawer open, so a failure is logged
+ * and recorded for the config editor to report rather than thrown at the moderator
+ * mid-removal.
  * @param subreddit The subreddit to sync.
  * @param options Run options. `force` bypasses the throttle and the native reason
  * cache (for the manual button); `silent` suppresses the save's feedback toasts and
@@ -76,8 +148,7 @@ export async function syncNativeReasons (
 
 	if (!force) {
 		if (attempted.has(subreddit,)) { return {status: 'throttled',} }
-		const cooldowns = await getCache(utils, cooldownCacheKey, {},) as Record<string, number>
-		const last = cooldowns[subreddit]
+		const last = (await readCooldowns())[subreddit]
 		if (typeof last === 'number' && Date.now() - last < cooldownMs) {
 			attempted.add(subreddit,)
 			return {status: 'throttled',}
@@ -90,13 +161,19 @@ export async function syncNativeReasons (
 		native = await getNativeReasons(subreddit, force ? {fresh: true,} : undefined,)
 	} catch (error: unknown) {
 		log.warn(`Could not read native removal reasons for /r/${subreddit}:`, error,)
+		await recordFailure(subreddit, 'fetch', error,)
 		return {status: 'failed',}
 	}
+	// The read got through, so any earlier failure is stale news.
+	await clearFailure(subreddit,)
 
-	if (!force) {
-		const cooldowns = await getCache(utils, cooldownCacheKey, {},) as Record<string, number>
-		await setCache(utils, cooldownCacheKey, {...cooldowns, [subreddit]: Date.now(),},)
-	}
+	// Recorded for forced runs too. It doubles as the "last checked" time the editor shows,
+	// and a manual sync that left it looking stale would defeat the point of showing it.
+	// Letting a manual sync start the next background cooldown is right regardless: the
+	// data was just read, so re-reading it minutes later is the waste the throttle exists
+	// to prevent.
+	const cooldowns = await readCooldowns()
+	await setCache(utils, cooldownCacheKey, {...cooldowns, [subreddit]: Date.now(),},)
 
 	// An empty native list is a legitimate result - every native reason was deleted - and
 	// the merge below is what removes the toolbox copies.
@@ -126,6 +203,7 @@ export async function syncNativeReasons (
 		// saveToolboxConfig reports its own failures and is documented not to reject, but a
 		// background caller must not be the one to discover otherwise.
 		log.warn(`Could not save synced removal reasons for /r/${subreddit}:`, error,)
+		await recordFailure(subreddit, 'save', error,)
 		return {status: 'failed',}
 	}
 	log.debug(

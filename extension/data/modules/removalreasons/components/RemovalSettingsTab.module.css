@@ -149,3 +149,8 @@
 	color: var(--toolbox-error-color);
 	font-style: italic;
 }
+
+.syncFailure {
+	composes: warning;
+	margin: var(--toolbox-sp-8) 0 0;
+}

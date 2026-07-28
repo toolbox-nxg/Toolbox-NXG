@@ -1,6 +1,6 @@
 /** Settings tab for configuring removal-reason templates, delivery defaults, and moderation enforcement. */
 
-import {useRef, useState,} from 'react'
+import {useMemo, useRef, useState,} from 'react'
 
 import {utils,} from '../../../framework/moduleIds'
 import {CheckboxInput,} from '../../../shared/controls/CheckboxInput'
@@ -9,7 +9,8 @@ import {TextInput,} from '../../../shared/controls/NormalInput'
 import {TextareaInput,} from '../../../shared/controls/TextareaInput'
 import {TokenChips,} from '../../../shared/controls/TokenChips'
 import {positiveTextFeedback,} from '../../../store/feedback'
-import {type SaveRef, useSaveRef, useSetting,} from '../../../util/ui/hooks'
+import {formatRelativeTime,} from '../../../util/data/time'
+import {type SaveRef, useFetched, useSaveRef, useSetting,} from '../../../util/ui/hooks'
 import type {ConfigState, ToolboxConfig,} from '../../../util/wiki/schemas/config/schema'
 import {
 	pickSubstitutionTokens,
@@ -17,6 +18,7 @@ import {
 	substitutionTokens,
 } from '../../../util/wiki/schemas/shared/tokens'
 import {makeDeliveryOption,} from '../../shared/removalReasons/DeliveryOption'
+import {getLastNativeSyncCheck, getLastNativeSyncFailure,} from '../features/syncNativeReasons'
 import {stripNativeReasons,} from '../nativeSync'
 import css from './RemovalSettingsTab.module.css'
 
@@ -135,9 +137,30 @@ export function RemovalSettingsTab ({state, saveRef, onSave,}: Props,) {
 	// it really means Reddit's reasons have been stable since then.
 	const lastSyncedAt = rr.nativeSync?.lastSyncedAt
 	const lastSyncedLabel = lastSyncedAt
-		? `Last imported a change from Reddit on ${new Date(lastSyncedAt,).toLocaleString()}; `
-			+ 'checked regularly since.'
+		? `Last imported a change from Reddit on ${new Date(lastSyncedAt,).toLocaleString()}.`
 		: 'Nothing imported from Reddit yet.'
+
+	// The companion liveness signal: local to this browser, and only worth showing while the
+	// sync is actually switched on, since nothing refreshes it once it is off.
+	const syncPersistedOn = rr.nativeSync?.enabled === true
+	const lastCheckedAt = useFetched(
+		useMemo(() => syncPersistedOn ? getLastNativeSyncCheck(subreddit,) : Promise.resolve(undefined,), [
+			subreddit,
+			syncPersistedOn,
+		],),
+	)
+	const lastCheckedLabel = lastCheckedAt === undefined
+		? ''
+		: ` Last checked ${formatRelativeTime(new Date(lastCheckedAt,),)}.`
+
+	// Background runs stay quiet so a removal is never interrupted, which leaves the editor
+	// as the only place a persistently broken sync can be reported.
+	const lastFailure = useFetched(
+		useMemo(() => syncPersistedOn ? getLastNativeSyncFailure(subreddit,) : Promise.resolve(undefined,), [
+			subreddit,
+			syncPersistedOn,
+		],),
+	)
 
 	return (
 		<div id="toolbox-removal-reason-settings">
@@ -336,7 +359,18 @@ export function RemovalSettingsTab ({state, saveRef, onSave,}: Props,) {
 					Turning this off removes the imported reasons from toolbox again; they are left in place on Reddit.
 					Imported reasons are not written to the legacy toolbox 6.x page, so moderators still on 6.x will not
 					see them. {lastSyncedLabel}
+					{lastCheckedLabel}
 				</span>
+				{lastFailure && (
+					<p className={css.syncFailure}>
+						{lastFailure.stage === 'fetch'
+							? 'Could not read Reddit\'s removal reasons'
+							: 'Could not save the reasons imported from Reddit'}{' '}
+						{formatRelativeTime(new Date(lastFailure.at,),)}:{' '}
+						{lastFailure.message}. Syncing will keep retrying; press <strong>Sync from Reddit</strong>{' '}
+						on the <em>Edit removal reasons</em> tab to try again now.
+					</p>
+				)}
 			</div>
 
 			{/* Moderator enforcement */}

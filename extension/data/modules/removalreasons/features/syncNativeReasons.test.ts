@@ -18,7 +18,12 @@ vi.mock('../../config/moduleapi', () => ({getConfig, saveToolboxConfig,}),)
 vi.mock('../moduleapi', () => ({getNativeReasons,}),)
 
 import {nativeReasonsFingerprint,} from '../nativeSync'
-import {resetNativeSyncThrottle, syncNativeReasons,} from './syncNativeReasons'
+import {
+	getLastNativeSyncCheck,
+	getLastNativeSyncFailure,
+	resetNativeSyncThrottle,
+	syncNativeReasons,
+} from './syncNativeReasons'
 
 const nativeReasons = [
 	{id: 'n1', title: 'Rule 1', message: 'body 1',},
@@ -214,5 +219,124 @@ describe('syncNativeReasons writing', () => {
 		getNativeReasons.mockClear()
 		await expect(syncNativeReasons('sub',),).resolves.toEqual({status: 'throttled',},)
 		expect(getNativeReasons,).not.toHaveBeenCalled()
+	})
+})
+
+describe('native sync check times', () => {
+	it('reports no check for a subreddit this browser has never synced', async () => {
+		await expect(getLastNativeSyncCheck('sub',),).resolves.toBeUndefined()
+	})
+
+	it('reports the recorded check time', async () => {
+		getCache.mockResolvedValue({sub: 1_700_000_000_000, other: 5,},)
+
+		await expect(getLastNativeSyncCheck('sub',),).resolves.toBe(1_700_000_000_000,)
+	})
+
+	it('records a check after a background run', async () => {
+		await syncNativeReasons('sub',)
+
+		expect(setCache,).toHaveBeenCalledWith(
+			'utils',
+			'nativeSyncCooldown',
+			expect.objectContaining({sub: expect.any(Number,),},),
+		)
+	})
+
+	it('records a check after a forced run, so the editor does not show a stale time', async () => {
+		await syncNativeReasons('sub', {force: true,},)
+
+		expect(setCache,).toHaveBeenCalledWith(
+			'utils',
+			'nativeSyncCooldown',
+			expect.objectContaining({sub: expect.any(Number,),},),
+		)
+	})
+
+	it('leaves other subreddits\' recorded times alone', async () => {
+		getCache.mockResolvedValue({other: 42,},)
+
+		await syncNativeReasons('sub',)
+
+		expect(setCache,).toHaveBeenCalledWith(
+			'utils',
+			'nativeSyncCooldown',
+			expect.objectContaining({other: 42,},),
+		)
+	})
+
+	it('does not record a check when the fetch failed', async () => {
+		getNativeReasons.mockRejectedValue(new Error('nope',),)
+
+		await expect(syncNativeReasons('sub',),).resolves.toEqual({status: 'failed',},)
+		// The failure cache is written; the cooldown must not be, or a broken sync would
+		// look like it had been checked successfully.
+		expect(setCache,).not.toHaveBeenCalledWith('utils', 'nativeSyncCooldown', expect.anything(),)
+	})
+})
+
+describe('native sync failures', () => {
+	/** Returns the value written to the failure cache, or undefined if none was. */
+	function writtenFailures () {
+		const call = setCache.mock.calls.findLast((c: unknown[],) => c[1] === 'nativeSyncFailure')
+		return call?.[2] as Record<string, {at: number; stage: string; message: string}> | undefined
+	}
+
+	it('records nothing for a subreddit whose sync is healthy', async () => {
+		await expect(getLastNativeSyncFailure('sub',),).resolves.toBeUndefined()
+	})
+
+	it('records a failed fetch with its stage and message', async () => {
+		getNativeReasons.mockRejectedValue(new Error('403 Forbidden',),)
+
+		await expect(syncNativeReasons('sub',),).resolves.toEqual({status: 'failed',},)
+		expect(writtenFailures()?.sub,).toMatchObject({stage: 'fetch', message: '403 Forbidden',},)
+	})
+
+	it('records a failed save separately from a failed fetch', async () => {
+		saveToolboxConfig.mockRejectedValue(new Error('wiki is locked',),)
+
+		await expect(syncNativeReasons('sub',),).resolves.toEqual({status: 'failed',},)
+		expect(writtenFailures()?.sub,).toMatchObject({stage: 'save', message: 'wiki is locked',},)
+	})
+
+	it('survives a non-Error being thrown', async () => {
+		getNativeReasons.mockRejectedValue('just a string',)
+
+		await syncNativeReasons('sub',)
+		expect(writtenFailures()?.sub,).toMatchObject({stage: 'fetch', message: 'just a string',},)
+	})
+
+	it('clears a recorded failure once a run gets through', async () => {
+		getCache.mockImplementation((_moduleId: unknown, key: unknown, fallback: unknown,) =>
+			Promise.resolve(key === 'nativeSyncFailure' ? {sub: {at: 1, stage: 'fetch', message: 'old',},} : fallback,)
+		)
+
+		await expect(syncNativeReasons('sub',),).resolves.toMatchObject({status: 'synced',},)
+		expect(writtenFailures(),).toEqual({},)
+	})
+
+	it('leaves other subreddits\' recorded failures in place when clearing', async () => {
+		const other = {at: 1, stage: 'fetch', message: 'theirs',}
+		getCache.mockImplementation((_moduleId: unknown, key: unknown, fallback: unknown,) =>
+			Promise.resolve(
+				key === 'nativeSyncFailure' ? {sub: {at: 2, stage: 'fetch', message: 'mine',}, other,} : fallback,
+			)
+		)
+
+		await syncNativeReasons('sub',)
+		expect(writtenFailures(),).toEqual({other,},)
+	})
+
+	it('does not write to the failure cache when there is nothing to clear', async () => {
+		await expect(syncNativeReasons('sub',),).resolves.toMatchObject({status: 'synced',},)
+		expect(writtenFailures(),).toBeUndefined()
+	})
+
+	it('reports a recorded failure to the editor', async () => {
+		const failure = {at: 123, stage: 'fetch', message: 'boom',}
+		getCache.mockResolvedValue({sub: failure,},)
+
+		await expect(getLastNativeSyncFailure('sub',),).resolves.toEqual(failure,)
 	})
 })
