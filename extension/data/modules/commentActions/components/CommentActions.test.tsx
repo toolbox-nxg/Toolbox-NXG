@@ -174,4 +174,19 @@ describe('CommentExtras', () => {
 		document.removeEventListener('click', docClick,)
 		expect(docClick,).not.toHaveBeenCalled()
 	})
+
+	it('marks the host comment so the native-row-collapse CSS applies, and unmarks on unmount', async () => {
+		const {comment,} = makeComment()
+		const host = document.createElement('div',)
+		document.body.appendChild(host,)
+		const root = createRoot(host,)
+		roots.push(root,)
+		await act(async () => {
+			root.render(<CommentExtras comment={comment} />,)
+		},)
+		expect(comment.classList.contains('toolbox-comment-row-replaced',),).toBe(true,)
+		act(() => root.unmount())
+		roots.length = 0
+		expect(comment.classList.contains('toolbox-comment-row-replaced',),).toBe(false,)
+	})
 })

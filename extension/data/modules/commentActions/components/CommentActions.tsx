@@ -4,7 +4,9 @@
  *   - {@link CommentVote} - the vote arrows + score, rendered FIRST (leftmost, like Reddit).
  *   - {@link CommentExtras} - Reply and the ⋯ Expand toggle, rendered after the mod actions.
  *
- * The native `<shreddit-comment-action-row>` is collapsed by CSS. Voting clicks Reddit's own native
+ * The native `<shreddit-comment-action-row>` is collapsed by CSS, gated on the
+ * `toolbox-comment-row-replaced` marker {@link CommentExtras} adds to its host comment - so the
+ * collapse only applies while the Expand toggle that recovers the row is mounted. Voting clicks Reddit's own native
  * vote button (its working, scope-independent path - the REST `/api/vote` isn't authorized for the
  * Shreddit web token); Reply expands the native row then clicks its native reply control; Expand
  * reveals the native row inline for the controls we don't recreate (save, award, insights, share).
@@ -22,6 +24,7 @@ import {
 	setNativeRowExpanded,
 } from '../../../dom/shreddit/commentActionRow'
 import {FlatListAction,} from '../../../shared/controls/FlatListAction'
+import {useAncestorClass,} from '../../../shared/controls/useAncestorClass'
 import createLogger from '../../../util/infra/logging'
 import {classes,} from '../../../util/ui/reactMount'
 
@@ -120,6 +123,12 @@ export function CommentVote ({comment,}: CommentControlProps,) {
 /** Reply (drives the native composer) and the ⋯ Expand toggle for the native row. */
 export function CommentExtras ({comment,}: CommentControlProps,) {
 	const [expanded, setExpanded,] = useState(false,)
+
+	// Mark the host comment so the CSS that collapses the native action row applies only while this
+	// piece (which renders the Expand toggle that recovers the row) is mounted. If Comment Actions is
+	// disabled this never runs, so the native row stays visible instead of being collapsed with no way
+	// to reveal it. Removed on unmount by the hook's effect cleanup.
+	useAncestorClass(comment, 'toolbox-comment-row-replaced', true,)
 
 	/** Reveal/collapse the native action row inline. */
 	function toggleExpanded () {

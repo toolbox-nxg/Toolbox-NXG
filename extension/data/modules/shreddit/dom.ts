@@ -298,28 +298,20 @@ function createFlatListSlot (): HTMLSpanElement {
 }
 
 /**
- * Marker class set on a `shreddit-post`/`shreddit-comment` once its Toolbox flat-list row is injected.
- * The native-control-hiding CSS targets this class directly (`.toolbox-has-flat-list-row`) instead of
- * a `:has(.toolbox-flat-list-slot)` selector, which the engine would otherwise re-evaluate against
- * every thing on every style recalc - costly at feed scale. Set here so the hide tracks slot injection.
- */
-const flatListHostClass = 'toolbox-has-flat-list-row'
-
-/**
  * Provides the `thingFlatListActions` location for shreddit posts and comments.
  *
  * The Toolbox mod-action row (Second opinion, Remove, Approve, Spam, Lock, ...) is appended to the
  * thing's bottom container ({@link flatListThingContainer}) so it renders on its own full-width line
  * below the post/comment - Reddit's native mod-action bar is too narrow (especially in card view) to
  * hold the full set without clipping. The native inline approve/remove/spam/lock controls are hidden
- * by CSS (Toolbox renders its own), so nothing is left behind in the action bar.
+ * by CSS, gated on markers the replacement components add once they render (`toolbox-mod-actions-present`
+ * from the mod-action row, `toolbox-comment-row-replaced` from the comment Expand toggle) - so a thing
+ * whose replacement never mounts keeps its native controls. This provider only injects the slot.
  */
 function processFlatListActionTargets (root: Element,) {
 	for (const {post, thingId, subreddit, isRemoved,} of findPostFlatListTargets(root,)) {
 		const slot = createFlatListSlot()
 		flatListThingContainer(post,).appendChild(slot,)
-		// Mark the thing so the native-control-hiding CSS can target `.toolbox-has-flat-list-row`.
-		post.classList.add(flatListHostClass,)
 		// Drop the native mod actions from the post's ⋯ menu - Toolbox renders them inline in this
 		// slot, so the native copies would only duplicate them. Fire-and-forget like provideLocation
 		// below: the post element is discarded by Reddit on navigation, taking the attribute with it.
@@ -334,15 +326,13 @@ function processFlatListActionTargets (root: Element,) {
 		},)
 	}
 
-	for (const {actionRow, comment, thingId, postId, subreddit, isRemoved,} of findCommentFlatListTargets(root,)) {
+	for (const {actionRow, thingId, postId, subreddit, isRemoved,} of findCommentFlatListTargets(root,)) {
 		const slot = createFlatListSlot()
 		// Insert right before this comment's action row so the Toolbox row sits above the native
 		// action bar - matching posts, where the slot lands in the post's default slot above the
 		// `rpl-action-bar`. (Not at the end of the nesting `shreddit-comment`, which would put it
 		// below the whole reply tree.)
 		actionRow.before(slot,)
-		// Mark the thing so the native-control-hiding CSS can target `.toolbox-has-flat-list-row`.
-		comment.classList.add(flatListHostClass,)
 		// Strip the native mod actions from this comment's ⋯ menu. Scope to the action row, not the
 		// whole comment: the menu lives in the action row, and scanning the comment would re-walk every
 		// nested reply's subtree on each pass (quadratic on deep threads). No-op when there's no menu.

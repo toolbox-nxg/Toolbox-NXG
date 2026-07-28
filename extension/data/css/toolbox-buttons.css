@@ -100,9 +100,11 @@
    inline mod actions (e.g. post-detail / queue, which render `mod-action-button` elements directly
    - the feed keeps them in the lazy ⋯ menu, handled separately by suppressNativeOverflowModActions).
    The native Approve is hidden too: Toolbox now renders its own Approve on every row (removed or not),
-   so leaving the native one visible would show two. Share/save/award are untouched. */
-body.toolbox-scope shreddit-post mod-action-button,
-body.toolbox-scope shreddit-comment-action-row mod-action-button {
+   so leaving the native one visible would show two. Share/save/award are untouched. Gated on
+   `.toolbox-mod-actions-present` (added by the FlatListModActions component once mod status resolves)
+   so if Mod Actions is disabled the native pills stay reachable. */
+body.toolbox-scope shreddit-post.toolbox-mod-actions-present mod-action-button,
+body.toolbox-scope shreddit-comment.toolbox-mod-actions-present shreddit-comment-action-row mod-action-button {
 	/* stylelint-disable-next-line declaration-no-important -- Reddit's own stylesheet sets these; specificity alone can't win. */
 	display: none !important;
 }
@@ -111,13 +113,14 @@ body.toolbox-scope shreddit-comment-action-row mod-action-button {
    lives in a `<shreddit-mod-inline-actions>` custom element whose `mod-action-button`s sit in ITS
    OWN shadow root - so the `mod-action-button` rule above can't pierce it. Toolbox renders its own
    copies of all of these in the flat-list row, so hide the whole native inline-actions host. Target
-   the light-DOM host element (reachable regardless of its inner shadow), scoped to things where
-   Toolbox injected its row (`.toolbox-has-flat-list-row`, set in JS at injection time - cheaper than
-   `:has(.toolbox-flat-list-slot)` re-evaluated on every style recalc) so things we skipped keep their
-   native controls. The native controls only render for moderators, the same audience that gets the
-   Toolbox row, so nothing is left without a replacement. */
-body.toolbox-scope shreddit-post.toolbox-has-flat-list-row shreddit-mod-inline-actions,
-body.toolbox-scope shreddit-comment.toolbox-has-flat-list-row shreddit-mod-inline-actions {
+   the light-DOM host element (reachable regardless of its inner shadow), scoped to
+   `.toolbox-mod-actions-present` (added by the FlatListModActions component once it renders and mod
+   status is confirmed - a JS-toggled class, cheaper than `:has(.toolbox-flat-list-slot)` re-evaluated
+   on every style recalc). Gating on the replacement's presence (not merely an injected slot) means a
+   thing whose Toolbox mod row never mounts - Mod Actions disabled, or the viewer isn't a mod - keeps
+   its native controls instead of being hidden with no replacement. */
+body.toolbox-scope shreddit-post.toolbox-mod-actions-present shreddit-mod-inline-actions,
+body.toolbox-scope shreddit-comment.toolbox-mod-actions-present shreddit-mod-inline-actions {
 	/* stylelint-disable-next-line declaration-no-important -- Reddit sets inline/utility display; specificity alone can't win. */
 	display: none !important;
 }
@@ -126,26 +129,29 @@ body.toolbox-scope shreddit-comment.toolbox-has-flat-list-row shreddit-mod-inlin
    row already duplicates these for comments. Posts keep their shield (not everything in the post one
    is duplicated in the Toolbox row). The comment shield is lazy-loaded, so target both its menu
    element (mirroring the post's `shreddit-post-mod-actions-menu`) and the `mod-overflow-menu` slot it
-   occupies inside `mod-content-actions`; scoped to comments with an injected Toolbox row, and hidden
-   even when the native row is expanded (nothing in it needs reaching). */
-body.toolbox-scope shreddit-comment.toolbox-has-flat-list-row shreddit-comment-mod-actions-menu,
-body.toolbox-scope shreddit-comment.toolbox-has-flat-list-row mod-content-actions [slot="mod-overflow-menu"] {
+   occupies inside `mod-content-actions`; scoped to `.toolbox-mod-actions-present` (so the shield only
+   hides while the Toolbox mod row that replaces it is mounted), and hidden even when the native row is
+   expanded (nothing in it needs reaching). */
+body.toolbox-scope shreddit-comment.toolbox-mod-actions-present shreddit-comment-mod-actions-menu,
+body.toolbox-scope shreddit-comment.toolbox-mod-actions-present mod-content-actions [slot="mod-overflow-menu"] {
 	/* stylelint-disable-next-line declaration-no-important -- Reddit sets inline/utility display; specificity alone can't win. */
 	display: none !important;
 }
 
 /* Comment Actions module: the Toolbox row recreates vote/reply/report/share for comments, so collapse
    the native `shreddit-comment-action-row` to a single row (eliminates the scroll layout jump). Scoped
-   to comments with an injected Toolbox slot; posts are never matched (selector rooted at
-   shreddit-comment). The native row stays in the DOM so the Toolbox Reply/Report can drive it; the
-   Expand (...) toggle adds `.toolbox-native-row-expanded` to reveal it inline for save/award/insights.
-   The collapse keys off that class ON THE ROW ELEMENT, not on the `shreddit-comment`: Shreddit slots a
-   reply's `shreddit-comment` inside its parent, so a reply's row is also a descendant of the parent
-   comment. Keying the collapse on the comment's class would re-hide an expanded reply's row through its
+   to `.toolbox-comment-row-replaced` (added by the Comment Actions Expand toggle - CommentExtras - so
+   the row only collapses while the toggle that recovers it is mounted; if Comment Actions is disabled
+   the native row stays visible). Posts are never matched (selector rooted at shreddit-comment). The
+   native row stays in the DOM so the Toolbox Reply/Report can drive it; the Expand (...) toggle adds
+   `.toolbox-native-row-expanded` to reveal it inline for save/award/insights. The collapse keys off
+   that class ON THE ROW ELEMENT, not on the `shreddit-comment`: Shreddit slots a reply's
+   `shreddit-comment` inside its parent, so a reply's row is also a descendant of the parent comment.
+   Keying the collapse on the comment's class would re-hide an expanded reply's row through its
    still-collapsed ancestor (a descendant-combinator leak), leaving the Expand toggle dead on every
    non-top-level comment; keying on the row's own class makes the decision per-row, depth-independent. */
 body.toolbox-scope
-	shreddit-comment.toolbox-has-flat-list-row
+	shreddit-comment.toolbox-comment-row-replaced
 	shreddit-comment-action-row:not(.toolbox-native-row-expanded) {
 	/* stylelint-disable-next-line declaration-no-important -- Reddit sets inline/utility display; specificity alone can't win. */
 	display: none !important;

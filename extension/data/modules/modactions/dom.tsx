@@ -10,7 +10,8 @@ import {FlatListModActions,} from './components/FlatListModActions'
  * controls (the Second-opinion toggle and the "Add removal reason" link), and before the order 20
  * Reply / ⋯ Expand toggle (commentActions.extras); the Toolbox Spam and Remove links are emitted by
  * this set itself. Reads the NSFW state and permalink (not carried in the location context) from the
- * thing element directly.
+ * thing element directly, and passes that thing as `host` so the component can mark it for the
+ * native-control-hiding CSS once mod status resolves.
  */
 export function createModActionsSlot (): () => void {
 	return renderAtLocation(
@@ -54,6 +55,7 @@ export function createModActionsSlot (): () => void {
 					link={link}
 					author={author}
 					isTopLevelComment={isTopLevelComment}
+					host={thing ?? null}
 				/>
 			)
 		},

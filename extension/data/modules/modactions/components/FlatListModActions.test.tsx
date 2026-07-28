@@ -324,4 +324,34 @@ describe('FlatListModActions', () => {
 		document.removeEventListener('click', docClick,)
 		expect(docClick,).not.toHaveBeenCalled()
 	})
+
+	// The `host` thing is marked with `toolbox-mod-actions-present` so the native-control-hiding CSS
+	// applies only where these Toolbox buttons actually render (see toolbox-buttons.css).
+	describe('native-hide marker', () => {
+		it('marks the host thing once mod status resolves true', async () => {
+			const thing = document.createElement('shreddit-post',)
+			await render(postProps({host: thing,},),)
+			expect(thing.classList.contains('toolbox-mod-actions-present',),).toBe(true,)
+		})
+
+		it('does not mark the host when the viewer is not a mod', async () => {
+			isModSub.mockResolvedValue(false,)
+			const thing = document.createElement('shreddit-post',)
+			await render(postProps({host: thing,},),)
+			expect(thing.classList.contains('toolbox-mod-actions-present',),).toBe(false,)
+		})
+
+		it('removes the marker on unmount', async () => {
+			const thing = document.createElement('shreddit-post',)
+			const container = document.createElement('div',)
+			document.body.appendChild(container,)
+			const root = createRoot(container,)
+			await act(async () => {
+				root.render(<FlatListModActions {...postProps({host: thing,},)} />,)
+			},)
+			expect(thing.classList.contains('toolbox-mod-actions-present',),).toBe(true,)
+			act(() => root.unmount())
+			expect(thing.classList.contains('toolbox-mod-actions-present',),).toBe(false,)
+		})
+	})
 })
