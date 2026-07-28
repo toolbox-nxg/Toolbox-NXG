@@ -76,6 +76,13 @@ const RESTRICTED = {
 		'flairPost',
 		'flairUser',
 	],),
+	// Registering a native removal reason writes to the subreddit's mod log, so it is a
+	// real action. It already fails closed at runtime via assertActionAllowed and rides
+	// inside the removal-reason composite proposal; listing it here restores the second,
+	// static guard. Only the read (getNativeRemovalReasons) is unrestricted.
+	'api/resources/removalReasons': new Set([
+		'applyNativeRemovalReason',
+	],),
 }
 
 /**
