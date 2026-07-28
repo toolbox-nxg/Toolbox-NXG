@@ -17,6 +17,13 @@ interface SortableReasonCardProps {
 	selected: boolean
 	/** Native-reason fallback mode: hides the drag handle (reordering native reasons is meaningless). */
 	nativeMode?: boolean
+	/**
+	 * Whether Reddit owns this reason's wording, which hides the inline edit affordance.
+	 * Editing would be misleading rather than useful: the message sent has to be the one
+	 * registered against Reddit's reason, and in the config editor the same text is already
+	 * read-only because the next sync overwrites it.
+	 */
+	locked?: boolean
 	/** Whether this reason was pre-selected from the item's report (shows a "Suggested" badge). */
 	suggested?: boolean
 	onToggle: () => void
@@ -40,6 +47,7 @@ export function SortableReasonCard ({
 	selected,
 	suggested,
 	nativeMode,
+	locked,
 	onToggle,
 	setContentRef,
 	isEditing,
@@ -130,7 +138,7 @@ export function SortableReasonCard ({
 						))}
 					</div>
 				)}
-				{selected && (
+				{selected && !locked && (
 					<button
 						type="button"
 						className={`${css.editIconButton} ${isEditing ? css.editIconButtonActive : ''}`}

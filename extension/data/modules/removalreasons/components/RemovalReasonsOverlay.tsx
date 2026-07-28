@@ -590,6 +590,11 @@ export function RemovalReasonsOverlay ({
 	const handleReasonEdit = (id: string,) => {
 		const item = orderedReasons.find((r,) => r.id === id)
 		if (!item) { return }
+		// Reddit owns a native reason's wording. The card hides the edit button for these,
+		// so this only catches a caller that reaches the handler another way - but an edit
+		// that slipped through would silently send text that differs from the reason being
+		// registered in the mod log.
+		if (item.reason.nativeReasonId) { return }
 		setEditDraft(reasonOverrides.get(id,) ?? item.markdown.trimEnd(),)
 		setEditingId(id,)
 	}
@@ -721,8 +726,10 @@ export function RemovalReasonsOverlay ({
 		// Selected reason titles, for review display (omit when none have a title).
 		const reasonTitle = checkedOrdered.map((item,) => item.reason.title).filter(Boolean,).join(', ',)
 
-		// Native-reason ids to register in the mod log after removal (native fallback mode only).
-		// Empty for Toolbox reasons, keeping the standard submit path a no-op.
+		// Native-reason ids to register in Reddit's mod log after removal. Not limited to
+		// fallback mode: a reason imported by the sync keeps its link too, so selecting one
+		// registers it just the same. Empty for hand-written Toolbox reasons, which keeps the
+		// standard submit path a no-op.
 		const nativeReasonIds = checkedOrdered
 			.map((item,) => item.reason.nativeReasonId)
 			.filter((id,): id is string => Boolean(id,))
@@ -1054,6 +1061,7 @@ export function RemovalReasonsOverlay ({
 										selected={selected.has(reason.id,)}
 										suggested={suggestedIdSet.has(reason.id,)}
 										{...(nativeMode ? {nativeMode,} : {})}
+										{...(reason.reason.nativeReasonId ? {locked: true,} : {})}
 										onToggle={() => toggleSelected(reason.id,)}
 										isEditing={editingId === reason.id}
 										editDraft={editDraft}

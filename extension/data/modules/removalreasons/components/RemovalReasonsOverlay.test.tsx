@@ -728,3 +728,35 @@ describe('RemovalReasonsOverlay (accept gate)', () => {
 		expect(removeThing,).toHaveBeenCalledOnce()
 	})
 })
+
+describe('native reasons are not editable', () => {
+	/** Selects the first reason card, which is what reveals the inline edit affordance. */
+	function selectFirstReason () {
+		act(() => {
+			container.querySelector<HTMLInputElement>('input[aria-label="Select removal reason 1"]',)!.click()
+		},)
+	}
+
+	/** The per-reason inline edit button, identified by its title. */
+	function editButton () {
+		return [...container.querySelectorAll('button',),]
+			.find((button,) => button.title === 'Edit reason text')
+	}
+
+	it('offers inline editing for a hand-written toolbox reason', () => {
+		renderOverlay()
+		selectFirstReason()
+
+		expect(editButton(),).toBeTruthy()
+	})
+
+	it('hides inline editing for a reason whose wording Reddit owns', () => {
+		// Both imported and fallback reasons carry nativeReasonId; editing either would send
+		// text that differs from the reason registered against the item in Reddit's mod log.
+		const native: RemovalReason = {...reason, nativeReasonId: 'rr1',}
+		renderOverlay({reasons: [native,],}, 'Popup', [native,],)
+		selectFirstReason()
+
+		expect(editButton(),).toBeUndefined()
+	})
+})
