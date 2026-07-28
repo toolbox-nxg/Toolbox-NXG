@@ -62,6 +62,7 @@ export function RemovalSettingsTab ({state, saveRef, onSave,}: Props,) {
 	const [logtitle, setLogtitle,] = useState(rr.logtitle ?? '',)
 
 	const [logreason, setLogreason,] = useState(rr.logreason ?? '',)
+	const [nativeSyncEnabled, setNativeSyncEnabled,] = useState(rr.nativeSync?.enabled === true,)
 
 	// Refs into the token-accepting fields, for inserting chips at the cursor.
 	const pmsubjectRef = useRef<HTMLInputElement>(null,)
@@ -90,13 +91,32 @@ export function RemovalSettingsTab ({state, saveRef, onSave,}: Props,) {
 
 			logreason,
 			reasons: rr.reasons || [],
+			// Spread `rr` above already carried the fingerprint, timestamp, and ignored
+			// list; only the opt-in flag is edited here. Turning the sync off drops the
+			// key rather than writing false, matching how the rest of the config stores
+			// its booleans, but keeps the bookkeeping so re-enabling picks up where it
+			// left off.
+			...(nativeSyncEnabled || rr.nativeSync
+				? {
+					nativeSync: {
+						...rr.nativeSync,
+						...(nativeSyncEnabled ? {enabled: true,} : {}),
+					},
+				}
+				: {}),
 		}
+		if (!nativeSyncEnabled) { delete state.config.removalReasons.nativeSync?.enabled }
 		onSave(state.config, 'updated removal reason settings',)
 		positiveTextFeedback('Removal reasons settings are saved',)
 	}
 	useSaveRef(saveRef, handleSave,)
 
 	const subreddit = state.subreddit ?? ''
+
+	const lastSyncedAt = rr.nativeSync?.lastSyncedAt
+	const lastSyncedLabel = lastSyncedAt
+		? `Last synced ${new Date(lastSyncedAt,).toLocaleString()}.`
+		: 'Not synced yet.'
 
 	return (
 		<div id="toolbox-removal-reason-settings">
@@ -276,6 +296,25 @@ export function RemovalSettingsTab ({state, saveRef, onSave,}: Props,) {
 						onChange={(e,) => setTypeLockThread(e.target.checked,)}
 					/>
 				</div>
+			</div>
+
+			{/* Native removal reason sync */}
+			<div className={css.section}>
+				<div className={css.sectionTitle}>Reddit&apos;s removal reasons</div>
+				<p className={css.sectionDesc}>
+					Import this subreddit&apos;s native removal reasons (the ones set in Reddit&apos;s Mod Tools) and
+					keep them up to date. Reddit owns each imported reason&apos;s title and message; flair, usernote
+					defaults, and the post/comment settings stay here in toolbox.
+				</p>
+				<CheckboxInput
+					label="Keep toolbox removal reasons in sync with Reddit's"
+					checked={nativeSyncEnabled}
+					onChange={(e,) => setNativeSyncEnabled(e.target.checked,)}
+				/>
+				<span className={css.fieldHint}>
+					Imported reasons are not written to the legacy toolbox 6.x page, so moderators still on 6.x will not
+					see them. {lastSyncedLabel}
+				</span>
 			</div>
 
 			{/* Moderator enforcement */}

@@ -66,6 +66,13 @@
 	cursor: default;
 }
 
+/* Marks a reason imported from Reddit's native removal reasons. Tinted rather than
+   outlined like the neutral chips, so provenance reads at a glance down the list. */
+.nativeChip {
+	color: var(--toolbox-accent-color);
+	opacity: 0.9;
+}
+
 .cardActions {
 	composes: cardactions from "../../../css/Base.module.css";
 }
@@ -275,6 +282,13 @@
 	opacity: 0.8;
 }
 
+/* Sits under a field Reddit owns, explaining why it is read-only. */
+.lockedHint {
+	margin-top: var(--toolbox-sp-8);
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-text-secondary);
+}
+
 .noteTypeChips {
 	display: flex;
 	flex-wrap: wrap;
@@ -300,4 +314,14 @@
 	opacity: 1;
 	background: var(--toolbox-hover-overlay-strong);
 	font-weight: bold;
+}
+
+/* Result banner for a native removal reason sync, shown above the reason cards. */
+.syncNotice {
+	margin-bottom: var(--toolbox-sp-8);
+	padding: var(--toolbox-sp-5) var(--toolbox-sp-6);
+	border: 1px solid var(--toolbox-accent-color);
+	border-radius: 3px;
+	font-size: var(--toolbox-sp-11);
+	color: var(--toolbox-text-body);
 }

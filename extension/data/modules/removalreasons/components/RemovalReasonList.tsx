@@ -35,6 +35,7 @@ import {reloadConfigFromWiki,} from '../../config/moduleapi'
 import {getRemovalReasonParser,} from '../../shared/removalReasons/parser'
 import {getSubredditColors,} from '../../shared/usernotes/moduleapi'
 import {noteTypeColorStyle,} from '../../shared/usernotes/noteTypeColorStyle'
+import {syncNativeReasons,} from '../features/syncNativeReasons'
 import type {RemovalReason,} from '../schema'
 import css from './RemovalReasonList.module.css'
 import {renderReasonHtml,} from './RemovalReasonsOverlay.helpers'
@@ -107,11 +108,38 @@ interface ReasonFormProps {
 	/** Optional placeholder for the message-text textarea. */
 	textPlaceholder?: string
 	/**
+	 * Whether this reason is synced from Reddit's native removal reasons, which owns its
+	 * title and message. Both become read-only, since the next sync would overwrite any
+	 * edit made here.
+	 */
+	syncedFromNative?: boolean
+	/** Subreddit the reason belongs to, for the link out to Reddit's mod tools. */
+	subreddit?: string
+	/**
 	 * Receives only the fields the form owns ({@link formOwnedKeys}); the caller merges
 	 * them over the original so preserved fields survive the edit.
 	 */
 	onSave: (reason: FormReason, editNote: string,) => void
 	onCancel: () => void
+}
+
+/** Explains that Reddit owns a synced reason's title and message, and links to where to change them. */
+function ManagedByRedditHint ({subreddit,}: {subreddit: string | undefined},) {
+	return (
+		<div className={css.lockedHint}>
+			Managed by Reddit. {subreddit
+				? (
+					<a
+						href={`https://www.reddit.com/r/${subreddit}/about/removal`}
+						target="_blank"
+						rel="noopener noreferrer"
+					>
+						Edit in Mod Tools
+					</a>
+				)
+				: 'Edit in Mod Tools'} &ndash; the next sync overwrites changes made here.
+		</div>
+	)
 }
 
 /** Shared form for both adding and editing a removal reason. */
@@ -124,6 +152,8 @@ function ReasonForm ({
 	onNoteColorLoad,
 	saveLabel,
 	textPlaceholder,
+	syncedFromNative,
+	subreddit,
 	onSave,
 	onCancel,
 }: ReasonFormProps,) {
@@ -221,8 +251,12 @@ function ReasonForm ({
 					type="text"
 					placeholder="Removal reason title"
 					value={title}
+					// readOnly rather than disabled: the value stays in form state so it
+					// round-trips unchanged on save, and the text stays selectable.
+					readOnly={syncedFromNative}
 					onChange={(e,) => setTitle(e.target.value,)}
 				/>
+				{syncedFromNative && <ManagedByRedditHint subreddit={subreddit} />}
 			</div>
 			<div className={css.editField}>
 				<div className={css.fieldLabelRow}>
@@ -248,6 +282,23 @@ function ReasonForm ({
 								)
 								: <span className={css.previewEmpty}>Nothing to preview yet.</span>}
 						</div>
+					)
+					: syncedFromNative
+					// Nothing can be inserted into a read-only message, so the token chips and
+					// the insert-choice button are omitted rather than shown inert.
+					? (
+						<>
+							<TextareaInput
+								id={`${idPrefix}-text`}
+								ref={textRef}
+								rows={5}
+								placeholder={textPlaceholder}
+								value={text}
+								readOnly
+								onChange={(e,) => setText(e.target.value,)}
+							/>
+							<ManagedByRedditHint subreddit={subreddit} />
+						</>
 					)
 					: (
 						<>
@@ -452,8 +503,16 @@ function ReasonCard ({
 					<Icon icon="dragHandle" />
 				</button>
 				<span className={css.cardTitle}>{reason.title || <em className={css.untitled}>Untitled</em>}</span>
-				{(reason.default_note || noteTypeColor) && (
+				{(reason.default_note || noteTypeColor || reason.nativeReasonId) && (
 					<div className={css.headerChips}>
+						{reason.nativeReasonId && (
+							<span
+								className={`${css.headerChip} ${css.nativeChip}`}
+								title="Synced from Reddit's native removal reasons. Title and message are managed in Mod Tools."
+							>
+								Native
+							</span>
+						)}
 						{noteTypeColor && (
 							<span
 								className={css.headerChip}
@@ -520,6 +579,8 @@ function ReasonCard ({
 					noteColors={noteColors}
 					onNoteColorLoad={onNoteColorLoad}
 					saveLabel="Save reason"
+					{...(reason.nativeReasonId ? {syncedFromNative: true,} : {})}
+					{...(subreddit ? {subreddit,} : {})}
 					onSave={onSave}
 					onCancel={onCancel}
 				/>
@@ -543,6 +604,8 @@ export interface RemovalReasonListProps {
 	disabledRef?: DisabledRef
 	/** Optional ref connecting the list to a footer Reorder toggle. */
 	sortRef?: SortModeRef
+	/** Optional ref wired up so the parent's "Sync now" button can force a native reason sync. */
+	syncRef?: AddRef
 	/** Called with the updated config and revision note when any reason is saved or deleted. */
 	onSave: (config: ToolboxConfig, reason: string,) => void
 }
@@ -562,7 +625,7 @@ const emptyReasonValues: ReasonFormValues = {
 }
 
 /** Renders the full list of editable removal reasons for a subreddit's toolbox config. */
-export function RemovalReasonList ({state, addRef, disabledRef, sortRef, onSave,}: RemovalReasonListProps,) {
+export function RemovalReasonList ({state, addRef, disabledRef, sortRef, syncRef, onSave,}: RemovalReasonListProps,) {
 	const [reasons, setReasons,] = useState<ReasonEntry[]>([],)
 	const [editingIndex, setEditingIndex,] = useState<number | null>(null,)
 	const [showAddForm, setShowAddForm,] = useState(false,)
@@ -570,6 +633,7 @@ export function RemovalReasonList ({state, addRef, disabledRef, sortRef, onSave,
 		state.postFlairTemplates as FlairTemplate[] | null,
 	)
 	const [noteColors, setNoteColors,] = useState<UserNoteColor[] | null>(null,)
+	const [syncNotice, setSyncNotice,] = useState('',)
 	const rootRef = useRef<HTMLDivElement>(null,)
 	const idCounterRef = useRef(0,)
 
@@ -581,17 +645,49 @@ export function RemovalReasonList ({state, addRef, disabledRef, sortRef, onSave,
 	const toEntries = (raw: RemovalReason[],): ReasonEntry[] =>
 		raw.map((r,) => ({...r, _key: `reason-${idCounterRef.current++}`,}))
 
+	/**
+	 * Runs the native reason sync and folds the result back into the list. Sequenced after
+	 * the reasons are loaded so a sync never races the initial read.
+	 */
+	const runSync = async (force: boolean,) => {
+		if (!subreddit) { return }
+		const outcome = await syncNativeReasons(subreddit, force ? {force: true,} : undefined,)
+		if (outcome.status === 'synced') {
+			const config = await reloadConfigFromWiki(subreddit,)
+			if (config) { state.config = config }
+			setReasons(toEntries(state.config.removalReasons?.reasons ?? [],),)
+			const parts = [
+				outcome.added ? `${outcome.added} added` : '',
+				outcome.updated ? `${outcome.updated} updated` : '',
+				outcome.removed ? `${outcome.removed} removed` : '',
+			].filter(Boolean,)
+			setSyncNotice(`Synced from Reddit: ${parts.join(', ',)}.`,)
+		} else if (force) {
+			setSyncNotice(
+				outcome.status === 'unchanged'
+					? 'Already up to date with Reddit.'
+					: outcome.status === 'redirected'
+					? 'This subreddit takes its removal reasons from another subreddit; nothing to sync.'
+					: outcome.status === 'disabled'
+					? 'Turn on syncing in "Removal reasons settings" first.'
+					: 'Could not reach Reddit\'s removal reasons.',
+			)
+		}
+	}
+
 	useEffect(() => {
 		if (document.body.classList.contains('toolbox-wiki-edited',)) {
 			void reloadConfigFromWiki(subreddit,).then((config,) => {
 				if (!config) { return }
 				state.config = config
 				setReasons(toEntries(config.removalReasons?.reasons ?? [],),)
+				void runSync(false,)
 			},)
 		} else {
 			setReasons(toEntries(state.config.removalReasons?.reasons ?? [],),)
+			void runSync(false,)
 		}
-	}, [],)
+	}, [],) // eslint-disable-line react-hooks/exhaustive-deps
 
 	// Stabilized so child `ReasonForm`/`ReasonCard` instances get a constant
 	// reference; their mount-once loader effects depend on these callbacks but
@@ -704,6 +800,17 @@ export function RemovalReasonList ({state, addRef, disabledRef, sortRef, onSave,
 		}
 	}, [],)
 
+	useEffect(() => {
+		if (!syncRef) { return }
+		syncRef.current = () => {
+			setSyncNotice('Syncing from Reddit...',)
+			void runSync(true,)
+		}
+		return () => {
+			syncRef.current = null
+		}
+	}, [],) // eslint-disable-line react-hooks/exhaustive-deps
+
 	// Persist a reason list to config and push it upstream. Strips the local `_key` field,
 	// clears any pending reorder (the whole list is serialized here, carrying the reorder
 	// with it), fires onSave, and updates local state.
@@ -740,7 +847,21 @@ export function RemovalReasonList ({state, addRef, disabledRef, sortRef, onSave,
 	}
 
 	const handleDelete = (index: number,) => {
-		if (!confirm('This will delete this removal reason, are you sure?',)) { return }
+		const nativeReasonId = reasons[index]?.nativeReasonId
+		const prompt = nativeReasonId
+			? 'This reason is synced from Reddit. Deleting it here also stops it being re-imported, '
+				+ 'but leaves it in place on Reddit. Are you sure?'
+			: 'This will delete this removal reason, are you sure?'
+		if (!confirm(prompt,)) { return }
+		if (nativeReasonId) {
+			// Without recording it, the next sync would simply re-import the reason and the
+			// delete would appear to undo itself.
+			const nativeSync = state.config.removalReasons.nativeSync ?? {}
+			state.config.removalReasons.nativeSync = {
+				...nativeSync,
+				ignored: [...new Set([...nativeSync.ignored ?? [], nativeReasonId,],),],
+			}
+		}
 		const newReasons = reasons.filter((_, i,) => i !== index)
 		persistReasons(newReasons, `delete reason #${index + 1}`,)
 		if (editingIndex === index) { setEditingIndex(null,) }
@@ -758,6 +879,7 @@ export function RemovalReasonList ({state, addRef, disabledRef, sortRef, onSave,
 
 	return (
 		<div ref={rootRef} className={css.root}>
+			{syncNotice && <div className={css.syncNotice}>{syncNotice}</div>}
 			<DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
 				<SortableContext items={reasons.map((r,) => r._key)} strategy={verticalListSortingStrategy}>
 					<div id="toolbox-removal-reasons-list" className={css.cardList}>

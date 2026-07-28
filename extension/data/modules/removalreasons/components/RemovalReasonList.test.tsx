@@ -8,6 +8,7 @@ import {afterEach, beforeEach, describe, expect, expectTypeOf, it, vi,} from 'vi
 const getLinkFlairTemplates = vi.hoisted(() => vi.fn())
 const getSubredditColors = vi.hoisted(() => vi.fn())
 const reloadConfigFromWiki = vi.hoisted(() => vi.fn())
+const syncNativeReasons = vi.hoisted(() => vi.fn())
 
 vi.mock('webextension-polyfill', () => ({
 	default: {runtime: {getURL: (path: string,) => `chrome-extension://fake/${path}`,},},
@@ -19,6 +20,10 @@ vi.mock('../../../api/resources/flair', () => ({
 
 vi.mock('../../config/moduleapi', () => ({
 	reloadConfigFromWiki,
+}),)
+
+vi.mock('../features/syncNativeReasons', () => ({
+	syncNativeReasons,
 }),)
 
 vi.mock('../../shared/usernotes/moduleapi', () => ({
@@ -63,6 +68,7 @@ import {formOwnedKeys, RemovalReasonList,} from './RemovalReasonList'
 let container: HTMLDivElement
 let root: Root
 let onSave: ReturnType<typeof vi.fn>
+let confirmMock: ReturnType<typeof vi.fn>
 
 /** Builds a fresh ConfigState holding the given removal reasons. */
 function makeState (reasons: Array<Record<string, unknown>>,): ConfigState {
@@ -109,6 +115,10 @@ beforeEach(() => {
 	getLinkFlairTemplates.mockResolvedValue([],)
 	getSubredditColors.mockResolvedValue([],)
 	reloadConfigFromWiki.mockResolvedValue(null,)
+	syncNativeReasons.mockResolvedValue({status: 'disabled',},)
+	// Not implemented in the test environment; each test that deletes sets its own answer.
+	confirmMock = vi.fn(() => true)
+	globalThis.confirm = confirmMock
 },)
 
 afterEach(() => {
@@ -341,5 +351,91 @@ describe('RemovalReasonList message preview toggle', () => {
 
 		expect(container.textContent,).toContain('Nothing to preview yet.',)
 		expect(container.querySelector('.toolbox-radio-group',),).toBeNull()
+	})
+})
+
+describe('RemovalReasonList synced reasons', () => {
+	/** A reason imported from Reddit's native removal reasons. */
+	const syncedReason = {
+		id: 'abcd1234',
+		text: 'From Reddit',
+		title: 'Rule 1',
+		removePosts: true,
+		flairText: '',
+		flairCSS: '',
+		flairTemplateID: '',
+		nativeReasonId: 'native-1',
+	}
+
+	it('marks a synced reason with a Native chip', () => {
+		renderList(makeState([syncedReason,],),)
+
+		const chip = [...container.querySelectorAll('span',),].find((el,) => el.textContent === 'Native')
+		expect(chip,).toBeTruthy()
+		expect(chip!.title,).toContain('Mod Tools',)
+	})
+
+	it('does not chip a hand-written reason', () => {
+		renderList(makeState([{...syncedReason, nativeReasonId: undefined,},],),)
+
+		expect([...container.querySelectorAll('span',),].some((el,) => el.textContent === 'Native'),).toBe(false,)
+	})
+
+	it('locks title and message on a synced reason but leaves the rest editable', async () => {
+		renderList(makeState([syncedReason,],),)
+		const editButton = container.querySelector<HTMLButtonElement>('button[title="Edit"]',)!
+		await act(async () => editButton.click())
+
+		expect(container.querySelector<HTMLInputElement>('#edit-reason-0-title',)?.readOnly,).toBe(true,)
+		expect(container.querySelector<HTMLTextAreaElement>('#edit-reason-0-text',)?.readOnly,).toBe(true,)
+		// The token chips and insert-choice affordances are pointless on a read-only field.
+		expect([...container.querySelectorAll('button',),].some((el,) => el.textContent?.includes('{choice}',)),)
+			.toBe(false,)
+		// Flair and note fields stay editable - that is the point of the ownership split.
+		expect(getCheckbox('Posts',).disabled,).toBe(false,)
+	})
+
+	it('leaves title and message editable on a hand-written reason', async () => {
+		renderList(makeState([{...syncedReason, nativeReasonId: undefined,},],),)
+		const editButton = container.querySelector<HTMLButtonElement>('button[title="Edit"]',)!
+		await act(async () => editButton.click())
+
+		expect(container.querySelector<HTMLInputElement>('#edit-reason-0-title',)?.readOnly,).toBe(false,)
+		expect(container.querySelector<HTMLTextAreaElement>('#edit-reason-0-text',)?.readOnly,).toBe(false,)
+	})
+
+	it('records the native id as ignored when a synced reason is deleted', () => {
+		const state = makeState([syncedReason,],)
+		renderList(state,)
+
+		act(() => {
+			container.querySelector<HTMLButtonElement>('button[title="Delete"]',)!.click()
+		},)
+
+		// Without this the next sync would re-import the reason and undo the delete.
+		expect(state.config.removalReasons.nativeSync?.ignored,).toEqual(['native-1',],)
+		expect(state.config.removalReasons.reasons,).toEqual([],)
+	})
+
+	it('warns that deleting a synced reason stops it being re-imported', () => {
+		confirmMock.mockReturnValue(false,)
+		renderList(makeState([syncedReason,],),)
+
+		act(() => {
+			container.querySelector<HTMLButtonElement>('button[title="Delete"]',)!.click()
+		},)
+
+		expect(confirmMock.mock.calls[0]![0],).toContain('synced from Reddit',)
+	})
+
+	it('does not touch nativeSync when a hand-written reason is deleted', () => {
+		const state = makeState([{...syncedReason, nativeReasonId: undefined,},],)
+		renderList(state,)
+
+		act(() => {
+			container.querySelector<HTMLButtonElement>('button[title="Delete"]',)!.click()
+		},)
+
+		expect(state.config.removalReasons.nativeSync,).toBeUndefined()
 	})
 })
