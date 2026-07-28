@@ -201,6 +201,11 @@ export interface FrozenRemovalIntent {
 	/** Ban to issue; omitted when not banning. */
 	ban?: FrozenRemovalBan
 	/**
+	 * Reddit native removal-reason ids to re-register in the mod log on replay; omitted
+	 * for Toolbox-reason removals. The ids are opaque strings needing no re-resolution.
+	 */
+	nativeReasonIds?: string[]
+	/**
 	 * The trainee's structured reason selection, for re-seeding the removal overlay on
 	 * Edit & Accept. Additive metadata only - replay and display use `reasonText`.
 	 * Omitted for captures that predate this field (Edit & Accept falls back to plain

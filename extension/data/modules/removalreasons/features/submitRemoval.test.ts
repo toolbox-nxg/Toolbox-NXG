@@ -16,6 +16,7 @@ const approveThing = vi.hoisted(() => vi.fn())
 const distinguishThing = vi.hoisted(() => vi.fn())
 const lock = vi.hoisted(() => vi.fn())
 const sendOfficialRemovalMessage = vi.hoisted(() => vi.fn())
+const applyNativeRemovalReason = vi.hoisted(() => vi.fn())
 const updateUserNotes = vi.hoisted(() => vi.fn())
 const publishSubredditNotes = vi.hoisted(() => vi.fn())
 
@@ -26,6 +27,8 @@ vi.mock('webextension-polyfill', () => ({
 vi.mock('../../../api/resources/comments', () => ({postComment,}),)
 
 vi.mock('../../../api/resources/flair', () => ({flairPost,}),)
+
+vi.mock('../../../api/resources/removalReasons', () => ({applyNativeRemovalReason,}),)
 
 vi.mock('../../../api/resources/modmail', () => ({archiveModmail, sendModmail,}),)
 
@@ -122,6 +125,7 @@ beforeEach(() => {
 	vi.clearAllMocks()
 	clearMessageLinks()
 	removeThing.mockResolvedValue({},)
+	applyNativeRemovalReason.mockResolvedValue(undefined,)
 	postComment.mockResolvedValue({fullname: 't1_reply',},)
 	distinguishThing.mockResolvedValue({},)
 	sendModmail.mockResolvedValue({conversation: {id: 'convo123', isInternal: false,},},)
@@ -163,5 +167,46 @@ describe('submitRemoval usernote write', () => {
 
 		expect(result,).toEqual({ok: true,},)
 		expect(savedNote().link,).toBeUndefined()
+	})
+})
+
+describe('submitRemoval native removal-reason registration', () => {
+	it('registers each native reason after removal while still delivering the message', async () => {
+		const result = await submitRemoval(
+			makeParams({leaveUsernote: false, nativeReasonIds: ['r1', 'r2',],},),
+			() => {},
+		)
+
+		expect(result,).toEqual({ok: true,},)
+		expect(applyNativeRemovalReason.mock.calls,).toEqual([
+			[{itemId: 't1_comment', reasonId: 'r1',},],
+			[{itemId: 't1_comment', reasonId: 'r2',},],
+		],)
+		// Registration must happen after the removal (Reddit requires an already-removed item).
+		expect(removeThing.mock.invocationCallOrder[0]!,).toBeLessThan(
+			applyNativeRemovalReason.mock.invocationCallOrder[0]!,
+		)
+		// The user message is still delivered via the normal reply pipeline.
+		expect(postComment,).toHaveBeenCalledOnce()
+	})
+
+	it('warns but does not abort when a registration call fails', async () => {
+		applyNativeRemovalReason.mockRejectedValueOnce(new Error('reddit rejected',),)
+		const onWarning = vi.fn()
+
+		const result = await submitRemoval(
+			makeParams({leaveUsernote: false, nativeReasonIds: ['r1',],},),
+			onWarning,
+		)
+
+		expect(result,).toEqual({ok: true,},)
+		expect(onWarning,).toHaveBeenCalledWith('failed to register native removal reason',)
+	})
+
+	it('never calls the native API for a standard Toolbox removal', async () => {
+		const result = await submitRemoval(makeParams({leaveUsernote: false,},), () => {},)
+
+		expect(result,).toEqual({ok: true,},)
+		expect(applyNativeRemovalReason,).not.toHaveBeenCalled()
 	})
 })

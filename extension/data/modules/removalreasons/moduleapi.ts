@@ -1,5 +1,6 @@
 /** Wiki and API operations for the Removal Reasons module. */
 
+import {getNativeRemovalReasons, type NativeRemovalReason,} from '../../api/resources/removalReasons'
 import type {ToolboxConfig,} from '../../util/wiki/schemas/config/schema'
 import {getConfig, saveToolboxConfig,} from '../config/moduleapi'
 import type {RemovalReasonsConfig,} from './schema'
@@ -26,6 +27,17 @@ export async function getRemovalReasons (
 		return getRemovalReasons(config.removalReasons.getfrom, true,)
 	}
 	return config.removalReasons
+}
+
+/**
+ * Fetches a subreddit's native (Reddit-configured) removal reasons, used as a fallback
+ * for the removal overlay when the subreddit has no Toolbox reasons configured. Kept here
+ * so `dom.tsx` reads native reasons through the module's api layer rather than importing
+ * an `api/resources` module directly.
+ * @param subreddit The bare subreddit name.
+ */
+export function getNativeReasons (subreddit: string,): Promise<NativeRemovalReason[]> {
+	return getNativeRemovalReasons(subreddit,)
 }
 
 /**

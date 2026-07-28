@@ -32,7 +32,7 @@ import {
 	type RemovalReasonsOverlayPreseed,
 	showRemovalReasonsOverlay,
 } from './components/RemovalReasonsOverlay'
-import {getRemovalReasons,} from './moduleapi'
+import {getNativeReasons, getRemovalReasons,} from './moduleapi'
 import {setRemovalOverlayOpener,} from './overlayOpener'
 import {
 	defaultLogTitle,
@@ -105,6 +105,7 @@ function buildOverlayData (baseData: OverlayBaseData, response: RemovalReasonsCo
 			editable: r.editable === true,
 			...(r.default_note ? {default_note: r.default_note,} : {}),
 			...(r.default_note_type ? {default_note_type: r.default_note_type,} : {}),
+			...(r.nativeReasonId ? {nativeReasonId: r.nativeReasonId,} : {}),
 		})) as RemovalReason[],
 	}
 }
@@ -424,6 +425,7 @@ export function injectRemoveButton (thingId: string, subredditName: string, thin
  */
 export function createRemovalReasonsHandlers ({
 	alwaysShow,
+	nativeReasonsFallback,
 	commentReasons,
 	customRemovalReason,
 	displayMode,
@@ -578,26 +580,66 @@ export function createRemovalReasonsHandlers ({
 			return
 		}
 
+		let nativeMode = false
 		if (!response || response.reasons.length < 1) {
-			if (!alwaysShow) {
-				await bailWithoutVisibleReasons(baseData.url,)
+			// No Toolbox reasons configured: fall back to Reddit's native removal reasons
+			// (either/or, never both, which sidesteps mixed selection). This branch only runs
+			// where the overlay would otherwise bail, so subs with Toolbox reasons are untouched.
+			const native = nativeReasonsFallback
+				? await getNativeReasons(baseData.subreddit,).catch(() => [])
+				: []
+			if (!drawerRequestIsCurrent()) {
+				resetRemoveButton()
 				return
 			}
-
-			response = {
-				pmsubject: '',
-				logreason: '',
-				header: '',
-				footer: '',
-				logsub: '',
-				logtitle: '',
-				getfrom: '',
-				reasons: [{text: customRemovalReason, flairText: '', flairCSS: '', flairTemplateID: '', title: '',},],
+			if (native.length) {
+				nativeMode = true
+				response = {
+					pmsubject: '',
+					logreason: '',
+					header: '',
+					footer: '',
+					logsub: '',
+					logtitle: '',
+					getfrom: '',
+					reasons: native.map((n,) => ({
+						text: n.message,
+						title: n.title,
+						flairText: '',
+						flairCSS: '',
+						flairTemplateID: '',
+						editable: false,
+						nativeReasonId: n.id,
+					})),
+				}
+			} else if (alwaysShow) {
+				response = {
+					pmsubject: '',
+					logreason: '',
+					header: '',
+					footer: '',
+					logsub: '',
+					logtitle: '',
+					getfrom: '',
+					reasons: [{
+						text: customRemovalReason,
+						flairText: '',
+						flairCSS: '',
+						flairTemplateID: '',
+						title: '',
+					},],
+				}
+			} else {
+				await bailWithoutVisibleReasons(baseData.url,)
+				return
 			}
 		}
 
 		const data = buildOverlayData(baseData, response,)
-		const visibleReasons = selectVisibleReasons(data.reasons, isComment, commentReasons,)
+		// Native reasons aren't post/comment-scoped, so bypass the kind/comment-setting filter.
+		const visibleReasons = nativeMode
+			? data.reasons
+			: selectVisibleReasons(data.reasons, isComment, commentReasons,)
 
 		if (!visibleReasons.length) {
 			await bailWithoutVisibleReasons(data.url,)
@@ -681,6 +723,7 @@ export function createRemovalReasonsHandlers ({
 			data,
 			...(spam ? {spam,} : {}),
 			visibleReasons,
+			...(nativeMode ? {nativeMode,} : {}),
 			...(suggestedReasonIds.length ? {suggestedReasonIds,} : {}),
 			displayMode,
 			settings: {

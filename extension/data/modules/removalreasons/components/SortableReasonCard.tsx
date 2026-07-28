@@ -15,6 +15,8 @@ interface SortableReasonCardProps {
 	/** Zero-based display position; shown as a 1-based number badge. */
 	position: number
 	selected: boolean
+	/** Native-reason fallback mode: hides the drag handle (reordering native reasons is meaningless). */
+	nativeMode?: boolean
 	/** Whether this reason was pre-selected from the item's report (shows a "Suggested" badge). */
 	suggested?: boolean
 	onToggle: () => void
@@ -37,6 +39,7 @@ export function SortableReasonCard ({
 	position,
 	selected,
 	suggested,
+	nativeMode,
 	onToggle,
 	setContentRef,
 	isEditing,
@@ -89,17 +92,19 @@ export function SortableReasonCard ({
 			}}
 		>
 			<div className={css.reasonCardHeader}>
-				<button
-					ref={setActivatorNodeRef}
-					type="button"
-					className={css.dragHandle}
-					{...attributes}
-					{...listeners}
-					title="Drag to reorder"
-					aria-label="Drag to reorder removal reason"
-				>
-					<Icon icon="dragHandle" />
-				</button>
+				{!nativeMode && (
+					<button
+						ref={setActivatorNodeRef}
+						type="button"
+						className={css.dragHandle}
+						{...attributes}
+						{...listeners}
+						title="Drag to reorder"
+						aria-label="Drag to reorder removal reason"
+					>
+						<Icon icon="dragHandle" />
+					</button>
+				)}
 				<label className={css.reasonCardSelect} onClick={(event,) => event.stopPropagation()}>
 					<input
 						type="checkbox"

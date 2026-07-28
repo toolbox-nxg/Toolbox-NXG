@@ -123,6 +123,12 @@ interface RemovalReasonsOverlayProps {
 	spam?: boolean
 	/** The subset of reasons to show (filtered by content type). */
 	visibleReasons: RemovalReason[]
+	/**
+	 * When true, the shown reasons are Reddit's native removal reasons (fallback mode, used
+	 * only when the subreddit has no Toolbox reasons). Drives the native-mode heading and
+	 * suppresses drag-sorting, which is meaningless for native reasons.
+	 */
+	nativeMode?: boolean
 	displayMode?: RemovalReasonsDisplayMode
 	/** Moderator-level default delivery settings. */
 	settings: RemovalReasonsOverlaySettings
@@ -187,6 +193,7 @@ export function RemovalReasonsOverlay ({
 	data,
 	spam,
 	visibleReasons,
+	nativeMode = false,
 	displayMode = 'Popup (legacy)',
 	settings,
 	usernoteRequire = {type: false, text: true, link: false,},
@@ -714,6 +721,12 @@ export function RemovalReasonsOverlay ({
 		// Selected reason titles, for review display (omit when none have a title).
 		const reasonTitle = checkedOrdered.map((item,) => item.reason.title).filter(Boolean,).join(', ',)
 
+		// Native-reason ids to register in the mod log after removal (native fallback mode only).
+		// Empty for Toolbox reasons, keeping the standard submit path a no-op.
+		const nativeReasonIds = checkedOrdered
+			.map((item,) => item.reason.nativeReasonId)
+			.filter((id,): id is string => Boolean(id,))
+
 		// Structured selection captured alongside the message, to re-seed the overlay on
 		// Edit & Accept. The header/footer flags are stored only when one is configured.
 		const selection: FrozenRemovalSelection = {reasons: composed.pieces,}
@@ -748,6 +761,7 @@ export function RemovalReasonsOverlay ({
 			banPermanent,
 			banDays,
 			banNote,
+			...(nativeReasonIds.length ? {nativeReasonIds,} : {}),
 		}
 		return {params, selection,}
 	}
@@ -971,6 +985,13 @@ export function RemovalReasonsOverlay ({
 			</div>
 
 			<Section title="Message pieces">
+				{nativeMode && (
+					<div className={css.suggestedNotice}>
+						<span>
+							Native reasons (from Reddit) - this subreddit has no Toolbox removal reasons.
+						</span>
+					</div>
+				)}
 				{headerDisplay && (
 					<div className={css.messagePiece}>
 						<CheckboxInput
@@ -1032,6 +1053,7 @@ export function RemovalReasonsOverlay ({
 										position={reasonIndex}
 										selected={selected.has(reason.id,)}
 										suggested={suggestedIdSet.has(reason.id,)}
+										{...(nativeMode ? {nativeMode,} : {})}
 										onToggle={() => toggleSelected(reason.id,)}
 										isEditing={editingId === reason.id}
 										editDraft={editDraft}

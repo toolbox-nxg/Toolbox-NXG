@@ -19,6 +19,14 @@ export const settings = defineSettings(
 			description: 'Show an empty removal reason box for subreddits that don\'t have removal reasons.',
 		},
 		{
+			id: 'nativeReasonsFallback',
+			sharedPolicy: 'raw',
+			type: 'boolean' as const,
+			default: true,
+			description:
+				'When a subreddit has no Toolbox removal reasons, show Reddit\'s native removal reasons instead.',
+		},
+		{
 			id: 'displayMode',
 			sharedPolicy: 'raw',
 			type: 'selector' as const,

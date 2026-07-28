@@ -132,6 +132,13 @@ describe('freezeRemovalParams', () => {
 		expect('selection' in freezeRemovalParams(makeParams(), {reasons: [],},),).toBe(false,)
 		expect('selection' in freezeRemovalParams(makeParams(),),).toBe(false,)
 	})
+
+	it('keeps native reason ids when set and omits them otherwise', () => {
+		expect('nativeReasonIds' in freezeRemovalParams(makeParams(),),).toBe(false,)
+		expect('nativeReasonIds' in freezeRemovalParams(makeParams({nativeReasonIds: [],},),),).toBe(false,)
+		expect(freezeRemovalParams(makeParams({nativeReasonIds: ['r1', 'r2',],},),).nativeReasonIds,)
+			.toEqual(['r1', 'r2',],)
+	})
 })
 
 describe('replayRemovalProposal', () => {
@@ -207,6 +214,17 @@ describe('replayRemovalProposal', () => {
 		const intent = makeIntent()
 		await replayRemovalProposal('sub', makeProposal(intent,), intent,)
 		expect(received!.reasonText,).toBe('Removed: rule 1',)
+	})
+
+	it('re-applies captured native reason ids on replay', async () => {
+		let received: SubmitRemovalParams | undefined
+		submitRemoval.mockImplementation(async (params: SubmitRemovalParams,) => {
+			received = params
+			return {ok: true,}
+		},)
+		const intent = makeIntent({nativeReasonIds: ['r1', 'r2',],},)
+		await replayRemovalProposal('sub', makeProposal(intent,), intent,)
+		expect(received!.nativeReasonIds,).toEqual(['r1', 'r2',],)
 	})
 
 	it('throws the pipeline error when submitRemoval fails', async () => {

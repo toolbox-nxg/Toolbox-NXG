@@ -11,6 +11,7 @@ const getApiThingInfo = vi.hoisted(() => vi.fn())
 const getConfig = vi.hoisted(() => vi.fn())
 const getThingFromDescendant = vi.hoisted(() => vi.fn((element: Element,) => element.closest('.thing',)))
 const removeThing = vi.hoisted(() => vi.fn())
+const getNativeRemovalReasons = vi.hoisted(() => vi.fn())
 const negativeTextFeedback = vi.hoisted(() => vi.fn())
 // Renderer registry for the uiLocations mock — keyed by location name.
 const uiLocMock = vi.hoisted(() => ({renderers: new Map<string, (...args: unknown[]) => unknown>(),}))
@@ -55,6 +56,10 @@ vi.mock('../../api/resources/things', () => ({
 
 vi.mock('../config/moduleapi', () => ({
 	getConfig,
+}),)
+
+vi.mock('../../api/resources/removalReasons', () => ({
+	getNativeRemovalReasons,
 }),)
 
 vi.mock('../../store/feedback', () => ({
@@ -103,6 +108,7 @@ import type {RemovalReasonsSettings,} from './settings'
 
 const handlerSettings: RemovalReasonsSettings = {
 	alwaysShow: true,
+	nativeReasonsFallback: false,
 	commentReasons: true,
 	customRemovalReason: 'Custom reason',
 	displayMode: 'Popup',
@@ -243,6 +249,7 @@ beforeEach(() => {
 	setRemovalConfig()
 	setThingInfo()
 	removeThing.mockResolvedValue({},)
+	getNativeRemovalReasons.mockResolvedValue([],)
 	// Register the thingNativeActionReplacement renderer so injectRemoveButton works.
 	createRemovalReasonsHandlers(handlerSettings,)
 },)
@@ -794,6 +801,89 @@ describe('createRemovalReasonsHandlers', () => {
 
 		expect(removeThing,).toHaveBeenCalledWith('t3_post', false,)
 		expect(showRemovalReasonsOverlay,).not.toHaveBeenCalled()
+	})
+
+	describe('native reasons fallback', () => {
+		/** Old Reddit remove-click on a post whose subreddit has no Toolbox reasons. */
+		async function clickRemoveWithoutToolboxReasons (settings: RemovalReasonsSettings,) {
+			getConfig.mockResolvedValue({removalReasons: {reasons: [],},},)
+			document.body.innerHTML = `
+                <div class="thing link" data-fullname="t3_post" data-subreddit="testsub">
+                    <span class="remove-button">
+                        <button class="togglebutton">remove</button>
+                    </span>
+                </div>
+            `
+			const event = makeClick(document.querySelector('.togglebutton',)!,)
+			await createRemovalReasonsHandlers(settings,).handleClick(event,)
+		}
+
+		it('opens the overlay in native mode with Reddit reasons when no Toolbox reasons exist', async () => {
+			getNativeRemovalReasons.mockResolvedValue([{id: 'rr1', title: 'Spam', message: 'No spam allowed',},],)
+
+			await clickRemoveWithoutToolboxReasons({
+				...handlerSettings,
+				nativeReasonsFallback: true,
+				alwaysShow: false,
+			},)
+
+			expect(removeThing,).not.toHaveBeenCalled()
+			const props = showRemovalReasonsOverlay.mock.calls[0]![0]
+			expect(props.nativeMode,).toBe(true,)
+			expect(props.visibleReasons,).toHaveLength(1,)
+			expect(props.visibleReasons[0],).toMatchObject({title: 'Spam', nativeReasonId: 'rr1',},)
+		})
+
+		it('shows native reasons on a comment even when the comment-reasons setting is off (bypasses the kind filter)', async () => {
+			platform.isOldReddit = false
+			setThingInfo('comment',)
+			getNativeRemovalReasons.mockResolvedValue([{id: 'rr1', title: 'Spam', message: 'No spam allowed',},],)
+			getConfig.mockResolvedValue({removalReasons: {reasons: [],},},)
+			document.body.innerHTML = `
+                <div class="toolbox-frontend-container" data-toolbox-type="TBcomment">
+                    <span
+                        class="toolbox-general-button toolbox-add-removal-reason"
+                        data-id="t1_comment"
+                        data-subreddit="testsub"
+                    >Add removal reason</span>
+                </div>
+            `
+			const event = makeClick(document.querySelector('.toolbox-add-removal-reason',)!,)
+
+			await createRemovalReasonsHandlers({
+				...handlerSettings,
+				nativeReasonsFallback: true,
+				commentReasons: false,
+			},).handleClick(event,)
+
+			const props = showRemovalReasonsOverlay.mock.calls[0]![0]
+			expect(props.nativeMode,).toBe(true,)
+			expect(props.visibleReasons,).toHaveLength(1,)
+		})
+
+		it('falls back to the normal bail path when there are neither Toolbox nor native reasons', async () => {
+			getNativeRemovalReasons.mockResolvedValue([],)
+
+			await clickRemoveWithoutToolboxReasons({
+				...handlerSettings,
+				nativeReasonsFallback: true,
+				alwaysShow: false,
+			},)
+
+			expect(removeThing,).toHaveBeenCalledWith('t3_post', false,)
+			expect(showRemovalReasonsOverlay,).not.toHaveBeenCalled()
+		})
+
+		it('does not fetch native reasons when the fallback setting is off', async () => {
+			await clickRemoveWithoutToolboxReasons({
+				...handlerSettings,
+				nativeReasonsFallback: false,
+				alwaysShow: false,
+			},)
+
+			expect(getNativeRemovalReasons,).not.toHaveBeenCalled()
+			expect(removeThing,).toHaveBeenCalledWith('t3_post', false,)
+		})
 	})
 
 	describe('Add removal reason control', () => {

@@ -59,6 +59,7 @@ export const logReasonMissingError = 'public log reason missing'
 export const logPostError = 'failed to create log post'
 export const usernoteError = 'failed to save usernote'
 export const banError = 'failed to issue ban'
+export const nativeReasonError = 'failed to register native removal reason'
 
 /**
  * Renders a `{choice}` token as a radio button group.

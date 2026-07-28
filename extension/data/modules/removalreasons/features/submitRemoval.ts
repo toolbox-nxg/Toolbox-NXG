@@ -12,6 +12,7 @@ import {postComment,} from '../../../api/resources/comments'
 import {flairPost,} from '../../../api/resources/flair'
 import {archiveModmail, sendModmail,} from '../../../api/resources/modmail'
 import {banUser,} from '../../../api/resources/relationships'
+import {applyNativeRemovalReason,} from '../../../api/resources/removalReasons'
 import {postLink,} from '../../../api/resources/submissions'
 import {
 	approveThing,
@@ -39,6 +40,7 @@ import {
 	logReasonMissingError,
 	modmailArchiveError,
 	modmailError,
+	nativeReasonError,
 	noReasonError,
 	noReplyTypeError,
 	type ReasonType,
@@ -98,6 +100,12 @@ export interface SubmitRemovalParams {
 	banPermanent: boolean
 	banDays: number
 	banNote: string
+	/**
+	 * Reddit native removal-reason ids to register in the mod log after the item is
+	 * removed. Present only in native-reasons fallback mode; empty/absent for Toolbox
+	 * reasons, keeping the standard path a no-op.
+	 */
+	nativeReasonIds?: string[]
 }
 
 /** Outcome of the submission pipeline. */
@@ -152,6 +160,22 @@ export async function submitRemoval (
 		await removeThing(data.fullname, params.spam ?? false,)
 	} catch {
 		return {ok: false, error: removeError,}
+	}
+
+	// Native-reasons fallback: register the selected Reddit reason(s) in the mod log now that
+	// the item is removed. This only records the reason - the user message is still delivered
+	// by the normal pipeline below. Reddit stores one reason per item, so on a multi-select the
+	// last call wins; all selected messages are still delivered as the combined body.
+	// Best-effort, like flair: a failure warns but must not abort an otherwise-successful removal.
+	if (params.nativeReasonIds?.length) {
+		for (const reasonId of params.nativeReasonIds) {
+			try {
+				await applyNativeRemovalReason({itemId: data.fullname, reasonId,},)
+			} catch (error) {
+				log.error(`failed to register native removal reason ${reasonId}:`, error,)
+				onWarning(nativeReasonError,)
+			}
+		}
 	}
 
 	/**

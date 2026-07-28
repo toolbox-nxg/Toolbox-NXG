@@ -115,6 +115,13 @@ export interface RemovalReason {
 	default_note?: string
 	/** Key of the usernote type (UserNoteColor.key) to pre-select. */
 	default_note_type?: string
+	/**
+	 * When set, this reason is one of Reddit's native (Reddit-configured) removal
+	 * reasons rather than a Toolbox reason; the value is Reddit's reason id, which is
+	 * registered against the removed item via the modactions API on submit. Native
+	 * reasons are only surfaced as a fallback when the subreddit has no Toolbox reasons.
+	 */
+	nativeReasonId?: string
 }
 
 /** Runtime context data for a thing being removed, passed to the overlay. */

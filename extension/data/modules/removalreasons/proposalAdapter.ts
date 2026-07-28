@@ -83,6 +83,9 @@ export function freezeRemovalParams (
 		intent.ban = {permanent: !!params.banPermanent, days: params.banDays, note: params.banNote,}
 	}
 
+	// Native removal-reason ids: only in native fallback mode. Opaque strings, re-registered as-is.
+	if (params.nativeReasonIds?.length) { intent.nativeReasonIds = params.nativeReasonIds }
+
 	return intent
 }
 
@@ -138,6 +141,7 @@ async function thawRemovalIntent (
 		banPermanent: !!intent.ban?.permanent,
 		banDays: intent.ban?.days ?? 0,
 		banNote: intent.ban?.note ?? '',
+		...(intent.nativeReasonIds?.length ? {nativeReasonIds: intent.nativeReasonIds,} : {}),
 	}
 }
 

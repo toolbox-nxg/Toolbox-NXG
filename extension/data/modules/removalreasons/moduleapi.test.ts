@@ -7,6 +7,10 @@ const getConfig = vi.hoisted(() => vi.fn())
 
 vi.mock('../config/moduleapi', () => ({getConfig, saveToolboxConfig: vi.fn(),}),)
 
+// Stub the native-reasons API resource so importing moduleapi doesn't pull in the
+// transport/webextension-polyfill chain (this suite runs in the node environment).
+vi.mock('../../api/resources/removalReasons', () => ({getNativeRemovalReasons: vi.fn(),}),)
+
 import {getRemovalReasons,} from './moduleapi'
 
 beforeEach(() => {
