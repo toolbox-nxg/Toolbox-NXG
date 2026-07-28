@@ -35,34 +35,36 @@ import {reloadConfigFromWiki,} from '../../config/moduleapi'
 import {getRemovalReasonParser,} from '../../shared/removalReasons/parser'
 import {getSubredditColors,} from '../../shared/usernotes/moduleapi'
 import {noteTypeColorStyle,} from '../../shared/usernotes/noteTypeColorStyle'
+import type {RemovalReason,} from '../schema'
 import css from './RemovalReasonList.module.css'
 import {renderReasonHtml,} from './RemovalReasonsOverlay.helpers'
 
-/** A single removal reason entry as stored in the toolbox wiki config. */
-interface Reason {
-	/** Stable identifier (schema v2); preserved across edits, assigned on create. */
-	id?: string
-	text: string
-	title: string
-	/** Whether the reason applies to posts (defaults to true when undefined). */
-	removePosts?: boolean
-	/**
-	 * Tri-state comment applicability: `true` always shows the reason for
-	 * comments, absent defers to the mod's "enable removal reasons for
-	 * comments" setting, and `false` (written only by 6.x) always hides it.
-	 * This editor writes `true` or omits the key - never `false`.
-	 */
-	removeComments?: boolean
-	flairText: string
-	flairCSS: string
-	flairTemplateID: string
-	editable?: boolean
-	default_note?: string
-	default_note_type?: string
-}
+/**
+ * The reason fields this editor's form owns: it writes every one of them on save,
+ * omitting the ones that are off rather than writing a falsy value.
+ *
+ * Everything outside this list is carried across an edit untouched (see
+ * `handleSaveEdit`). That default-preserve direction is deliberate: the form
+ * rebuilds the reason object from its own state, so a field it does not re-emit
+ * would otherwise be silently dropped every time a mod saves an edit.
+ */
+export const formOwnedKeys = [
+	'title',
+	'text',
+	'removePosts',
+	'removeComments',
+	'flairText',
+	'flairCSS',
+	'flairTemplateID',
+	'default_note',
+	'default_note_type',
+] as const satisfies ReadonlyArray<keyof RemovalReason>
+
+/** The subset of a reason the form produces; the rest is preserved from the original. */
+type FormReason = Pick<RemovalReason, typeof formOwnedKeys[number]>
 
 /** Reason enriched with a synthetic runtime key for React/dnd-kit reconciliation; never persisted. */
-interface ReasonEntry extends Reason {
+interface ReasonEntry extends RemovalReason {
 	_key: string
 }
 
@@ -104,7 +106,11 @@ interface ReasonFormProps {
 	saveLabel: string
 	/** Optional placeholder for the message-text textarea. */
 	textPlaceholder?: string
-	onSave: (reason: Reason, editNote: string,) => void
+	/**
+	 * Receives only the fields the form owns ({@link formOwnedKeys}); the caller merges
+	 * them over the original so preserved fields survive the edit.
+	 */
+	onSave: (reason: FormReason, editNote: string,) => void
 	onCancel: () => void
 }
 
@@ -384,7 +390,7 @@ function ReasonCard ({
 	onFlairLoad,
 	onNoteColorLoad,
 }: {
-	reason: Reason
+	reason: RemovalReason
 	/** Stable client-side ID used as the dnd-kit sort key. */
 	dndId: string
 	index: number
@@ -397,7 +403,7 @@ function ReasonCard ({
 	parser: ReturnType<typeof getRemovalReasonParser>
 	onEdit: () => void
 	onDelete: () => void
-	onSave: (updated: Reason, editNote: string,) => void
+	onSave: (updated: FormReason, editNote: string,) => void
 	onCancel: () => void
 	onFlairLoad: () => Promise<FlairTemplate[]>
 	onNoteColorLoad: () => Promise<UserNoteColor[]>
@@ -572,7 +578,7 @@ export function RemovalReasonList ({state, addRef, disabledRef, sortRef, onSave,
 	const subreddit = state.subreddit ?? ''
 
 	/** Assigns a stable runtime key to each reason for React/dnd-kit reconciliation. */
-	const toEntries = (raw: Reason[],): ReasonEntry[] =>
+	const toEntries = (raw: RemovalReason[],): ReasonEntry[] =>
 		raw.map((r,) => ({...r, _key: `reason-${idCounterRef.current++}`,}))
 
 	useEffect(() => {
@@ -711,14 +717,23 @@ export function RemovalReasonList ({state, addRef, disabledRef, sortRef, onSave,
 		setReasons(newReasons,)
 	}
 
-	const handleSaveEdit = (index: number, updated: Reason, editNote: string,) => {
+	const handleSaveEdit = (index: number, updated: FormReason, editNote: string,) => {
 		const newReasons = [...reasons,]
-		// The form rebuilds the reason object; carry the stable id over so edits
-		// don't reset it.
+		const original = reasons[index]!
+		// The form rebuilds the reason object from its own state, so anything it does not
+		// re-emit would be lost. Drop only the fields the form owns and let the rest ride
+		// through untouched - that keeps `nativeReasonId`, `editable`, and any field added
+		// to the schema later, without having to remember to carry each one by hand.
+		// Form-owned keys must come exclusively from `updated`: the form deliberately omits
+		// `removeComments` / `default_note` / `default_note_type` when they are off, and a
+		// plain merge over the original would resurrect the previous value instead.
+		const preserved: Partial<ReasonEntry> = {...original,}
+		for (const key of formOwnedKeys) { delete preserved[key] }
 		newReasons[index] = {
-			id: reasons[index]?.id ?? generateConfigId(),
+			id: original.id ?? generateConfigId(),
+			...preserved,
 			...updated,
-			_key: reasons[index]!._key,
+			_key: original._key,
 		}
 		persistReasons(newReasons, `${editNote || 'update'}, reason #${index + 1}`,)
 		setEditingIndex(null,)
@@ -731,7 +746,7 @@ export function RemovalReasonList ({state, addRef, disabledRef, sortRef, onSave,
 		if (editingIndex === index) { setEditingIndex(null,) }
 	}
 
-	const handleSaveNew = (reason: Reason, editNote: string,) => {
+	const handleSaveNew = (reason: FormReason, editNote: string,) => {
 		const newReasons = [
 			...reasons,
 			{id: generateConfigId(), ...reason, _key: `reason-${idCounterRef.current++}`,},

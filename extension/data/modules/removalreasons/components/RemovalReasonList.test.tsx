@@ -3,7 +3,7 @@
 import {act,} from 'react'
 import type {ReactNode,} from 'react'
 import {createRoot, type Root,} from 'react-dom/client'
-import {afterEach, beforeEach, describe, expect, it, vi,} from 'vitest'
+import {afterEach, beforeEach, describe, expect, expectTypeOf, it, vi,} from 'vitest'
 
 const getLinkFlairTemplates = vi.hoisted(() => vi.fn())
 const getSubredditColors = vi.hoisted(() => vi.fn())
@@ -57,7 +57,8 @@ vi.mock('@dnd-kit/sortable', async () => {
 },)
 
 import type {ConfigState,} from '../../../util/wiki/schemas/config/schema'
-import {RemovalReasonList,} from './RemovalReasonList'
+import type {RemovalReason,} from '../schema'
+import {formOwnedKeys, RemovalReasonList,} from './RemovalReasonList'
 
 let container: HTMLDivElement
 let root: Root
@@ -214,6 +215,85 @@ describe('RemovalReasonList reason form flags', () => {
 		},)
 
 		expect(state.config.removalReasons.reasons[0]!.removeComments,).toBe(true,)
+	})
+})
+
+describe('RemovalReasonList edit field preservation', () => {
+	/**
+	 * Opens the first reason's edit form and saves it without touching any field,
+	 * then returns whatever was written back to the config.
+	 */
+	async function editAndSaveUntouched (state: ConfigState,) {
+		renderList(state,)
+		const editButton = container.querySelector<HTMLButtonElement>('button[title="Edit"]',)
+		expect(editButton,).toBeTruthy()
+		await act(async () => editButton!.click())
+		act(() => {
+			getButton('Save reason',).click()
+		},)
+		expect(onSave,).toHaveBeenCalledOnce()
+		return state.config.removalReasons.reasons[0]!
+	}
+
+	/** A reason carrying every field the form does not own. */
+	const preservedFields = {
+		id: 'abcd1234',
+		text: 'Rule reason',
+		title: 'A reason',
+		removePosts: true,
+		flairText: '',
+		flairCSS: '',
+		flairTemplateID: '',
+		editable: true,
+		nativeReasonId: 'native-xyz',
+	}
+
+	it('keeps editable across an edit', async () => {
+		const saved = await editAndSaveUntouched(makeState([{...preservedFields,},],),)
+		expect(saved.editable,).toBe(true,)
+	})
+
+	it('keeps nativeReasonId across an edit, so a synced reason is not orphaned', async () => {
+		const saved = await editAndSaveUntouched(makeState([{...preservedFields,},],),)
+		expect(saved.nativeReasonId,).toBe('native-xyz',)
+	})
+
+	it('keeps a field the form knows nothing about', async () => {
+		// The form rebuilds the reason from its own state, so anything outside
+		// formOwnedKeys has to survive by being carried, not by being re-emitted.
+		const saved = await editAndSaveUntouched(
+			makeState([{...preservedFields, someFutureField: 'kept',},],),
+		)
+		expect(saved.someFutureField,).toBe('kept',)
+	})
+
+	it('still lets the form clear a field it owns', async () => {
+		// Preservation must not resurrect an omitted form-owned field: unchecking
+		// Comments has to win over the original's removeComments: true.
+		const state = makeState([{...preservedFields, removeComments: true,},],)
+		renderList(state,)
+		const editButton = container.querySelector<HTMLButtonElement>('button[title="Edit"]',)
+		await act(async () => editButton!.click())
+		act(() => {
+			getCheckbox('Comments',).click()
+		},)
+		act(() => {
+			getButton('Save reason',).click()
+		},)
+
+		const saved = state.config.removalReasons.reasons[0]!
+		expect('removeComments' in saved,).toBe(false,)
+		// ...while the preserved fields are still there.
+		expect(saved.nativeReasonId,).toBe('native-xyz',)
+	})
+
+	it('classifies every RemovalReason field as form-owned or deliberately preserved', () => {
+		// Compile-time guard: adding a field to RemovalReason without deciding whether the
+		// form owns it (add to formOwnedKeys) or it rides through untouched (add below)
+		// fails typecheck here rather than silently dropping the field on every edit.
+		expectTypeOf<
+			Exclude<keyof RemovalReason, typeof formOwnedKeys[number] | 'id' | 'editable' | 'nativeReasonId'>
+		>().toEqualTypeOf<never>()
 	})
 })
 
