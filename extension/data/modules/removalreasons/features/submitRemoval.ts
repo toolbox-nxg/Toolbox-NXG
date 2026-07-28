@@ -52,6 +52,21 @@ import {
 
 const log = createLogger(removalReasons,)
 
+/**
+ * Renders a failed API call as status plus response body, for log lines that are the only
+ * record of a best-effort call. A rejected request throws an `Error` carrying the full
+ * `Response`; without reading it the message is just "non-2xx status code", which cannot
+ * tell a rejected argument from a missing permission.
+ * @param error The thrown value.
+ */
+async function describeRequestError (error: unknown,): Promise<string> {
+	const response = (error as {response?: Response}).response
+	if (!(response instanceof Response)) { return String(error,) }
+	// Clone before reading: the caller may still want the untouched body.
+	const body = await response.clone().text().catch(() => '')
+	return `HTTP ${response.status}${body ? ` ${body.slice(0, 500,)}` : ''}`
+}
+
 /** Everything the submission pipeline needs, captured from the overlay's form state. */
 export interface SubmitRemovalParams {
 	/**
@@ -172,7 +187,13 @@ export async function submitRemoval (
 			try {
 				await applyNativeRemovalReason({itemId: data.fullname, reasonId,},)
 			} catch (error) {
-				log.error(`failed to register native removal reason ${reasonId}:`, error,)
+				// This path only ever logs, so the log has to carry enough to act on. Reddit's
+				// status and body separate a rejected reason id from a permissions problem;
+				// "non-2xx status code" on its own separates nothing.
+				log.error(
+					`failed to register native removal reason ${reasonId}: ${await describeRequestError(error,)}`,
+					error,
+				)
 				onWarning(nativeReasonError,)
 			}
 		}
