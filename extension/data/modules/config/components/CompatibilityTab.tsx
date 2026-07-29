@@ -10,6 +10,8 @@ import type {WikiLayout,} from '../../../util/wiki/wikiLayoutCache'
 import {copyNxgToLegacy, setCompatibilityMode, summarizeMigrationResult,} from '../../../util/wiki/wikiMigration'
 import type {WikiMigrationResult,} from '../../../util/wiki/wikiMigration'
 import {peekWikiLayout,} from '../../../util/wiki/wikiPaths'
+import {getConfigMirrorStatus,} from '../moduleapi'
+import type {ConfigMirrorStatus,} from '../moduleapi'
 import css from './CompatibilityTab.module.css'
 
 /** Props for the CompatibilityTab component. */
@@ -41,6 +43,7 @@ function describeCompat (layout: WikiLayout,): string {
  */
 export function CompatibilityTab ({subreddit,}: Props,) {
 	const [layout, setLayout,] = useState<WikiLayout | null>(null,)
+	const [mirrorStatus, setMirrorStatus,] = useState<ConfigMirrorStatus | null>(null,)
 	const [checking, setChecking,] = useState(true,)
 	const [busy, runBusy,] = useBusyState()
 	const [confirming, setConfirming,] = useState<'compat-on' | 'compat-off' | null>(null,)
@@ -50,6 +53,9 @@ export function CompatibilityTab ({subreddit,}: Props,) {
 		setChecking(true,)
 		try {
 			setLayout(await peekWikiLayout(subreddit,),)
+			// A failed mirror write is otherwise only visible as one toast at save time, so
+			// check here too - this is the tab holding the button that repairs it.
+			setMirrorStatus(await getConfigMirrorStatus(subreddit,),)
 		} catch {
 			negativeTextFeedback(`Could not determine the wiki layout of /r/${subreddit}`,)
 		} finally {
@@ -149,6 +155,12 @@ export function CompatibilityTab ({subreddit,}: Props,) {
 			)}
 			{compatOn && (
 				<div className={css.actions}>
+					{mirrorStatus?.state === 'stale' && (
+						<span className={css.note}>
+							⚠ The old wiki pages are older than the toolbox-nxg pages, so mods on Toolbox 6.x are seeing
+							stale settings. This usually means a mirror write failed - refresh it below.
+						</span>
+					)}
 					<ActionButton
 						type="button"
 						disabled={busy || confirming !== null}

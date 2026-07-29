@@ -85,6 +85,7 @@ import {
 	convertUsernotesEditorText,
 	formatWikiEditorText,
 	getConfig,
+	getConfigMirrorStatus,
 	getUsernotesEditorView,
 	prepareWikiEditorContent,
 	reloadConfigFromWiki,
@@ -1222,5 +1223,56 @@ describe('saveWikiEditorPage', () => {
 		await saveWikiEditorPage('sub', 'toolbox-nxg', JSON.stringify({ver: 99,},), 'raw edit', false,)
 
 		expect(mirrorWrite(),).toBeUndefined()
+	})
+})
+
+describe('getConfigMirrorStatus', () => {
+	afterEach(() => {
+		vi.clearAllMocks()
+		vi.mocked(getWikiRevisions,).mockResolvedValue([],)
+	},)
+
+	/** Dates each config page's newest revision. */
+	function mockRevisions (canonicalAt: number | null, mirrorAt: number | null,) {
+		vi.mocked(getWikiRevisions,).mockImplementation(async (_sub: string, page: string,) => {
+			const at = page === 'toolbox-nxg' ? canonicalAt : mirrorAt
+			return at === null ? [] : [{id: `rev-${page}`, timestamp: at, author: 'mod', reason: '',},]
+		},)
+	}
+
+	it('reports off when the sub keeps no mirror', async () => {
+		resolveWikiLayout.mockResolvedValue(
+			{subreddit: 'sub', state: 'nxg', compatibilityWrites: false,},
+		)
+
+		expect(await getConfigMirrorStatus('sub',),).toEqual({state: 'off',},)
+		expect(getWikiRevisions,).not.toHaveBeenCalled()
+	})
+
+	it('reports stale when the canonical page is newer than the mirror', async () => {
+		resolveWikiLayout.mockResolvedValue(
+			{subreddit: 'sub', state: 'nxg', compatibilityWrites: true,},
+		)
+		mockRevisions(2000, 1000,)
+
+		expect(await getConfigMirrorStatus('sub',),).toEqual({state: 'stale', canonicalAt: 2000, mirrorAt: 1000,},)
+	})
+
+	it('reports inSync when the mirror is at least as new', async () => {
+		resolveWikiLayout.mockResolvedValue(
+			{subreddit: 'sub', state: 'nxg', compatibilityWrites: true,},
+		)
+		mockRevisions(1000, 1000,)
+
+		expect((await getConfigMirrorStatus('sub',)).state,).toBe('inSync',)
+	})
+
+	it('reports unknown when a revision listing is unavailable', async () => {
+		resolveWikiLayout.mockResolvedValue(
+			{subreddit: 'sub', state: 'nxg', compatibilityWrites: true,},
+		)
+		mockRevisions(2000, null,)
+
+		expect(await getConfigMirrorStatus('sub',),).toEqual({state: 'unknown',},)
 	})
 })

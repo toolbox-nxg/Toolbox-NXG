@@ -531,6 +531,52 @@ async function refreshLegacyConfigMirror (
 	}
 }
 
+/** Whether a subreddit's legacy 6.x config mirror is up to date with the canonical page. */
+export interface ConfigMirrorStatus {
+	/**
+	 * `off` - the sub keeps no mirror; `inSync` - the mirror is at least as new as the
+	 * canonical page; `stale` - the canonical page was written more recently, so 6.x mods
+	 * are reading old settings; `unknown` - one of the revision listings could not be read.
+	 */
+	state: 'off' | 'inSync' | 'stale' | 'unknown'
+	/** Unix timestamp (seconds) of the canonical page's newest revision, when known. */
+	canonicalAt?: number
+	/** Unix timestamp (seconds) of the mirror's newest revision, when known. */
+	mirrorAt?: number
+}
+
+/**
+ * Compares the canonical config page against its legacy 6.x mirror so the compatibility
+ * UI can tell a moderator when the mirror has fallen behind - most often because a mirror
+ * write failed, which is otherwise only visible as a single toast at save time.
+ *
+ * Deliberately computed on demand rather than tracked in a cached flag: `clearCache`
+ * wipes every cache key, and any module's save calls it, so a stored flag would be
+ * erased at random.
+ * @param subreddit The subreddit to check.
+ */
+export async function getConfigMirrorStatus (subreddit: string,): Promise<ConfigMirrorStatus> {
+	const layout = await resolveWikiLayout(subreddit,)
+	if (!compatMirrorEnabled(layout,)) { return {state: 'off',} }
+	const [canonicalAt, mirrorAt,] = await Promise.all([
+		newestRevisionTimestamp(subreddit, NEW_WIKI_PATHS.settings,),
+		newestRevisionTimestamp(subreddit, OLD_WIKI_PATHS.settings,),
+	],)
+	if (canonicalAt === undefined || mirrorAt === undefined) { return {state: 'unknown',} }
+	return {state: mirrorAt < canonicalAt ? 'stale' : 'inSync', canonicalAt, mirrorAt,}
+}
+
+/** The newest revision timestamp of a wiki page, or `undefined` when it could not be read. */
+async function newestRevisionTimestamp (subreddit: string, page: string,): Promise<number | undefined> {
+	try {
+		const timestamp = (await getWikiRevisions(subreddit, page, 1,))[0]?.timestamp
+		return typeof timestamp === 'number' && Number.isFinite(timestamp,) && timestamp > 0 ? timestamp : undefined
+	} catch (err) {
+		log.debug(`could not read revisions of ${page} for /r/${subreddit}`, err,)
+		return undefined
+	}
+}
+
 /**
  * Down-converts freshly-saved raw config page text onto the legacy mirror.
  * @returns The warning text to surface, or `undefined` when there is nothing to report.
@@ -750,7 +796,12 @@ async function doSaveToolboxConfig (
 				await apiPostToWiki(subreddit, page, payloadFor(page,), reason, true, false,)
 			} catch (mirrorError: unknown) {
 				log.warn(`Failed to refresh the config mirror at ${page}:`, mirrorError,)
-				if (!silent) { negativeTextFeedback('Settings saved, but the 6.x mirror page could not be updated.',) }
+				if (!silent) {
+					negativeTextFeedback(
+						'Settings saved, but the 6.x mirror could not be updated - mods on Toolbox 6.x will see '
+							+ 'the old settings. Use "Refresh 6.x mirror now" in the Compatibility tab.',
+					)
+				}
 			}
 		}
 
