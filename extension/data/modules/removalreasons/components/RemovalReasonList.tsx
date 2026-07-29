@@ -30,7 +30,12 @@ import {TextareaInput,} from '../../../shared/controls/TextareaInput'
 import {TokenChips,} from '../../../shared/controls/TokenChips'
 import {formatRelativeTime,} from '../../../util/data/time'
 import {type ConfigState, generateConfigId, type ToolboxConfig,} from '../../../util/wiki/schemas/config/schema'
-import {decodeHtmlAngleBrackets, substitutionTokens,} from '../../../util/wiki/schemas/shared/tokens'
+import {
+	containsLiteralChoiceMarker,
+	decodeHtmlAngleBrackets,
+	htmlFieldsToTokens,
+	substitutionTokens,
+} from '../../../util/wiki/schemas/shared/tokens'
 import type {UserNoteColor,} from '../../../util/wiki/schemas/usernotes/schema'
 import {reloadConfigFromWiki,} from '../../config/moduleapi'
 import {getRemovalReasonParser,} from '../../shared/removalReasons/parser'
@@ -180,6 +185,13 @@ function ReasonForm ({
 	const previewHtml = useMemo(
 		() => showPreview && text.trim() ? renderReasonHtml(previewParser, decodeHtmlAngleBrackets(text,),) : '',
 		[showPreview, text, previewParser,],
+	)
+	// A marker no control gets rendered for is sent verbatim, option list and all, so it is
+	// flagged here as well as in the overlay - this is where it can actually be fixed. Healed
+	// the same way the overlay heals it, so a legacy `<select>` isn't reported as broken.
+	const literalChoiceMarker = useMemo(
+		() => containsLiteralChoiceMarker(htmlFieldsToTokens(decodeHtmlAngleBrackets(text,),),),
+		[text,],
 	)
 	const [removePosts, setRemovePosts,] = useState(initialValues.removePosts !== false,)
 	const [removeComments, setRemoveComments,] = useState(!!initialValues.removeComments,)
@@ -334,6 +346,13 @@ function ReasonForm ({
 									list, becomes a pick-one control.
 								</span>
 							</div>
+							{literalChoiceMarker && (
+								<div className={css.fieldWarning}>
+									A {'{choice}'} here has no {'- '}{' '}
+									option list under it, so it will be sent as text - marker and all - instead of
+									becoming a pick-one control.
+								</div>
+							)}
 						</>
 					)}
 			</div>

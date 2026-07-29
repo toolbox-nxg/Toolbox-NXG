@@ -349,6 +349,35 @@ describe('RemovalReasonList message preview toggle', () => {
 		expect(container.querySelector<HTMLTextAreaElement>('textarea',)?.value,).toBe(reasonText,)
 	})
 
+	it('warns while editing when a {choice} has no option list, and stops once it does', async () => {
+		// A marker nothing renders a control for is sent as text, option list and all. The
+		// editor is where the moderator can fix it, so it says so before the reason is saved.
+		const state = makeState([{
+			id: 'abcd1234',
+			text: 'Pick {choice#rule} now\n- Rule 1',
+			title: 'A reason',
+			removePosts: true,
+			flairText: '',
+			flairCSS: '',
+			flairTemplateID: '',
+		},],)
+		renderList(state,)
+
+		await act(async () => container.querySelector<HTMLButtonElement>('button[title="Edit"]',)!.click())
+		expect(container.textContent,).toContain('will be sent as text',)
+
+		// Assigning .value directly doesn't reach a controlled React field - React's value
+		// tracker sees no change and swallows the event - so go through the prototype setter.
+		const textarea = container.querySelector<HTMLTextAreaElement>('textarea',)!
+		const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value',)!.set!
+		await act(async () => {
+			setValue.call(textarea, reasonText,)
+			textarea.dispatchEvent(new Event('input', {bubbles: true,},),)
+		},)
+
+		expect(container.textContent,).not.toContain('will be sent as text',)
+	})
+
 	it('shows an empty-state message when previewing a blank reason', async () => {
 		const addRef = renderList(makeState([],),)
 		await act(async () => addRef.current!())
