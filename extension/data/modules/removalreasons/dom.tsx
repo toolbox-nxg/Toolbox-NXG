@@ -143,10 +143,11 @@ async function attachCommunityMacroData (data: RemovalReasonsData, reasons: Remo
 }
 
 /**
- * Filters the configured reasons down to those applicable to the target kind. Also the source of
- * truth for whether the "Add removal reason" control renders at all: when this comes back empty
- * there is nothing for the overlay to offer, so the control would be dead (see
- * {@link createRemovalReasonsHandlers}'s `hasVisibleReasons`).
+ * Filters the configured reasons down to those applicable to the target kind. Also decides
+ * whether the "Add removal reason" control renders for a subreddit with reasons configured: when
+ * this comes back empty there is nothing for the overlay to offer, so the control would be dead
+ * (see {@link createRemovalReasonsHandlers}'s `hasVisibleReasons`, which handles the fallbacks
+ * that apply when nothing is configured).
  * @param reasons All configured reasons.
  * @param isComment Whether the target is a comment.
  * @param commentReasons Whether the "removal reasons for comments" setting is on (only
@@ -838,19 +839,27 @@ export function createRemovalReasonsHandlers ({
 
 	/**
 	 * Resolves whether the overlay would offer at least one reason for an item of this kind,
-	 * mirroring the resolution {@link openRemovalOverlay} does: no configured reasons falls back to
-	 * the single custom reason only when `alwaysShow` is on, then the per-kind filter decides. The
-	 * config read behind `getRemovalReasons` is cached, so this costs one cached read per thing.
+	 * mirroring the resolution {@link openRemovalOverlay} does: with reasons configured the
+	 * per-kind filter decides, and without them the fallbacks run in the same order the overlay
+	 * tries them - Reddit's own reasons first, then the single custom reason when `alwaysShow` is
+	 * on. The config read behind `getRemovalReasons` is cached, as is the native reason list, so
+	 * this costs one cached read per thing.
 	 */
 	async function hasVisibleReasons (subreddit: string, isComment: boolean,): Promise<boolean> {
 		const response = await getRemovalReasons(subreddit,).catch(() => false as const)
 		const configured = response ? response.reasons : []
-		const reasons = configured.length > 0
-			? configured
-			: alwaysShow
-			? [{text: customRemovalReason, title: '', flairText: '', flairCSS: '', flairTemplateID: '',},]
-			: []
-		return selectVisibleReasons(reasons, isComment, commentReasons,).length > 0
+		if (configured.length > 0) {
+			return selectVisibleReasons(configured, isComment, commentReasons,).length > 0
+		}
+		if (nativeReasonsFallback) {
+			// Native reasons aren't post/comment-scoped, so the overlay shows all of them for
+			// either kind - having any at all is enough for the control to do something.
+			const native = await getNativeReasons(subreddit,).catch(() => [])
+			if (native.length) { return true }
+		}
+		if (!alwaysShow) { return false }
+		const custom = [{text: customRemovalReason, title: '', flairText: '', flairCSS: '', flairTemplateID: '',},]
+		return selectVisibleReasons(custom, isComment, commentReasons,).length > 0
 	}
 
 	renderAtLocation(

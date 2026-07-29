@@ -1050,6 +1050,37 @@ describe('createRemovalReasonsHandlers', () => {
 			expect(pill(await renderFlatListActions(removedThingContext('post',),),),).toBeTruthy()
 		})
 
+		it('shows the control when the sub has no Toolbox reasons but Reddit has native ones', async () => {
+			// The pill's visibility check has to mirror what opening the overlay actually
+			// resolves; missing the native fallback hides it on exactly the subs it serves.
+			setReasons([],)
+			getNativeRemovalReasons.mockResolvedValue([{id: 'rr1', title: 'Spam', message: 'No spam',},],)
+			createRemovalReasonsHandlers({...handlerSettings, nativeReasonsFallback: true, alwaysShow: false,},)
+
+			expect(pill(await renderFlatListActions(removedThingContext('post',),),),).toBeTruthy()
+		})
+
+		it('shows the control on comments too, since native reasons are not kind-scoped', async () => {
+			setReasons([],)
+			getNativeRemovalReasons.mockResolvedValue([{id: 'rr1', title: 'Spam', message: 'No spam',},],)
+			createRemovalReasonsHandlers({
+				...handlerSettings,
+				nativeReasonsFallback: true,
+				alwaysShow: false,
+				commentReasons: false,
+			},)
+
+			expect(pill(await renderFlatListActions(removedThingContext('comment',),),),).toBeTruthy()
+		})
+
+		it('hides the control when the native fallback is off, even with reasons on Reddit', async () => {
+			setReasons([],)
+			getNativeRemovalReasons.mockResolvedValue([{id: 'rr1', title: 'Spam', message: 'No spam',},],)
+			createRemovalReasonsHandlers({...handlerSettings, nativeReasonsFallback: false, alwaysShow: false,},)
+
+			expect(pill(await renderFlatListActions(removedThingContext('post',),),),).toBeNull()
+		})
+
 		it('renders nothing for a thing that is not removed', async () => {
 			setReasons([{removePosts: true,},],)
 			createRemovalReasonsHandlers(handlerSettings,)
