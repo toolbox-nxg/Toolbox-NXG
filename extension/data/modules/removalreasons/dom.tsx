@@ -17,7 +17,6 @@ import {createLifecycle,} from '../../framework/lifecycle'
 import {usernotes,} from '../../framework/moduleIds'
 import {FlatListAction,} from '../../shared/controls/FlatListAction'
 import {negativeTextFeedback,} from '../../store/feedback'
-import {htmlEncode,} from '../../util/data/encoding'
 import createLogger from '../../util/infra/logging'
 import {isOldReddit, RedditPlatform,} from '../../util/infra/platform'
 import {getModuleSettingAsync,} from '../../util/persistence/settings'
@@ -73,18 +72,26 @@ type OverlayBaseData = Pick<
  * Merges fetched thing data with a subreddit's removal-reasons config into the overlay's
  * `RemovalReasonsData`. Preserves each reason's persistent `id` (needed to round-trip a
  * proposal's selection back into the overlay on Edit & Accept).
+ *
+ * Config values are carried through as the plain text they are stored as. They are not
+ * HTML-encoded here: every one of them ends up in submitted content - the removal
+ * comment body, a Modmail subject, the log post's title, a flair value - where an
+ * encoded `&` would be posted literally as `&amp;`. Nothing consumes them as raw HTML
+ * either: the header and footer are rendered through the removal-reason markdown parser,
+ * which applies its own element whitelist (the same treatment `reason.text` already got),
+ * and everything else is a React text node or an API argument.
  * @param baseData The thing-derived fields.
  * @param response The subreddit's removal-reasons config.
  */
 function buildOverlayData (baseData: OverlayBaseData, response: RemovalReasonsConfig,): RemovalReasonsData {
 	return {
 		...baseData,
-		subject: htmlEncode(response.pmsubject ?? '',) || defaultSubject,
-		logReason: htmlEncode(response.logreason ?? '',) || '',
-		header: response.header ? htmlEncode(response.header,) : '',
-		footer: response.footer ? htmlEncode(response.footer,) : '',
-		logSub: htmlEncode(response.logsub ?? '',) || '',
-		logTitle: htmlEncode(response.logtitle ?? '',) || defaultLogTitle,
+		subject: (response.pmsubject ?? '') || defaultSubject,
+		logReason: response.logreason ?? '',
+		header: response.header ?? '',
+		footer: response.footer ?? '',
+		logSub: response.logsub ?? '',
+		logTitle: (response.logtitle ?? '') || defaultLogTitle,
 		removalOption: response.removalOption ?? '',
 		typeReply: response.typeReply ?? '',
 		typeStickied: response.typeStickied ?? false,
@@ -98,11 +105,11 @@ function buildOverlayData (baseData: OverlayBaseData, response: RemovalReasonsCo
 			// Preserve the persistent id so a captured selection can be re-seeded by id.
 			...(r.id ? {id: r.id,} : {}),
 			text: r.text,
-			title: htmlEncode(r.title,),
+			title: r.title,
 			removePosts: r.removePosts === undefined ? undefined : !!r.removePosts,
 			removeComments: r.removeComments === undefined ? undefined : !!r.removeComments,
-			flairText: htmlEncode(r.flairText,),
-			flairCSS: htmlEncode(r.flairCSS,),
+			flairText: r.flairText,
+			flairCSS: r.flairCSS,
 			flairTemplateID: r.flairTemplateID === undefined ? '' : r.flairTemplateID,
 			editable: r.editable === true,
 			...(r.default_note ? {default_note: r.default_note,} : {}),
