@@ -85,6 +85,16 @@ async function readCooldowns (): Promise<Record<string, number>> {
 }
 
 /**
+ * Stamps a subreddit's last-check time, which is both the throttle and the "last checked"
+ * time the config editor shows.
+ * @param subreddit The subreddit that was just checked.
+ */
+async function stampCheck (subreddit: string,): Promise<void> {
+	const cooldowns = await readCooldowns()
+	await setCache(utils, cooldownCacheKey, {...cooldowns, [subreddit]: Date.now(),},)
+}
+
+/**
  * Epoch milliseconds of the last time this browser successfully read Reddit's removal
  * reasons for a subreddit, or undefined if it never has.
  *
@@ -208,9 +218,8 @@ export async function syncNativeReasons (
 	// and a manual sync that left it looking stale would defeat the point of showing it.
 	// Letting a manual sync start the next background cooldown is right regardless: the
 	// data was just read, so re-reading it minutes later is the waste the throttle exists
-	// to prevent.
-	const cooldowns = await readCooldowns()
-	await setCache(utils, cooldownCacheKey, {...cooldowns, [subreddit]: Date.now(),},)
+	// to prevent. Re-stamped after a write below, which wipes the whole cache.
+	await stampCheck(subreddit,)
 
 	// An empty native list is a legitimate result - every native reason was deleted - and
 	// the merge below is what removes the toolbox copies.
@@ -255,9 +264,14 @@ export async function syncNativeReasons (
 	} catch (error: unknown) {
 		// Documented not to reject, but a background caller must not be the one to find out.
 		log.warn(`Could not save synced removal reasons for /r/${subreddit}:`, error,)
+		await stampCheck(subreddit,)
 		await recordFailure(subreddit, 'save', error,)
 		return {status: 'failed',}
 	}
+	// A config save invalidates the whole cache (it has to: the stashed base revision is stale),
+	// which takes the stamp written before it. Without this, the one run that actually applies a
+	// change is the run that destroys its own throttle, and every later page load re-fetches.
+	await stampCheck(subreddit,)
 	if (!saveResult.ok) {
 		log.warn(`Could not save synced removal reasons for /r/${subreddit}: ${saveResult.reason}`,)
 		await recordFailure(

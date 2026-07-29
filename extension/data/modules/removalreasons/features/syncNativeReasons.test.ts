@@ -265,6 +265,23 @@ describe('native sync check times', () => {
 		)
 	})
 
+	it('re-records the check after a save, which wipes the whole cache', async () => {
+		// A successful config save clears every cache key (it has to: the stashed base revision
+		// goes stale), taking the stamp written before it. Without a re-stamp, the one run that
+		// applies a change is the run that destroys the throttle it just set.
+		let cooldownWritesBeforeSave = 0
+		const cooldownWrites = () => setCache.mock.calls.filter((call: unknown[],) => call[1] === 'nativeSyncCooldown')
+		saveToolboxConfig.mockImplementation(() => {
+			cooldownWritesBeforeSave = cooldownWrites().length
+			return Promise.resolve({ok: true,},)
+		},)
+
+		await syncNativeReasons('sub',)
+
+		expect(cooldownWrites().length,).toBeGreaterThan(cooldownWritesBeforeSave,)
+		expect(cooldownWrites().at(-1,)![2],).toEqual(expect.objectContaining({sub: expect.any(Number,),},),)
+	})
+
 	it('does not record a check when the fetch failed', async () => {
 		getNativeReasons.mockRejectedValue(new Error('nope',),)
 
