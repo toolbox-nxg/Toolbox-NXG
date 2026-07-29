@@ -89,6 +89,7 @@ import {
 	prepareWikiEditorContent,
 	reloadConfigFromWiki,
 	saveToolboxConfig,
+	saveWikiEditorPage,
 	tryGetConfig,
 	tryReloadConfigFromWiki,
 } from './moduleapi'
@@ -1139,5 +1140,87 @@ describe('NXG shard envelope handling', () => {
 		const saved = JSON.parse((result as {ok: true; content: string}).content,)
 		expect(saved.users,).toBeUndefined()
 		expect(JSON.parse(zlibInflate(saved.blob,),),).toEqual(shardUsers,)
+	})
+})
+
+describe('saveWikiEditorPage', () => {
+	const configText = JSON.stringify({
+		ver: 2,
+		removalReasons: {logtitle: 'RAW-EDIT {title}', reasons: [{title: 'Spam', text: 'no spam',},],},
+	},)
+
+	beforeEach(() => {
+		resolveWikiLayout.mockResolvedValue(
+			{subreddit: 'sub', state: 'nxg', compatibilityWrites: true,},
+		)
+		vi.mocked(tbApiPostToWiki,).mockResolvedValue(undefined,)
+	},)
+	afterEach(() => {
+		vi.clearAllMocks()
+	},)
+
+	/** The `postToWiki` call targeting the legacy mirror page, if there was one. */
+	function mirrorWrite () {
+		return vi.mocked(tbApiPostToWiki,).mock.calls.find((call,) => call[1] === 'toolbox')
+	}
+
+	it('refreshes the 6.x mirror after a raw save of the canonical config page', async () => {
+		// Without this the mirror keeps the pre-edit config, which 6.x mods would go on
+		// reading and which every later reconcile then has to arbitrate against.
+		const result = await saveWikiEditorPage('sub', 'toolbox-nxg', configText, 'raw edit', false,)
+
+		expect(result,).toEqual({ok: true,},)
+		const mirrored = mirrorWrite()
+		expect(mirrored,).toBeDefined()
+		const payload = mirrored![2] as ToolboxConfig
+		expect(payload.ver,).toBe(1,)
+		expect(payload.removalReasons.logtitle,).toBe('RAW-EDIT {title}',)
+		// Reason text is escape()-encoded, because 6.x unescapes it unconditionally.
+		expect(payload.removalReasons.reasons[0]!.text,).toBe(escape('no spam',),)
+	})
+
+	it('does not touch the mirror on a compat-off sub', async () => {
+		resolveWikiLayout.mockResolvedValue(
+			{subreddit: 'sub', state: 'nxg', compatibilityWrites: false,},
+		)
+
+		await saveWikiEditorPage('sub', 'toolbox-nxg', configText, 'raw edit', false,)
+
+		expect(mirrorWrite(),).toBeUndefined()
+	})
+
+	it.each([
+		['usernotes', 'toolbox-nxg/usernotes',],
+		['a usernotes shard', 'toolbox-nxg/usernotes/ab',],
+		['automod', 'config/automoderator',],
+	],)('does not touch the mirror when saving %s', async (_name, page,) => {
+		await saveWikiEditorPage('sub', page, configText, 'raw edit', page === 'config/automoderator',)
+
+		expect(mirrorWrite(),).toBeUndefined()
+	},)
+
+	it('reports a failed mirror write without failing the save', async () => {
+		vi.mocked(tbApiPostToWiki,).mockImplementation(async (_sub: string, page: string,) => {
+			if (page === 'toolbox') { throw new Error('no wiki permission',) }
+		},)
+
+		const result = await saveWikiEditorPage('sub', 'toolbox-nxg', configText, 'raw edit', false,)
+
+		expect(result.ok,).toBe(true,)
+		expect((result as {ok: true; mirrorWarning?: string}).mirrorWarning,).toContain('6.x mirror',)
+	})
+
+	it('skips the mirror when the saved page is not a config object', async () => {
+		await saveWikiEditorPage('sub', 'toolbox-nxg', JSON.stringify('just a string',), 'raw edit', false,)
+
+		expect(mirrorWrite(),).toBeUndefined()
+	})
+
+	it('skips the mirror when the saved page uses an unsupported schema version', async () => {
+		// Down-converting a schema this build cannot read would derive the mirror from
+		// fields it may be misinterpreting.
+		await saveWikiEditorPage('sub', 'toolbox-nxg', JSON.stringify({ver: 99,},), 'raw edit', false,)
+
+		expect(mirrorWrite(),).toBeUndefined()
 	})
 })

@@ -12,7 +12,7 @@ import {clearCache, getCache, setCache,} from '../../util/persistence/cache'
 import {isUserProfileSubreddit,} from '../../util/reddit/profileSubreddit'
 import {configCodec, encodeClassicConfig,} from '../../util/wiki/schemas/config/codec'
 import {reconcileConfigFromLegacy, type ReconcileConfigOptions,} from '../../util/wiki/schemas/config/reconcile'
-import {normalizeConfig, ToolboxConfig,} from '../../util/wiki/schemas/config/schema'
+import {isConfigValidVersion, normalizeConfig, ToolboxConfig,} from '../../util/wiki/schemas/config/schema'
 import {NXG_USERNOTES_FORMAT,} from '../../util/wiki/schemas/usernotes/schema'
 import {COMPAT_WRITES_KEY, NEW_WIKI_PATHS, OLD_WIKI_PATHS,} from '../../util/wiki/wikiConstants'
 import {compatMirrorEnabled, getWikiWritePaths, resolveWikiLayout,} from '../../util/wiki/wikiPaths'
@@ -487,21 +487,102 @@ export async function prepareWikiEditorContent (
 	return {ok: true, content: JSON.stringify(parsed,),}
 }
 
+/**
+ * Rewrites the legacy 6.x config mirror from a canonical config, for save paths
+ * that write the canonical page on their own rather than through the fan-out in
+ * {@link saveToolboxConfig}. A no-op on subs without the compat mirror.
+ *
+ * Never throws: a mirror is a convenience for 6.x mods, and its failure must not
+ * fail a save that already landed.
+ * @param subreddit The subreddit whose mirror to refresh.
+ * @param config The normalized canonical config to down-convert.
+ * @param reason The wiki revision note.
+ * @returns `{ok: true}` when written or skipped, otherwise the failure text.
+ */
+async function refreshLegacyConfigMirror (
+	subreddit: string,
+	config: ToolboxConfig,
+	reason: string,
+): Promise<{ok: true} | {ok: false; message: string}> {
+	try {
+		const layout = await resolveWikiLayout(subreddit,)
+		if (!compatMirrorEnabled(layout,)) { return {ok: true,} }
+		// 6.x reads domain tags and usernote colors off the config page; NXG keeps them
+		// elsewhere, so the down-convert re-injects them from their own sources.
+		const [domainTagsData, usernoteColors,] = await Promise.all([
+			getDomainTagsData(subreddit,),
+			getSubredditColors(subreddit,),
+		],)
+		await apiPostToWiki(
+			subreddit,
+			OLD_WIKI_PATHS.settings,
+			encodeClassicConfig(config, domainTagsData.tags, usernoteColors,),
+			reason,
+			true,
+			false,
+		)
+		return {ok: true,}
+	} catch (err: unknown) {
+		const message = err && typeof err === 'object' && 'responseText' in err
+			? String(err.responseText,)
+			: String(err,)
+		log.warn(`Failed to refresh the config mirror for /r/${subreddit}:`, message,)
+		return {ok: false, message,}
+	}
+}
+
+/**
+ * Down-converts freshly-saved raw config page text onto the legacy mirror.
+ * @returns The warning text to surface, or `undefined` when there is nothing to report.
+ */
+async function mirrorRawConfigSave (
+	subreddit: string,
+	content: string,
+	note: string,
+): Promise<string | undefined> {
+	let config: Record<string, unknown>
+	try {
+		config = JSON.parse(content,) as Record<string, unknown>
+		purifyObject(config,)
+		normalizeConfig(config,)
+	} catch (parseError) {
+		// Valid JSON that isn't a toolbox config at all. The page was saved as typed;
+		// there is simply nothing sensible to down-convert.
+		log.warn(`Raw config save for /r/${subreddit} is not a usable config; skipped the 6.x mirror:`, parseError,)
+		return undefined
+	}
+	if (!isConfigValidVersion(subreddit, config,)) {
+		// A schema this build does not understand. Down-converting it would write a
+		// mirror derived from fields we may be reading wrong - leave the mirror alone.
+		return undefined
+	}
+	const mirrored = await refreshLegacyConfigMirror(subreddit, config, note,)
+	return mirrored.ok
+		? undefined
+		: 'Page saved, but the 6.x mirror could not be updated - mods on Toolbox 6.x will see the old settings. '
+			+ 'Use "Refresh 6.x mirror now" in the Compatibility tab.'
+}
+
 /** The outcome of a {@link saveWikiEditorPage} call, for the caller to turn into user feedback. */
 export type WikiEditorSaveResult =
-	| {ok: true}
+	| {ok: true; mirrorWarning?: string}
 	| {ok: false; automodError: string | null; message: string}
 
 /**
  * Writes already-validated wiki-editor content to the page and clears the config cache on success.
  * Performs no user feedback of its own - the caller decides what to surface from the returned result.
+ *
+ * A raw save of the canonical config page also refreshes the legacy 6.x mirror. Without
+ * that the mirror is left behind holding the pre-edit config, which 6.x mods would keep
+ * reading - and which every reconcile then has to arbitrate against.
  * @param subreddit The subreddit whose wiki page to write.
  * @param actualPage The resolved wiki page path.
  * @param content The content to save (JSON pages must already be minified/validated by the caller).
  * @param note The wiki revision note.
  * @param isAutomod Whether the page is AutoModerator YAML (parses AutoMod `special_errors` on failure).
- * @returns `{ok: true}` on success, or `{ok: false, automodError, message}` where `automodError` is the
- *   purified inline AutoMod error (or `null`) and `message` is the toast text the caller should show.
+ * @returns `{ok: true}` on success (with `mirrorWarning` when the 6.x mirror could not be
+ *   refreshed), or `{ok: false, automodError, message}` where `automodError` is the purified
+ *   inline AutoMod error (or `null`) and `message` is the toast text the caller should show.
  */
 export async function saveWikiEditorPage (
 	subreddit: string,
@@ -512,8 +593,12 @@ export async function saveWikiEditorPage (
 ): Promise<WikiEditorSaveResult> {
 	try {
 		await apiPostToWiki(subreddit, actualPage, content, note, false, isAutomod,)
+		let mirrorWarning: string | undefined
+		if (!isAutomod && actualPage === NEW_WIKI_PATHS.settings) {
+			mirrorWarning = await mirrorRawConfigSave(subreddit, content, note,)
+		}
 		await clearCache()
-		return {ok: true,}
+		return mirrorWarning === undefined ? {ok: true,} : {ok: true, mirrorWarning,}
 	} catch (err: unknown) {
 		if (isAutomod) {
 			let automodError: string | null = null

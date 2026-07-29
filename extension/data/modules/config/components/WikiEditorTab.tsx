@@ -81,10 +81,11 @@ interface Props {
  * normally, or the classic page on `legacyFallback` subs - those have no NXG
  * pages, and creating one via a raw save here would flip the resolved layout
  * to NXG and strand the live data on the classic pages. On NXG subs the
- * classic (legacy 6.x) mirror is maintained automatically by the compat write
- * fan-out and is not editable here, since the two sides hold different
- * schemas and a raw classic edit would be overwritten by the next mirrored
- * save anyway. `automoderator` is a Reddit-native page that toolbox never
+ * classic (legacy 6.x) mirror is maintained automatically - by the compat
+ * write fan-out, and by a raw save of the canonical page re-deriving it - and
+ * is not editable here, since the two sides hold different schemas and a raw
+ * classic edit would be overwritten by the next canonical save anyway.
+ * `automoderator` is a Reddit-native page that toolbox never
  * relocates. Never called for `usernotesShard` - shard tabs always pass their
  * exact path via the `literalPage` prop instead.
  */
@@ -258,10 +259,11 @@ export function WikiEditorTab ({subreddit, page, literalPage, saveRef, revisionN
 
 		setAutomodError(null,)
 		neutralTextFeedback('saving to wiki',)
-		// The raw editor writes exactly the page being edited - no compat
-		// fan-out, because the classic mirror holds a different schema and
-		// mirroring raw text across would corrupt it. The next normal save
-		// refreshes the mirror from the canonical data.
+		// The raw editor writes exactly the page being edited - raw text is never
+		// copied across, because the classic mirror holds a different schema. A save
+		// of the canonical config page does re-derive that mirror from the saved
+		// config (see saveWikiEditorPage), so 6.x mods don't keep reading pre-edit
+		// settings; any other page is written on its own.
 		void (async () => {
 			// Validate/minify JSON and recompress decompressed usernotes
 			// (expanded v6 users back into the zlib blob).
@@ -287,6 +289,7 @@ export function WikiEditorTab ({subreddit, page, literalPage, saveRef, revisionN
 				return
 			}
 			positiveTextFeedback('wiki page saved',)
+			if (result.mirrorWarning) { negativeTextFeedback(result.mirrorWarning,) }
 		})()
 	}
 	useSaveRef(saveRef, handleSave,)
