@@ -325,3 +325,48 @@
 	font-size: var(--toolbox-sp-11);
 	color: var(--toolbox-text-body);
 }
+
+.syncSection {
+	margin-bottom: var(--toolbox-sp-8);
+	padding-bottom: var(--toolbox-sp-6);
+	border-bottom: 1px solid var(--toolbox-border-color);
+}
+
+.syncHint {
+	display: block;
+	margin-top: var(--toolbox-sp-5);
+	font-size: var(--toolbox-sp-11);
+	font-style: italic;
+	color: var(--toolbox-text-secondary);
+}
+
+.syncFailure {
+	margin: var(--toolbox-sp-8) 0 0;
+	font-size: var(--toolbox-sp-11);
+	font-style: italic;
+	color: var(--toolbox-error-color);
+}
+
+/* Toggle on the left, the manual sync control and its status on the right. */
+.syncRow {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: var(--toolbox-sp-8);
+	flex-wrap: wrap;
+}
+
+.syncAction {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: var(--toolbox-sp-3);
+	flex-shrink: 0;
+}
+
+.syncStatus {
+	font-size: var(--toolbox-sp-11);
+	font-style: italic;
+	color: var(--toolbox-text-secondary);
+	text-align: right;
+}

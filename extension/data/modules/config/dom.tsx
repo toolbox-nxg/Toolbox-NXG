@@ -117,7 +117,6 @@ function buildConfigTabs (
 		domainTagsImport: {current: null,} as SaveRef,
 		banMacro: {current: null,} as SaveRef,
 		addRemovalReason: {current: null,} as SaveRef,
-		syncNativeReasons: {current: null,} as SaveRef,
 		addSuggestedReason: {current: null,} as SaveRef,
 		addModMacro: {current: null,} as SaveRef,
 		rawConfig: {current: null,} as SaveRef,
@@ -231,19 +230,11 @@ function buildConfigTabs (
 				addRef={save.addRemovalReason}
 				disabledRef={disabled.addRemovalReason}
 				sortRef={reasonSortMode}
-				syncRef={save.syncNativeReasons}
 				onSave={(config, reason,) => saveRemovalConfig(state.subreddit!, config, reason,)}
 			/>,
 			footer: (
 				<>
 					<SortToggleButton sortRef={reasonSortMode} />
-					<ActionButton
-						type="button"
-						title="Re-import this subreddit's removal reasons from Reddit"
-						onClick={() => save.syncNativeReasons.current?.()}
-					>
-						Sync from Reddit
-					</ActionButton>
 					<AddNewButton
 						label="Add new removal reason"
 						triggerRef={save.addRemovalReason}

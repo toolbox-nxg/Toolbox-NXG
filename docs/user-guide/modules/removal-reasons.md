@@ -94,7 +94,7 @@ Pre-selection is a personal preference: turn off **Pre-select suggested removal 
 
 Reddit has its own removal reasons, configured in the new mod tools under **Saved Responses → Removals** (`https://sh.reddit.com/mod/<subreddit>/saved-responses/removals`). Note that these are _not_ your community rules - having rules configured does not give you removal reasons, and a subreddit that has never created one has nothing for toolbox to import. If your subreddit already maintains them there, toolbox can import them instead of making you write everything out a second time.
 
-Turn on **Keep toolbox removal reasons in sync with Reddit's** under _Removal reasons settings_ in the toolbox config editor. Imported reasons then appear alongside your own, marked with a **Native** chip.
+Turn on **Import Reddit's removal reasons and keep them up to date** at the top of the _Edit removal reasons_ tab in the toolbox config editor, next to the reasons it manages. Imported reasons then appear alongside your own, marked with a **Native** chip.
 
 **What Reddit owns, and what you own.** The sync is one way. Reddit owns each imported reason's **title** and **message** — both are read-only in the toolbox editor, and any change you make in Mod Tools replaces them on the next sync. Everything else belongs to toolbox and is preserved across syncs:
 
@@ -127,7 +127,7 @@ Toolbox's own tokens (`{author}`, `{subreddit}`, `{input:…}` and the rest) wor
 Rather than delete it silently, toolbox leaves it in place and warns you in the removal dialog before you send, naming the macro. Use a numbered `{community_rule_1}` in Reddit's mod tools instead. If you send anyway, the author receives the macro exactly as written.
 ```
 
-**Staying in sync.** Toolbox re-checks in the background when you open the removal drawer or the config editor, at most once every 15 minutes per subreddit, and only writes when something actually changed upstream. Because the check happens in the background, an edit you just made in Mod Tools usually appears the _next_ time you open the drawer. Press **Sync from Reddit** in the _Edit removal reasons_ footer to pull changes immediately.
+**Staying in sync.** Toolbox re-checks in the background when you open the removal drawer or the config editor, at most once every 15 minutes per subreddit, and only writes when something actually changed upstream. Because the check happens in the background, an edit you just made in Mod Tools usually appears the _next_ time you open the drawer. Press **Sync from Reddit**, beside the toggle, to pull changes immediately; it also shows when a change was last imported.
 
 Two times are shown under the setting, and they mean different things. **Last imported a change** is the last time a sync actually brought something across; an old date there just means Reddit's reasons have not changed since, which is the normal state for a settled subreddit. **Last checked** is the last time your browser read Reddit's list at all, so it keeps moving even when nothing changes — that is the one to look at to confirm syncing is working. It is local to you, so a moderator who has not opened the subreddit recently will see an older time than a colleague who has.
 
@@ -137,7 +137,7 @@ A failure to _write_ is treated as the more serious kind, because the usual caus
 
 **Deleting.** Deleting a reason in Mod Tools removes the toolbox copy on the next sync. Deleting an imported reason in the toolbox editor keeps it out — it will not be re-imported — but leaves it untouched on Reddit.
 
-**Turning it off.** Switching **Keep toolbox removal reasons in sync with Reddit's** back off removes the imported reasons from toolbox, along with any flair and usernote settings you attached to them. Your hand-written reasons are untouched, and nothing changes on Reddit's side. Toolbox asks for confirmation first, and tells you how many reasons will go.
+**Turning it off.** Switching **Import Reddit's removal reasons and keep them up to date** back off removes the imported reasons from toolbox, along with any flair and usernote settings you attached to them. Your hand-written reasons are untouched, and nothing changes on Reddit's side. Toolbox asks for confirmation first, and tells you how many reasons will go.
 
 This is also how you undo a deletion you did not mean: turn syncing off and then on again, and the whole set is imported afresh, including anything you had previously deleted.
 

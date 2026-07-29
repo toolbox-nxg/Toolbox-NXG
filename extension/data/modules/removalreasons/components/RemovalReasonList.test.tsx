@@ -9,6 +9,8 @@ const getLinkFlairTemplates = vi.hoisted(() => vi.fn())
 const getSubredditColors = vi.hoisted(() => vi.fn())
 const reloadConfigFromWiki = vi.hoisted(() => vi.fn())
 const syncNativeReasons = vi.hoisted(() => vi.fn())
+const getLastNativeSyncCheck = vi.hoisted(() => vi.fn())
+const getLastNativeSyncFailure = vi.hoisted(() => vi.fn())
 
 vi.mock('webextension-polyfill', () => ({
 	default: {runtime: {getURL: (path: string,) => `chrome-extension://fake/${path}`,},},
@@ -24,6 +26,8 @@ vi.mock('../../config/moduleapi', () => ({
 
 vi.mock('../features/syncNativeReasons', () => ({
 	syncNativeReasons,
+	getLastNativeSyncCheck,
+	getLastNativeSyncFailure,
 }),)
 
 vi.mock('../../shared/usernotes/moduleapi', () => ({
@@ -116,6 +120,8 @@ beforeEach(() => {
 	getSubredditColors.mockResolvedValue([],)
 	reloadConfigFromWiki.mockResolvedValue(null,)
 	syncNativeReasons.mockResolvedValue({status: 'disabled',},)
+	getLastNativeSyncCheck.mockResolvedValue(undefined,)
+	getLastNativeSyncFailure.mockResolvedValue(undefined,)
 	// Not implemented in the test environment; each test that deletes sets its own answer.
 	confirmMock = vi.fn(() => true)
 	globalThis.confirm = confirmMock
@@ -437,5 +443,69 @@ describe('RemovalReasonList synced reasons', () => {
 		},)
 
 		expect(state.config.removalReasons.nativeSync,).toBeUndefined()
+	})
+})
+
+describe('native reason sync toggle', () => {
+	it('lives on the reason list, beside the reasons it controls', () => {
+		renderList(makeState([],),)
+
+		// It used to sit on the settings tab, away from the Sync from Reddit button and the
+		// reasons it adds and removes.
+		expect(getCheckbox('Import Reddit\'s removal reasons',),).toBeTruthy()
+	})
+
+	it('waits for the config write before syncing', async () => {
+		// The sync re-reads the config from the wiki. Running it before the write lands reads
+		// the old copy and reports that syncing is off - which is what a moderator saw.
+		let settle = () => {}
+		const pending = new Promise<void>((resolve,) => {
+			settle = resolve
+		},)
+		onSave.mockReturnValue(pending,)
+		renderList(makeState([],),)
+		// The list runs a background sync on mount; only the toggle's sync is under test here.
+		syncNativeReasons.mockClear()
+		vi.spyOn(window, 'confirm',).mockReturnValue(true,)
+
+		act(() => {
+			getCheckbox('Import Reddit\'s removal reasons',).click()
+		},)
+		expect(onSave,).toHaveBeenCalled()
+		expect(syncNativeReasons,).not.toHaveBeenCalled()
+
+		await act(async () => {
+			settle()
+			await pending
+		},)
+		expect(syncNativeReasons,).toHaveBeenCalledWith('testsub', {force: true,},)
+	})
+
+	it('offers the manual sync button beside the toggle once syncing is on', () => {
+		const state = makeState([],)
+		state.config.removalReasons.nativeSync = {enabled: true, lastSyncedAt: 1700000000000,}
+		renderList(state,)
+
+		const button = [...container.querySelectorAll<HTMLButtonElement>('button',),]
+			.find((el,) => el.textContent?.trim() === 'Sync from Reddit')
+		expect(button,).toBeTruthy()
+		// The date sits with the button rather than buried in the paragraph above.
+		expect(button!.parentElement?.textContent,).toContain('Last imported a change',)
+	})
+
+	it('hides the manual sync button while syncing is off', () => {
+		renderList(makeState([],),)
+
+		const button = [...container.querySelectorAll<HTMLButtonElement>('button',),]
+			.find((el,) => el.textContent?.trim() === 'Sync from Reddit')
+		expect(button,).toBeUndefined()
+	})
+
+	it('reflects the persisted state', () => {
+		const state = makeState([],)
+		state.config.removalReasons.nativeSync = {enabled: true,}
+		renderList(state,)
+
+		expect(getCheckbox('Import Reddit\'s removal reasons',).checked,).toBe(true,)
 	})
 })

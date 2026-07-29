@@ -28,6 +28,8 @@ import {TextInput,} from '../../../shared/controls/NormalInput'
 import {SortModeRef, useSortMode,} from '../../../shared/controls/SortToggleButton'
 import {TextareaInput,} from '../../../shared/controls/TextareaInput'
 import {TokenChips,} from '../../../shared/controls/TokenChips'
+import {formatRelativeTime,} from '../../../util/data/time'
+import {useFetched,} from '../../../util/ui/hooks'
 import {type ConfigState, generateConfigId, type ToolboxConfig,} from '../../../util/wiki/schemas/config/schema'
 import {decodeHtmlAngleBrackets, substitutionTokens,} from '../../../util/wiki/schemas/shared/tokens'
 import type {UserNoteColor,} from '../../../util/wiki/schemas/usernotes/schema'
@@ -35,7 +37,8 @@ import {reloadConfigFromWiki,} from '../../config/moduleapi'
 import {getRemovalReasonParser,} from '../../shared/removalReasons/parser'
 import {getSubredditColors,} from '../../shared/usernotes/moduleapi'
 import {noteTypeColorStyle,} from '../../shared/usernotes/noteTypeColorStyle'
-import {syncNativeReasons,} from '../features/syncNativeReasons'
+import {getLastNativeSyncCheck, getLastNativeSyncFailure, syncNativeReasons,} from '../features/syncNativeReasons'
+import {stripNativeReasons,} from '../nativeSync'
 import type {RemovalReason,} from '../schema'
 import css from './RemovalReasonList.module.css'
 import {renderReasonHtml,} from './RemovalReasonsOverlay.helpers'
@@ -607,9 +610,12 @@ export interface RemovalReasonListProps {
 	/** Optional ref connecting the list to a footer Reorder toggle. */
 	sortRef?: SortModeRef
 	/** Optional ref wired up so the parent's "Sync now" button can force a native reason sync. */
-	syncRef?: AddRef
 	/** Called with the updated config and revision note when any reason is saved or deleted. */
-	onSave: (config: ToolboxConfig, reason: string,) => void
+	/**
+	 * Persists the config. May return a promise: the sync toggle has to wait for the write
+	 * before syncing, because the sync re-reads the config from the wiki.
+	 */
+	onSave: (config: ToolboxConfig, reason: string,) => void | Promise<unknown>
 }
 
 /**
@@ -627,7 +633,7 @@ const emptyReasonValues: ReasonFormValues = {
 }
 
 /** Renders the full list of editable removal reasons for a subreddit's toolbox config. */
-export function RemovalReasonList ({state, addRef, disabledRef, sortRef, syncRef, onSave,}: RemovalReasonListProps,) {
+export function RemovalReasonList ({state, addRef, disabledRef, sortRef, onSave,}: RemovalReasonListProps,) {
 	const [reasons, setReasons,] = useState<ReasonEntry[]>([],)
 	const [editingIndex, setEditingIndex,] = useState<number | null>(null,)
 	const [showAddForm, setShowAddForm,] = useState(false,)
@@ -636,12 +642,34 @@ export function RemovalReasonList ({state, addRef, disabledRef, sortRef, syncRef
 	)
 	const [noteColors, setNoteColors,] = useState<UserNoteColor[] | null>(null,)
 	const [syncNotice, setSyncNotice,] = useState('',)
+	const [nativeSyncEnabled, setNativeSyncEnabled,] = useState(
+		state.config.removalReasons?.nativeSync?.enabled === true,
+	)
 	const rootRef = useRef<HTMLDivElement>(null,)
 	const idCounterRef = useRef(0,)
 
 	const parser = useMemo(() => getRemovalReasonParser(), [],)
 
 	const subreddit = state.subreddit ?? ''
+
+	// Sync status, shown beside the toggle. `lastSyncedAt` only moves when a sync actually
+	// changed something, so it is labelled as such; the last-checked time is what shows the
+	// sync is alive, and is local to this browser.
+	const nativeSync = state.config.removalReasons?.nativeSync
+	const lastSyncedAt = nativeSync?.lastSyncedAt
+	const syncPersistedOn = nativeSync?.enabled === true
+	const lastCheckedAt = useFetched(
+		useMemo(() => syncPersistedOn ? getLastNativeSyncCheck(subreddit,) : Promise.resolve(undefined,), [
+			subreddit,
+			syncPersistedOn,
+		],),
+	)
+	const lastFailure = useFetched(
+		useMemo(() => syncPersistedOn ? getLastNativeSyncFailure(subreddit,) : Promise.resolve(undefined,), [
+			subreddit,
+			syncPersistedOn,
+		],),
+	)
 
 	/** Assigns a stable runtime key to each reason for React/dnd-kit reconciliation. */
 	const toEntries = (raw: RemovalReason[],): ReasonEntry[] =>
@@ -675,11 +703,11 @@ export function RemovalReasonList ({state, addRef, disabledRef, sortRef, syncRef
 						+ 'Add them in Reddit\'s mod tools, then sync again.'
 					: outcome.status === 'allIgnored'
 					? 'Every removal reason from Reddit was deleted here, so nothing was imported. '
-						+ 'Turn syncing off and back on in "Removal reasons settings" to start over.'
+						+ 'Turn the sync above off and back on to start over.'
 					: outcome.status === 'redirected'
 					? 'This subreddit takes its removal reasons from another subreddit; nothing to sync.'
 					: outcome.status === 'disabled'
-					? 'Turn on syncing in "Removal reasons settings" first.'
+					? 'Turn on "Import Reddit\'s removal reasons and keep them up to date" above first.'
 					: 'Could not reach Reddit\'s removal reasons.',
 			)
 		}
@@ -810,17 +838,6 @@ export function RemovalReasonList ({state, addRef, disabledRef, sortRef, syncRef
 		}
 	}, [],)
 
-	useEffect(() => {
-		if (!syncRef) { return }
-		syncRef.current = () => {
-			setSyncNotice('Syncing from Reddit...',)
-			void runSync(true,)
-		}
-		return () => {
-			syncRef.current = null
-		}
-	}, [],) // eslint-disable-line react-hooks/exhaustive-deps
-
 	// Persist a reason list to config and push it upstream. Strips the local `_key` field,
 	// clears any pending reorder (the whole list is serialized here, carrying the reorder
 	// with it), fires onSave, and updates local state.
@@ -830,8 +847,9 @@ export function RemovalReasonList ({state, addRef, disabledRef, sortRef, syncRef
 		}
 		state.config.removalReasons.reasons = newReasons.map(({_key: _, ...rest},) => rest)
 		orderDirtyRef.current = false
-		onSave(state.config, note,)
+		const saved = onSave(state.config, note,)
 		setReasons(newReasons,)
+		return saved
 	}
 
 	const handleSaveEdit = (index: number, updated: FormReason, editNote: string,) => {
@@ -854,6 +872,45 @@ export function RemovalReasonList ({state, addRef, disabledRef, sortRef, syncRef
 		}
 		persistReasons(newReasons, `${editNote || 'update'}, reason #${index + 1}`,)
 		setEditingIndex(null,)
+	}
+
+	/**
+	 * Turns the sync on or off. This tab has no global save button - every other action here
+	 * persists as it happens - so the toggle writes immediately rather than waiting.
+	 */
+	const handleSyncToggle = (enabled: boolean,) => {
+		if (!state.config.removalReasons) { return }
+		let newReasons = reasons
+		if (!enabled) {
+			// Turning the sync off takes the imported reasons with it, and clears the whole
+			// bookkeeping block rather than just the flag, so re-enabling is a clean full
+			// re-import - the only way back for a reason deleted locally and thereby ignored.
+			const stripped = stripNativeReasons(reasons,)
+			if (
+				stripped.removed > 0
+				&& !confirm(
+					`Turning off syncing will remove ${stripped.removed} imported removal `
+						+ `${stripped.removed === 1 ? 'reason' : 'reasons'} from toolbox, along with any flair and `
+						+ 'usernote settings you added to them. They are left in place on Reddit. Are you sure?',
+				)
+			) {
+				return
+			}
+			newReasons = stripped.reasons as ReasonEntry[]
+			delete state.config.removalReasons.nativeSync
+		} else {
+			state.config.removalReasons.nativeSync = {...state.config.removalReasons.nativeSync, enabled: true,}
+		}
+		setNativeSyncEnabled(enabled,)
+		setSyncNotice('',)
+		const saved = persistReasons(
+			newReasons,
+			enabled ? 'turn on Reddit removal reason sync' : 'turn off Reddit removal reason sync',
+		)
+		// Pull straight away on enable, so the reasons appear without a second click - but only
+		// once the write has landed. The sync re-reads the config from the wiki, so starting it
+		// first reads the copy from before the toggle and reports that syncing is switched off.
+		if (enabled) { void Promise.resolve(saved,).then(() => runSync(true,)) }
 	}
 
 	const handleDelete = (index: number,) => {
@@ -889,6 +946,56 @@ export function RemovalReasonList ({state, addRef, disabledRef, sortRef, syncRef
 
 	return (
 		<div ref={rootRef} className={css.root}>
+			<div className={css.syncSection}>
+				<div className={css.syncRow}>
+					<CheckboxInput
+						label="Import Reddit's removal reasons and keep them up to date"
+						checked={nativeSyncEnabled}
+						onChange={(e,) => handleSyncToggle(e.target.checked,)}
+					/>
+					{nativeSyncEnabled && (
+						<div className={css.syncAction}>
+							<ActionButton
+								type="button"
+								title="Re-import this subreddit's removal reasons from Reddit now"
+								onClick={() => {
+									setSyncNotice('Syncing from Reddit...',)
+									void runSync(true,)
+								}}
+							>
+								Sync from Reddit
+							</ActionButton>
+							<span className={css.syncStatus}>
+								{lastSyncedAt
+									? `Last imported a change on ${new Date(lastSyncedAt,).toLocaleString()}.`
+									: 'Nothing imported yet.'}
+								{lastCheckedAt === undefined
+									? ''
+									: ` Last checked ${formatRelativeTime(new Date(lastCheckedAt,),)}.`}
+							</span>
+						</div>
+					)}
+				</div>
+				<span className={css.syncHint}>
+					From Reddit&apos;s mod tools, under Saved Responses &rarr; Removals - not your community rules. Only
+					the imported reasons are kept in step with Reddit; the ones you write here are never touched. Reddit
+					owns each imported reason&apos;s title and message, while its flair, usernote defaults and
+					post/comment settings stay here. Turning this off removes the imported reasons again, leaving them
+					in place on Reddit.
+				</span>
+				{lastFailure && (
+					<p className={css.syncFailure}>
+						{lastFailure.stage === 'fetch'
+							? 'Could not read Reddit\'s removal reasons'
+							: 'Could not save the reasons imported from Reddit'}{' '}
+						{formatRelativeTime(new Date(lastFailure.at,),)}: {lastFailure.message}.{' '}
+						{lastFailure.stage === 'save'
+							? 'Toolbox has stopped retrying for now; if this is a permissions problem, ask for the "wiki" moderator permission.'
+							: 'Toolbox will try again shortly.'} Press <strong>Sync from Reddit</strong>{' '}
+						above to retry immediately.
+					</p>
+				)}
+			</div>
 			{syncNotice && <div className={css.syncNotice}>{syncNotice}</div>}
 			<DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
 				<SortableContext items={reasons.map((r,) => r._key)} strategy={verticalListSortingStrategy}>

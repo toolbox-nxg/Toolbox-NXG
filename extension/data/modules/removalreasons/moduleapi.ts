@@ -2,7 +2,7 @@
 
 import {getNativeRemovalReasons, type NativeRemovalReason,} from '../../api/resources/removalReasons'
 import type {ToolboxConfig,} from '../../util/wiki/schemas/config/schema'
-import {getConfig, saveToolboxConfig,} from '../config/moduleapi'
+import {type ConfigSaveResult, getConfig, saveToolboxConfig,} from '../config/moduleapi'
 import type {RemovalReasonsConfig,} from './schema'
 
 /**
@@ -51,6 +51,13 @@ export function getNativeReasons (
  * @param config The full toolbox config object.
  * @param reason The wiki revision note.
  */
-export function saveRemovalConfig (subreddit: string, config: ToolboxConfig, reason: string,): void {
-	void saveToolboxConfig(subreddit, config, reason,)
+export function saveRemovalConfig (
+	subreddit: string,
+	config: ToolboxConfig,
+	reason: string,
+): Promise<ConfigSaveResult> {
+	// Returns the promise rather than discarding it: a caller that must act only once the
+	// write has landed - the sync toggle, whose sync re-reads the config it just changed -
+	// has no other way to sequence itself. Fire-and-forget callers can still ignore it.
+	return saveToolboxConfig(subreddit, config, reason,)
 }
