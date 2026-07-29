@@ -471,6 +471,33 @@ describe('RemovalReasonsOverlay', () => {
 		expect(onClose,).toHaveBeenCalledOnce()
 	})
 
+	it('sends only the picked option when the list sits below a blank line', async () => {
+		// The markdown-natural way to write a choice. It used to parse as plain text, so the
+		// marker and every option went out in the removal message.
+		renderOverlay({}, 'Popup', [{
+			...reason,
+			text: 'Broke a rule:\n\n{choice#rule}\n\n- Rule 1\n- Rule 2',
+			title: 'Rules',
+		},],)
+
+		await act(async () => {
+			container.querySelector<HTMLInputElement>('input[aria-label="Select removal reason 1"]',)!.click()
+		},)
+		await act(async () => {
+			const radios = [...container.querySelectorAll<HTMLInputElement>('input[type="radio"][value="Rule 2"]',),]
+			expect(radios.length,).toBeGreaterThan(0,)
+			radios[0]!.click()
+		},)
+		await act(async () => {
+			getButton('Send',).click()
+		},)
+
+		const sentMessage = postComment.mock.calls[0]![1] as string
+		expect(sentMessage,).toContain('Rule 2',)
+		expect(sentMessage,).not.toContain('Rule 1',)
+		expect(sentMessage,).not.toContain('{choice#rule}',)
+	})
+
 	it('shows a summary instead of action controls when subreddit settings are forced', () => {
 		renderOverlay({
 			removalOption: 'force',
@@ -838,5 +865,30 @@ describe('native chip and unresolved macro warning', () => {
 		checkFirstReason()
 
 		expect(container.textContent,).not.toContain('sent exactly as written',)
+	})
+
+	it('warns when a {choice} field will be sent as text instead of a control', () => {
+		// Inline rather than on its own line, so no radio group is rendered and the marker plus
+		// its whole option list would reach the removed user.
+		const brokenChoice: RemovalReason = {...reason, text: 'Pick {choice#rule} now\n- One\n- Two',}
+		renderOverlay({reasons: [brokenChoice,],}, 'Popup', [brokenChoice,],)
+		checkFirstReason()
+
+		expect(container.textContent,).toContain('every one of its options',)
+	})
+
+	it('stays quiet about a {choice} field that renders as a control', () => {
+		const choiceReason: RemovalReason = {...reason, text: 'Broke a rule:\n\n{choice}\n\n- One\n- Two\n',}
+		renderOverlay({reasons: [choiceReason,],}, 'Popup', [choiceReason,],)
+		checkFirstReason()
+
+		expect(container.textContent,).not.toContain('every one of its options',)
+	})
+
+	it('stays quiet about a broken {choice} in a reason the moderator did not pick', () => {
+		const brokenChoice: RemovalReason = {...reason, text: 'Pick {choice#rule} now\n- One\n- Two',}
+		renderOverlay({reasons: [brokenChoice,],}, 'Popup', [brokenChoice,],)
+
+		expect(container.textContent,).not.toContain('every one of its options',)
 	})
 })

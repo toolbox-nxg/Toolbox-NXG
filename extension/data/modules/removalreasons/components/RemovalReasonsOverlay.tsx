@@ -32,7 +32,11 @@ import type {
 	FrozenRemovalSelection,
 	FrozenSelectionReason,
 } from '../../../util/wiki/schemas/proposals/schema'
-import {decodeHtmlAngleBrackets, htmlFieldsToTokens,} from '../../../util/wiki/schemas/shared/tokens'
+import {
+	containsLiteralChoiceMarker,
+	decodeHtmlAngleBrackets,
+	htmlFieldsToTokens,
+} from '../../../util/wiki/schemas/shared/tokens'
 import {UserNoteColor,} from '../../../util/wiki/schemas/usernotes/schema'
 import {requestCounterRefresh,} from '../../notifier/store'
 import {maybePropose, performRemoval, proposeOrRemove,} from '../../shared/proposals/gateway'
@@ -340,6 +344,16 @@ export function RemovalReasonsOverlay ({
 				tokenSource,
 			),
 		[renderedReasons, selected, tokenSource,],
+	)
+
+	// A `{choice}` marker that never became a radio group is sent as written, taking its whole
+	// option list with it - the moderator ends up publishing every option instead of the one
+	// they meant to pick. Same reasoning as the macro notice above, so it is scoped to the
+	// checked reasons too. Scanned on the healed markdown, not `reason.text`, so a legacy
+	// `<select>` config (up-converted at render time) is not reported as broken.
+	const hasLiteralChoice = useMemo(
+		() => renderedReasons.some((r,) => selected.has(r.id,) && containsLiteralChoiceMarker(r.markdown,)),
+		[renderedReasons, selected,],
 	)
 	const [reasonType, setReasonType,] = useState<ReasonType>(
 		seededFromIntent ? seededFromIntent.reasonType as ReasonType : initialReasonType,
@@ -1026,6 +1040,18 @@ export function RemovalReasonsOverlay ({
 								// Native reason text is read-only here, so the fix lives on Reddit's side.
 								? 'Change it in Reddit\'s mod tools.'
 								: 'Change it in this subreddit\'s removal reason settings.'}
+						</span>
+					</div>
+				)}
+				{hasLiteralChoice && (
+					<div className={css.suggestedNotice}>
+						<span>
+							A pick-one {'{choice}'}{' '}
+							field in this reason cannot be filled in, so the field and every one of its options are sent
+							exactly as written. {nativeMode
+								? 'Change it in Reddit\'s mod tools.'
+								: 'Put the option list directly below the {choice} line in this subreddit\'s '
+									+ 'removal reason settings.'}
 						</span>
 					</div>
 				)}
