@@ -130,6 +130,13 @@ export interface FrozenRemovalUsernote {
 	text: string
 	/** Note type/tag key, if any. */
 	type?: string
+	/**
+	 * Where the note is written on replay; mirrors removalreasons' `NoteDestination`.
+	 * Omitted for captures predating the choice, which replay to the Toolbox wiki.
+	 */
+	destination?: 'toolbox' | 'native'
+	/** Reddit label type (e.g. `'BAN'`) for a `native` note; omitted when unlabelled. */
+	nativeLabel?: string
 	/** Include a link to the removed content. */
 	includeLink?: boolean
 	/** Store the removal modmail conversation link on the note. */

@@ -57,6 +57,22 @@ export const defaultNoteLabelValueToLabelType: Record<string, string | undefined
 	helpful_user: 'HELPFUL_USER',
 }
 
+/**
+ * Maps Toolbox usernote type keys to API label type strings, for seeding a native
+ * note's label from a removal reason's `default_note_type`. Covers the built-in
+ * types only (`defaultUsernoteTypes`); a subreddit's custom key has no Reddit
+ * counterpart and resolves to `undefined`, which leaves the note unlabelled.
+ */
+export const usernoteTypeToLabelType: Record<string, string | undefined> = {
+	gooduser: 'SOLID_CONTRIBUTOR',
+	spamwatch: 'SPAM_WATCH',
+	spamwarn: 'SPAM_WARNING',
+	abusewarn: 'ABUSE_WARNING',
+	ban: 'BAN',
+	permban: 'PERMA_BAN',
+	botban: 'BOT_BAN',
+}
+
 /** User-note-specific fields on a mod note. */
 export interface ModNoteUserNoteData {
 	/** Free-text note body. */

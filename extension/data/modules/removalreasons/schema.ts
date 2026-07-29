@@ -9,6 +9,12 @@ export const defaultLogTitle = 'Removed: {kind} by /u/{author} to /r/{subreddit}
 export type RemovalReasonsDisplayMode = 'Drawer' | 'Popup (legacy)'
 
 /**
+ * Where a note left during a removal is written: the Toolbox usernotes wiki, or
+ * Reddit's own mod notes. Either/or - a removal never writes both.
+ */
+export type NoteDestination = 'toolbox' | 'native'
+
+/**
  * Returns true when the given display mode string selects the drawer variant.
  * @param displayMode The raw display mode string from settings.
  */

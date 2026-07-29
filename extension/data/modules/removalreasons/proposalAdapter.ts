@@ -74,6 +74,10 @@ export function freezeRemovalParams (
 	if (params.leaveUsernote && params.usernoteText.trim()) {
 		intent.usernote = {text: params.usernoteText,}
 		if (params.usernoteType !== undefined) { intent.usernote.type = params.usernoteType }
+		// Store the destination only when it is the non-default one, keeping frozen
+		// intents from before the choice existed byte-identical to new Toolbox ones.
+		if (params.noteDestination === 'native') { intent.usernote.destination = 'native' }
+		if (params.nativeNoteLabel !== undefined) { intent.usernote.nativeLabel = params.nativeNoteLabel }
 		if (params.usernoteIncludeLink) { intent.usernote.includeLink = true }
 		if (params.usernoteIncludeMessage) { intent.usernote.includeMessage = true }
 	}
@@ -132,8 +136,10 @@ async function thawRemovalIntent (
 		actionLockComment: !!intent.actionLockComment,
 		spam: !!intent.spam,
 		leaveUsernote: !!intent.usernote,
+		noteDestination: intent.usernote?.destination ?? 'toolbox',
 		usernoteText: intent.usernote?.text ?? '',
 		usernoteType: intent.usernote?.type,
+		...(intent.usernote?.nativeLabel !== undefined ? {nativeNoteLabel: intent.usernote.nativeLabel,} : {}),
 		usernoteIncludeLink: !!intent.usernote?.includeLink,
 		usernoteIncludeMessage: !!intent.usernote?.includeMessage,
 		subredditColors: await getSubredditColors(subreddit,).catch(() => null),

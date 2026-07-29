@@ -530,6 +530,13 @@
 	}
 }
 
+.noteDestinations {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--toolbox-sp-5);
+	margin-bottom: var(--toolbox-sp-5);
+}
+
 .noteTypeChips {
 	display: flex;
 	flex-wrap: wrap;

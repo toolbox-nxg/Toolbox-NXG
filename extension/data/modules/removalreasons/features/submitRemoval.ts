@@ -11,6 +11,7 @@
 import {postComment,} from '../../../api/resources/comments'
 import {flairPost,} from '../../../api/resources/flair'
 import {archiveModmail, sendModmail,} from '../../../api/resources/modmail'
+import {createModNote,} from '../../../api/resources/modnotes'
 import {banUser,} from '../../../api/resources/relationships'
 import {applyNativeRemovalReason,} from '../../../api/resources/removalReasons'
 import {postLink,} from '../../../api/resources/submissions'
@@ -40,6 +41,7 @@ import {
 	logReasonMissingError,
 	modmailArchiveError,
 	modmailError,
+	nativeNoteError,
 	nativeReasonError,
 	noReasonError,
 	noReplyTypeError,
@@ -49,6 +51,7 @@ import {
 	replyErrorSubreddit,
 	usernoteError,
 } from '../components/RemovalReasonsOverlay.helpers'
+import type {NoteDestination,} from '../schema'
 
 const log = createLogger(removalReasons,)
 
@@ -105,8 +108,18 @@ export interface SubmitRemovalParams {
 	/** Remove as spam (trains the spam filter) rather than a plain removal. */
 	spam?: boolean
 	leaveUsernote: boolean
+	/**
+	 * Where the note goes: the Toolbox wiki or Reddit's own mod notes. Strictly
+	 * either/or - a removal writes one note, never both.
+	 */
+	noteDestination: NoteDestination
 	usernoteText: string
 	usernoteType: string | undefined
+	/**
+	 * Reddit label type (e.g. `'BAN'`) for a `native` note; unlabelled when absent.
+	 * Ignored for the `toolbox` destination, which uses `usernoteType` instead.
+	 */
+	nativeNoteLabel?: string
 	usernoteIncludeLink: boolean
 	/** Store the removal modmail conversation link on the usernote. */
 	usernoteIncludeMessage: boolean
@@ -160,8 +173,10 @@ export async function submitRemoval (
 		actionLockThread,
 		actionLockComment,
 		leaveUsernote,
+		noteDestination,
 		usernoteText,
 		usernoteType,
+		nativeNoteLabel,
 		usernoteIncludeLink,
 		usernoteIncludeMessage,
 		subredditColors,
@@ -254,28 +269,49 @@ export async function submitRemoval (
 		}
 
 		if (leaveUsernote && usernoteText.trim()) {
-			try {
-				const newNote = makeUserNoteEntry({
-					note: usernoteText,
-					mod: data.mod,
-					// Link the removed thing's own permalink (`url`). `link` is the
-					// submission link: empty for comments and the external URL for
-					// link posts, so neither matches "link to removed item".
-					...(usernoteIncludeLink && data.url ? {link: data.url,} : {}),
-					...(usernoteType !== undefined ? {type: usernoteType,} : {}),
-					...(usernoteIncludeMessage && removalMessageLink ? {messageLink: removalMessageLink,} : {}),
-				},)
-				// Merge the new note into the live dataset inside the save queue so
-				// a note added concurrently by another mod isn't clobbered.
-				const merged = await updateUserNotes(
-					data.subreddit,
-					(fresh,) => applyUserNoteMutation(fresh, data.author, {change: 'add', note: newNote,},),
-				)
-				if (merged) {
-					publishSubredditNotes(data.subreddit, {notes: merged, colors: subredditColors ?? [],},)
+			if (noteDestination === 'native') {
+				try {
+					await createModNote({
+						subreddit: data.subreddit,
+						user: data.author,
+						note: usernoteText.trim(),
+						// Attaches the note to the item that prompted it, the way the usernotes
+						// popup does with its context id. There is no "include link" choice
+						// here: the attachment *is* how a native note references the thing.
+						redditID: data.fullname,
+						...(nativeNoteLabel !== undefined ? {label: nativeNoteLabel,} : {}),
+					},)
+					// Unlike the Toolbox note below, this cannot carry `data.mod`: Reddit
+					// authors a mod note as the calling account, with no way to attribute it
+					// to someone else. On a proposal replay the note therefore lands under
+					// the reviewer's name rather than the trainee who proposed it.
+				} catch {
+					throw new Error(nativeNoteError,)
 				}
-			} catch {
-				throw new Error(usernoteError,)
+			} else {
+				try {
+					const newNote = makeUserNoteEntry({
+						note: usernoteText,
+						mod: data.mod,
+						// Link the removed thing's own permalink (`url`). `link` is the
+						// submission link: empty for comments and the external URL for
+						// link posts, so neither matches "link to removed item".
+						...(usernoteIncludeLink && data.url ? {link: data.url,} : {}),
+						...(usernoteType !== undefined ? {type: usernoteType,} : {}),
+						...(usernoteIncludeMessage && removalMessageLink ? {messageLink: removalMessageLink,} : {}),
+					},)
+					// Merge the new note into the live dataset inside the save queue so
+					// a note added concurrently by another mod isn't clobbered.
+					const merged = await updateUserNotes(
+						data.subreddit,
+						(fresh,) => applyUserNoteMutation(fresh, data.author, {change: 'add', note: newNote,},),
+					)
+					if (merged) {
+						publishSubredditNotes(data.subreddit, {notes: merged, colors: subredditColors ?? [],},)
+					}
+				} catch {
+					throw new Error(usernoteError,)
+				}
 			}
 		}
 

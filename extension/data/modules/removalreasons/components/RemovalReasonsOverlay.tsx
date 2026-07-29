@@ -35,6 +35,7 @@ import type {
 import {decodeHtmlAngleBrackets, htmlFieldsToTokens,} from '../../../util/wiki/schemas/shared/tokens'
 import {UserNoteColor,} from '../../../util/wiki/schemas/usernotes/schema'
 import {requestCounterRefresh,} from '../../notifier/store'
+import {labelColors, selectableLabelNames, usernoteTypeToLabelType,} from '../../shared/modnotes/schema'
 import {maybePropose, performRemoval, proposeOrRemove,} from '../../shared/proposals/gateway'
 import {makeDeliveryOption,} from '../../shared/removalReasons/DeliveryOption'
 import {getRemovalReasonParser,} from '../../shared/removalReasons/parser'
@@ -46,6 +47,7 @@ import {freezeRemovalParams,} from '../proposalAdapter'
 
 import {
 	isDrawerDisplayMode,
+	type NoteDestination,
 	RemovalReason,
 	RemovalReasonsData,
 	RemovalReasonsDisplayMode,
@@ -111,7 +113,14 @@ export interface RemovalReasonsOverlayPreseed {
 	/** Public log reason text. */
 	logReasonText?: string
 	/** Usernote to leave (presence ⇒ leave a note). */
-	usernote?: {text: string; type?: string; includeLink?: boolean; includeMessage?: boolean}
+	usernote?: {
+		text: string
+		type?: string
+		destination?: NoteDestination
+		nativeLabel?: string
+		includeLink?: boolean
+		includeMessage?: boolean
+	}
 	/** Ban to issue (presence ⇒ issue a ban). */
 	ban?: {permanent: boolean; days: number; note: string}
 }
@@ -139,6 +148,12 @@ interface RemovalReasonsOverlayProps {
 	 * Defaults to "only text required" when omitted.
 	 */
 	usernoteRequire?: UsernoteRequireFlags
+	/**
+	 * Where a note defaults to being written, from the moderator's "Default tab for the
+	 * notes popup" setting. Overridden per removal by the destination selector, and by
+	 * {@link seededFromIntent} when replaying a proposal.
+	 */
+	defaultNoteDestination?: NoteDestination
 	/**
 	 * Pre-fill captured from a proposal, for Edit & Accept. When set, the overlay seeds
 	 * its selection/usernote/ban/delivery from it. Direct-perform mode is driven by
@@ -198,6 +213,7 @@ export function RemovalReasonsOverlay ({
 	displayMode = 'Popup (legacy)',
 	settings,
 	usernoteRequire = {type: false, text: true, link: false,},
+	defaultNoteDestination = 'toolbox',
 	seededFromIntent,
 	suggestedReasonIds,
 	acceptGate,
@@ -389,6 +405,10 @@ export function RemovalReasonsOverlay ({
 	const [leaveUsernote, setLeaveUsernote,] = useState(!!seededFromIntent?.usernote,)
 	const [usernoteText, setUsernoteText,] = useState(seededFromIntent?.usernote?.text ?? '',)
 	const [usernoteType, setUsernoteType,] = useState<string | undefined>(seededFromIntent?.usernote?.type,)
+	const [noteDestination, setNoteDestination,] = useState<NoteDestination>(
+		seededFromIntent?.usernote?.destination ?? defaultNoteDestination,
+	)
+	const [nativeLabel, setNativeLabel,] = useState<string | undefined>(seededFromIntent?.usernote?.nativeLabel,)
 	/** Always-current ref so the sync effect can read usernoteText without depending on it. */
 	const usernoteTextRef = useRef('',)
 	usernoteTextRef.current = usernoteText
@@ -419,14 +439,17 @@ export function RemovalReasonsOverlay ({
 	// text auto-fills from the reason, and an empty note saves nothing at all (see
 	// submitRemoval), so the text requirement is moot. Reuse the shared evaluator
 	// (with text disabled) so the wording matches the usernote popup.
+	// A native note carries its own type (a Reddit label) and always attaches to the
+	// removed thing, so the type requirement reads the label chip and the link
+	// requirement cannot fail - flagged unenforceable rather than silently satisfied.
 	const usernoteUnmetMessage = leaveUsernote && !!usernoteText.trim()
 		? unmetUsernoteRequirement(
 			{...usernoteRequire, text: false,},
 			{
 				hasText: true,
-				hasType: usernoteType !== undefined,
+				hasType: noteDestination === 'native' ? nativeLabel !== undefined : usernoteType !== undefined,
 				hasLink: usernoteIncludeLink,
-				linkEnforceable: true,
+				linkEnforceable: noteDestination !== 'native',
 			},
 		)
 		: null
@@ -535,12 +558,19 @@ export function RemovalReasonsOverlay ({
 				setUsernoteText(autoText,)
 			}
 			autoNoteRef.current = autoText
-			setUsernoteType(matches.find((r,) => r.reason.default_note_type)?.reason.default_note_type ?? undefined,)
+			const autoType = matches.find((r,) => r.reason.default_note_type)?.reason.default_note_type ?? undefined
+			setUsernoteType(autoType,)
+			// A reason's default note type is a Toolbox key, so seed the Reddit label from
+			// its counterpart. Without this a native-destined note comes out unlabelled even
+			// for a reason explicitly typed `ban`. Custom subreddit keys have no counterpart
+			// and leave the label unset, which Reddit accepts.
+			setNativeLabel(autoType !== undefined ? usernoteTypeToLabelType[autoType] : undefined,)
 			void handleLeaveUsernoteToggle(true,)
 		} else {
 			autoNoteRef.current = ''
 			setUsernoteText('',)
 			setUsernoteType(undefined,)
+			setNativeLabel(undefined,)
 			setLeaveUsernote(false,)
 		}
 	}, [selected, orderedReasons,],) // eslint-disable-line react-hooks/exhaustive-deps
@@ -780,8 +810,12 @@ export function RemovalReasonsOverlay ({
 			actionLockComment,
 			...(spam ? {spam,} : {}),
 			leaveUsernote,
+			noteDestination,
 			usernoteText,
 			usernoteType,
+			...(noteDestination === 'native' && nativeLabel !== undefined
+				? {nativeNoteLabel: nativeLabel,}
+				: {}),
 			usernoteIncludeLink,
 			usernoteIncludeMessage,
 			subredditColors,
@@ -1165,13 +1199,51 @@ export function RemovalReasonsOverlay ({
 			<div className={css.messagePiece}>
 				<CheckboxInput
 					className={css.includeToggle}
-					label="Leave a usernote for this user"
+					label="Leave a note for this user"
 					checked={leaveUsernote}
 					onChange={(event,) => void handleLeaveUsernoteToggle(event.target.checked,)}
 				/>
 				{leaveUsernote && (
 					<div className={css.subOptions}>
-						{colorsLoading
+						<div className={css.noteDestinations}>
+							{([['toolbox', 'Toolbox note',], ['native', 'Reddit mod note',],] as const).map((
+								[value, label,],
+							) => (
+								<DeliveryOption key={value} selected={noteDestination === value}>
+									<label className={css.deliveryLabel}>
+										<input
+											type="radio"
+											name={`note-destination-${data.subreddit}`}
+											value={value}
+											checked={noteDestination === value}
+											onChange={() => setNoteDestination(value,)}
+										/>
+										{label}
+									</label>
+								</DeliveryOption>
+							))}
+						</div>
+						{noteDestination === 'native'
+							? (
+								<div className={css.noteTypeChips}>
+									{Object.entries(selectableLabelNames,).map(([value, label,],) => (
+										<button
+											key={value}
+											type="button"
+											className={classes(
+												css.noteTypeChip,
+												nativeLabel === value && css.noteTypeChipSelected,
+											)}
+											style={{color: labelColors[value],}}
+											onClick={() =>
+												setNativeLabel((prev,) => prev === value ? undefined : value)}
+										>
+											{label}
+										</button>
+									))}
+								</div>
+							)
+							: colorsLoading
 							? <p className={css.fieldHint}>Loading note types...</p>
 							: subredditColors && (
 								<div className={css.noteTypeChips}>
@@ -1199,18 +1271,29 @@ export function RemovalReasonsOverlay ({
 							value={usernoteText}
 							onChange={(event,) => setUsernoteText(event.target.value,)}
 						/>
-						<CheckboxInput
-							label="Include link to removed item"
-							checked={usernoteIncludeLink}
-							onChange={(event,) => setUsernoteIncludeLink(event.target.checked,)}
-						/>
-						{/* Only modmail delivery produces a linkable removal message. */}
-						{reasonAsSub && (reasonType === 'pm' || reasonType === 'both') && (
-							<CheckboxInput
-								label="Include link to removal message"
-								checked={usernoteIncludeMessage}
-								onChange={(event,) => setUsernoteIncludeMessage(event.target.checked,)}
-							/>
+						{
+							/*
+							 * Both link options are Toolbox-only. A native note is attached to the
+							 * removed thing by its `reddit_id`, and has nowhere to put a modmail
+							 * permalink, so neither choice exists for that destination.
+							 */
+						}
+						{noteDestination === 'toolbox' && (
+							<>
+								<CheckboxInput
+									label="Include link to removed item"
+									checked={usernoteIncludeLink}
+									onChange={(event,) => setUsernoteIncludeLink(event.target.checked,)}
+								/>
+								{/* Only modmail delivery produces a linkable removal message. */}
+								{reasonAsSub && (reasonType === 'pm' || reasonType === 'both') && (
+									<CheckboxInput
+										label="Include link to removal message"
+										checked={usernoteIncludeMessage}
+										onChange={(event,) => setUsernoteIncludeMessage(event.target.checked,)}
+									/>
+								)}
+							</>
 						)}
 						{usernoteUnmetMessage && (
 							<p className={css.fieldHint}>{usernoteUnmetMessage}</p>
