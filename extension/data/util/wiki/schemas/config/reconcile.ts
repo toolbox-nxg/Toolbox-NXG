@@ -140,12 +140,19 @@ export function adoptLegacyConfigFields (nxg: ToolboxConfig, legacy: ToolboxConf
 	if (nxg.removalReasons.nativeSync) {
 		adopted.removalReasons.nativeSync = structuredClone(nxg.removalReasons.nativeSync,)
 	}
-	preserveIdsByContent(adopted.removalReasons.reasons, nxg.removalReasons.reasons,)
 	// Reasons synced from Reddit are excluded from the mirror, so the wholesale replace dropped
-	// them. Re-append them from the NXG config, or a single 6.x save would wipe every synced
-	// reason and the next sync would re-import the lot as duplicates. They land at the end: their
-	// original interleaving is not recoverable from a mirror that never held them.
+	// them; they are re-appended below and keep the ids they already have. They must therefore be
+	// held out of the id pool as well: a legacy-adopted reason whose title and text happen to
+	// match a synced one would otherwise claim its id and leave two entries carrying it, which
+	// breaks every lookup keyed on a reason id (`suggestedReasons`, proposal re-seeding).
 	const synced = nxg.removalReasons.reasons.filter((reason,) => reason.nativeReasonId)
+	preserveIdsByContent(
+		adopted.removalReasons.reasons,
+		nxg.removalReasons.reasons.filter((reason,) => !reason.nativeReasonId),
+	)
+	// Re-append the synced reasons, or a single 6.x save would wipe every one of them and the next
+	// sync would re-import the lot as duplicates. They land at the end: their original interleaving
+	// is not recoverable from a mirror that never held them.
 	if (synced.length) {
 		adopted.removalReasons.reasons.push(...structuredClone(synced,),)
 	}

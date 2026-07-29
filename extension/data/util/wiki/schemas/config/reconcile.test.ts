@@ -357,6 +357,27 @@ describe('native reason sync across the legacy mirror', () => {
 		expect(adopted.removalReasons.nativeSync?.fingerprint,).toBe('deadbeefdeadbeef',)
 	})
 
+	it('does not let an adopted reason claim a synced reason\'s stable id', () => {
+		// A moderator who copies a synced reason's title and text into a hand-written one (or a
+		// 6.x save made before the sync converted it) leaves the mirror holding an entry that
+		// content-matches a synced reason. The synced reason is re-appended with its own id, so
+		// handing that id to the adopted entry would put it on two reasons at once and break
+		// every lookup keyed on it.
+		const nxg = nxgWithSyncedReasons()
+		const legacy = makeConfig({
+			removalReasons: {reasons: [{title: 'Rule 1', text: 'from reddit 1',},],},
+		},)
+
+		const adopted = adoptLegacyConfigFields(nxg, legacy,)
+
+		const ids = adopted.removalReasons.reasons.map((r,) => r.id)
+		expect(new Set(ids,).size,).toBe(ids.length,)
+		// The synced reason kept the id it is re-appended with; the adopted copy got a fresh one.
+		expect(adopted.removalReasons.reasons.find((r,) => r.nativeReasonId === 'native-1')?.id,)
+			.toBe('reason02',)
+		expect(adopted.removalReasons.reasons[0]!.id,).not.toBe('reason02',)
+	})
+
 	it('survives a full 6.x round trip without orphaning or duplicating a synced reason', () => {
 		const nxg = nxgWithSyncedReasons()
 		const nativeReasons = [
