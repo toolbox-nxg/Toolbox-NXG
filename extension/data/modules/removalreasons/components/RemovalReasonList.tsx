@@ -441,6 +441,7 @@ function ReasonCard ({
 	parser,
 	onEdit,
 	onDelete,
+	onDetachNative,
 	onSave,
 	onCancel,
 	onFlairLoad,
@@ -459,6 +460,8 @@ function ReasonCard ({
 	parser: ReturnType<typeof getRemovalReasonParser>
 	onEdit: () => void
 	onDelete: () => void
+	/** Detaches a synced reason from Reddit; absent for reasons that were never synced. */
+	onDetachNative: () => void
 	onSave: (updated: FormReason, editNote: string,) => void
 	onCancel: () => void
 	onFlairLoad: () => Promise<FlairTemplate[]>
@@ -546,6 +549,16 @@ function ReasonCard ({
 					>
 						<Icon icon={isEditing ? 'close' : 'edit'} />
 					</button>
+					{reason.nativeReasonId && (
+						<button
+							type="button"
+							className={css.iconButton}
+							onClick={onDetachNative}
+							title="Convert to a toolbox reason (stops syncing with Reddit)"
+						>
+							<Icon icon="tbSettingLink" />
+						</button>
+					)}
 					<button type="button" className={css.iconButton} onClick={onDelete} title="Delete">
 						<Icon icon="delete" mood="negative" />
 					</button>
@@ -702,8 +715,8 @@ export function RemovalReasonList ({state, addRef, disabledRef, sortRef, onSave,
 					? 'This subreddit has no removal reasons set up on Reddit, so there was nothing to import. '
 						+ 'Add them in Reddit\'s mod tools, then sync again.'
 					: outcome.status === 'allIgnored'
-					? 'Every removal reason from Reddit was deleted here, so nothing was imported. '
-						+ 'Turn the sync above off and back on to start over.'
+					? 'Every removal reason from Reddit has been deleted or converted here, so nothing was '
+						+ 'imported. Turn the sync above off and back on to start over.'
 					: outcome.status === 'redirected'
 					? 'This subreddit takes its removal reasons from another subreddit; nothing to sync.'
 					: outcome.status === 'disabled'
@@ -913,6 +926,38 @@ export function RemovalReasonList ({state, addRef, disabledRef, sortRef, onSave,
 		if (enabled) { void Promise.resolve(saved,).then(() => runSync(true,)) }
 	}
 
+	/**
+	 * Converts a synced reason into an ordinary toolbox one: drops the link to Reddit so the
+	 * wording becomes editable and stops being overwritten, and records the native id as
+	 * ignored so the next sync does not simply import it again alongside the copy.
+	 */
+	const handleDetachNative = (index: number,) => {
+		const entry = reasons[index]
+		const nativeReasonId = entry?.nativeReasonId
+		if (!entry || !nativeReasonId) { return }
+		if (
+			!confirm(
+				'This reason will stop syncing with Reddit. Its title and message become yours to edit, '
+					+ 'and later changes in Reddit\'s mod tools will no longer reach it. The Reddit reason '
+					+ 'itself is left alone, and will not be imported again. Continue?',
+			)
+		) { return }
+
+		const nativeSyncState = state.config.removalReasons.nativeSync
+		if (nativeSyncState) {
+			// Same list the delete path uses: without it the merge sees an unclaimed native id
+			// and appends a fresh copy, leaving the moderator with two of the same reason.
+			state.config.removalReasons.nativeSync = {
+				...nativeSyncState,
+				ignored: [...new Set([...nativeSyncState.ignored ?? [], nativeReasonId,],),],
+			}
+		}
+		const {nativeReasonId: _detached, ...detachedReason} = entry
+		const newReasons = [...reasons,]
+		newReasons[index] = detachedReason as ReasonEntry
+		persistReasons(newReasons, `stop syncing reason #${index + 1} with Reddit`,)
+	}
+
 	const handleDelete = (index: number,) => {
 		const nativeReasonId = reasons[index]?.nativeReasonId
 		const prompt = nativeReasonId
@@ -1022,6 +1067,7 @@ export function RemovalReasonList ({state, addRef, disabledRef, sortRef, onSave,
 									}
 								}}
 								onDelete={() => handleDelete(i,)}
+								onDetachNative={() => handleDetachNative(i,)}
 								onSave={(updated, note,) => handleSaveEdit(i, updated, note,)}
 								onCancel={() => setEditingIndex(null,)}
 								onFlairLoad={loadFlairTemplates}

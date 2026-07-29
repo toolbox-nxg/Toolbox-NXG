@@ -446,6 +446,72 @@ describe('RemovalReasonList synced reasons', () => {
 	})
 })
 
+describe('converting a synced reason to a toolbox reason', () => {
+	const syncedReason = {
+		id: 'abcd1234',
+		text: 'From Reddit',
+		title: 'Rule 1',
+		removePosts: true,
+		flairText: '',
+		flairCSS: '',
+		flairTemplateID: '',
+		nativeReasonId: 'native-1',
+	}
+
+	/** The detach control, offered only on reasons Reddit owns. */
+	function detachButton () {
+		return [...container.querySelectorAll<HTMLButtonElement>('button',),]
+			.find((button,) => button.title.includes('Convert to a toolbox reason',))
+	}
+
+	it('offers the control on a synced reason', () => {
+		renderList(makeState([syncedReason,],),)
+
+		expect(detachButton(),).toBeTruthy()
+	})
+
+	it('does not offer the control on a hand-written reason', () => {
+		// Separate render: the list loads its reasons once on mount, so re-rendering the same
+		// root with different props would keep the first set.
+		renderList(makeState([{...syncedReason, nativeReasonId: undefined,},],),)
+
+		expect(detachButton(),).toBeUndefined()
+	})
+
+	it('does nothing when the warning is declined', () => {
+		const state = makeState([syncedReason,],)
+		state.config.removalReasons.nativeSync = {enabled: true,}
+		renderList(state,)
+		vi.spyOn(window, 'confirm',).mockReturnValue(false,)
+
+		act(() => {
+			detachButton()!.click()
+		},)
+
+		expect(onSave,).not.toHaveBeenCalled()
+	})
+
+	it('drops the Reddit link and records the id as ignored so it is not re-imported', () => {
+		const state = makeState([syncedReason,],)
+		state.config.removalReasons.nativeSync = {enabled: true,}
+		renderList(state,)
+		vi.spyOn(window, 'confirm',).mockReturnValue(true,)
+
+		act(() => {
+			detachButton()!.click()
+		},)
+
+		const saved = onSave.mock.calls[0]![0]
+		const [detached,] = saved.removalReasons.reasons
+		expect('nativeReasonId' in detached,).toBe(false,)
+		// The wording is preserved; only the link to Reddit goes.
+		expect(detached.text,).toBe('From Reddit',)
+		expect(detached.title,).toBe('Rule 1',)
+		// Without this the next merge would append a fresh copy of the same Reddit reason.
+		expect(saved.removalReasons.nativeSync.ignored,).toEqual(['native-1',],)
+	})
+})
+
 describe('native reason sync toggle', () => {
 	it('lives on the reason list, beside the reasons it controls', () => {
 		renderList(makeState([],),)

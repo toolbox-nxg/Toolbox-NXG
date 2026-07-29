@@ -135,6 +135,14 @@ If a background sync fails — Reddit is unreachable, or your account cannot edi
 
 A failure to _write_ is treated as the more serious kind, because the usual cause is an account without the **wiki** moderator permission, which will not fix itself. Toolbox stops retrying that subreddit for half a day rather than re-checking every 15 minutes to fail the same way. A failure to _read_ is assumed to be a passing network problem and retries normally. **Sync from Reddit** ignores the backoff, so once the permission is granted you can retry straight away.
 
+**Making an imported reason your own.** If you want to keep a reason but take over its wording, press the link button on its card in the _Edit removal reasons_ tab. It becomes an ordinary toolbox reason: the title and message are editable again and stop being overwritten, and the **Native** chip goes away. The reason on Reddit is untouched, and it will not be imported a second time.
+
+Toolbox warns you first, because the conversion is one way — later edits in Reddit's mod tools will no longer reach that reason.
+
+```{note}
+Turning syncing off and on again after converting a reason re-imports the Reddit original, so you would end up with both it and your converted copy. Delete whichever you don't want.
+```
+
 **Deleting.** Deleting a reason in Mod Tools removes the toolbox copy on the next sync. Deleting an imported reason in the toolbox editor keeps it out — it will not be re-imported — but leaves it untouched on Reddit.
 
 **Turning it off.** Switching **Import Reddit's removal reasons and keep them up to date** back off removes the imported reasons from toolbox, along with any flair and usernote settings you attached to them. Your hand-written reasons are untouched, and nothing changes on Reddit's side. Toolbox asks for confirmation first, and tells you how many reasons will go.
