@@ -44,6 +44,24 @@ beforeEach(() => {
 	vi.clearAllMocks()
 },)
 
+describe('normalizeConfig', () => {
+	it('tightens a choice block whose list sat below a blank line', () => {
+		// Reason text stored the markdown-natural way. Normalize runs on every load, so a
+		// config that carries the loose form heals to the canonical block on the next save.
+		const config = makeConfig({
+			removalReasons: {
+				reasons: [{
+					id: 'reason01',
+					title: 'Rules',
+					text: 'Which rule?\n\n{choice#rule}\n\n- Rule 1\n- Rule 2',
+				},],
+			},
+		},)
+
+		expect(config.removalReasons.reasons[0]!.text,).toBe('Which rule?\n\n{choice#rule}\n- Rule 1\n- Rule 2',)
+	})
+})
+
 describe('legacyOwnedFieldsEqual', () => {
 	it('ignores ids and object key order', () => {
 		const nxg = makeConfig({

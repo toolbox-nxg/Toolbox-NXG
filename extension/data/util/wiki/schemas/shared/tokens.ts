@@ -14,9 +14,9 @@
  *
  * Inputs and textareas are inline: everything they need is in the token. A
  * choice is a block: the marker sits on its own line and the consecutive
- * markdown list items immediately below it are its options. It renders as a
- * radio group (pick one), so it's named "choice" rather than after the
- * dropdown `<select>` widget 6.x produced:
+ * markdown list items below it are its options. It renders as a radio group
+ * (pick one), so it's named "choice" rather than after the dropdown `<select>`
+ * widget 6.x produced:
  *
  *     Which rule was broken?
  *
@@ -26,11 +26,17 @@
  *
  *     ...normal body text after the blank line...
  *
+ * The list may also be separated from the marker by blank lines, which is how
+ * markdown lists are usually written; the block is canonicalized back to the
+ * tight form above on save.
+ *
  * A choice's options live inline in the text, like an input's placeholder -
  * there is no separate definition to reference. The optional `#id` (slug-safe,
  * `[\w-]+`) persists the chosen value between overlay opens and round-trips as
- * the `id` attribute of the legacy `<select>`. A marker with no list line below
- * it isn't a choice and renders literally, so a half-typed field fails visibly.
+ * the `id` attribute of the legacy `<select>`. A marker whose next non-blank
+ * line isn't a list item isn't a choice and renders literally, so a half-typed
+ * field fails visibly; {@link containsLiteralChoiceMarker} finds those so the
+ * moderator is told rather than the marker reaching the removed user.
  *
  * Substitution tokens are always a bare `{word}` with no colon, so neither the
  * `kind:` prefix nor `{choice}` can collide with them; unknown brace content is
@@ -133,8 +139,12 @@ export type ReasonSegment =
  */
 const INLINE_TOKEN_RE = /\{(input|textarea)(?:#([\w-]+))?\s*:([^}]*)\}/gi
 
-/** Matches a choice marker line (`{choice}` or `{choice#id}`) on its own line; group 1 is the id. */
-const CHOICE_MARKER_RE = /^[ \t]*\{choice(?:#([\w-]+))?\}[ \t]*\r?$/
+/**
+ * Matches a choice marker line (`{choice}` or `{choice#id}`) on its own line; group 1 is the id.
+ * The whitespace class is every horizontal space rather than just space/tab, so a non-breaking
+ * space pasted in from a rich-text editor doesn't quietly stop the line being a marker.
+ */
+const CHOICE_MARKER_RE = /^[^\S\r\n]*\{choice(?:#([\w-]+))?\}[^\S\r\n]*\r?$/
 
 /**
  * Matches a markdown list item line; group 1 is the option text (trailing whitespace
@@ -144,7 +154,13 @@ const CHOICE_MARKER_RE = /^[ \t]*\{choice(?:#([\w-]+))?\}[ \t]*\r?$/
  * parse to '', because canonicalization strips the trailing space of a blank option
  * that sits last in a block. A bullet glued to its text (`-word`) still fails.
  */
-const CHOICE_OPTION_RE = /^[ \t]*(?:[-*+]|\d+[.)])(?:[ \t]+(.+?))?[ \t]*\r?$/
+const CHOICE_OPTION_RE = /^[^\S\r\n]*(?:[-*+]|\d+[.)])(?:[^\S\r\n]+(.+?))?[^\S\r\n]*\r?$/
+
+/** Matches a line with nothing on it but horizontal whitespace. */
+const BLANK_LINE_RE = /^[^\S\r\n]*\r?$/
+
+/** Matches a `{choice}` marker anywhere in a line, for spotting one that did not become a token. */
+const CHOICE_MARKER_ANYWHERE_RE = /\{choice(?:#[\w-]+)?\}/
 
 /** Matches a whole slug-safe id/name. */
 const SLUG_RE = /^[\w-]+$/
@@ -196,9 +212,10 @@ export function serializeToken (token: InteractiveToken,): string {
  * Splits reason text into literal-text and interactive-token segments, in
  * document order. Inline `{input}`/`{textarea}` tokens are matched anywhere; a
  * `{choice}` marker is recognized only on its own line and consumes the
- * consecutive markdown list lines immediately below it as its options (stopping
- * at the first blank or non-list line). A marker with no list line below it is
- * left as literal text, like any other unknown brace content.
+ * consecutive markdown list lines below it as its options, skipping any blank
+ * lines between the two and stopping at the first non-list line. A marker whose
+ * next non-blank line is not a list item is left as literal text, like any
+ * other unknown brace content.
  * @param text The reason text to parse.
  */
 export function parseReasonSegments (text: string,): ReasonSegment[] {
@@ -242,6 +259,19 @@ export function parseReasonSegments (text: string,): ReasonSegment[] {
 			const options: string[] = []
 			let scan = nextLineStart
 			let optionsEnd = -1
+			// Step over any blank lines between the marker and its list: that is how markdown
+			// lists are normally written, and treating it as "not a choice" sent the marker and
+			// every option to the removed user instead of the one the moderator picked. Only
+			// committed if a list actually follows, so an unrelated marker still stays literal.
+			while (scan < n) {
+				const blankEnd = text.indexOf('\n', scan,)
+				if (!BLANK_LINE_RE.test(text.slice(scan, blankEnd === -1 ? n : blankEnd,),)) { break }
+				if (blankEnd === -1) {
+					scan = n
+					break
+				}
+				scan = blankEnd + 1
+			}
 			while (scan < n) {
 				const nl2 = text.indexOf('\n', scan,)
 				const le2 = nl2 === -1 ? n : nl2
@@ -267,6 +297,24 @@ export function parseReasonSegments (text: string,): ReasonSegment[] {
 	}
 	flush()
 	return segments
+}
+
+/**
+ * Reports whether the text still carries a `{choice}` marker that no control will
+ * be rendered for - a half-typed field, or one written inline in a sentence.
+ *
+ * Such a marker is not substituted, so the marker text and the option list below it
+ * both reach the removed user as written. That is the right default for unknown brace
+ * content, but a pick-one field failing this way is a mistake every time, so callers
+ * surface it to the moderator instead of leaving it to be discovered in a sent message.
+ * @param text The reason text to check, already normalized to token form.
+ */
+export function containsLiteralChoiceMarker (text: string,): boolean {
+	if (!text.includes('{choice',)) { return false }
+	// Parsed blocks are gone from the text segments, so anything left is a marker
+	// that will be sent verbatim - whatever shape it was written in.
+	return parseReasonSegments(text,)
+		.some((segment,) => segment.type === 'text' && CHOICE_MARKER_ANYWHERE_RE.test(segment.text,))
 }
 
 /**
