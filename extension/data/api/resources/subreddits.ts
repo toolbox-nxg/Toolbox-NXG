@@ -91,3 +91,54 @@ export function getModerationQueueListing<T = unknown,> ({
 },): Promise<RedditListing<T>> {
 	return apiOauthGetJSON<RedditListing<T>>(`/r/${subreddits}/about/${page}.json`, {limit: String(limit,),},)
 }
+
+/** The subset of `/r/<sub>/about.json` this codebase reads. */
+export interface SubredditAbout {
+	/** The community's display title, which is not the same as its name. */
+	title: string
+	/** The short public description shown in the sidebar. */
+	publicDescription: string
+}
+
+/** One entry from a subreddit's public rules list. */
+export interface SubredditRule {
+	/** The rule's short name, as shown in the report dialog. */
+	shortName: string
+	/** The rule's longer description; empty when the moderator left it blank. */
+	description: string
+}
+
+/**
+ * Reads a subreddit's display title and public description.
+ *
+ * Both are public, so this works for any subreddit the moderator can see, and neither
+ * changes often - callers that need it per-removal should cache.
+ * @param subreddit The bare subreddit name.
+ */
+export async function getSubredditAbout (subreddit: string,): Promise<SubredditAbout> {
+	const response = await apiOauthGetJSON<{data?: {title?: string; public_description?: string}}>(
+		`/r/${subreddit}/about.json`,
+	)
+	return {
+		title: response.data?.title ?? '',
+		publicDescription: response.data?.public_description ?? '',
+	}
+}
+
+/**
+ * Reads a subreddit's rules, in the order the moderators arranged them.
+ *
+ * Order is the whole point for callers resolving a positional reference such as Reddit's
+ * `{community_rule_1}` macro, so the API's order is preserved rather than sorted.
+ * @param subreddit The bare subreddit name.
+ */
+export async function getSubredditRules (subreddit: string,): Promise<SubredditRule[]> {
+	const response = await apiOauthGetJSON<{rules?: {short_name?: string; description?: string}[]}>(
+		`/r/${subreddit}/about/rules.json`,
+	)
+	const rules = Array.isArray(response.rules,) ? response.rules : []
+	return rules.map((rule,) => ({
+		shortName: rule.short_name ?? '',
+		description: rule.description ?? '',
+	}))
+}

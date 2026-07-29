@@ -126,9 +126,18 @@ export function SortableReasonCard ({
 				<div className={css.reasonCardTitle}>
 					{hasTitle ? item.reason.title : <em className={css.untitled}>Untitled</em>}
 				</div>
-				{suggested && (
+				{(suggested || locked) && (
 					<div className={css.contextBadges}>
-						<span className={css.contextBadge}>Suggested</span>
+						{suggested && <span className={css.contextBadge}>Suggested</span>}
+						{/* Mirrors the chip the config editor shows, and explains the missing edit button. */}
+						{locked && (
+							<span
+								className={css.contextBadge}
+								title="Managed by Reddit. The wording is set in Reddit's mod tools and cannot be edited here."
+							>
+								Native
+							</span>
+						)}
 					</div>
 				)}
 				{flairBadges.length > 0 && (

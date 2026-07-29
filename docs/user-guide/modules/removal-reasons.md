@@ -104,6 +104,29 @@ Turn on **Keep toolbox removal reasons in sync with Reddit's** under _Removal re
 
 So the normal workflow is to write the wording in Mod Tools and attach the toolbox-only extras here.
 
+**Reddit's macros.** A native removal reason can use Reddit's own macros, and toolbox fills them in the same way Reddit would, so what you see in the preview is what the author receives:
+
+| Macro                                         | Filled with                              |
+| --------------------------------------------- | ---------------------------------------- |
+| `{content_type}`                              | `post` or `comment`                      |
+| `{content_title}`                             | the post's title                         |
+| `{content_body}`                              | the removed item's text                  |
+| `{content_link}`                              | permalink to the removed item            |
+| `{content_domain}`                            | the link's domain (empty for text posts) |
+| `{community_name}`                            | the subreddit's display title            |
+| `{community_link}`                            | `r/yoursubreddit`                        |
+| `{community_description}`                     | the subreddit's public description       |
+| `{community_rules_url}`                       | link to the subreddit's rules page       |
+| `{community_rule_1}`, `{community_rule_2}`, … | that numbered rule, name and description |
+
+Toolbox's own tokens (`{author}`, `{subreddit}`, `{input:…}` and the rest) work in these reasons too, and the two sets cannot clash.
+
+```{note}
+`{linked_community_rule}` is the one macro toolbox cannot fill in. It means "the rule this removal reason is attached to", and Reddit does not tell toolbox which rule that is.
+
+Rather than delete it silently, toolbox leaves it in place and warns you in the removal dialog before you send, naming the macro. Use a numbered `{community_rule_1}` in Reddit's mod tools instead. If you send anyway, the author receives the macro exactly as written.
+```
+
 **Staying in sync.** Toolbox re-checks in the background when you open the removal drawer or the config editor, at most once every 15 minutes per subreddit, and only writes when something actually changed upstream. Because the check happens in the background, an edit you just made in Mod Tools usually appears the _next_ time you open the drawer. Press **Sync from Reddit** in the _Edit removal reasons_ footer to pull changes immediately.
 
 Two times are shown under the setting, and they mean different things. **Last imported a change** is the last time a sync actually brought something across; an old date there just means Reddit's reasons have not changed since, which is the normal state for a settled subreddit. **Last checked** is the last time your browser read Reddit's list at all, so it keeps moving even when nothing changes — that is the one to look at to confirm syncing is working. It is local to you, so a moderator who has not opened the subreddit recently will see an older time than a colleague who has.

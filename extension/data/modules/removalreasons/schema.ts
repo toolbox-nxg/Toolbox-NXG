@@ -211,6 +211,19 @@ export interface RemovalReasonsData {
 	logSub: string
 	/** Title template for the log post. */
 	logTitle: string
+	/**
+	 * The subreddit's display title, for Reddit's `{community_name}` macro. Fetched only when
+	 * a reason actually uses one of the community macros, so it is absent on most removals -
+	 * and an absent value leaves the macro as literal text rather than blanking it.
+	 */
+	communityTitle?: string
+	/** The subreddit's public description, for Reddit's `{community_description}` macro. */
+	communityDescription?: string
+	/**
+	 * The subreddit's rules in moderator-configured order, for Reddit's positional
+	 * `{community_rule_1}` macros. Each entry is already rendered as the macro presents it.
+	 */
+	communityRules?: string[]
 	/** How delivery settings apply to other mods: `'suggest'`, `'force'`, or `'leave'`. */
 	removalOption?: string
 	typeReply?: string

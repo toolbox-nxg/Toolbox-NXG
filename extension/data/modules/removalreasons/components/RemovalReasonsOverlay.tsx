@@ -41,6 +41,7 @@ import {getRemovalReasonParser,} from '../../shared/removalReasons/parser'
 import {getSubredditColors,} from '../../shared/usernotes/moduleapi'
 import {unmetUsernoteRequirement, type UsernoteRequireFlags,} from '../../shared/usernotes/requireRules'
 import {submitRemoval, type SubmitRemovalParams,} from '../features/submitRemoval'
+import {findUnresolvedMacros, nativeMacroTokens,} from '../nativeMacros'
 import {freezeRemovalParams,} from '../proposalAdapter'
 
 import {
@@ -223,6 +224,11 @@ export function RemovalReasonsOverlay ({
 	const parser = useMemo(() => getRemovalReasonParser(), [],)
 
 	const tokenSource = useMemo<Record<string, string>>(() => ({
+		// Reddit's own macros first, so a Toolbox token always wins if the two namespaces ever
+		// come to overlap. Folded in unconditionally rather than only for native reasons: the
+		// names cannot collide, and substitution runs over the whole composed message, not
+		// per reason.
+		...nativeMacroTokens(data,),
 		subreddit: data.subreddit,
 		fullname: data.fullname,
 		id: data.id,
@@ -239,6 +245,14 @@ export function RemovalReasonsOverlay ({
 		uri_body: data.uri_body,
 		uri_title: data.uri_title,
 	}), [data,],)
+
+	// Macros nothing will substitute reach the removed user verbatim. The moderator is the only
+	// one who can fix that - and cannot do it here, since native reason text is read-only - so
+	// name them before the message goes out rather than leaving the author to find them.
+	const unresolvedMacros = useMemo(
+		() => findUnresolvedMacros(visibleReasons.map((reason,) => reason.text).join('\n',), tokenSource,),
+		[visibleReasons, tokenSource,],
+	)
 
 	const headerHtml = useMemo(
 		() => (data.header ? parser.render(replaceTokens(tokenSource, data.header,),) : ''),
@@ -992,6 +1006,19 @@ export function RemovalReasonsOverlay ({
 			</div>
 
 			<Section title="Message pieces">
+				{unresolvedMacros.length > 0 && (
+					<div className={css.suggestedNotice}>
+						<span>
+							{unresolvedMacros.map((macro,) => `{${macro}}`).join(', ',)} {unresolvedMacros.length === 1
+								? 'cannot be filled in and is'
+								: 'cannot be filled in and are'} sent exactly as written.{' '}
+							{unresolvedMacros.includes('linked_community_rule',)
+								&& 'Toolbox cannot tell which rule a Reddit reason is linked to; a numbered macro '
+									+ 'such as {community_rule_1} works instead. '}
+							Change it in Reddit&apos;s mod tools.
+						</span>
+					</div>
+				)}
 				{nativeMode && (
 					<div className={css.suggestedNotice}>
 						<span>

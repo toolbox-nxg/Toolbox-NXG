@@ -1,6 +1,7 @@
 /** DOM manipulation and event handlers for the removal reasons module, including button injection and overlay orchestration. */
 
 import {useEffect, useState,} from 'react'
+import {getSubredditAbout, getSubredditRules,} from '../../api/resources/subreddits'
 import {
 	getNativeRemoveButton as getNativeRemoveButtonOld,
 	getThingFromDescendant as getThingOld,
@@ -108,6 +109,36 @@ function buildOverlayData (baseData: OverlayBaseData, response: RemovalReasonsCo
 			...(r.default_note_type ? {default_note_type: r.default_note_type,} : {}),
 			...(r.nativeReasonId ? {nativeReasonId: r.nativeReasonId,} : {}),
 		})) as RemovalReason[],
+	}
+}
+
+/**
+ * Fills in the subreddit metadata behind Reddit's `{community_*}` macros, in place, but only
+ * when one of the reasons on offer actually uses them.
+ *
+ * The `{community_rule_N}` macros are positional, so a rule is rendered the way Reddit renders
+ * it - short name, then description - and the list order is Reddit's own.
+ * @param data The overlay data to populate.
+ * @param reasons The reasons the moderator will be choosing from.
+ */
+async function attachCommunityMacroData (data: RemovalReasonsData, reasons: RemovalReason[],): Promise<void> {
+	const text = reasons.map((reason,) => reason.text).join('\n',)
+	const needsAbout = text.includes('{community_name}',) || text.includes('{community_description}',)
+	const needsRules = text.includes('{community_rule_',)
+	if (!needsAbout && !needsRules) { return }
+
+	const [about, rules,] = await Promise.all([
+		needsAbout ? getSubredditAbout(data.subreddit,).catch(() => undefined) : undefined,
+		needsRules ? getSubredditRules(data.subreddit,).catch(() => undefined) : undefined,
+	],)
+	if (about) {
+		data.communityTitle = about.title
+		data.communityDescription = about.publicDescription
+	}
+	if (rules) {
+		data.communityRules = rules.map((
+			rule,
+		) => (rule.description ? `${rule.shortName} - ${rule.description}` : rule.shortName))
 	}
 }
 
@@ -653,6 +684,13 @@ export function createRemovalReasonsHandlers ({
 			await bailWithoutVisibleReasons(data.url,)
 			return
 		}
+
+		// Reddit's community macros need subreddit metadata Toolbox does not otherwise read, so
+		// fetch it only when a reason actually mentions one. Most removals reference none, and
+		// two extra requests on every removal to serve a macro nobody used is not a trade worth
+		// making. Failures are swallowed: the macros stay literal, which is the same as not
+		// supporting them, and a removal must not be blocked on decorative text.
+		await attachCommunityMacroData(data, visibleReasons,)
 
 		// Pre-select reasons suggested by the item's report (AutoMod/other bot/mod reports), unless the
 		// mod has opted out. Several open paths (the cross-module opener, some old-Reddit/Shreddit button

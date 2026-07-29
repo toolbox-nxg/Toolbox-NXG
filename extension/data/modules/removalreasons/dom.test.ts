@@ -14,6 +14,8 @@ const removeThing = vi.hoisted(() => vi.fn())
 const getNativeRemovalReasons = vi.hoisted(() => vi.fn())
 const syncNativeReasons = vi.hoisted(() => vi.fn())
 const negativeTextFeedback = vi.hoisted(() => vi.fn())
+const getSubredditAbout = vi.hoisted(() => vi.fn())
+const getSubredditRules = vi.hoisted(() => vi.fn())
 // Renderer registry for the uiLocations mock — keyed by location name.
 const uiLocMock = vi.hoisted(() => ({renderers: new Map<string, (...args: unknown[]) => unknown>(),}))
 
@@ -63,6 +65,7 @@ vi.mock('../../api/resources/removalReasons', () => ({
 	getNativeRemovalReasons,
 }),)
 
+vi.mock('../../api/resources/subreddits', () => ({getSubredditAbout, getSubredditRules,}),)
 vi.mock('./features/syncNativeReasons', () => ({
 	syncNativeReasons,
 }),)
@@ -256,6 +259,8 @@ beforeEach(() => {
 	removeThing.mockResolvedValue({},)
 	getNativeRemovalReasons.mockResolvedValue([],)
 	syncNativeReasons.mockResolvedValue({status: 'disabled',},)
+	getSubredditAbout.mockResolvedValue({title: 'Toolbox-NXG', publicDescription: 'A description',},)
+	getSubredditRules.mockResolvedValue([{shortName: 'Stay on topic', description: 'Support only',},],)
 	// Register the thingNativeActionReplacement renderer so injectRemoveButton works.
 	createRemovalReasonsHandlers(handlerSettings,)
 },)
@@ -807,6 +812,61 @@ describe('createRemovalReasonsHandlers', () => {
 
 		expect(removeThing,).toHaveBeenCalledWith('t3_post', false,)
 		expect(showRemovalReasonsOverlay,).not.toHaveBeenCalled()
+	})
+
+	describe('community macro data', () => {
+		/** Old Reddit remove-click on a post whose subreddit has the given reasons configured. */
+		async function clickRemoveWith (reasonText: string,) {
+			getConfig.mockResolvedValue({removalReasons: {reasons: [{text: reasonText, title: 'r',},],},},)
+			document.body.innerHTML = `
+                <div class="thing link" data-fullname="t3_post" data-subreddit="testsub">
+                    <span class="remove-button">
+                        <button class="togglebutton">remove</button>
+                    </span>
+                </div>
+            `
+			const event = makeClick(document.querySelector('.togglebutton',)!,)
+			await createRemovalReasonsHandlers(handlerSettings,).handleClick(event,)
+		}
+
+		it('fetches nothing for a reason that uses no community macros', async () => {
+			// Two extra requests on every removal, to serve macros almost nobody uses, is the
+			// cost this guard exists to avoid.
+			await clickRemoveWith('Plain text with {author} and {subreddit}.',)
+
+			expect(getSubredditAbout,).not.toHaveBeenCalled()
+			expect(getSubredditRules,).not.toHaveBeenCalled()
+		})
+
+		it('fetches only the about data when only about macros are used', async () => {
+			await clickRemoveWith('Welcome to {community_name}.',)
+
+			expect(getSubredditAbout,).toHaveBeenCalledWith('testsub',)
+			expect(getSubredditRules,).not.toHaveBeenCalled()
+			const props = showRemovalReasonsOverlay.mock.calls[0]![0]
+			expect(props.data.communityTitle,).toBe('Toolbox-NXG',)
+		})
+
+		it('fetches only the rules when only a rule macro is used, and renders name then description', async () => {
+			await clickRemoveWith('You broke {community_rule_1}.',)
+
+			expect(getSubredditRules,).toHaveBeenCalledWith('testsub',)
+			expect(getSubredditAbout,).not.toHaveBeenCalled()
+			const props = showRemovalReasonsOverlay.mock.calls[0]![0]
+			expect(props.data.communityRules,).toEqual(['Stay on topic - Support only',],)
+		})
+
+		it('still opens the overlay when the metadata fetch fails', async () => {
+			// The macros stay literal, which is no worse than not supporting them; a removal
+			// must not be blocked on decorative text.
+			getSubredditRules.mockRejectedValue(new Error('boom',),)
+
+			await clickRemoveWith('You broke {community_rule_1}.',)
+
+			expect(showRemovalReasonsOverlay,).toHaveBeenCalled()
+			const props = showRemovalReasonsOverlay.mock.calls[0]![0]
+			expect(props.data.communityRules,).toBeUndefined()
+		})
 	})
 
 	describe('native reasons fallback', () => {

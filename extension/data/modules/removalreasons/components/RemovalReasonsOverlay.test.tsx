@@ -760,3 +760,55 @@ describe('native reasons are not editable', () => {
 		expect(editButton(),).toBeUndefined()
 	})
 })
+
+describe('Reddit macro substitution', () => {
+	it('substitutes a native Reddit macro in the rendered reason', () => {
+		// End-to-end through the overlay's token source, not just the mapping helper: the
+		// helper can be correct while the wiring that feeds it is missing.
+		const macroReason: RemovalReason = {...reason, text: 'Removed: {content_title}',}
+		renderOverlay({reasons: [macroReason,],}, 'Popup', [macroReason,],)
+
+		expect(container.textContent,).toContain('Removed: Test title',)
+	})
+
+	it('leaves a macro Toolbox cannot resolve as literal text', () => {
+		const macroReason: RemovalReason = {...reason, text: 'See {linked_community_rule}',}
+		renderOverlay({reasons: [macroReason,],}, 'Popup', [macroReason,],)
+
+		expect(container.textContent,).toContain('{linked_community_rule}',)
+	})
+})
+
+describe('native chip and unresolved macro warning', () => {
+	it('marks a native reason with a Native chip', () => {
+		// The chip is what explains the missing edit button; without it the card just looks
+		// inconsistent with the others.
+		const native: RemovalReason = {...reason, nativeReasonId: 'rr1',}
+		renderOverlay({reasons: [native,],}, 'Popup', [native,],)
+
+		expect(container.textContent,).toContain('Native',)
+	})
+
+	it('does not mark a hand-written reason', () => {
+		renderOverlay()
+
+		expect(container.textContent,).not.toContain('Native',)
+	})
+
+	it('warns before sending a macro it cannot fill in', () => {
+		const macroReason: RemovalReason = {...reason, text: 'See {linked_community_rule}',}
+		renderOverlay({reasons: [macroReason,],}, 'Popup', [macroReason,],)
+
+		expect(container.textContent,).toContain('{linked_community_rule}',)
+		expect(container.textContent,).toContain('sent exactly as written',)
+		// The actionable part: where the moderator can actually change it.
+		expect(container.textContent,).toContain('community_rule_1',)
+	})
+
+	it('stays quiet when every macro resolves', () => {
+		const macroReason: RemovalReason = {...reason, text: 'Removed {content_title} from {community_link}',}
+		renderOverlay({reasons: [macroReason,],}, 'Popup', [macroReason,],)
+
+		expect(container.textContent,).not.toContain('sent exactly as written',)
+	})
+})
