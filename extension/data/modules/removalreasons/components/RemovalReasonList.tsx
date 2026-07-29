@@ -29,7 +29,6 @@ import {SortModeRef, useSortMode,} from '../../../shared/controls/SortToggleButt
 import {TextareaInput,} from '../../../shared/controls/TextareaInput'
 import {TokenChips,} from '../../../shared/controls/TokenChips'
 import {formatRelativeTime,} from '../../../util/data/time'
-import {useFetched,} from '../../../util/ui/hooks'
 import {type ConfigState, generateConfigId, type ToolboxConfig,} from '../../../util/wiki/schemas/config/schema'
 import {decodeHtmlAngleBrackets, substitutionTokens,} from '../../../util/wiki/schemas/shared/tokens'
 import type {UserNoteColor,} from '../../../util/wiki/schemas/usernotes/schema'
@@ -37,7 +36,12 @@ import {reloadConfigFromWiki,} from '../../config/moduleapi'
 import {getRemovalReasonParser,} from '../../shared/removalReasons/parser'
 import {getSubredditColors,} from '../../shared/usernotes/moduleapi'
 import {noteTypeColorStyle,} from '../../shared/usernotes/noteTypeColorStyle'
-import {getLastNativeSyncCheck, getLastNativeSyncFailure, syncNativeReasons,} from '../features/syncNativeReasons'
+import {
+	getLastNativeSyncCheck,
+	getLastNativeSyncFailure,
+	type NativeSyncFailure,
+	syncNativeReasons,
+} from '../features/syncNativeReasons'
 import {stripNativeReasons,} from '../nativeSync'
 import type {RemovalReason,} from '../schema'
 import css from './RemovalReasonList.module.css'
@@ -671,18 +675,30 @@ export function RemovalReasonList ({state, addRef, disabledRef, sortRef, onSave,
 	const nativeSync = state.config.removalReasons?.nativeSync
 	const lastSyncedAt = nativeSync?.lastSyncedAt
 	const syncPersistedOn = nativeSync?.enabled === true
-	const lastCheckedAt = useFetched(
-		useMemo(() => syncPersistedOn ? getLastNativeSyncCheck(subreddit,) : Promise.resolve(undefined,), [
-			subreddit,
-			syncPersistedOn,
-		],),
-	)
-	const lastFailure = useFetched(
-		useMemo(() => syncPersistedOn ? getLastNativeSyncFailure(subreddit,) : Promise.resolve(undefined,), [
-			subreddit,
-			syncPersistedOn,
-		],),
-	)
+	const [lastCheckedAt, setLastCheckedAt,] = useState<number | undefined>(undefined,)
+	const [lastFailure, setLastFailure,] = useState<NativeSyncFailure | undefined>(undefined,)
+	// Bumped after every sync run so the two stamps below are re-read. They live in the cache
+	// rather than in the config, so a run that just failed - the case this status line exists
+	// for - moves them without anything in this component's props changing.
+	const [syncStatusNonce, setSyncStatusNonce,] = useState(0,)
+
+	useEffect(() => {
+		if (!syncPersistedOn) {
+			setLastCheckedAt(undefined,)
+			setLastFailure(undefined,)
+			return
+		}
+		let valid = true
+		void Promise.all([getLastNativeSyncCheck(subreddit,), getLastNativeSyncFailure(subreddit,),],)
+			.then(([checked, failure,],) => {
+				if (!valid) { return }
+				setLastCheckedAt(checked,)
+				setLastFailure(failure,)
+			},)
+		return () => {
+			valid = false
+		}
+	}, [subreddit, syncPersistedOn, syncStatusNonce,],)
 
 	/** Assigns a stable runtime key to each reason for React/dnd-kit reconciliation. */
 	const toEntries = (raw: RemovalReason[],): ReasonEntry[] =>
@@ -695,6 +711,9 @@ export function RemovalReasonList ({state, addRef, disabledRef, sortRef, onSave,
 	const runSync = async (force: boolean,) => {
 		if (!subreddit) { return }
 		const outcome = await syncNativeReasons(subreddit, force ? {force: true,} : undefined,)
+		// The run moved the persisted check/failure stamps; re-read them so the status line
+		// reflects what just happened rather than what it was at mount.
+		setSyncStatusNonce((nonce,) => nonce + 1)
 		if (outcome.status === 'synced') {
 			const config = await reloadConfigFromWiki(subreddit,)
 			if (config) { state.config = config }

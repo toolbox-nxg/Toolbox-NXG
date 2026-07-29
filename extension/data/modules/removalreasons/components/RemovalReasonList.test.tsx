@@ -559,6 +559,30 @@ describe('native reason sync toggle', () => {
 		expect(button!.parentElement?.textContent,).toContain('Last imported a change',)
 	})
 
+	it('surfaces a failure recorded by a sync that ran while the editor was open', async () => {
+		// The failure banner exists for exactly this case: a background run that goes wrong
+		// while the moderator is looking at the editor. Reading the stamps only once at mount
+		// meant it never appeared until the drawer was closed and reopened.
+		const state = makeState([],)
+		state.config.removalReasons.nativeSync = {enabled: true,}
+		syncNativeReasons.mockImplementation(() => {
+			getLastNativeSyncFailure.mockResolvedValue({
+				at: Date.now(),
+				stage: 'save',
+				message: 'no wiki access',
+			},)
+			return Promise.resolve({status: 'failed',},)
+		},)
+
+		renderList(state,)
+		await act(async () => {
+			await Promise.resolve()
+		},)
+
+		expect(container.textContent,).toContain('Could not save the reasons imported from Reddit',)
+		expect(container.textContent,).toContain('no wiki access',)
+	})
+
 	it('hides the manual sync button while syncing is off', () => {
 		renderList(makeState([],),)
 
