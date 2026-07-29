@@ -86,6 +86,21 @@ describe('applyNativeRemovalReason', () => {
 		],)
 	})
 
+	it('resolves against the empty body the endpoint really returns', async () => {
+		// This v1 endpoint answers with no body at all, not the `{json:{errors,data}}` envelope
+		// the mutation helpers parse - so parsing it would throw on every successful removal and
+		// surface a warning the moderator can do nothing about.
+		apiOauthPOST.mockResolvedValueOnce(new Response(null, {status: 200,},),)
+
+		await expect(applyNativeRemovalReason({itemId: 't3_post', reasonId: 'r1',},),).resolves.toBeUndefined()
+	})
+
+	it('rejects when the request fails', async () => {
+		apiOauthPOST.mockRejectedValueOnce(new Error('403 Forbidden',),)
+
+		await expect(applyNativeRemovalReason({itemId: 't3_post', reasonId: 'r1',},),).rejects.toThrow('403 Forbidden',)
+	})
+
 	it('includes the mod note only when provided', async () => {
 		await applyNativeRemovalReason({itemId: 't3_post', reasonId: 'r1', modNote: 'context',},)
 

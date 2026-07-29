@@ -4,8 +4,7 @@ import {utils,} from '../../framework/moduleIds'
 import {assertActionAllowed,} from '../../util/infra/captureGuard'
 import createLogger from '../../util/infra/logging'
 import {getCache, setCache,} from '../../util/persistence/cache'
-import {postRedditApiVoid,} from '../parsers/redditMutation'
-import {apiOauthGetJSON,} from '../transport/http'
+import {apiOauthGetJSON, apiOauthPOST,} from '../transport/http'
 
 /** A single native Reddit removal reason as configured in the subreddit's mod tools. */
 export interface NativeRemovalReason {
@@ -140,6 +139,11 @@ export const getNativeRemovalReasons = async (
  * Registers a native removal reason against an already-removed item, recording it in
  * the subreddit's mod log. This only records the reason; it sends no message to the
  * user (message delivery is a separate endpoint).
+ *
+ * Posted through `apiOauthPOST` rather than the `postRedditApi*` helpers: this is a v1
+ * endpoint that answers with an empty body, not the `{json:{errors,data}}` envelope those
+ * helpers parse, so parsing the response would throw on every successful call. `okOnly`
+ * still turns a non-2xx status into a rejection, which is the failure signal callers want.
  * @param options Registration options.
  * @param itemId Fullname of the already-removed item (e.g. `t3_abc123`).
  * @param reasonId Reddit reason id from {@link getNativeRemovalReasons}.
@@ -156,9 +160,10 @@ export const applyNativeRemovalReason = ({
 },): Promise<void> => {
 	// Registering a removal reason is a real moderation action; gate it by the training-mode
 	// capture guard so a sandboxed trainee is blocked (the proposals gateway captures it properly).
+	// Thrown synchronously, like the other guarded mutators, rather than as a rejection.
 	assertActionAllowed('applyNativeRemovalReason', {fullname: itemId,},)
-	return postRedditApiVoid('/api/v1/modactions/removal_reasons', {
+	return apiOauthPOST('/api/v1/modactions/removal_reasons', {
 		type: 'json',
 		data: {item_ids: [itemId,], reason_id: reasonId, ...(modNote ? {mod_note: modNote,} : {}),},
-	},)
+	},).then(() => {},)
 }
