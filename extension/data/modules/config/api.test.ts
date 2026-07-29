@@ -460,6 +460,9 @@ describe('getConfig', () => {
 	},)
 	afterEach(() => {
 		vi.clearAllMocks()
+		// clearAllMocks keeps implementations, so the per-page revision mock the
+		// arbitration tests install would otherwise leak into later suites.
+		vi.mocked(getWikiRevisions,).mockResolvedValue([],)
 	},)
 
 	it('returns undefined for a cached no-config sub without calling the wiki', async () => {
@@ -601,10 +604,12 @@ describe('getConfig', () => {
 		expect(readFromWiki,).toHaveBeenCalledWith('sub', 'toolbox-nxg', true,)
 	})
 
-	it('compat-on: adopts 6.x edits from a diverged legacy mirror', async () => {
-		resolveWikiLayout.mockResolvedValue(
-			{subreddit: 'sub', state: 'nxg', compatibilityWrites: true,},
-		)
+	/**
+	 * Points the two config pages at a diverged pair, with the legacy mirror carrying an
+	 * extra 6.x-added reason, and dates each page's newest revision so the reconcile can
+	 * arbitrate between them.
+	 */
+	function mockDivergedPages (nxgAt: number, legacyAt: number,) {
 		const nxgData = {
 			ver: 2,
 			removalReasons: {reasons: [{id: 'aaaaaaaa', title: 'Spam', text: 'No spam',},],},
@@ -623,6 +628,19 @@ describe('getConfig', () => {
 				? {ok: true, data: nxgData,} as WikiReadResult
 				: {ok: true, data: legacyData,} as WikiReadResult
 		)
+		vi.mocked(getWikiRevisions,).mockImplementation(async (_sub: string, page: string,) => [{
+			id: `rev-${page}`,
+			timestamp: page === 'toolbox-nxg' ? nxgAt : legacyAt,
+			author: 'mod',
+			reason: '',
+		},])
+	}
+
+	it('compat-on: adopts 6.x edits from a legacy mirror written later', async () => {
+		resolveWikiLayout.mockResolvedValue(
+			{subreddit: 'sub', state: 'nxg', compatibilityWrites: true,},
+		)
+		mockDivergedPages(1000, 2000,)
 
 		const result = await getConfig('sub',)
 
@@ -631,6 +649,19 @@ describe('getConfig', () => {
 		// The content-matched entry keeps its NXG id; the new one gets a fresh id.
 		expect(reasons[0]!.id,).toBe('aaaaaaaa',)
 		expect(reasons[1]!.id,).toMatch(/^[a-z0-9]{8}$/,)
+	})
+
+	it('compat-on: keeps the canonical config when the legacy mirror is stale', async () => {
+		// The reported bug: a mirror left behind by a failed write must not revert the
+		// config a moderator just saved on the canonical page.
+		resolveWikiLayout.mockResolvedValue(
+			{subreddit: 'sub', state: 'nxg', compatibilityWrites: true,},
+		)
+		mockDivergedPages(2000, 1000,)
+
+		const result = await getConfig('sub',)
+
+		expect(result!.removalReasons.reasons.map((r,) => r.title),).toEqual(['Spam',],)
 	})
 
 	it('compat-on: an agreeing legacy mirror changes nothing', async () => {

@@ -4,9 +4,11 @@
 import {beforeEach, describe, expect, it, vi,} from 'vitest'
 
 const readFromWiki = vi.hoisted(() => vi.fn())
+const getWikiRevisions = vi.hoisted(() => vi.fn())
 
 vi.mock('../../../../api/resources/wiki', () => ({
 	readFromWiki,
+	getWikiRevisions,
 	postToWiki: vi.fn(),
 	readWikiRevision: vi.fn(),
 }),)
@@ -29,7 +31,12 @@ vi.mock('../../store/feedback', () => ({
 }),)
 import {mergeNativeReasons,} from '../../../../modules/removalreasons/nativeSync'
 import {encodeClassicConfig,} from './codec'
-import {adoptLegacyConfigFields, legacyOwnedFieldsEqual, reconcileConfigFromLegacy,} from './reconcile'
+import {
+	adoptLegacyConfigFields,
+	legacyOwnedFieldsEqual,
+	mirrorViewOfConfig,
+	reconcileConfigFromLegacy,
+} from './reconcile'
 import {normalizeConfig,} from './schema'
 import type {ToolboxConfig,} from './schema'
 
@@ -40,8 +47,19 @@ function makeConfig (partial: Record<string, unknown> = {},): ToolboxConfig {
 	return config as ToolboxConfig
 }
 
+/** A revision listing whose newest entry carries the given unix timestamp. */
+function revisionsAt (timestamp: number,) {
+	return [{id: `rev-${timestamp}`, timestamp, author: 'sixmod', reason: '',},]
+}
+
+/** Arbitration options standing in for a canonical page last written at t=1000. */
+const canonicalAt1000 = {nxgRevisionTimestamp: 1000,}
+
 beforeEach(() => {
 	vi.clearAllMocks()
+	// Default: the mirror is newer than the canonical page, so tests that assert
+	// adoption exercise the adopt branch without restating the arbitration.
+	getWikiRevisions.mockResolvedValue(revisionsAt(2000,),)
 },)
 
 describe('legacyOwnedFieldsEqual', () => {
@@ -184,17 +202,20 @@ describe('reconcileConfigFromLegacy', () => {
 		const nxg = makeConfig()
 
 		readFromWiki.mockResolvedValue({ok: false, reason: 'no_page',},)
-		expect(await reconcileConfigFromLegacy('sub', nxg,),).toEqual({config: nxg, changed: false,},)
+		expect(await reconcileConfigFromLegacy('sub', nxg,),)
+			.toEqual({config: nxg, changed: false, outcome: 'equal',},)
 
 		readFromWiki.mockResolvedValue({ok: true, data: {'Toolbox.Utils.wikiLayout': 'nxg',},},)
-		expect(await reconcileConfigFromLegacy('sub', nxg,),).toEqual({config: nxg, changed: false,},)
+		expect(await reconcileConfigFromLegacy('sub', nxg,),)
+			.toEqual({config: nxg, changed: false, outcome: 'equal',},)
 	})
 
 	it('is a no-op when the read fails', async () => {
 		const nxg = makeConfig()
 		readFromWiki.mockRejectedValue(new Error('network',),)
 
-		expect(await reconcileConfigFromLegacy('sub', nxg,),).toEqual({config: nxg, changed: false,},)
+		expect(await reconcileConfigFromLegacy('sub', nxg,),)
+			.toEqual({config: nxg, changed: false, outcome: 'equal',},)
 	})
 
 	it('normalizes a v1 legacy page before comparing (no false positives)', async () => {
@@ -276,7 +297,7 @@ describe('reconcileConfigFromLegacy', () => {
 			},
 		},)
 
-		const result = await reconcileConfigFromLegacy('sub', nxg,)
+		const result = await reconcileConfigFromLegacy('sub', nxg, canonicalAt1000,)
 
 		expect(result.changed,).toBe(true,)
 		expect(result.config.removalReasons.reasons[0]!.text,).toBe('{choice#rule}\n- Rule 1 (edited)\n- Rule 2',)
@@ -299,11 +320,112 @@ describe('reconcileConfigFromLegacy', () => {
 			},
 		},)
 
-		const result = await reconcileConfigFromLegacy('sub', nxg,)
+		const result = await reconcileConfigFromLegacy('sub', nxg, canonicalAt1000,)
 
 		expect(result.changed,).toBe(true,)
 		expect(result.config.removalReasons.reasons.map((r,) => r.title),).toEqual(['Spam', 'Added',],)
 		expect(result.config.removalReasons.reasons[0]!.id,).toBe('reason01',)
+	})
+})
+
+describe('reconcile revision arbitration', () => {
+	/** An NXG config and a diverged mirror carrying an extra 6.x-added reason. */
+	function divergedPair () {
+		const nxg = makeConfig({
+			removalReasons: {reasons: [{id: 'reason01', title: 'Spam', text: 'no spam',},],},
+		},)
+		readFromWiki.mockResolvedValue({
+			ok: true,
+			data: {
+				ver: 1,
+				removalReasons: {
+					reasons: [
+						{title: 'Spam', text: 'no spam',},
+						{title: 'Added', text: 'from 6.x',},
+					],
+				},
+			},
+		},)
+		return nxg
+	}
+
+	it('adopts when the mirror was written after the canonical page', async () => {
+		const nxg = divergedPair()
+		getWikiRevisions.mockResolvedValue(revisionsAt(2000,),)
+
+		const result = await reconcileConfigFromLegacy('sub', nxg, {nxgRevisionTimestamp: 1000,},)
+
+		expect(result.outcome,).toBe('adopted',)
+		expect(result.changed,).toBe(true,)
+		expect(result.config.removalReasons.reasons.map((r,) => r.title),).toEqual(['Spam', 'Added',],)
+	})
+
+	it('keeps the canonical config when the mirror is older', async () => {
+		// The regression test for the reported bug: an NXG edit whose mirror write did not
+		// land must not be reverted by the stale mirror on the next read.
+		const nxg = divergedPair()
+		getWikiRevisions.mockResolvedValue(revisionsAt(1000,),)
+
+		const result = await reconcileConfigFromLegacy('sub', nxg, {nxgRevisionTimestamp: 2000,},)
+
+		expect(result.outcome,).toBe('keptCanonical',)
+		expect(result.changed,).toBe(false,)
+		expect(result.config,).toBe(nxg,)
+	})
+
+	it('keeps the canonical config when the two revisions share a timestamp', async () => {
+		const nxg = divergedPair()
+		getWikiRevisions.mockResolvedValue(revisionsAt(1000,),)
+
+		const result = await reconcileConfigFromLegacy('sub', nxg, {nxgRevisionTimestamp: 1000,},)
+
+		expect(result.outcome,).toBe('keptCanonical',)
+		expect(result.config,).toBe(nxg,)
+	})
+
+	it('keeps the canonical config when the canonical revision is unknown', async () => {
+		const nxg = divergedPair()
+		getWikiRevisions.mockResolvedValue(revisionsAt(2000,),)
+
+		const result = await reconcileConfigFromLegacy('sub', nxg,)
+
+		expect(result.outcome,).toBe('unarbitrable',)
+		expect(result.config,).toBe(nxg,)
+	})
+
+	it('keeps the canonical config when the mirror revisions cannot be read', async () => {
+		const nxg = divergedPair()
+		getWikiRevisions.mockRejectedValue(new Error('network',),)
+
+		const result = await reconcileConfigFromLegacy('sub', nxg, {nxgRevisionTimestamp: 1000,},)
+
+		expect(result.outcome,).toBe('unarbitrable',)
+		expect(result.config,).toBe(nxg,)
+	})
+
+	it('keeps the canonical config when the mirror revision listing is empty', async () => {
+		const nxg = divergedPair()
+		getWikiRevisions.mockResolvedValue([],)
+
+		const result = await reconcileConfigFromLegacy('sub', nxg, {nxgRevisionTimestamp: 1000,},)
+
+		expect(result.outcome,).toBe('unarbitrable',)
+		expect(result.config,).toBe(nxg,)
+	})
+
+	it('does not date the mirror at all when the contents agree', async () => {
+		const nxg = makeConfig({
+			removalReasons: {reasons: [{id: 'reason01', title: 'Spam', text: 'no spam',},],},
+		},)
+		readFromWiki.mockResolvedValue({
+			ok: true,
+			data: {ver: 1, removalReasons: {reasons: [{title: 'Spam', text: 'no spam',},],},},
+		},)
+
+		const result = await reconcileConfigFromLegacy('sub', nxg, {nxgRevisionTimestamp: 1000,},)
+
+		expect(result.outcome,).toBe('equal',)
+		expect(getWikiRevisions,).not.toHaveBeenCalled()
 	})
 })
 
@@ -400,7 +522,7 @@ describe('native reason sync across the legacy mirror', () => {
 		},]
 
 		readFromWiki.mockResolvedValue({ok: true, data: saved,},)
-		return reconcileConfigFromLegacy('sub', nxg,).then((result,) => {
+		return reconcileConfigFromLegacy('sub', nxg, canonicalAt1000,).then((result,) => {
 			expect(result.changed,).toBe(true,)
 			const reasons = result.config.removalReasons.reasons
 			// The 6.x edit was adopted. Its stable id is not preserved, because
@@ -417,5 +539,144 @@ describe('native reason sync across the legacy mirror', () => {
 			// The clincher: a sync against the unchanged native set now has nothing to do.
 			expect(mergeNativeReasons(reasons, nativeReasons,).changed,).toBe(false,)
 		},)
+	})
+})
+
+/**
+ * Configs whose legacy mirror must reconcile as a no-op. Each entry is the
+ * partial config under test; the mirror is produced by the real down-convert, so
+ * a reconcile that reports anything but `equal` means an untouched mirror would
+ * be mistaken for a 6.x edit and clobber the canonical page on every read.
+ */
+const fixedPointCases: Array<[string, Record<string, unknown>,]> = [
+	['plain ascii', {
+		removalReasons: {reasons: [{title: 'Spam', text: 'Please do not spam.',},],},
+	},],
+	['non-ascii and emoji', {
+		removalReasons: {
+			header: 'Gruesse aus /r/{subreddit} - Regel N‖1',
+			reasons: [{title: 'Règle №1', text: 'Grüße 🚫 - entfernt.',},],
+		},
+		modMacros: [{title: 'Hallo', text: 'Schönen Tag 🙂',},],
+	},],
+	['literal percent signs', {
+		removalReasons: {
+			logtitle: 'Removal: 50% off {title}',
+			reasons: [{title: '100% spam', text: 'This was 100% removed.',},],
+		},
+	},],
+	['percent-encoded-looking sequences in fields the mirror never escapes', {
+		removalReasons: {
+			logtitle: 'Removed %E2%9C%93',
+			pmsubject: 'Re: a%20b',
+			reasons: [{title: 'Rule a%2Fb', text: 'see the wiki', flairText: 'a%2Fb', flairCSS: 'x%20y',},],
+		},
+		banMacros: {note: 'n%2Fa', message: 'https://example.com/?q=a%20b', duration: 3, reason: 'r%20s',},
+	},],
+	['choice blocks with and without an id', {
+		removalReasons: {
+			reasons: [
+				{title: 'Rules', text: 'Which rule?\n\n{choice#rule}\n- Rule 1\n- Rule 2\n\nThanks.',},
+				{title: 'Other', text: 'Pick one:\n\n{choice}\n- A\n- B',},
+			],
+		},
+	},],
+	['inline input and textarea tokens', {
+		removalReasons: {
+			reasons: [{title: 'Detail', text: 'Reason: {input: short reason}\n\nNotes: {textarea: anything else}',},],
+		},
+	},],
+	['a choice block in the header and footer', {
+		// Headers and footers render no interactive controls, so the up-convert leaves
+		// their <select> literal while the down-convert still expands the block. Only
+		// the mirror-view comparison can see through that asymmetry.
+		removalReasons: {
+			header: 'Before:\n\n{choice#hdr}\n- one\n- two',
+			footer: 'After:\n\n{choice}\n- three',
+			reasons: [{title: 'Spam', text: 'no spam',},],
+		},
+	},],
+	['multi-line header and footer markdown', {
+		removalReasons: {
+			header: '# Notice\n\nYour post was removed because:\n\n- reason one\n- reason two\n\n---\n',
+			footer: '\n---\n\n^(Replies to this comment are not monitored.)\n\n[Message us](/message/compose)',
+			reasons: [{title: 'Spam', text: 'no spam',},],
+		},
+	},],
+	['every log and message field set', {
+		removalReasons: {
+			logsub: 'modlogsub',
+			logtitle: '[{kind}] {title} by {author}',
+			logreason: 'removed by {mod}',
+			pmsubject: 'Your {kind} in /r/{subreddit} was removed',
+			typeReply: 'PM',
+			removalOption: 'main',
+			reasons: [{title: 'Spam', text: 'no spam',},],
+		},
+	},],
+	['fully populated ban macros', {
+		banMacros: {note: 'repeat offender', message: 'You are banned.', duration: 7, reason: 'spam',},
+	},],
+	['macro text with html-ish characters', {
+		modMacros: [{title: 'Escalate', text: '<b>Escalated</b> & assigned to /u/mod',},],
+	},],
+	['substitution tokens', {
+		removalReasons: {
+			header: 'Hi {author},',
+			footer: 'Your post: {uri_title}',
+			reasons: [{title: 'Quote', text: 'You wrote:\n\n{body}\n\nRemoved from /r/{subreddit}.',},],
+		},
+	},],
+	['a synced reason alongside hand-written ones', {
+		removalReasons: {
+			reasons: [
+				{title: 'Spam', text: 'no spam',},
+				{title: 'Rule 1', text: 'from reddit', nativeReasonId: 'native-1',},
+			],
+			nativeSync: {enabled: true, fingerprint: 'deadbeefdeadbeef', lastSyncedAt: 1700000000000,},
+		},
+	},],
+]
+
+describe('legacy mirror round trip is a fixed point', () => {
+	it.each(fixedPointCases,)('reconciles as a no-op: %s', async (_name, partial,) => {
+		const nxg = makeConfig(partial,)
+		const mirror = encodeClassicConfig(nxg,) as unknown as Record<string, unknown>
+		normalizeConfig(mirror,)
+		readFromWiki.mockResolvedValue({ok: true, data: mirror,},)
+
+		const result = await reconcileConfigFromLegacy('sub', nxg, canonicalAt1000,)
+
+		// 'equal', not 'keptCanonical': the content guard must settle this, or a mirror
+		// that happened to be newer would still clobber the canonical config.
+		expect(result.outcome,).toBe('equal',)
+		expect(result.config,).toBe(nxg,)
+		expect(getWikiRevisions,).not.toHaveBeenCalled()
+	},)
+})
+
+describe('v1 decode asymmetry', () => {
+	// `encodeClassicConfig` escapes only the four fields 6.x unescapes, but the mirror is
+	// written `ver: 1` and `normalizeConfig` URI-decodes every string on a v1 page. These
+	// pin the resulting loss, which the mirror-view comparison routes around rather than
+	// repairs - closing it at the source would change what a real 6.x edit is read as.
+	it('URI-decodes mirrored fields the down-convert never escaped', () => {
+		const nxg = makeConfig({
+			removalReasons: {
+				logtitle: 'Removed %E2%9C%93',
+				reasons: [{title: 'Rule a%2Fb', text: 'see the wiki', flairText: 'a%2Fb',},],
+			},
+		},)
+		const mirror = encodeClassicConfig(nxg,) as unknown as Record<string, unknown>
+		normalizeConfig(mirror,)
+		const decoded = mirror as unknown as ToolboxConfig
+
+		expect(decoded.removalReasons.logtitle,).toBe('Removed ✓',)
+		expect(decoded.removalReasons.reasons[0]!.title,).toBe('Rule a/b',)
+		expect(decoded.removalReasons.reasons[0]!.flairText,).toBe('a/b',)
+		// So a naive comparison against the NXG config reports a difference that no 6.x
+		// mod made - the exact false positive the mirror-view comparison exists to absorb.
+		expect(legacyOwnedFieldsEqual(nxg, decoded,),).toBe(false,)
+		expect(legacyOwnedFieldsEqual(mirrorViewOfConfig(nxg,), decoded,),).toBe(true,)
 	})
 })

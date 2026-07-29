@@ -1,5 +1,6 @@
 /** Public API for reading and writing the toolbox wiki config page, with caching and legacy normalization. */
 import {getWikiRevisions, postToWiki as apiPostToWiki, readFromWiki, readWikiRevision,} from '../../api/resources/wiki'
+import type {WikiRevision,} from '../../api/resources/wiki'
 import {writeWikiPageConditional,} from '../../api/resources/wikiVersioned'
 import {utils,} from '../../framework/moduleIds'
 import {negativeTextFeedback, neutralTextFeedback, positiveTextFeedback,} from '../../store/feedback'
@@ -10,7 +11,7 @@ import {createPerKeyQueue,} from '../../util/infra/perKeyQueue'
 import {clearCache, getCache, setCache,} from '../../util/persistence/cache'
 import {isUserProfileSubreddit,} from '../../util/reddit/profileSubreddit'
 import {configCodec, encodeClassicConfig,} from '../../util/wiki/schemas/config/codec'
-import {reconcileConfigFromLegacy,} from '../../util/wiki/schemas/config/reconcile'
+import {reconcileConfigFromLegacy, type ReconcileConfigOptions,} from '../../util/wiki/schemas/config/reconcile'
 import {normalizeConfig, ToolboxConfig,} from '../../util/wiki/schemas/config/schema'
 import {NXG_USERNOTES_FORMAT,} from '../../util/wiki/schemas/usernotes/schema'
 import {COMPAT_WRITES_KEY, NEW_WIKI_PATHS, OLD_WIKI_PATHS,} from '../../util/wiki/wikiConstants'
@@ -35,21 +36,37 @@ const log = createLogger('TBConfig',)
  */
 const CONFIG_REV_KEY = 'configRev'
 
-/** Records the revision a freshly-read config is based on, for the next save's guard. */
-async function stashConfigRev (subreddit: string, page: string,): Promise<void> {
+/**
+ * Records the revision a freshly-read config is based on, for the next save's guard,
+ * and returns it. The timestamp is what {@link reconcileConfigFromLegacy} arbitrates
+ * against, so this stays the single place the config page's revisions are read.
+ * @returns The newest revision, or `undefined` if it could not be read.
+ */
+async function stashConfigRev (subreddit: string, page: string,): Promise<WikiRevision | undefined> {
 	try {
 		const revisions = await getWikiRevisions(subreddit, page, 1,)
-		const rev = revisions[0]?.id
-		if (rev) {
+		const revision = revisions[0]
+		if (revision?.id) {
 			const revs = await getCache(utils, CONFIG_REV_KEY, {},) as Record<string, string>
-			revs[subreddit] = rev
+			revs[subreddit] = revision.id
 			await setCache(utils, CONFIG_REV_KEY, revs,)
+			return revision
 		}
 	} catch (err) {
 		// A failed revision lookup just means no conflict guard on the next save
 		// (last-write-wins) - never block the config read on it.
 		log.debug(`could not read config revision for /r/${subreddit}`, err,)
 	}
+	return undefined
+}
+
+/**
+ * Builds the arbitration options for a reconcile from the revision the config was
+ * read at. Written as a conditional spread because `exactOptionalPropertyTypes`
+ * forbids passing an explicit `undefined` for an optional property.
+ */
+function reconcileOptions (revision: WikiRevision | undefined,): ReconcileConfigOptions {
+	return revision ? {nxgRevisionTimestamp: revision.timestamp,} : {}
 }
 
 /**
@@ -149,17 +166,20 @@ export async function tryGetConfig (
 	// Record the revision this config was read from so the next save can condition
 	// its write on it and detect a concurrent edit. Done after a successful content
 	// read so the rev corresponds to a config we could actually parse.
-	await stashConfigRev(subreddit, page,)
+	const revision = await stashConfigRev(subreddit, page,)
 
 	// Compat-on subs fold any 6.x edits from the legacy mirror into the view;
 	// the merged result is cached and persisted by the next config save.
 	let resolvedConfig: ToolboxConfig = response.data
 	if (compatMirrorEnabled(layout,)) {
-		resolvedConfig = (await reconcileConfigFromLegacy(subreddit, resolvedConfig,)).config
+		resolvedConfig =
+			(await reconcileConfigFromLegacy(subreddit, resolvedConfig, reconcileOptions(revision,),)).config
 	}
 
 	cachedConfigs[subreddit] = resolvedConfig
-	void setCache(utils, 'configCache', cachedConfigs,)
+	// Awaited rather than fire-and-forget: a concurrent save's clearCache() must not be
+	// overtaken by this write, which would re-seat the pre-save config for the full TTL.
+	await setCache(utils, 'configCache', cachedConfigs,)
 	return {status: 'ok', config: resolvedConfig,}
 }
 
@@ -204,9 +224,9 @@ export async function reloadConfigFromWiki (subreddit: string,): Promise<Toolbox
 	normalizeConfig(response.data,)
 	// Refresh the save guard's base revision: a tab that reloads then saves should
 	// condition on the revision it just re-read, not a stale earlier one.
-	await stashConfigRev(subreddit, page,)
+	const revision = await stashConfigRev(subreddit, page,)
 	if (compatMirrorEnabled(layout,)) {
-		return (await reconcileConfigFromLegacy(subreddit, response.data,)).config
+		return (await reconcileConfigFromLegacy(subreddit, response.data, reconcileOptions(revision,),)).config
 	}
 	return response.data
 }
