@@ -55,6 +55,17 @@ export function nativeMacroTokens (data: RemovalReasonsData,): Record<string, st
 }
 
 /**
+ * Toolbox's own tokens that are written with bare braces, so the macro scan below does not
+ * report them as unresolvable.
+ *
+ * A legacy `<select>` whose `id` is missing or not slug-safe down-converts to a bare
+ * `{choice}` (see `tokens.ts`), which is by far the common shape - so without this, an
+ * ordinary subreddit with a pick-one field gets told its reason cannot be filled in.
+ * Case-sensitive, matching the parser: `{Choice}` is not a token to it either.
+ */
+const toolboxBareTokens = new Set(['choice',],)
+
+/**
  * Finds `{macro}` references in reason text that nothing will substitute, so the overlay can
  * warn before the moderator sends them.
  *
@@ -63,15 +74,16 @@ export function nativeMacroTokens (data: RemovalReasonsData,): Record<string, st
  * disagree with what was sent - but the moderator is the one who can act on it, so it has to be
  * surfaced to them rather than left for the author to discover.
  *
- * Only bare `{name}` forms are considered. Toolbox's interactive tokens all carry a `:` or `#`
- * (`{input: label}`, `{choice#id}`), so they cannot be mistaken for an unresolved macro.
+ * Only bare `{name}` forms are considered. Most of Toolbox's interactive tokens carry a `:` or
+ * `#` (`{input: label}`, `{choice#id}`), so they cannot be mistaken for an unresolved macro;
+ * {@link toolboxBareTokens} covers the one that does not.
  * @param text The reason text to scan.
  * @param resolved The token names substitution will replace.
  */
 export function findUnresolvedMacros (text: string, resolved: Record<string, string>,): string[] {
 	const found = new Set<string>()
 	for (const [, name,] of text.matchAll(/\{([a-z0-9_]+)\}/gi,)) {
-		if (name !== undefined && !(name in resolved)) { found.add(name,) }
+		if (name !== undefined && !toolboxBareTokens.has(name,) && !(name in resolved)) { found.add(name,) }
 	}
 	return [...found,]
 }

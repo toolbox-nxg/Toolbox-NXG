@@ -121,6 +121,14 @@ describe('findUnresolvedMacros', () => {
 		expect(findUnresolvedMacros(text, resolved,),).toEqual([],)
 	})
 
+	it('ignores a bare {choice} marker, which has no id to disambiguate it', () => {
+		// The common shape: a legacy <select> with no slug-safe id down-converts to `{choice}`,
+		// so treating the bare form as a macro would fire on ordinary subreddits.
+		const text = 'Pick one:\n\n{choice}\n\n- First\n- Second\n'
+
+		expect(findUnresolvedMacros(text, resolved,),).toEqual([],)
+	})
+
 	it('reports each unresolved macro once, in first-seen order', () => {
 		const text = '{one} then {two} then {one} again'
 

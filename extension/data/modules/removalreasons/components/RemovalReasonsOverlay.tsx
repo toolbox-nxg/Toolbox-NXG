@@ -246,14 +246,6 @@ export function RemovalReasonsOverlay ({
 		uri_title: data.uri_title,
 	}), [data,],)
 
-	// Macros nothing will substitute reach the removed user verbatim. The moderator is the only
-	// one who can fix that - and cannot do it here, since native reason text is read-only - so
-	// name them before the message goes out rather than leaving the author to find them.
-	const unresolvedMacros = useMemo(
-		() => findUnresolvedMacros(visibleReasons.map((reason,) => reason.text).join('\n',), tokenSource,),
-		[visibleReasons, tokenSource,],
-	)
-
 	const headerHtml = useMemo(
 		() => (data.header ? parser.render(replaceTokens(tokenSource, data.header,),) : ''),
 		[data.header, parser, tokenSource,],
@@ -333,6 +325,21 @@ export function RemovalReasonsOverlay ({
 
 	const [selected, setSelected,] = useState<Set<string>>(
 		() => new Set(seeded?.positionalIds ?? suggestedPositionalIds,),
+	)
+
+	// Macros nothing will substitute reach the removed user verbatim. The moderator is the only
+	// one who can fix that - and cannot do it here, since native reason text is read-only - so
+	// name them before the message goes out rather than leaving the author to find them.
+	//
+	// Only the checked reasons are scanned: an unresolvable macro in a reason nobody picked is
+	// going nowhere, and warning about it on every open would train mods to ignore the notice.
+	const unresolvedMacros = useMemo(
+		() =>
+			findUnresolvedMacros(
+				renderedReasons.filter((r,) => selected.has(r.id,)).map((r,) => r.reason.text).join('\n',),
+				tokenSource,
+			),
+		[renderedReasons, selected, tokenSource,],
 	)
 	const [reasonType, setReasonType,] = useState<ReasonType>(
 		seededFromIntent ? seededFromIntent.reasonType as ReasonType : initialReasonType,
@@ -1015,7 +1022,10 @@ export function RemovalReasonsOverlay ({
 							{unresolvedMacros.includes('linked_community_rule',)
 								&& 'Toolbox cannot tell which rule a Reddit reason is linked to; a numbered macro '
 									+ 'such as {community_rule_1} works instead. '}
-							Change it in Reddit&apos;s mod tools.
+							{nativeMode
+								// Native reason text is read-only here, so the fix lives on Reddit's side.
+								? 'Change it in Reddit\'s mod tools.'
+								: 'Change it in this subreddit\'s removal reason settings.'}
 						</span>
 					</div>
 				)}

@@ -795,9 +795,17 @@ describe('native chip and unresolved macro warning', () => {
 		expect(container.textContent,).not.toContain('Native',)
 	})
 
+	/** Checks the first reason's select box, which is what puts it in the outgoing message. */
+	function checkFirstReason () {
+		act(() => {
+			container.querySelector<HTMLInputElement>('input[aria-label="Select removal reason 1"]',)!.click()
+		},)
+	}
+
 	it('warns before sending a macro it cannot fill in', () => {
 		const macroReason: RemovalReason = {...reason, text: 'See {linked_community_rule}',}
 		renderOverlay({reasons: [macroReason,],}, 'Popup', [macroReason,],)
+		checkFirstReason()
 
 		expect(container.textContent,).toContain('{linked_community_rule}',)
 		expect(container.textContent,).toContain('sent exactly as written',)
@@ -805,9 +813,29 @@ describe('native chip and unresolved macro warning', () => {
 		expect(container.textContent,).toContain('community_rule_1',)
 	})
 
+	it('stays quiet about a macro in a reason the moderator did not pick', () => {
+		// Nothing is being sent, so there is nothing to warn about; warning anyway on every
+		// open trains mods to ignore the notice by the time it matters.
+		const macroReason: RemovalReason = {...reason, text: 'See {linked_community_rule}',}
+		renderOverlay({reasons: [macroReason,],}, 'Popup', [macroReason,],)
+
+		expect(container.textContent,).not.toContain('sent exactly as written',)
+	})
+
 	it('stays quiet when every macro resolves', () => {
 		const macroReason: RemovalReason = {...reason, text: 'Removed {content_title} from {community_link}',}
 		renderOverlay({reasons: [macroReason,],}, 'Popup', [macroReason,],)
+		checkFirstReason()
+
+		expect(container.textContent,).not.toContain('sent exactly as written',)
+	})
+
+	it('does not mistake a bare {choice} fill-in field for an unresolvable macro', () => {
+		// A legacy <select> with no slug-safe id down-converts to a bare `{choice}`, so this is
+		// the shape most subs with a pick-one field carry.
+		const choiceReason: RemovalReason = {...reason, text: 'Broke a rule:\n\n{choice}\n\n- One\n- Two\n',}
+		renderOverlay({reasons: [choiceReason,],}, 'Popup', [choiceReason,],)
+		checkFirstReason()
 
 		expect(container.textContent,).not.toContain('sent exactly as written',)
 	})
