@@ -198,27 +198,42 @@ export async function getConfig (
 }
 
 /**
- * Reads the freshest toolbox config straight from the canonical wiki page,
- * bypassing the config cache. Used by config tabs to refresh their state
- * after an external wiki edit.
- * @param subreddit The subreddit name (without the `r/` prefix).
- * @returns The purified and normalized config, or `null` if the wiki read failed.
+ * The outcome of an uncached config reload. Unlike {@link ConfigReadResult} this
+ * separates `invalid` (the page exists but is not usable config) from `error` (the
+ * read itself failed), because the config editor reports the two differently and
+ * must not open an empty default over either.
  */
-export async function reloadConfigFromWiki (subreddit: string,): Promise<ToolboxConfig | null> {
+export type ConfigReloadResult =
+	| {status: 'ok'; config: ToolboxConfig}
+	| {status: 'absent'}
+	| {status: 'invalid'}
+	| {status: 'error'}
+
+/**
+ * Reads the freshest toolbox config straight from the canonical wiki page,
+ * bypassing the config cache, and reports why when there is nothing to return.
+ * Runs the same legacy-mirror reconcile as {@link getConfig}, so a caller can
+ * never end up editing a config that differs from the one the rest of toolbox
+ * acts on.
+ * @param subreddit The subreddit name (without the `r/` prefix).
+ */
+export async function tryReloadConfigFromWiki (subreddit: string,): Promise<ConfigReloadResult> {
 	// User-profile pseudo-subreddits have no toolbox wiki page to reload (see tryGetConfig).
 	if (isUserProfileSubreddit(subreddit,)) {
-		return null
+		return {status: 'absent',}
 	}
 	const layout = await resolveWikiLayout(subreddit,)
 	// Non-moderated subs short-circuit to a read-free `notModerated` layout - no page to reload.
 	if (layout.notModerated) {
-		return null
+		return {status: 'absent',}
 	}
 	const page = layout.state === 'legacyFallback' ? OLD_WIKI_PATHS.settings : NEW_WIKI_PATHS.settings
 	const response = await readFromWiki<Record<string, unknown>>(subreddit, page, true,)
 	if (!response.ok) {
 		log.debug('Failed: wiki config',)
-		return null
+		if (response.reason === 'invalid_json') { return {status: 'invalid',} }
+		if (response.reason === 'no_page') { return {status: 'absent',} }
+		return {status: 'error',}
 	}
 	purifyObject(response.data,)
 	normalizeConfig(response.data,)
@@ -226,9 +241,25 @@ export async function reloadConfigFromWiki (subreddit: string,): Promise<Toolbox
 	// condition on the revision it just re-read, not a stale earlier one.
 	const revision = await stashConfigRev(subreddit, page,)
 	if (compatMirrorEnabled(layout,)) {
-		return (await reconcileConfigFromLegacy(subreddit, response.data, reconcileOptions(revision,),)).config
+		return {
+			status: 'ok',
+			config: (await reconcileConfigFromLegacy(subreddit, response.data, reconcileOptions(revision,),)).config,
+		}
 	}
-	return response.data
+	return {status: 'ok', config: response.data,}
+}
+
+/**
+ * Reads the freshest toolbox config straight from the canonical wiki page,
+ * bypassing the config cache. Used by config tabs to refresh their state
+ * after an external wiki edit. Callers that need to tell a missing page from an
+ * unreadable one want {@link tryReloadConfigFromWiki} instead.
+ * @param subreddit The subreddit name (without the `r/` prefix).
+ * @returns The purified and normalized config, or `null` if there was none to read.
+ */
+export async function reloadConfigFromWiki (subreddit: string,): Promise<ToolboxConfig | null> {
+	const result = await tryReloadConfigFromWiki(subreddit,)
+	return result.status === 'ok' ? result.config : null
 }
 
 /**

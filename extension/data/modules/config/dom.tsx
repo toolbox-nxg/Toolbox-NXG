@@ -1,26 +1,18 @@
 /** Handler factory for opening the subreddit config overlay. */
-import {readFromWiki,} from '../../api/resources/wiki'
 import {addContextItem, removeContextItem,} from '../../store/contextMenu'
 
 import {isModSub,} from '../../api/resources/modSubs'
 import {ActionButton,} from '../../shared/controls/ActionButton'
 import {SortModeRef, SortToggleButton,} from '../../shared/controls/SortToggleButton'
 import {negativeTextFeedback,} from '../../store/feedback'
-import {purifyObject,} from '../../util/data/purify'
 import {TBPageContext,} from '../../util/reddit/pageContext'
 import type {SaveRef,} from '../../util/ui/hooks'
-import {
-	config as defaultConfig,
-	ConfigState,
-	isConfigValidVersion,
-	normalizeConfig,
-} from '../../util/wiki/schemas/config/schema'
+import {config as defaultConfig, ConfigState, isConfigValidVersion,} from '../../util/wiki/schemas/config/schema'
 import {
 	listRetiredUsernoteShardPages,
 	listUsernoteShardPages,
 	shardPagePath,
 } from '../../util/wiki/schemas/usernotes/sharded'
-import {getWikiReadPath,} from '../../util/wiki/wikiPaths'
 import {DomainTagsTab,} from '../domaintagger/components/DomainTagsTab'
 import {ModMacroList,} from '../macros/components/ModMacroList'
 import {BanMacroTab,} from '../modbutton/components/BanMacroTab'
@@ -39,7 +31,7 @@ import {SettingsHomeTab,} from './components/SettingsHomeTab'
 import {WikiEditorFooter,} from './components/WikiEditorFooter'
 import {WikiEditorTab,} from './components/WikiEditorTab'
 import type {HistoryRef,} from './components/WikiEditorTab'
-import {saveToolboxConfig,} from './moduleapi'
+import {saveToolboxConfig, tryReloadConfigFromWiki,} from './moduleapi'
 
 /** Handlers for opening and navigating the config overlay, returned by `createConfigOpenHandlers`. */
 export interface ConfigOpenHandlers {
@@ -387,7 +379,9 @@ async function resolveShardTabs (subreddit: string, showRetired: boolean,): Prom
  */
 export function createConfigOpenHandlers (unManager: boolean,): ConfigOpenHandlers & {state: ConfigState} {
 	const state: ConfigState = {
-		config: defaultConfig,
+		// Cloned, not aliased: tabs mutate `state.config` in place, and the module-level
+		// default would otherwise accumulate one subreddit's edits and hand them to the next.
+		config: structuredClone(defaultConfig,),
 		subreddit: null,
 		postFlairTemplates: null,
 		userFlairTemplates: null,
@@ -429,7 +423,7 @@ export function createConfigOpenHandlers (unManager: boolean,): ConfigOpenHandle
 			onClose: () => {
 				body.style.overflow = ''
 				document.documentElement.style.overflow = ''
-				state.config = defaultConfig
+				state.config = structuredClone(defaultConfig,)
 				state.subreddit = null
 				state.postFlairTemplates = null
 				state.userFlairTemplates = null
@@ -444,22 +438,29 @@ export function createConfigOpenHandlers (unManager: boolean,): ConfigOpenHandle
 
 	function openConfigForSubreddit (subreddit: string,) {
 		state.subreddit = subreddit
-		void getWikiReadPath('settings', subreddit,).then((page,) =>
-			readFromWiki<Record<string, unknown>>(subreddit, page, true,)
-		).then(async (response,) => {
-			if (!response.ok) {
-				if (response.reason === 'invalid_json') {
-					negativeTextFeedback(
-						`The /r/${subreddit} Toolbox-NXG wiki page contains invalid data and cannot be loaded.`,
-					)
-					return
-				}
-				state.config = defaultConfig
+		// Read through the module api rather than the wiki directly: it applies the
+		// legacy-mirror reconcile, so the config being edited here is exactly the one
+		// every other module acts on. Reading the canonical page raw used to show
+		// settings the removal overlay would never use.
+		void tryReloadConfigFromWiki(subreddit,).then(async (result,) => {
+			if (result.status === 'invalid') {
+				negativeTextFeedback(
+					`The /r/${subreddit} Toolbox-NXG wiki page contains invalid data and cannot be loaded.`,
+				)
+				return
+			}
+			if (result.status === 'error') {
+				// Never fall through to the empty default on a failed read: the config is
+				// unknown, and saving from a blank editor would wipe the sub's real one.
+				negativeTextFeedback(
+					`Could not read the /r/${subreddit} Toolbox-NXG configuration. Try again in a moment.`,
+				)
+				return
+			}
+			if (result.status === 'absent') {
+				state.config = structuredClone(defaultConfig,)
 			} else {
-				const loaded = response.data
-				purifyObject(loaded,)
-				normalizeConfig(loaded,)
-				state.config = loaded
+				state.config = result.config
 				if (!isConfigValidVersion(subreddit, state.config,)) {
 					negativeTextFeedback(
 						`This version of Toolbox-NXG is not compatible with the /r/${subreddit} configuration.`,

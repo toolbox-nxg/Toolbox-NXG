@@ -90,6 +90,7 @@ import {
 	reloadConfigFromWiki,
 	saveToolboxConfig,
 	tryGetConfig,
+	tryReloadConfigFromWiki,
 } from './moduleapi'
 
 describe('normalizeConfig', () => {
@@ -724,6 +725,27 @@ describe('reloadConfigFromWiki', () => {
 
 		expect(await reloadConfigFromWiki('sub',),).toBeNull()
 		expect(readFromWiki,).not.toHaveBeenCalled()
+	})
+
+	it('distinguishes absent, invalid and failed reads', async () => {
+		// The config editor opens an empty default only for `absent`; the other two must
+		// surface an error instead, or a save from a blank editor overwrites a real config.
+		vi.mocked(readFromWiki,).mockResolvedValue({ok: false, reason: 'no_page',},)
+		expect(await tryReloadConfigFromWiki('sub',),).toEqual({status: 'absent',},)
+
+		vi.mocked(readFromWiki,).mockResolvedValue({ok: false, reason: 'invalid_json',},)
+		expect(await tryReloadConfigFromWiki('sub',),).toEqual({status: 'invalid',},)
+
+		vi.mocked(readFromWiki,).mockResolvedValue({ok: false, reason: 'unknown_error',},)
+		expect(await tryReloadConfigFromWiki('sub',),).toEqual({status: 'error',},)
+	})
+
+	it('reports absent for a non-moderated sub', async () => {
+		resolveWikiLayout.mockResolvedValue(
+			{subreddit: 'sub', state: 'nxg', compatibilityWrites: false, notModerated: true,},
+		)
+
+		expect(await tryReloadConfigFromWiki('sub',),).toEqual({status: 'absent',},)
 	})
 })
 
