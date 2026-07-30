@@ -3,8 +3,8 @@
 import {describe, expect, it,} from 'vitest'
 import {
 	canonicalizeChoiceBlocks,
-	containsLiteralChoiceMarker,
 	decodeHtmlAngleBrackets,
+	findLiteralChoiceMarker,
 	htmlFieldsToTokens,
 	htmlSimpleFieldsToTokens,
 	inlineSelectDefinitions,
@@ -209,26 +209,39 @@ describe('canonicalizeChoiceBlocks', () => {
 	})
 })
 
-describe('containsLiteralChoiceMarker', () => {
-	it('is false for a block that parses, tight or with a blank line before the list', () => {
-		expect(containsLiteralChoiceMarker('{choice#r}\n- a\n- b',),).toBe(false,)
-		expect(containsLiteralChoiceMarker('Pick:\n\n{choice}\n\n- a\n- b\n',),).toBe(false,)
+describe('findLiteralChoiceMarker', () => {
+	it('is null for a block that parses, tight or with a blank line before the list', () => {
+		expect(findLiteralChoiceMarker('{choice#r}\n- a\n- b',),).toBeNull()
+		expect(findLiteralChoiceMarker('Pick:\n\n{choice}\n\n- a\n- b\n',),).toBeNull()
 	})
 
-	it('is false for text with no choice marker at all', () => {
-		expect(containsLiteralChoiceMarker('Hi {author}, see {input: why}',),).toBe(false,)
+	it('is null for text with no choice marker at all', () => {
+		expect(findLiteralChoiceMarker('Hi {author}, see {input: why}',),).toBeNull()
 	})
 
-	it('is true for a marker with no option list under it', () => {
-		expect(containsLiteralChoiceMarker('{choice#rule}\n\nJust some text',),).toBe(true,)
+	it('reports a marker with no option list under it as no-options', () => {
+		expect(findLiteralChoiceMarker('{choice#rule}\n\nJust some text',),).toBe('no-options',)
+		expect(findLiteralChoiceMarker('{choice}',),).toBe('no-options',)
 	})
 
-	it('is true for a marker written inline in a sentence', () => {
-		expect(containsLiteralChoiceMarker('Pick {choice#rule} now\n- a\n- b',),).toBe(true,)
+	it('reports a marker written inline in a sentence as inline', () => {
+		expect(findLiteralChoiceMarker('Pick {choice#rule} now\n- a\n- b',),).toBe('inline',)
 	})
 
-	it('is true when only one of two markers parsed', () => {
-		expect(containsLiteralChoiceMarker('{choice#a}\n- a\n\n{choice#b}\n\nnot a list',),).toBe(true,)
+	it('reports the problem when only one of two markers parsed', () => {
+		expect(findLiteralChoiceMarker('{choice#a}\n- a\n\n{choice#b}\n\nnot a list',),).toBe('no-options',)
+		// The parsed block must not make the later inline marker look like an own-line one.
+		expect(findLiteralChoiceMarker('{choice#a}\n- a\n\nPick {choice#b} now',),).toBe('inline',)
+	})
+
+	it('does not read an option that mentions {choice} as a second marker', () => {
+		expect(findLiteralChoiceMarker('{choice}\n- fill in the {choice} field\n- b',),).toBeNull()
+	})
+
+	it('classifies off the whole line, not the segment an inline token splits', () => {
+		// `{input}` sits on the marker's line, so the marker never starts a block: the fix is
+		// moving it to its own line, not adding a list.
+		expect(findLiteralChoiceMarker('{input: why} {choice}\n- a\n- b',),).toBe('inline',)
 	})
 })
 

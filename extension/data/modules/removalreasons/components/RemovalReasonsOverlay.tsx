@@ -33,9 +33,10 @@ import type {
 	FrozenSelectionReason,
 } from '../../../util/wiki/schemas/proposals/schema'
 import {
-	containsLiteralChoiceMarker,
 	decodeHtmlAngleBrackets,
+	findLiteralChoiceMarker,
 	htmlFieldsToTokens,
+	type LiteralChoiceProblem,
 } from '../../../util/wiki/schemas/shared/tokens'
 import {UserNoteColor,} from '../../../util/wiki/schemas/usernotes/schema'
 import {requestCounterRefresh,} from '../../notifier/store'
@@ -346,15 +347,6 @@ export function RemovalReasonsOverlay ({
 		[renderedReasons, selected, tokenSource,],
 	)
 
-	// A `{choice}` marker that never became a radio group is sent as written, taking its whole
-	// option list with it - the moderator ends up publishing every option instead of the one
-	// they meant to pick. Same reasoning as the macro notice above, so it is scoped to the
-	// checked reasons too. Scanned on the healed markdown, not `reason.text`, so a legacy
-	// `<select>` config (up-converted at render time) is not reported as broken.
-	const hasLiteralChoice = useMemo(
-		() => renderedReasons.some((r,) => selected.has(r.id,) && containsLiteralChoiceMarker(r.markdown,)),
-		[renderedReasons, selected,],
-	)
 	const [reasonType, setReasonType,] = useState<ReasonType>(
 		seededFromIntent ? seededFromIntent.reasonType as ReasonType : initialReasonType,
 	)
@@ -399,6 +391,52 @@ export function RemovalReasonsOverlay ({
 	)
 	const [editingId, setEditingId,] = useState<string | null>(null,)
 	const [editDraft, setEditDraft,] = useState('',)
+
+	// A `{choice}` marker that never became a radio group is sent as written, taking its whole
+	// option list with it - the moderator ends up publishing every option instead of the one
+	// they meant to pick. Same reasoning as the macro notice above, so it is scoped to the
+	// checked reasons too. Read off healed token text, never `reason.text`, so a legacy
+	// `<select>` config (up-converted at render time) is not reported as broken.
+	const literalChoiceProblem = useMemo<LiteralChoiceProblem | null>(() => {
+		let found: LiteralChoiceProblem | null = null
+		for (const r of renderedReasons) {
+			if (!selected.has(r.id,)) { continue }
+			// The text that will actually go out, picked exactly as composeParams picks it: the
+			// in-progress edit, else a saved override, else the config markdown. Reading the config
+			// instead would stay silent when an inline edit breaks a choice - the very failure this
+			// warns about - and keep warning about one the moderator has just fixed.
+			const override = editingId === r.id ? editDraft : reasonOverrides.get(r.id,)
+			const problem = findLiteralChoiceMarker(
+				override === undefined ? r.markdown : htmlFieldsToTokens(override,),
+			)
+			// 'inline' wins a tie: its advice (own line, list below it) also fixes a marker that
+			// only lacks its list, so a mix of both shapes still gets one sentence that covers it.
+			if (problem === 'inline') { return problem }
+			if (problem) { found = problem }
+		}
+		return found
+	}, [renderedReasons, selected, editingId, editDraft, reasonOverrides,],)
+
+	// Each shape gets its own wording: naming the wrong mistake is worse than saying nothing,
+	// since it sends the moderator looking at the part of the reason that is already correct.
+	const literalChoiceNotice = useMemo(() => {
+		if (!literalChoiceProblem) { return null }
+		const inline = literalChoiceProblem === 'inline'
+		const cause = inline
+			? 'shares its line with other text, so the marker and its option list are sent exactly as written'
+			: 'has no option list below it, so the marker is sent exactly as written'
+		let fix: string
+		// Native reason text is read-only here, so that fix always lives on Reddit's side.
+		if (nativeMode) { fix = 'Change it in Reddit\'s mod tools.' }
+		else if (inline) {
+			fix = 'Put the {choice} marker on a line of its own, with the option list directly below it, '
+				+ 'in this subreddit\'s removal reason settings.'
+		} else {
+			fix = 'Put the option list directly below the {choice} line in this subreddit\'s '
+				+ 'removal reason settings.'
+		}
+		return `A pick-one {choice} field in this reason ${cause} instead of becoming a control. ${fix}`
+	}, [literalChoiceProblem, nativeMode,],)
 
 	const [leaveUsernote, setLeaveUsernote,] = useState(!!seededFromIntent?.usernote,)
 	const [usernoteText, setUsernoteText,] = useState(seededFromIntent?.usernote?.text ?? '',)
@@ -1043,16 +1081,9 @@ export function RemovalReasonsOverlay ({
 						</span>
 					</div>
 				)}
-				{hasLiteralChoice && (
+				{literalChoiceNotice && (
 					<div className={css.suggestedNotice}>
-						<span>
-							A pick-one {'{choice}'}{' '}
-							field in this reason cannot be filled in, so the field and every one of its options are sent
-							exactly as written. {nativeMode
-								? 'Change it in Reddit\'s mod tools.'
-								: 'Put the option list directly below the {choice} line in this subreddit\'s '
-									+ 'removal reason settings.'}
-						</span>
+						<span>{literalChoiceNotice}</span>
 					</div>
 				)}
 				{nativeMode && (

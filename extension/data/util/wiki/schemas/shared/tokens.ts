@@ -35,7 +35,7 @@
  * `[\w-]+`) persists the chosen value between overlay opens and round-trips as
  * the `id` attribute of the legacy `<select>`. A marker whose next non-blank
  * line isn't a list item isn't a choice and renders literally, so a half-typed
- * field fails visibly; {@link containsLiteralChoiceMarker} finds those so the
+ * field fails visibly; {@link findLiteralChoiceMarker} finds those so the
  * moderator is told rather than the marker reaching the removed user.
  *
  * Substitution tokens are always a bare `{word}` with no colon, so neither the
@@ -300,8 +300,19 @@ export function parseReasonSegments (text: string,): ReasonSegment[] {
 }
 
 /**
- * Reports whether the text still carries a `{choice}` marker that no control will
- * be rendered for - a half-typed field, or one written inline in a sentence.
+ * Why a `{choice}` marker will be sent as text instead of becoming a control. The two
+ * shapes need different fixes, so callers can word their warning for the one at hand.
+ */
+export type LiteralChoiceProblem =
+	/** The marker shares its line with other text, so it never starts a block at all. */
+	| 'inline'
+	/** The marker has a line to itself, but no option list follows it. */
+	| 'no-options'
+
+/**
+ * Finds the first `{choice}` marker in the text that no control will be rendered for -
+ * a half-typed field, or one written inline in a sentence - and reports which of the two
+ * it is. Returns `null` when every marker in the text becomes a control.
  *
  * Such a marker is not substituted, so the marker text and the option list below it
  * both reach the removed user as written. That is the right default for unknown brace
@@ -309,12 +320,28 @@ export function parseReasonSegments (text: string,): ReasonSegment[] {
  * surface it to the moderator instead of leaving it to be discovered in a sent message.
  * @param text The reason text to check, already normalized to token form.
  */
-export function containsLiteralChoiceMarker (text: string,): boolean {
-	if (!text.includes('{choice',)) { return false }
-	// Parsed blocks are gone from the text segments, so anything left is a marker
-	// that will be sent verbatim - whatever shape it was written in.
-	return parseReasonSegments(text,)
-		.some((segment,) => segment.type === 'text' && CHOICE_MARKER_ANYWHERE_RE.test(segment.text,))
+export function findLiteralChoiceMarker (text: string,): LiteralChoiceProblem | null {
+	if (!text.includes('{choice',)) { return null }
+	// Applies the same marker/blank/list rule as parseReasonSegments (and off the same
+	// regexes), but line-by-line rather than over segments: a segment boundary can fall
+	// mid-line where an inline token sits next to a marker, and the line is what decides
+	// which of the two problems this is.
+	const lines = text.split('\n',)
+	for (let i = 0; i < lines.length; i++) {
+		const line = lines[i]!
+		if (!CHOICE_MARKER_ANYWHERE_RE.test(line,)) { continue }
+		// A marker with other text on its line never starts a block, whatever follows it,
+		// so it has to move to a line of its own before an option list can help.
+		if (!CHOICE_MARKER_RE.test(line,)) { return 'inline' }
+		let scan = i + 1
+		while (scan < lines.length && BLANK_LINE_RE.test(lines[scan]!,)) { scan++ }
+		if (scan >= lines.length || !CHOICE_OPTION_RE.test(lines[scan]!,)) { return 'no-options' }
+		// A real block: step over its option list, so an option whose own text mentions
+		// `{choice}` isn't read as a second, broken marker.
+		while (scan < lines.length && CHOICE_OPTION_RE.test(lines[scan]!,)) { scan++ }
+		i = scan - 1
+	}
+	return null
 }
 
 /**

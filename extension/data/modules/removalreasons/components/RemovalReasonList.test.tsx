@@ -365,16 +365,25 @@ describe('RemovalReasonList message preview toggle', () => {
 
 		await act(async () => container.querySelector<HTMLButtonElement>('button[title="Edit"]',)!.click())
 		expect(container.textContent,).toContain('will be sent as text',)
+		// This marker has its list already; what it needs is a line of its own, so the warning
+		// must not point at the list.
+		expect(container.textContent,).toContain('shares its line with other text',)
 
 		// Assigning .value directly doesn't reach a controlled React field - React's value
 		// tracker sees no change and swallows the event - so go through the prototype setter.
 		const textarea = container.querySelector<HTMLTextAreaElement>('textarea',)!
 		const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value',)!.set!
-		await act(async () => {
-			setValue.call(textarea, reasonText,)
-			textarea.dispatchEvent(new Event('input', {bubbles: true,},),)
-		},)
+		const typeText = async (text: string,) =>
+			act(async () => {
+				setValue.call(textarea, text,)
+				textarea.dispatchEvent(new Event('input', {bubbles: true,},),)
+			},)
 
+		// Marker on its own line now, but the list is gone with it: the other shape, other advice.
+		await typeText('Pick one:\n\n{choice#rule}\n\nThanks.',)
+		expect(container.textContent,).toContain('has no "- " option list under it',)
+
+		await typeText(reasonText,)
 		expect(container.textContent,).not.toContain('will be sent as text',)
 	})
 

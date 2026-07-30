@@ -64,7 +64,7 @@ export function nativeMacroTokens (data: RemovalReasonsData,): Record<string, st
  * Case-sensitive, matching the parser: `{Choice}` is not a token to it either.
  *
  * This suppresses the warning for a working pick-one field, not for a broken one:
- * `containsLiteralChoiceMarker` in `tokens.ts` covers a `{choice}` that no control was
+ * `findLiteralChoiceMarker` in `tokens.ts` covers a `{choice}` that no control was
  * rendered for, and the overlay warns about that separately.
  */
 const toolboxBareTokens = new Set(['choice',],)

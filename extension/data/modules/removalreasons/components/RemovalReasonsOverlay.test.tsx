@@ -874,7 +874,20 @@ describe('native chip and unresolved macro warning', () => {
 		renderOverlay({reasons: [brokenChoice,],}, 'Popup', [brokenChoice,],)
 		checkFirstReason()
 
-		expect(container.textContent,).toContain('every one of its options',)
+		expect(container.textContent,).toContain('instead of becoming a control',)
+		// The list is already directly below the marker here, so telling the moderator to put it
+		// there would send them looking at the one part of the reason that is right.
+		expect(container.textContent,).toContain('shares its line with other text',)
+		expect(container.textContent,).toContain('on a line of its own',)
+	})
+
+	it('tells a moderator whose marker only lacks a list to add one', () => {
+		const brokenChoice: RemovalReason = {...reason, text: 'Broke a rule:\n\n{choice#rule}\n\nThanks.',}
+		renderOverlay({reasons: [brokenChoice,],}, 'Popup', [brokenChoice,],)
+		checkFirstReason()
+
+		expect(container.textContent,).toContain('has no option list below it',)
+		expect(container.textContent,).toContain('Put the option list directly below',)
 	})
 
 	it('stays quiet about a {choice} field that renders as a control', () => {
@@ -882,13 +895,70 @@ describe('native chip and unresolved macro warning', () => {
 		renderOverlay({reasons: [choiceReason,],}, 'Popup', [choiceReason,],)
 		checkFirstReason()
 
-		expect(container.textContent,).not.toContain('every one of its options',)
+		expect(container.textContent,).not.toContain('instead of becoming a control',)
 	})
 
 	it('stays quiet about a broken {choice} in a reason the moderator did not pick', () => {
 		const brokenChoice: RemovalReason = {...reason, text: 'Pick {choice#rule} now\n- One\n- Two',}
 		renderOverlay({reasons: [brokenChoice,],}, 'Popup', [brokenChoice,],)
 
-		expect(container.textContent,).not.toContain('every one of its options',)
+		expect(container.textContent,).not.toContain('instead of becoming a control',)
+	})
+
+	/**
+	 * Types into the open inline editor. Assigning `.value` doesn't reach a controlled React
+	 * field - its value tracker sees no change and swallows the event - so go through the
+	 * prototype setter.
+	 */
+	function typeIntoEditor (text: string,) {
+		const textarea = container.querySelector<HTMLTextAreaElement>('textarea',)!
+		const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value',)!.set!
+		act(() => {
+			setValue.call(textarea, text,)
+			textarea.dispatchEvent(new Event('input', {bubbles: true,},),)
+		},)
+	}
+
+	/** Opens the selected reason's inline editor. */
+	function startEditing () {
+		act(() => {
+			;[...container.querySelectorAll('button',),]
+				.find((button,) => button.title === 'Edit reason text')!.click()
+		},)
+	}
+
+	it('warns when an inline edit breaks a working {choice} field', () => {
+		// The edited text is what gets sent, so the warning has to follow the edit: scanning the
+		// stored config here would stay silent about the exact mistake this notice exists for.
+		const choiceReason: RemovalReason = {...reason, text: 'Broke a rule:\n\n{choice}\n\n- One\n- Two\n',}
+		renderOverlay({reasons: [choiceReason,],}, 'Popup', [choiceReason,],)
+		checkFirstReason()
+		startEditing()
+		typeIntoEditor('Pick {choice} now\n- One\n- Two',)
+
+		expect(container.textContent,).toContain('instead of becoming a control',)
+	})
+
+	it('stops warning once an inline edit fixes a broken {choice} field', () => {
+		const brokenChoice: RemovalReason = {...reason, text: 'Pick {choice#rule} now\n- One\n- Two',}
+		renderOverlay({reasons: [brokenChoice,],}, 'Popup', [brokenChoice,],)
+		checkFirstReason()
+		startEditing()
+		typeIntoEditor('Pick one:\n\n{choice#rule}\n- One\n- Two',)
+
+		expect(container.textContent,).not.toContain('instead of becoming a control',)
+	})
+
+	it('keeps warning after a saved override breaks a working {choice} field', () => {
+		// Save closes the editor, so the check has to read the override map too - not just the
+		// draft it was typed into.
+		const choiceReason: RemovalReason = {...reason, text: 'Broke a rule:\n\n{choice}\n\n- One\n- Two\n',}
+		renderOverlay({reasons: [choiceReason,],}, 'Popup', [choiceReason,],)
+		checkFirstReason()
+		startEditing()
+		typeIntoEditor('Pick {choice} now\n- One\n- Two',)
+		act(() => getButton('Save',).click())
+
+		expect(container.textContent,).toContain('instead of becoming a control',)
 	})
 })

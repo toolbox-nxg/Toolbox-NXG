@@ -31,8 +31,8 @@ import {TokenChips,} from '../../../shared/controls/TokenChips'
 import {formatRelativeTime,} from '../../../util/data/time'
 import {type ConfigState, generateConfigId, type ToolboxConfig,} from '../../../util/wiki/schemas/config/schema'
 import {
-	containsLiteralChoiceMarker,
 	decodeHtmlAngleBrackets,
+	findLiteralChoiceMarker,
 	htmlFieldsToTokens,
 	substitutionTokens,
 } from '../../../util/wiki/schemas/shared/tokens'
@@ -189,8 +189,8 @@ function ReasonForm ({
 	// A marker no control gets rendered for is sent verbatim, option list and all, so it is
 	// flagged here as well as in the overlay - this is where it can actually be fixed. Healed
 	// the same way the overlay heals it, so a legacy `<select>` isn't reported as broken.
-	const literalChoiceMarker = useMemo(
-		() => containsLiteralChoiceMarker(htmlFieldsToTokens(decodeHtmlAngleBrackets(text,),),),
+	const literalChoiceProblem = useMemo(
+		() => findLiteralChoiceMarker(htmlFieldsToTokens(decodeHtmlAngleBrackets(text,),),),
 		[text,],
 	)
 	const [removePosts, setRemovePosts,] = useState(initialValues.removePosts !== false,)
@@ -346,11 +346,18 @@ function ReasonForm ({
 									list, becomes a pick-one control.
 								</span>
 							</div>
-							{literalChoiceMarker && (
+							{literalChoiceProblem && (
 								<div className={css.fieldWarning}>
-									A {'{choice}'} here has no {'- '}{' '}
-									option list under it, so it will be sent as text - marker and all - instead of
-									becoming a pick-one control.
+									{
+										/* Named per shape: pointing at a missing option list that is in fact
+									    right there sends the moderator hunting through correct text. */
+									}
+									{literalChoiceProblem === 'inline'
+										? 'A {choice} here shares its line with other text, so it will be sent as '
+											+ 'text - marker, option list and all - instead of becoming a pick-one '
+											+ 'control. Put it on a line of its own, with the list directly below.'
+										: 'A {choice} here has no "- " option list under it, so it will be sent as '
+											+ 'text - marker and all - instead of becoming a pick-one control.'}
 								</div>
 							)}
 						</>
