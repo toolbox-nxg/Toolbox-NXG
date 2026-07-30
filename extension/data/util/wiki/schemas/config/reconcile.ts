@@ -212,6 +212,47 @@ async function newestLegacyRevisionTimestamp (subreddit: string,): Promise<numbe
 	}
 }
 
+/**
+ * Reads and normalizes the legacy mirror page, or `undefined` when there is nothing
+ * usable there: a missing page, a tombstone, or a read/parse failure. Never throws -
+ * a flaky mirror must not break a config read.
+ */
+async function readLegacyConfig (subreddit: string,): Promise<ToolboxConfig | undefined> {
+	try {
+		const response = await readFromWiki<Record<string, unknown>>(subreddit, OLD_WIKI_PATHS.settings, true,)
+		if (!response.ok || isTombstone(response.data,)) { return undefined }
+		purifyObject(response.data,)
+		normalizeConfig(response.data,)
+		return response.data
+	} catch (error) {
+		log.warn(`Could not read the legacy config mirror for /r/${subreddit}:`, error,)
+		return undefined
+	}
+}
+
+/**
+ * Whether the legacy mirror on the wiki carries the same 6.x-owned content the given
+ * canonical config would produce - i.e. whether it holds no 6.x edit and is not
+ * lagging behind an NXG edit. Runs the same content comparison as the reconcile's
+ * first guard, so the two can never disagree about what "in sync" means.
+ *
+ * Only the 6.x-owned fields participate; domain tags and usernote colors are injected
+ * into the mirror from their own NXG pages and are dropped on read, so they cannot be
+ * compared here.
+ * @param subreddit The subreddit whose mirror to inspect.
+ * @param nxgConfig The canonical normalized NXG config.
+ * @returns `true`/`false`, or `undefined` when the mirror could not be read.
+ */
+export async function legacyMirrorMatchesConfig (
+	subreddit: string,
+	nxgConfig: ToolboxConfig,
+): Promise<boolean | undefined> {
+	const legacy = await readLegacyConfig(subreddit,)
+	if (legacy === undefined) { return undefined }
+	return legacyOwnedFieldsEqual(nxgConfig, legacy,)
+		|| legacyOwnedFieldsEqual(mirrorViewOfConfig(nxgConfig,), legacy,)
+}
+
 /** What a reconcile decided, for callers that log or surface the reason. */
 export type ReconcileOutcome =
 	/** The mirror carries no 6.x edit (either directly equal, or equal to the mirror we would write). */
@@ -250,17 +291,8 @@ export async function reconcileConfigFromLegacy (
 	nxgConfig: ToolboxConfig,
 	options: ReconcileConfigOptions = {},
 ): Promise<{config: ToolboxConfig; changed: boolean; outcome: ReconcileOutcome}> {
-	let legacy: ToolboxConfig
-	try {
-		const response = await readFromWiki<Record<string, unknown>>(subreddit, OLD_WIKI_PATHS.settings, true,)
-		if (!response.ok || isTombstone(response.data,)) {
-			return {config: nxgConfig, changed: false, outcome: 'equal',}
-		}
-		purifyObject(response.data,)
-		normalizeConfig(response.data,)
-		legacy = response.data
-	} catch (error) {
-		log.warn(`Could not read the legacy config mirror for /r/${subreddit}:`, error,)
+	const legacy = await readLegacyConfig(subreddit,)
+	if (legacy === undefined) {
 		return {config: nxgConfig, changed: false, outcome: 'equal',}
 	}
 

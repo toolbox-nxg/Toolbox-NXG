@@ -466,6 +466,7 @@ describe('getConfig', () => {
 		// clearAllMocks keeps implementations, so the per-page revision mock the
 		// arbitration tests install would otherwise leak into later suites.
 		vi.mocked(getWikiRevisions,).mockResolvedValue([],)
+		vi.mocked(setCache,).mockResolvedValue(undefined,)
 	},)
 
 	it('returns undefined for a cached no-config sub without calling the wiki', async () => {
@@ -596,6 +597,18 @@ describe('getConfig', () => {
 		expect(result,).toBe(configData,)
 	})
 
+	it('still returns the config when caching it fails', async () => {
+		// An invalidated extension context (navigation, an extension reload) rejects the
+		// cache write. The config was already read successfully - the caller must get it.
+		const configData = {removalReasons: {header: 'hi',},}
+		vi.mocked(readFromWiki,).mockResolvedValue({ok: true, data: configData,},)
+		vi.mocked(setCache,).mockImplementation(async (_moduleId, key,) => {
+			if (key === 'configCache') { throw new Error('Extension context invalidated',) }
+		},)
+
+		expect(await getConfig('sub',),).toBe(configData,)
+	})
+
 	it('reads the NXG page for compat-off subs', async () => {
 		resolveWikiLayout.mockResolvedValue(
 			{subreddit: 'sub', state: 'nxg', compatibilityWrites: false,},
@@ -661,6 +674,19 @@ describe('getConfig', () => {
 			{subreddit: 'sub', state: 'nxg', compatibilityWrites: true,},
 		)
 		mockDivergedPages(2000, 1000,)
+
+		const result = await getConfig('sub',)
+
+		expect(result!.removalReasons.reasons.map((r,) => r.title),).toEqual(['Spam',],)
+	})
+
+	it('compat-on: keeps the canonical config when its revision carries no timestamp', async () => {
+		// Reddit occasionally lists a revision without a timestamp, which reads back as 0.
+		// Arbitrating against that would make every mirror look newer and adopt.
+		resolveWikiLayout.mockResolvedValue(
+			{subreddit: 'sub', state: 'nxg', compatibilityWrites: true,},
+		)
+		mockDivergedPages(0, 1000,)
 
 		const result = await getConfig('sub',)
 
@@ -1249,13 +1275,52 @@ describe('getConfigMirrorStatus', () => {
 		expect(getWikiRevisions,).not.toHaveBeenCalled()
 	})
 
-	it('reports stale when the canonical page is newer than the mirror', async () => {
+	/** Serves the two config pages, with the mirror carrying whatever `legacyReasons` says. */
+	function mockPages (legacyReasons: Array<{title: string; text: string}> | null,) {
+		vi.mocked(readFromWiki,).mockImplementation(async (_sub: string, page: string,) =>
+			page === 'toolbox-nxg'
+				? {
+					ok: true,
+					data: {ver: 2, removalReasons: {reasons: [{id: 'aaaaaaaa', title: 'Spam', text: 'No spam',},],},},
+				} as WikiReadResult
+				: legacyReasons === null
+				? {ok: false, reason: 'unknown_error',} as WikiReadResult
+				: {ok: true, data: {ver: 1, removalReasons: {reasons: legacyReasons,},},} as WikiReadResult
+		)
+	}
+
+	it('reports stale when the older mirror also differs in content', async () => {
 		resolveWikiLayout.mockResolvedValue(
 			{subreddit: 'sub', state: 'nxg', compatibilityWrites: true,},
 		)
 		mockRevisions(2000, 1000,)
+		mockPages([{title: 'Old wording', text: 'Pre-edit text',},],)
 
 		expect(await getConfigMirrorStatus('sub',),).toEqual({state: 'stale', canonicalAt: 2000, mirrorAt: 1000,},)
+	})
+
+	it('reports inSync when an older mirror still carries the same content', async () => {
+		// Reddit records no revision for a write that changes nothing, and enabling
+		// compatibility writes the mirror before the canonical page - neither is a
+		// failed mirror write, so neither may raise the warning.
+		resolveWikiLayout.mockResolvedValue(
+			{subreddit: 'sub', state: 'nxg', compatibilityWrites: true,},
+		)
+		mockRevisions(2000, 1000,)
+		// The mirror matches modulo the stripped id.
+		mockPages([{title: 'Spam', text: 'No spam',},],)
+
+		expect(await getConfigMirrorStatus('sub',),).toEqual({state: 'inSync', canonicalAt: 2000, mirrorAt: 1000,},)
+	})
+
+	it('reports unknown when the older mirror cannot be read', async () => {
+		resolveWikiLayout.mockResolvedValue(
+			{subreddit: 'sub', state: 'nxg', compatibilityWrites: true,},
+		)
+		mockRevisions(2000, 1000,)
+		mockPages(null,)
+
+		expect(await getConfigMirrorStatus('sub',),).toEqual({state: 'unknown', canonicalAt: 2000, mirrorAt: 1000,},)
 	})
 
 	it('reports inSync when the mirror is at least as new', async () => {
@@ -1265,6 +1330,8 @@ describe('getConfigMirrorStatus', () => {
 		mockRevisions(1000, 1000,)
 
 		expect((await getConfigMirrorStatus('sub',)).state,).toBe('inSync',)
+		// A mirror that is not behind needs no content comparison.
+		expect(readFromWiki,).not.toHaveBeenCalled()
 	})
 
 	it('reports unknown when a revision listing is unavailable', async () => {

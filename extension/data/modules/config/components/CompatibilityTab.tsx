@@ -157,8 +157,8 @@ export function CompatibilityTab ({subreddit,}: Props,) {
 				<div className={css.actions}>
 					{mirrorStatus?.state === 'stale' && (
 						<span className={css.note}>
-							⚠ The old wiki pages are older than the toolbox-nxg pages, so mods on Toolbox 6.x are seeing
-							stale settings. This usually means a mirror write failed - refresh it below.
+							⚠ The old wiki pages hold older settings than the toolbox-nxg pages, so mods on Toolbox 6.x
+							are seeing stale settings. This usually means a mirror write failed - refresh it below.
 						</span>
 					)}
 					<ActionButton

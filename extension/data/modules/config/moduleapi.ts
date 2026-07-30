@@ -11,7 +11,11 @@ import {createPerKeyQueue,} from '../../util/infra/perKeyQueue'
 import {clearCache, getCache, setCache,} from '../../util/persistence/cache'
 import {isUserProfileSubreddit,} from '../../util/reddit/profileSubreddit'
 import {configCodec, encodeClassicConfig,} from '../../util/wiki/schemas/config/codec'
-import {reconcileConfigFromLegacy, type ReconcileConfigOptions,} from '../../util/wiki/schemas/config/reconcile'
+import {
+	legacyMirrorMatchesConfig,
+	reconcileConfigFromLegacy,
+	type ReconcileConfigOptions,
+} from '../../util/wiki/schemas/config/reconcile'
 import {isConfigValidVersion, normalizeConfig, ToolboxConfig,} from '../../util/wiki/schemas/config/schema'
 import {NXG_USERNOTES_FORMAT,} from '../../util/wiki/schemas/usernotes/schema'
 import {COMPAT_WRITES_KEY, NEW_WIKI_PATHS, OLD_WIKI_PATHS,} from '../../util/wiki/wikiConstants'
@@ -64,9 +68,18 @@ async function stashConfigRev (subreddit: string, page: string,): Promise<WikiRe
  * Builds the arbitration options for a reconcile from the revision the config was
  * read at. Written as a conditional spread because `exactOptionalPropertyTypes`
  * forbids passing an explicit `undefined` for an optional property.
+ *
+ * A revision listing that carries no usable timestamp reads back as `0`, which must
+ * not be forwarded as a date: the legacy side only accepts a positive timestamp, so
+ * a `0` here would make every mirror look newer and adopt unconditionally - exactly
+ * the revert the recency guard exists to prevent. Omitting it keeps the canonical
+ * config instead.
  */
 function reconcileOptions (revision: WikiRevision | undefined,): ReconcileConfigOptions {
-	return revision ? {nxgRevisionTimestamp: revision.timestamp,} : {}
+	const timestamp = revision?.timestamp
+	return typeof timestamp === 'number' && Number.isFinite(timestamp,) && timestamp > 0
+		? {nxgRevisionTimestamp: timestamp,}
+		: {}
 }
 
 /**
@@ -177,9 +190,17 @@ export async function tryGetConfig (
 	}
 
 	cachedConfigs[subreddit] = resolvedConfig
-	// Awaited rather than fire-and-forget: a concurrent save's clearCache() must not be
+	// Awaited rather than fire-and-forget so the write lands before this call returns:
+	// the usual caller reads, edits, then saves, and the save's clearCache() must not be
 	// overtaken by this write, which would re-seat the pre-save config for the full TTL.
-	await setCache(utils, 'configCache', cachedConfigs,)
+	// Caching is best-effort, though - an invalidated extension context (navigation, an
+	// extension reload) rejects the message, and that must not fail a config read that
+	// already has its answer.
+	try {
+		await setCache(utils, 'configCache', cachedConfigs,)
+	} catch (err) {
+		log.debug(`could not cache the config for /r/${subreddit}`, err,)
+	}
 	return {status: 'ok', config: resolvedConfig,}
 }
 
@@ -550,6 +571,12 @@ export interface ConfigMirrorStatus {
  * UI can tell a moderator when the mirror has fallen behind - most often because a mirror
  * write failed, which is otherwise only visible as a single toast at save time.
  *
+ * Revision dates alone cannot answer this: Reddit records no revision for a write that
+ * changes nothing, so a canonical save touching only NXG-only fields - or enabling
+ * compatibility, which writes the mirror first and the canonical page second - leaves the
+ * mirror legitimately older. An older mirror is therefore only reported `stale` once its
+ * content is confirmed to differ from the mirror this config would produce.
+ *
  * Deliberately computed on demand rather than tracked in a cached flag: `clearCache`
  * wipes every cache key, and any module's save calls it, so a stored flag would be
  * erased at random.
@@ -563,7 +590,12 @@ export async function getConfigMirrorStatus (subreddit: string,): Promise<Config
 		newestRevisionTimestamp(subreddit, OLD_WIKI_PATHS.settings,),
 	],)
 	if (canonicalAt === undefined || mirrorAt === undefined) { return {state: 'unknown',} }
-	return {state: mirrorAt < canonicalAt ? 'stale' : 'inSync', canonicalAt, mirrorAt,}
+	if (mirrorAt >= canonicalAt) { return {state: 'inSync', canonicalAt, mirrorAt,} }
+	const config = await getConfig(subreddit,)
+	if (config === undefined) { return {state: 'unknown', canonicalAt, mirrorAt,} }
+	const matches = await legacyMirrorMatchesConfig(subreddit, config,)
+	if (matches === undefined) { return {state: 'unknown', canonicalAt, mirrorAt,} }
+	return {state: matches ? 'inSync' : 'stale', canonicalAt, mirrorAt,}
 }
 
 /** The newest revision timestamp of a wiki page, or `undefined` when it could not be read. */
