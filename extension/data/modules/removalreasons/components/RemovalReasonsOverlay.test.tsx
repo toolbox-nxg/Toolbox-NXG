@@ -590,6 +590,19 @@ describe('RemovalReasonsOverlay (note destination)', () => {
 			.map((b,) => b.textContent?.trim())
 	}
 
+	/** The note-type chip with the given text, from whichever vocabulary is showing. */
+	function chip (label: string,) {
+		const button = [...container.querySelectorAll<HTMLButtonElement>('button',),]
+			.find((b,) => b.textContent?.trim() === label)
+		expect(button, `no note type chip labelled "${label}"`,).toBeTruthy()
+		return button!
+	}
+
+	/** Whether the chip with the given text is the selected one. */
+	function chipSelected (label: string,) {
+		return chip(label,).className.includes('noteTypeChipSelected',)
+	}
+
 	it('defaults to the Toolbox destination and shows the subreddit\'s note types', async () => {
 		await renderWithNote()
 
@@ -621,6 +634,62 @@ describe('RemovalReasonsOverlay (note destination)', () => {
 		await renderWithNote('native',)
 
 		expect(destinationRadio('Reddit mod note',).checked,).toBe(true,)
+	})
+
+	it('carries a hand-picked Toolbox type across to Reddit\'s label', async () => {
+		await renderWithNote()
+
+		// Override the type the reason auto-filled (permban), then switch destination.
+		await act(async () => {
+			chip('Spam',).click()
+		},)
+		await act(async () => {
+			destinationRadio('Reddit mod note',).click()
+		},)
+
+		expect(chipSelected('Spam Watch',),).toBe(true,)
+		expect(chipSelected('Permaban',),).toBe(false,)
+	})
+
+	it('carries a Reddit label back to the matching Toolbox type', async () => {
+		await renderWithNote('native',)
+
+		await act(async () => {
+			chip('Spam Watch',).click()
+		},)
+		await act(async () => {
+			destinationRadio('Toolbox note',).click()
+		},)
+
+		expect(chipSelected('Spam',),).toBe(true,)
+	})
+
+	it('drops a Reddit label the subreddit has no Toolbox type for', async () => {
+		await renderWithNote('native',)
+
+		// This subreddit's only configured type is `spamwatch`, so Ban has nowhere to land.
+		await act(async () => {
+			chip('Ban',).click()
+		},)
+		await act(async () => {
+			destinationRadio('Toolbox note',).click()
+		},)
+
+		expect(chipSelected('Spam',),).toBe(false,)
+	})
+
+	it('warns that an over-long note will be shortened for Reddit', async () => {
+		await renderWithNote('native',)
+
+		const input = container.querySelector<HTMLInputElement>('input[placeholder="Note text"]',)!
+		await act(async () => {
+			// Assign through the prototype setter so React's value tracker sees the change.
+			Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value',)!.set!
+				.call(input, 'x'.repeat(260,),)
+			input.dispatchEvent(new Event('input', {bubbles: true,},),)
+		},)
+
+		expect(container.textContent,).toContain('limited to 250 characters',)
 	})
 })
 

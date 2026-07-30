@@ -2,8 +2,8 @@
  * Renders the "what happens on accept" panel for a proposal's captured action - the
  * piece the old drawer was missing. For a removal-reasons proposal it shows the exact
  * composed message the author would receive (rendered as markdown) plus a list of the
- * side effects the reviewer is approving (delivery mode, flair, usernote, ban, locks,
- * log). For ban/mute it shows the captured details. Everything is read straight off the
+ * side effects the reviewer is approving (delivery mode, flair, note and where it goes,
+ * ban, locks, log). For ban/mute it shows the captured details. Everything is read off the
  * frozen intent / action - no fetching - and only fields that are present are shown
  * (the intent is curated to omit defaults, so "present" == "meaningful").
  */
@@ -12,6 +12,7 @@ import {type ReactNode, useMemo,} from 'react'
 
 import type {FrozenReasonType, FrozenRemovalIntent, ProposedAction,} from '../../../util/wiki/schemas/proposals/schema'
 import type {UserNoteColor,} from '../../../util/wiki/schemas/usernotes/schema'
+import {labelColors, labelNames,} from '../../shared/modnotes/schema'
 import {getRemovalReasonParser,} from '../../shared/removalReasons/parser'
 import css from './ProposalsReviewPopup.module.css'
 
@@ -35,6 +36,43 @@ function UsernoteTypeChip ({typeKey, color,}: {typeKey: string; color?: UserNote
 		>
 			{color ? color.text : typeKey}
 		</span>
+	)
+}
+
+/** Reddit label rendered the way the mod notes UI renders it: name in the label's color. */
+function NativeLabelChip ({label,}: {label: string},) {
+	return (
+		<span className={css.usernoteChip} style={{color: labelColors[label],}}>
+			{labelNames[label] ?? label}
+		</span>
+	)
+}
+
+/**
+ * The note row for a captured removal: which side of the note divide it lands on, its
+ * text, and its type in that side's vocabulary. The destination is part of what the
+ * reviewer approves - a Reddit mod note is public to the mod team and outlives the
+ * subreddit's wiki - so it is named in the label rather than left to be inferred.
+ */
+function NoteEffect (
+	{usernote, usernoteColor,}: {
+		usernote: NonNullable<FrozenRemovalIntent['usernote']>
+		usernoteColor?: UserNoteColor | undefined
+	},
+) {
+	const native = usernote.destination === 'native'
+	return (
+		<Effect
+			label={native ? 'Reddit mod note' : 'Toolbox note'}
+			value={
+				<span className={css.usernoteValue}>
+					<span>{usernote.text}</span>
+					{native
+						? usernote.nativeLabel !== undefined && <NativeLabelChip label={usernote.nativeLabel} />
+						: usernote.type && <UsernoteTypeChip typeKey={usernote.type} color={usernoteColor} />}
+				</span>
+			}
+		/>
 	)
 }
 
@@ -87,19 +125,7 @@ function RemovalReasonSummary (
 				<Effect label="Lock thread" value={intent.actionLockThread} />
 				<Effect label="Lock reply" value={intent.actionLockComment} />
 				{intent.flair && <Effect label="Flair" value={flairSummary(intent.flair,)} />}
-				{intent.usernote && (
-					<Effect
-						label="Usernote"
-						value={
-							<span className={css.usernoteValue}>
-								<span>{intent.usernote.text}</span>
-								{intent.usernote.type && (
-									<UsernoteTypeChip typeKey={intent.usernote.type} color={usernoteColor} />
-								)}
-							</span>
-						}
-					/>
-				)}
+				{intent.usernote && <NoteEffect usernote={intent.usernote} usernoteColor={usernoteColor} />}
 				{intent.ban && (
 					<Effect
 						label="Ban"

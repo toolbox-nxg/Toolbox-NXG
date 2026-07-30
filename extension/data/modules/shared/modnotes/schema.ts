@@ -73,6 +73,24 @@ export const usernoteTypeToLabelType: Record<string, string | undefined> = {
 	botban: 'BOT_BAN',
 }
 
+/**
+ * Reverse of {@link usernoteTypeToLabelType}, for carrying a chosen label back to a
+ * Toolbox note type when a note's destination is switched to the wiki. Reddit's
+ * `USER_SUMMARY` label is auto-generated and has no Toolbox counterpart, so it is
+ * absent and resolves to `undefined` (the note keeps no type).
+ */
+export const labelTypeToUsernoteType: Record<string, string | undefined> = Object.fromEntries(
+	Object.entries(usernoteTypeToLabelType,)
+		.filter((entry,): entry is [string, string,] => entry[1] !== undefined)
+		.map(([type, label,],) => [label, type,]),
+)
+
+/**
+ * Character limit Reddit enforces on a mod note's body. A longer note is rejected
+ * outright, so writers truncate to this rather than let the call fail.
+ */
+export const maxNativeNoteLength = 250
+
 /** User-note-specific fields on a mod note. */
 export interface ModNoteUserNoteData {
 	/** Free-text note body. */

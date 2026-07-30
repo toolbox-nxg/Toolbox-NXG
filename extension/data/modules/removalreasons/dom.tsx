@@ -18,6 +18,7 @@ import {usernotes,} from '../../framework/moduleIds'
 import {FlatListAction,} from '../../shared/controls/FlatListAction'
 import {negativeTextFeedback,} from '../../store/feedback'
 import {htmlEncode,} from '../../util/data/encoding'
+import {selectorOptionKey,} from '../../util/data/string'
 import createLogger from '../../util/infra/logging'
 import {isOldReddit, RedditPlatform,} from '../../util/infra/platform'
 import {getModuleSettingAsync,} from '../../util/persistence/settings'
@@ -618,8 +619,12 @@ export function createRemovalReasonsHandlers ({
 		)
 		// A moderator who opens the notes popup on Native Notes works in Reddit's mod
 		// notes, so default the removal note to the same place. Still overridable per
-		// removal by the destination selector.
-		const defaultNoteDestination: NoteDestination = defaultNotesTab === 'native_notes' ? 'native' : 'toolbox'
+		// removal by the destination selector. Normalized through `selectorOptionKey`
+		// because a selector setting is stored either as the derived key or as the raw
+		// display label ("Native Notes"), and both are valid on read.
+		const defaultNoteDestination: NoteDestination = selectorOptionKey(defaultNotesTab,) === 'native_notes'
+			? 'native'
+			: 'toolbox'
 		if (!drawerRequestIsCurrent()) {
 			resetRemoveButton()
 			return

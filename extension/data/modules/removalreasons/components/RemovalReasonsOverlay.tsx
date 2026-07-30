@@ -35,7 +35,13 @@ import type {
 import {decodeHtmlAngleBrackets, htmlFieldsToTokens,} from '../../../util/wiki/schemas/shared/tokens'
 import {UserNoteColor,} from '../../../util/wiki/schemas/usernotes/schema'
 import {requestCounterRefresh,} from '../../notifier/store'
-import {labelColors, selectableLabelNames, usernoteTypeToLabelType,} from '../../shared/modnotes/schema'
+import {
+	labelColors,
+	labelTypeToUsernoteType,
+	maxNativeNoteLength,
+	selectableLabelNames,
+	usernoteTypeToLabelType,
+} from '../../shared/modnotes/schema'
 import {maybePropose, performRemoval, proposeOrRemove,} from '../../shared/proposals/gateway'
 import {makeDeliveryOption,} from '../../shared/removalReasons/DeliveryOption'
 import {getRemovalReasonParser,} from '../../shared/removalReasons/parser'
@@ -628,6 +634,29 @@ export function RemovalReasonsOverlay ({
 		}
 	}
 
+	/**
+	 * Moves the note to the other destination, translating the chosen type into that
+	 * side's vocabulary. The two chip rows are different vocabularies over the same
+	 * intent, so a hand-picked type must not be silently dropped by a switch - the
+	 * note would then save unlabelled, and a subreddit requiring a note type would
+	 * start complaining about a note the moderator already typed.
+	 * @param next The destination the moderator picked.
+	 */
+	const handleNoteDestinationChange = (next: NoteDestination,) => {
+		setNoteDestination(next,)
+		if (next === 'native') {
+			setNativeLabel(usernoteType !== undefined ? usernoteTypeToLabelType[usernoteType] : undefined,)
+			return
+		}
+		const mapped = nativeLabel !== undefined ? labelTypeToUsernoteType[nativeLabel] : undefined
+		// Only adopt a key this subreddit actually offers: the Toolbox chip row renders
+		// `subredditColors`, so a key missing from it would be set but unselectable.
+		// Colors still loading means "not known to be absent", so keep the translation.
+		const offered = mapped !== undefined
+			&& (subredditColors === null || subredditColors.some((c,) => c.key === mapped))
+		setUsernoteType(offered ? mapped : undefined,)
+	}
+
 	const toggleSelected = (id: string,) => {
 		if (editingId === id) { setEditingId(null,) }
 		setSelected((prev,) => {
@@ -1216,7 +1245,7 @@ export function RemovalReasonsOverlay ({
 											name={`note-destination-${data.subreddit}`}
 											value={value}
 											checked={noteDestination === value}
-											onChange={() => setNoteDestination(value,)}
+											onChange={() => handleNoteDestinationChange(value,)}
 										/>
 										{label}
 									</label>
@@ -1294,6 +1323,13 @@ export function RemovalReasonsOverlay ({
 									/>
 								)}
 							</>
+						)}
+						{/* The write truncates rather than fail the removal; say so before it happens. */}
+						{noteDestination === 'native' && usernoteText.trim().length > maxNativeNoteLength && (
+							<p className={css.fieldHint}>
+								Reddit mod notes are limited to {maxNativeNoteLength}{' '}
+								characters - this note will be shortened.
+							</p>
 						)}
 						{usernoteUnmetMessage && (
 							<p className={css.fieldHint}>{usernoteUnmetMessage}</p>

@@ -3,7 +3,7 @@
 import {describe, expect, it,} from 'vitest'
 
 import {defaultUsernoteTypes,} from '../../../util/wiki/schemas/usernotes/schema'
-import {labelNames, usernoteTypeToLabelType,} from './schema'
+import {labelNames, labelTypeToUsernoteType, usernoteTypeToLabelType,} from './schema'
 
 describe('usernoteTypeToLabelType', () => {
 	it('maps every built-in Toolbox note type to a real Reddit label', () => {
@@ -22,5 +22,17 @@ describe('usernoteTypeToLabelType', () => {
 
 	it('leaves a subreddit\'s custom type unmapped, so the note saves unlabelled', () => {
 		expect(usernoteTypeToLabelType['sockpuppet'],).toBeUndefined()
+	})
+})
+
+describe('labelTypeToUsernoteType', () => {
+	it('round-trips every mapped type, so switching a note\'s destination twice is lossless', () => {
+		for (const [type, label,] of Object.entries(usernoteTypeToLabelType,)) {
+			expect(labelTypeToUsernoteType[label!], `no return path for "${label}"`,).toBe(type,)
+		}
+	})
+
+	it('leaves Reddit\'s auto-generated summary label with no Toolbox counterpart', () => {
+		expect(labelTypeToUsernoteType['USER_SUMMARY'],).toBeUndefined()
 	})
 })

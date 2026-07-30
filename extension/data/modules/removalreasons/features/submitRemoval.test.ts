@@ -217,6 +217,16 @@ describe('submitRemoval native mod note write', () => {
 		expect(createModNote,).not.toHaveBeenCalled()
 	})
 
+	it('truncates a note past Reddit\'s length limit instead of failing the removal', async () => {
+		const result = await submitRemoval(
+			makeParams({noteDestination: 'native', usernoteText: 'x'.repeat(400,),},),
+			() => {},
+		)
+
+		expect(result,).toEqual({ok: true,},)
+		expect(createModNote,).toHaveBeenCalledWith(expect.objectContaining({note: 'x'.repeat(250,),},),)
+	})
+
 	it('fails the removal when Reddit rejects the note', async () => {
 		createModNote.mockRejectedValueOnce(new Error('reddit rejected',),)
 

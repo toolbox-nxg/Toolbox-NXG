@@ -27,6 +27,7 @@ import {removeQuotes,} from '../../../util/data/string'
 import createLogger from '../../../util/infra/logging'
 import type {RemovalTarget,} from '../../../util/wiki/schemas/proposals/schema'
 import {UserNoteColor,} from '../../../util/wiki/schemas/usernotes/schema'
+import {maxNativeNoteLength,} from '../../shared/modnotes/schema'
 import {rememberMessageLink,} from '../../shared/usernotes/messageLinkCache'
 import {updateUserNotes,} from '../../shared/usernotes/moduleapi'
 import {applyUserNoteMutation, makeUserNoteEntry,} from '../../shared/usernotes/noteMutations'
@@ -274,7 +275,11 @@ export async function submitRemoval (
 					await createModNote({
 						subreddit: data.subreddit,
 						user: data.author,
-						note: usernoteText.trim(),
+						// Reddit rejects a note over its length limit outright, and the
+						// auto-composed text (every selected reason's `default_note`, joined)
+						// can easily run past it. Truncate like the ban note below rather
+						// than fail a removal that has already happened.
+						note: usernoteText.trim().slice(0, maxNativeNoteLength,),
 						// Attaches the note to the item that prompted it, the way the usernotes
 						// popup does with its context id. There is no "include link" choice
 						// here: the attachment *is* how a native note references the thing.
