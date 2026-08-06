@@ -58,6 +58,7 @@ export const lockCommentError = 'failed to lock reply'
 export const logReasonMissingError = 'public log reason missing'
 export const logPostError = 'failed to create log post'
 export const usernoteError = 'failed to save usernote'
+export const nativeNoteError = 'failed to save Reddit mod note'
 export const banError = 'failed to issue ban'
 export const nativeReasonError = 'failed to register native removal reason'
 

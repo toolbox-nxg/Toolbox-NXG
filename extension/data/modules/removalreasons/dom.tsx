@@ -17,6 +17,7 @@ import {createLifecycle,} from '../../framework/lifecycle'
 import {usernotes,} from '../../framework/moduleIds'
 import {FlatListAction,} from '../../shared/controls/FlatListAction'
 import {negativeTextFeedback,} from '../../store/feedback'
+import {selectorOptionKey,} from '../../util/data/string'
 import createLogger from '../../util/infra/logging'
 import {isOldReddit, RedditPlatform,} from '../../util/infra/platform'
 import {getModuleSettingAsync,} from '../../util/persistence/settings'
@@ -39,6 +40,7 @@ import {
 	defaultLogTitle,
 	defaultSubject,
 	isDrawerDisplayMode,
+	type NoteDestination,
 	RemovalReason,
 	type RemovalReasonsConfig,
 	type RemovalReasonsData,
@@ -605,16 +607,31 @@ export function createRemovalReasonsHandlers ({
 		// flags (not any `getfrom` source; the getConfig read is cached from the
 		// getRemovalReasons call above) combined with the moderator's personal
 		// settings, "more restrictive wins".
-		const [reqConfig, personalRequireType, personalRequireText, personalRequireLink,] = await Promise.all([
+		const [
+			reqConfig,
+			personalRequireType,
+			personalRequireText,
+			personalRequireLink,
+			defaultNotesTab,
+		] = await Promise.all([
 			getConfig(baseData.subreddit,).catch(() => undefined),
 			getModuleSettingAsync<boolean>(usernotes, 'requireNoteType', false,),
 			getModuleSettingAsync<boolean>(usernotes, 'requireNoteText', true,),
 			getModuleSettingAsync<boolean>(usernotes, 'requireNoteLink', false,),
+			getModuleSettingAsync<string>(usernotes, 'defaultNotesTab', 'toolbox_notes',),
 		],)
 		const usernoteRequire = resolveUsernoteRequirements(
 			subUsernoteRequireFromConfig(reqConfig,),
 			{type: !!personalRequireType, text: !!personalRequireText, link: !!personalRequireLink,},
 		)
+		// A moderator who opens the notes popup on Native Notes works in Reddit's mod
+		// notes, so default the removal note to the same place. Still overridable per
+		// removal by the destination selector. Normalized through `selectorOptionKey`
+		// because a selector setting is stored either as the derived key or as the raw
+		// display label ("Native Notes"), and both are valid on read.
+		const defaultNoteDestination: NoteDestination = selectorOptionKey(defaultNotesTab,) === 'native_notes'
+			? 'native'
+			: 'toolbox'
 		if (!drawerRequestIsCurrent()) {
 			resetRemoveButton()
 			return
@@ -790,6 +807,7 @@ export function createRemovalReasonsHandlers ({
 				actionLockCommentSetting,
 			},
 			usernoteRequire,
+			defaultNoteDestination,
 			onRemoved,
 			onClose: () => {
 				if (!drawerMode) {

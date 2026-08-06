@@ -133,6 +133,22 @@ describe('freezeRemovalParams', () => {
 		expect('selection' in freezeRemovalParams(makeParams(),),).toBe(false,)
 	})
 
+	it('records a native note destination and label, and omits both for a Toolbox note', () => {
+		const toolbox = freezeRemovalParams(makeParams({leaveUsernote: true, usernoteText: 'note',},),)
+		expect('destination' in toolbox.usernote!,).toBe(false,)
+		expect('nativeLabel' in toolbox.usernote!,).toBe(false,)
+
+		const native = freezeRemovalParams(
+			makeParams({
+				leaveUsernote: true,
+				usernoteText: 'note',
+				noteDestination: 'native',
+				nativeNoteLabel: 'BAN',
+			},),
+		)
+		expect(native.usernote,).toMatchObject({destination: 'native', nativeLabel: 'BAN',},)
+	})
+
 	it('keeps native reason ids when set and omits them otherwise', () => {
 		expect('nativeReasonIds' in freezeRemovalParams(makeParams(),),).toBe(false,)
 		expect('nativeReasonIds' in freezeRemovalParams(makeParams({nativeReasonIds: [],},),),).toBe(false,)
@@ -225,6 +241,24 @@ describe('replayRemovalProposal', () => {
 		const intent = makeIntent({nativeReasonIds: ['r1', 'r2',],},)
 		await replayRemovalProposal('sub', makeProposal(intent,), intent,)
 		expect(received!.nativeReasonIds,).toEqual(['r1', 'r2',],)
+	})
+
+	it('replays the note to its captured destination, defaulting to Toolbox', async () => {
+		let received: SubmitRemovalParams | undefined
+		submitRemoval.mockImplementation(async (params: SubmitRemovalParams,) => {
+			received = params
+			return {ok: true,}
+		},)
+
+		const native = makeIntent({usernote: {text: 'note', destination: 'native', nativeLabel: 'BAN',},},)
+		await replayRemovalProposal('sub', makeProposal(native,), native,)
+		expect(received,).toMatchObject({noteDestination: 'native', nativeNoteLabel: 'BAN',},)
+
+		// A capture written before the destination existed must still replay to the wiki.
+		const legacy = makeIntent({usernote: {text: 'note',},},)
+		await replayRemovalProposal('sub', makeProposal(legacy,), legacy,)
+		expect(received!.noteDestination,).toBe('toolbox',)
+		expect('nativeNoteLabel' in received!,).toBe(false,)
 	})
 
 	it('throws the pipeline error when submitRemoval fails', async () => {

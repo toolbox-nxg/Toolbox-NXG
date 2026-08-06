@@ -19,6 +19,7 @@ const sendOfficialRemovalMessage = vi.hoisted(() => vi.fn())
 const applyNativeRemovalReason = vi.hoisted(() => vi.fn())
 const updateUserNotes = vi.hoisted(() => vi.fn())
 const publishSubredditNotes = vi.hoisted(() => vi.fn())
+const createModNote = vi.hoisted(() => vi.fn())
 
 vi.mock('webextension-polyfill', () => ({
 	default: {runtime: {getURL: (path: string,) => `chrome-extension://fake/${path}`,},},
@@ -31,6 +32,8 @@ vi.mock('../../../api/resources/flair', () => ({flairPost,}),)
 vi.mock('../../../api/resources/removalReasons', () => ({applyNativeRemovalReason,}),)
 
 vi.mock('../../../api/resources/modmail', () => ({archiveModmail, sendModmail,}),)
+
+vi.mock('../../../api/resources/modnotes', () => ({createModNote,}),)
 
 vi.mock('../../../api/resources/relationships', () => ({banUser,}),)
 
@@ -97,6 +100,7 @@ function makeParams (overrides: Partial<SubmitRemovalParams> = {},): SubmitRemov
 		actionLockThread: false,
 		actionLockComment: false,
 		leaveUsernote: true,
+		noteDestination: 'toolbox',
 		usernoteText: 'rule 1',
 		usernoteType: undefined,
 		usernoteIncludeLink: true,
@@ -126,6 +130,7 @@ beforeEach(() => {
 	clearMessageLinks()
 	removeThing.mockResolvedValue({},)
 	applyNativeRemovalReason.mockResolvedValue(undefined,)
+	createModNote.mockResolvedValue({},)
 	postComment.mockResolvedValue({fullname: 't1_reply',},)
 	distinguishThing.mockResolvedValue({},)
 	sendModmail.mockResolvedValue({conversation: {id: 'convo123', isInternal: false,},},)
@@ -167,6 +172,67 @@ describe('submitRemoval usernote write', () => {
 
 		expect(result,).toEqual({ok: true,},)
 		expect(savedNote().link,).toBeUndefined()
+	})
+
+	it('writes no Reddit mod note for the Toolbox destination', async () => {
+		const result = await submitRemoval(makeParams(), () => {},)
+
+		expect(result,).toEqual({ok: true,},)
+		expect(createModNote,).not.toHaveBeenCalled()
+	})
+})
+
+describe('submitRemoval native mod note write', () => {
+	it('writes the note to Reddit and not the wiki, attached to the removed thing', async () => {
+		const result = await submitRemoval(
+			makeParams({noteDestination: 'native', nativeNoteLabel: 'SPAM_WATCH',},),
+			() => {},
+		)
+
+		expect(result,).toEqual({ok: true,},)
+		expect(createModNote,).toHaveBeenCalledWith({
+			subreddit: 'testsub',
+			user: 'testuser',
+			note: 'rule 1',
+			redditID: 't1_comment',
+			label: 'SPAM_WATCH',
+		},)
+		// The two destinations are either/or: nothing reaches the usernotes wiki.
+		expect(updateUserNotes,).not.toHaveBeenCalled()
+		expect(publishSubredditNotes,).not.toHaveBeenCalled()
+	})
+
+	it('omits the label when no Reddit label was resolved', async () => {
+		await submitRemoval(makeParams({noteDestination: 'native',},), () => {},)
+
+		expect(createModNote,).toHaveBeenCalledWith(
+			expect.not.objectContaining({label: expect.anything(),},),
+		)
+	})
+
+	it('leaves no note at all when the note text is blank', async () => {
+		const result = await submitRemoval(makeParams({noteDestination: 'native', usernoteText: '  ',},), () => {},)
+
+		expect(result,).toEqual({ok: true,},)
+		expect(createModNote,).not.toHaveBeenCalled()
+	})
+
+	it('truncates a note past Reddit\'s length limit instead of failing the removal', async () => {
+		const result = await submitRemoval(
+			makeParams({noteDestination: 'native', usernoteText: 'x'.repeat(400,),},),
+			() => {},
+		)
+
+		expect(result,).toEqual({ok: true,},)
+		expect(createModNote,).toHaveBeenCalledWith(expect.objectContaining({note: 'x'.repeat(250,),},),)
+	})
+
+	it('fails the removal when Reddit rejects the note', async () => {
+		createModNote.mockRejectedValueOnce(new Error('reddit rejected',),)
+
+		const result = await submitRemoval(makeParams({noteDestination: 'native',},), () => {},)
+
+		expect(result,).toEqual({ok: false, error: 'failed to save Reddit mod note',},)
 	})
 })
 

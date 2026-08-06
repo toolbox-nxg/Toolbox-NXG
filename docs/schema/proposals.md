@@ -220,9 +220,24 @@ The fully-rendered, post-templating intent for a `removal-reason` proposal. Repl
 | `reasonCommentAsSubreddit` | no       | boolean                  | Post the removal reply as the subreddit (vs the mod); omitted when false                                                                                        |
 | `actionLockThread`         | no       | boolean                  | Lock the removed thread; omitted when false                                                                                                                     |
 | `actionLockComment`        | no       | boolean                  | Lock the removal reply comment; omitted when false                                                                                                              |
-| `usernote`                 | no       | `FrozenRemovalUsernote`  | Usernote to leave (`text`, `type?`, `includeLink?`, `includeMessage?`); omitted when none                                                                       |
+| `usernote`                 | no       | `FrozenRemovalUsernote`  | Note to leave, and where (see below); omitted when none                                                                                                         |
 | `ban`                      | no       | `FrozenRemovalBan`       | Ban to issue (`permanent`, `days`, `note`); omitted when not banning                                                                                            |
 | `selection`                | no       | `FrozenRemovalSelection` | The trainee's structured reason selection, captured purely to re-seed the overlay on **Edit & accept** (see below); omitted on captures that predate this field |
+
+#### `FrozenRemovalUsernote`
+
+The single note a removal leaves, plus which note store it is written to on replay. The two destinations are strictly either/or — a removal never writes both — and each has its own type vocabulary: a Toolbox note carries a subreddit-defined `type` key, a Reddit mod note carries one of Reddit's fixed label types in `nativeLabel`. The `destination` field was added after the first captures were written, so its absence means "Toolbox wiki" (see the version note below).
+
+| Field            | Required | Type                    | Description                                                                                                               |
+| ---------------- | -------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `text`           | yes      | string                  | Note body                                                                                                                 |
+| `type`           | no       | string                  | Toolbox note type key (a `UserNoteColor.key`); omitted when untyped, and unused by a `native` note                        |
+| `destination`    | no       | `"toolbox" \| "native"` | Where the note is written on replay; omitted for `toolbox`, so pre-existing captures replay unchanged                     |
+| `nativeLabel`    | no       | string                  | Reddit label type (e.g. `"BAN"`) for a `native` note; omitted when the note is unlabelled, and unused by a `toolbox` note |
+| `includeLink`    | no       | boolean                 | Store a link to the removed item on the note; `toolbox` only (a `native` note is attached to the item by its fullname)    |
+| `includeMessage` | no       | boolean                 | Store the removal modmail conversation link on the note; `toolbox` only                                                   |
+
+`destination` and `nativeLabel` are additive and optional, so the page schema version was **not** bumped: an older client reading a `native` capture ignores both fields and replays the note to the wiki — the note text and type survive, only its destination differs.
 
 #### `FrozenRemovalSelection`
 

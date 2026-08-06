@@ -20,6 +20,7 @@ import {startSpinner, stopSpinner,} from '../../store/spinnerSlice'
 import {debounce,} from '../../util/data/async'
 import {byteLength,} from '../../util/data/encoding'
 import {forEachChunked,} from '../../util/data/iter'
+import {selectorOptionKey,} from '../../util/data/string'
 import {nowInSeconds,} from '../../util/data/time'
 import createLogger from '../../util/infra/logging'
 import type {TBPageContext,} from '../../util/reddit/pageContext'
@@ -101,7 +102,10 @@ export function createNotesDisplay (
 ): NotesDisplayHandlers {
 	const lifecycle = createLifecycle()
 	const getLatestModNote = createLatestModNoteFetcher()
-	const defaultTabIndex = (defaultNotesTab as string) === 'native_notes' ? 1 : 0
+	// A selector setting reads back as either the derived key or the raw display label
+	// ("Native Notes"), so normalize before comparing - a raw label would otherwise fall
+	// through to the Toolbox tab.
+	const defaultTabIndex = selectorOptionKey(defaultNotesTab,) === 'native_notes' ? 1 : 0
 	const subs: string[] = []
 	const pendingSubs = new Set<string>()
 	let queueTimeout: ReturnType<typeof setTimeout> | undefined

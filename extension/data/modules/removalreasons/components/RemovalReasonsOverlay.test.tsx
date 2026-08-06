@@ -89,7 +89,7 @@ vi.mock('@dnd-kit/sortable', async () => {
 	}
 },)
 
-import type {RemovalReason, RemovalReasonsData, RemovalReasonsOverlaySettings,} from '../schema'
+import type {NoteDestination, RemovalReason, RemovalReasonsData, RemovalReasonsOverlaySettings,} from '../schema'
 import {
 	type RemovalAcceptGate,
 	RemovalReasonsOverlay,
@@ -569,6 +569,154 @@ describe('RemovalReasonsOverlay', () => {
 		},)
 
 		expect(onClose,).toHaveBeenCalledOnce()
+	})
+})
+
+describe('RemovalReasonsOverlay (note destination)', () => {
+	/** A reason carrying a default note, so selecting it opens the note section. */
+	const notedReason: RemovalReason = {
+		text: 'Rule reason',
+		title: '',
+		flairText: '',
+		flairCSS: '',
+		flairTemplateID: '',
+		default_note: 'spamming again',
+		default_note_type: 'permban',
+	}
+
+	/** Renders the overlay and selects the noted reason, opening the note section. */
+	async function renderWithNote (defaultNoteDestination?: NoteDestination,) {
+		await act(async () => {
+			root.render(
+				<RemovalReasonsOverlay
+					data={{...data,}}
+					visibleReasons={[notedReason,]}
+					displayMode="Popup"
+					settings={settings}
+					{...(defaultNoteDestination ? {defaultNoteDestination,} : {})}
+					onClose={onClose}
+				/>,
+			)
+		},)
+		await act(async () => {
+			container.querySelector<HTMLInputElement>('input[aria-label="Select removal reason 1"]',)!.click()
+		},)
+	}
+
+	/** The destination radio with the given label. */
+	function destinationRadio (label: string,) {
+		const input = [...container.querySelectorAll<HTMLLabelElement>('label',),]
+			.find((l,) => l.textContent?.trim() === label)
+			?.querySelector<HTMLInputElement>('input[type="radio"]',)
+		expect(input, `no destination radio labelled "${label}"`,).toBeTruthy()
+		return input!
+	}
+
+	function chipLabels () {
+		return [...container.querySelectorAll('button',),]
+			.map((b,) => b.textContent?.trim())
+	}
+
+	/** The note-type chip with the given text, from whichever vocabulary is showing. */
+	function chip (label: string,) {
+		const button = [...container.querySelectorAll<HTMLButtonElement>('button',),]
+			.find((b,) => b.textContent?.trim() === label)
+		expect(button, `no note type chip labelled "${label}"`,).toBeTruthy()
+		return button!
+	}
+
+	/** Whether the chip with the given text is the selected one. */
+	function chipSelected (label: string,) {
+		return chip(label,).className.includes('noteTypeChipSelected',)
+	}
+
+	it('defaults to the Toolbox destination and shows the subreddit\'s note types', async () => {
+		await renderWithNote()
+
+		expect(destinationRadio('Toolbox note',).checked,).toBe(true,)
+		expect(chipLabels(),).toContain('Spam',)
+		expect(chipLabels(),).not.toContain('Permaban',)
+		expect(container.textContent,).toContain('Include link to removed item',)
+	})
+
+	it('swaps to Reddit\'s labels, seeding one from the reason\'s note type', async () => {
+		await renderWithNote()
+
+		await act(async () => {
+			destinationRadio('Reddit mod note',).click()
+		},)
+
+		// Reddit's fixed label set replaces the subreddit's types...
+		expect(chipLabels(),).toContain('Permaban',)
+		expect(chipLabels(),).not.toContain('Spam',)
+		// ...with `permban` already resolved to PERMA_BAN, so the note is not left unlabelled.
+		const permaban = [...container.querySelectorAll('button',),]
+			.find((b,) => b.textContent?.trim() === 'Permaban')
+		expect(permaban?.className,).toContain('noteTypeChipSelected',)
+		// Both link options belong to the wiki note only.
+		expect(container.textContent,).not.toContain('Include link to removed item',)
+	})
+
+	it('starts on Reddit when that is the moderator\'s default notes tab', async () => {
+		await renderWithNote('native',)
+
+		expect(destinationRadio('Reddit mod note',).checked,).toBe(true,)
+	})
+
+	it('carries a hand-picked Toolbox type across to Reddit\'s label', async () => {
+		await renderWithNote()
+
+		// Override the type the reason auto-filled (permban), then switch destination.
+		await act(async () => {
+			chip('Spam',).click()
+		},)
+		await act(async () => {
+			destinationRadio('Reddit mod note',).click()
+		},)
+
+		expect(chipSelected('Spam Watch',),).toBe(true,)
+		expect(chipSelected('Permaban',),).toBe(false,)
+	})
+
+	it('carries a Reddit label back to the matching Toolbox type', async () => {
+		await renderWithNote('native',)
+
+		await act(async () => {
+			chip('Spam Watch',).click()
+		},)
+		await act(async () => {
+			destinationRadio('Toolbox note',).click()
+		},)
+
+		expect(chipSelected('Spam',),).toBe(true,)
+	})
+
+	it('drops a Reddit label the subreddit has no Toolbox type for', async () => {
+		await renderWithNote('native',)
+
+		// This subreddit's only configured type is `spamwatch`, so Ban has nowhere to land.
+		await act(async () => {
+			chip('Ban',).click()
+		},)
+		await act(async () => {
+			destinationRadio('Toolbox note',).click()
+		},)
+
+		expect(chipSelected('Spam',),).toBe(false,)
+	})
+
+	it('warns that an over-long note will be shortened for Reddit', async () => {
+		await renderWithNote('native',)
+
+		const input = container.querySelector<HTMLInputElement>('input[placeholder="Note text"]',)!
+		await act(async () => {
+			// Assign through the prototype setter so React's value tracker sees the change.
+			Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value',)!.set!
+				.call(input, 'x'.repeat(260,),)
+			input.dispatchEvent(new Event('input', {bubbles: true,},),)
+		},)
+
+		expect(container.textContent,).toContain('limited to 250 characters',)
 	})
 })
 

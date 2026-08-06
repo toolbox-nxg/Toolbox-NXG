@@ -67,6 +67,36 @@ describe('FrozenIntentSummary (removal-reason)', () => {
 		expect(text,).toContain('Lock thread',)
 	})
 
+	it('names the note\'s destination, so the reviewer knows which store it lands in', () => {
+		const toolbox = renderText({
+			type: 'removal-reason',
+			intent: intent({usernote: {text: 'spammer', type: 'spamwatch',},},),
+		},)
+		expect(toolbox,).toContain('Toolbox note',)
+		expect(toolbox,).not.toContain('Reddit mod note',)
+
+		const native = renderText({
+			type: 'removal-reason',
+			intent: intent({
+				// `type` is the Toolbox vocabulary and is not what gets applied here; the
+				// review must show the Reddit label instead of it.
+				usernote: {text: 'spammer', type: 'spamwatch', destination: 'native', nativeLabel: 'PERMA_BAN',},
+			},),
+		},)
+		expect(native,).toContain('Reddit mod note',)
+		expect(native,).toContain('Permaban',)
+		expect(native,).not.toContain('spamwatch',)
+	})
+
+	it('shows a native note with no label as simply unlabelled', () => {
+		const text = renderText({
+			type: 'removal-reason',
+			intent: intent({usernote: {text: 'watch this one', destination: 'native',},},),
+		},)
+		expect(text,).toContain('Reddit mod note',)
+		expect(text,).toContain('watch this one',)
+	})
+
 	it('omits side effects that are absent (no flair/usernote/ban)', () => {
 		const text = renderText({type: 'removal-reason', intent: intent(),},)
 		expect(text,).not.toContain('Flair',)
