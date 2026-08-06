@@ -349,6 +349,44 @@ describe('RemovalReasonList message preview toggle', () => {
 		expect(container.querySelector<HTMLTextAreaElement>('textarea',)?.value,).toBe(reasonText,)
 	})
 
+	it('warns while editing when a {choice} has no option list, and stops once it does', async () => {
+		// A marker nothing renders a control for is sent as text, option list and all. The
+		// editor is where the moderator can fix it, so it says so before the reason is saved.
+		const state = makeState([{
+			id: 'abcd1234',
+			text: 'Pick {choice#rule} now\n- Rule 1',
+			title: 'A reason',
+			removePosts: true,
+			flairText: '',
+			flairCSS: '',
+			flairTemplateID: '',
+		},],)
+		renderList(state,)
+
+		await act(async () => container.querySelector<HTMLButtonElement>('button[title="Edit"]',)!.click())
+		expect(container.textContent,).toContain('will be sent as text',)
+		// This marker has its list already; what it needs is a line of its own, so the warning
+		// must not point at the list.
+		expect(container.textContent,).toContain('shares its line with other text',)
+
+		// Assigning .value directly doesn't reach a controlled React field - React's value
+		// tracker sees no change and swallows the event - so go through the prototype setter.
+		const textarea = container.querySelector<HTMLTextAreaElement>('textarea',)!
+		const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value',)!.set!
+		const typeText = async (text: string,) =>
+			act(async () => {
+				setValue.call(textarea, text,)
+				textarea.dispatchEvent(new Event('input', {bubbles: true,},),)
+			},)
+
+		// Marker on its own line now, but the list is gone with it: the other shape, other advice.
+		await typeText('Pick one:\n\n{choice#rule}\n\nThanks.',)
+		expect(container.textContent,).toContain('has no "- " option list under it',)
+
+		await typeText(reasonText,)
+		expect(container.textContent,).not.toContain('will be sent as text',)
+	})
+
 	it('shows an empty-state message when previewing a blank reason', async () => {
 		const addRef = renderList(makeState([],),)
 		await act(async () => addRef.current!())

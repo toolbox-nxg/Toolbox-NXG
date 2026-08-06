@@ -4,6 +4,7 @@ import {describe, expect, it,} from 'vitest'
 import {
 	canonicalizeChoiceBlocks,
 	decodeHtmlAngleBrackets,
+	findLiteralChoiceMarker,
 	htmlFieldsToTokens,
 	htmlSimpleFieldsToTokens,
 	inlineSelectDefinitions,
@@ -86,9 +87,32 @@ describe('parseReasonSegments', () => {
 		],)
 	})
 
-	it('leaves a marker with no list line below it as literal text', () => {
-		const segments = parseReasonSegments('{choice#rule}\n\n- a',)
-		expect(segments,).toEqual([{type: 'text', text: '{choice#rule}\n\n- a',},],)
+	it('parses a block whose list is separated from the marker by a blank line', () => {
+		// The markdown-natural way to write it. Treating it as "not a choice" sent the marker
+		// and every option to the removed user instead of the one the moderator picked.
+		const segments = parseReasonSegments('Pick a rule:\n\n{choice#r}\n\n- a\n- b\n\nThanks.',)
+		expect(segments,).toEqual([
+			{type: 'text', text: 'Pick a rule:\n\n',},
+			{type: 'token', token: {kind: 'choice', id: 'r', placeholder: '', options: ['a', 'b',],},},
+			{type: 'text', text: '\n\nThanks.',},
+		],)
+	})
+
+	it('skips several blank lines between the marker and its list', () => {
+		const segments = parseReasonSegments('{choice}\n \n\n- a\n- b',)
+		expect(segments,).toEqual([
+			{type: 'token', token: {kind: 'choice', placeholder: '', options: ['a', 'b',],},},
+		],)
+	})
+
+	it('leaves a marker whose next non-blank line is not a list item as literal text', () => {
+		const segments = parseReasonSegments('{choice#rule}\n\nJust some text\n\n- a',)
+		expect(segments,).toEqual([{type: 'text', text: '{choice#rule}\n\nJust some text\n\n- a',},],)
+	})
+
+	it('leaves a marker with nothing below it as literal text', () => {
+		const segments = parseReasonSegments('{choice#rule}\n\n',)
+		expect(segments,).toEqual([{type: 'text', text: '{choice#rule}\n\n',},],)
 	})
 
 	it('leaves an inline (not own-line) choice marker as literal text', () => {
@@ -172,9 +196,52 @@ describe('canonicalizeChoiceBlocks', () => {
 		expect(canonicalizeChoiceBlocks(once,),).toBe(once,)
 	})
 
+	it('tightens a block whose list sat below a blank line, so configs heal on save', () => {
+		const loose = 'Heading\n\n{choice#r}\n\n- a\n- b\n\nBody'
+		const canonical = 'Heading\n\n{choice#r}\n- a\n- b\n\nBody'
+		expect(canonicalizeChoiceBlocks(loose,),).toBe(canonical,)
+		expect(canonicalizeChoiceBlocks(canonical,),).toBe(canonical,)
+	})
+
 	it('leaves text with no choice block untouched', () => {
 		const text = 'Just {input: why} and a\n\n\ntriple gap'
 		expect(canonicalizeChoiceBlocks(text,),).toBe(text,)
+	})
+})
+
+describe('findLiteralChoiceMarker', () => {
+	it('is null for a block that parses, tight or with a blank line before the list', () => {
+		expect(findLiteralChoiceMarker('{choice#r}\n- a\n- b',),).toBeNull()
+		expect(findLiteralChoiceMarker('Pick:\n\n{choice}\n\n- a\n- b\n',),).toBeNull()
+	})
+
+	it('is null for text with no choice marker at all', () => {
+		expect(findLiteralChoiceMarker('Hi {author}, see {input: why}',),).toBeNull()
+	})
+
+	it('reports a marker with no option list under it as no-options', () => {
+		expect(findLiteralChoiceMarker('{choice#rule}\n\nJust some text',),).toBe('no-options',)
+		expect(findLiteralChoiceMarker('{choice}',),).toBe('no-options',)
+	})
+
+	it('reports a marker written inline in a sentence as inline', () => {
+		expect(findLiteralChoiceMarker('Pick {choice#rule} now\n- a\n- b',),).toBe('inline',)
+	})
+
+	it('reports the problem when only one of two markers parsed', () => {
+		expect(findLiteralChoiceMarker('{choice#a}\n- a\n\n{choice#b}\n\nnot a list',),).toBe('no-options',)
+		// The parsed block must not make the later inline marker look like an own-line one.
+		expect(findLiteralChoiceMarker('{choice#a}\n- a\n\nPick {choice#b} now',),).toBe('inline',)
+	})
+
+	it('does not read an option that mentions {choice} as a second marker', () => {
+		expect(findLiteralChoiceMarker('{choice}\n- fill in the {choice} field\n- b',),).toBeNull()
+	})
+
+	it('classifies off the whole line, not the segment an inline token splits', () => {
+		// `{input}` sits on the marker's line, so the marker never starts a block: the fix is
+		// moving it to its own line, not adding a list.
+		expect(findLiteralChoiceMarker('{input: why} {choice}\n- a\n- b',),).toBe('inline',)
 	})
 })
 
@@ -320,6 +387,11 @@ describe('tokenToLegacyHtml / tokensToHtmlFields', () => {
 
 	it('expands a choice block into a <select> and leaves the rest alone', () => {
 		expect(tokensToHtmlFields('Pick:\n\n{choice#choice}\n- a\n- b\n\nthen {author}',),)
+			.toBe('Pick:\n\n<select id="choice"><option>a</option><option>b</option></select>\n\nthen {author}',)
+	})
+
+	it('expands a block whose list sat below a blank line into a single <select>', () => {
+		expect(tokensToHtmlFields('Pick:\n\n{choice#choice}\n\n- a\n- b\n\nthen {author}',),)
 			.toBe('Pick:\n\n<select id="choice"><option>a</option><option>b</option></select>\n\nthen {author}',)
 	})
 

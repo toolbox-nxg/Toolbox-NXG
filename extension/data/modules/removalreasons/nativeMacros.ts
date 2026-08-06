@@ -62,6 +62,10 @@ export function nativeMacroTokens (data: RemovalReasonsData,): Record<string, st
  * `{choice}` (see `tokens.ts`), which is by far the common shape - so without this, an
  * ordinary subreddit with a pick-one field gets told its reason cannot be filled in.
  * Case-sensitive, matching the parser: `{Choice}` is not a token to it either.
+ *
+ * This suppresses the warning for a working pick-one field, not for a broken one:
+ * `findLiteralChoiceMarker` in `tokens.ts` covers a `{choice}` that no control was
+ * rendered for, and the overlay warns about that separately.
  */
 const toolboxBareTokens = new Set(['choice',],)
 
