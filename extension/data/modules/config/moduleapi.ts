@@ -1,5 +1,6 @@
 /** Public API for reading and writing the toolbox wiki config page, with caching and legacy normalization. */
 import {getWikiRevisions, postToWiki as apiPostToWiki, readFromWiki, readWikiRevision,} from '../../api/resources/wiki'
+import type {WikiRevision,} from '../../api/resources/wiki'
 import {writeWikiPageConditional,} from '../../api/resources/wikiVersioned'
 import {utils,} from '../../framework/moduleIds'
 import {negativeTextFeedback, neutralTextFeedback, positiveTextFeedback,} from '../../store/feedback'
@@ -10,8 +11,12 @@ import {createPerKeyQueue,} from '../../util/infra/perKeyQueue'
 import {clearCache, getCache, setCache,} from '../../util/persistence/cache'
 import {isUserProfileSubreddit,} from '../../util/reddit/profileSubreddit'
 import {configCodec, encodeClassicConfig,} from '../../util/wiki/schemas/config/codec'
-import {reconcileConfigFromLegacy,} from '../../util/wiki/schemas/config/reconcile'
-import {normalizeConfig, ToolboxConfig,} from '../../util/wiki/schemas/config/schema'
+import {
+	legacyMirrorMatchesConfig,
+	reconcileConfigFromLegacy,
+	type ReconcileConfigOptions,
+} from '../../util/wiki/schemas/config/reconcile'
+import {isConfigValidVersion, normalizeConfig, ToolboxConfig,} from '../../util/wiki/schemas/config/schema'
 import {NXG_USERNOTES_FORMAT,} from '../../util/wiki/schemas/usernotes/schema'
 import {COMPAT_WRITES_KEY, NEW_WIKI_PATHS, OLD_WIKI_PATHS,} from '../../util/wiki/wikiConstants'
 import {compatMirrorEnabled, getWikiWritePaths, resolveWikiLayout,} from '../../util/wiki/wikiPaths'
@@ -35,21 +40,46 @@ const log = createLogger('TBConfig',)
  */
 const CONFIG_REV_KEY = 'configRev'
 
-/** Records the revision a freshly-read config is based on, for the next save's guard. */
-async function stashConfigRev (subreddit: string, page: string,): Promise<void> {
+/**
+ * Records the revision a freshly-read config is based on, for the next save's guard,
+ * and returns it. The timestamp is what {@link reconcileConfigFromLegacy} arbitrates
+ * against, so this stays the single place the config page's revisions are read.
+ * @returns The newest revision, or `undefined` if it could not be read.
+ */
+async function stashConfigRev (subreddit: string, page: string,): Promise<WikiRevision | undefined> {
 	try {
 		const revisions = await getWikiRevisions(subreddit, page, 1,)
-		const rev = revisions[0]?.id
-		if (rev) {
+		const revision = revisions[0]
+		if (revision?.id) {
 			const revs = await getCache(utils, CONFIG_REV_KEY, {},) as Record<string, string>
-			revs[subreddit] = rev
+			revs[subreddit] = revision.id
 			await setCache(utils, CONFIG_REV_KEY, revs,)
+			return revision
 		}
 	} catch (err) {
 		// A failed revision lookup just means no conflict guard on the next save
 		// (last-write-wins) - never block the config read on it.
 		log.debug(`could not read config revision for /r/${subreddit}`, err,)
 	}
+	return undefined
+}
+
+/**
+ * Builds the arbitration options for a reconcile from the revision the config was
+ * read at. Written as a conditional spread because `exactOptionalPropertyTypes`
+ * forbids passing an explicit `undefined` for an optional property.
+ *
+ * A revision listing that carries no usable timestamp reads back as `0`, which must
+ * not be forwarded as a date: the legacy side only accepts a positive timestamp, so
+ * a `0` here would make every mirror look newer and adopt unconditionally - exactly
+ * the revert the recency guard exists to prevent. Omitting it keeps the canonical
+ * config instead.
+ */
+function reconcileOptions (revision: WikiRevision | undefined,): ReconcileConfigOptions {
+	const timestamp = revision?.timestamp
+	return typeof timestamp === 'number' && Number.isFinite(timestamp,) && timestamp > 0
+		? {nxgRevisionTimestamp: timestamp,}
+		: {}
 }
 
 /**
@@ -149,17 +179,28 @@ export async function tryGetConfig (
 	// Record the revision this config was read from so the next save can condition
 	// its write on it and detect a concurrent edit. Done after a successful content
 	// read so the rev corresponds to a config we could actually parse.
-	await stashConfigRev(subreddit, page,)
+	const revision = await stashConfigRev(subreddit, page,)
 
 	// Compat-on subs fold any 6.x edits from the legacy mirror into the view;
 	// the merged result is cached and persisted by the next config save.
 	let resolvedConfig: ToolboxConfig = response.data
 	if (compatMirrorEnabled(layout,)) {
-		resolvedConfig = (await reconcileConfigFromLegacy(subreddit, resolvedConfig,)).config
+		resolvedConfig =
+			(await reconcileConfigFromLegacy(subreddit, resolvedConfig, reconcileOptions(revision,),)).config
 	}
 
 	cachedConfigs[subreddit] = resolvedConfig
-	void setCache(utils, 'configCache', cachedConfigs,)
+	// Awaited rather than fire-and-forget so the write lands before this call returns:
+	// the usual caller reads, edits, then saves, and the save's clearCache() must not be
+	// overtaken by this write, which would re-seat the pre-save config for the full TTL.
+	// Caching is best-effort, though - an invalidated extension context (navigation, an
+	// extension reload) rejects the message, and that must not fail a config read that
+	// already has its answer.
+	try {
+		await setCache(utils, 'configCache', cachedConfigs,)
+	} catch (err) {
+		log.debug(`could not cache the config for /r/${subreddit}`, err,)
+	}
 	return {status: 'ok', config: resolvedConfig,}
 }
 
@@ -178,37 +219,68 @@ export async function getConfig (
 }
 
 /**
- * Reads the freshest toolbox config straight from the canonical wiki page,
- * bypassing the config cache. Used by config tabs to refresh their state
- * after an external wiki edit.
- * @param subreddit The subreddit name (without the `r/` prefix).
- * @returns The purified and normalized config, or `null` if the wiki read failed.
+ * The outcome of an uncached config reload. Unlike {@link ConfigReadResult} this
+ * separates `invalid` (the page exists but is not usable config) from `error` (the
+ * read itself failed), because the config editor reports the two differently and
+ * must not open an empty default over either.
  */
-export async function reloadConfigFromWiki (subreddit: string,): Promise<ToolboxConfig | null> {
+export type ConfigReloadResult =
+	| {status: 'ok'; config: ToolboxConfig}
+	| {status: 'absent'}
+	| {status: 'invalid'}
+	| {status: 'error'}
+
+/**
+ * Reads the freshest toolbox config straight from the canonical wiki page,
+ * bypassing the config cache, and reports why when there is nothing to return.
+ * Runs the same legacy-mirror reconcile as {@link getConfig}, so a caller can
+ * never end up editing a config that differs from the one the rest of toolbox
+ * acts on.
+ * @param subreddit The subreddit name (without the `r/` prefix).
+ */
+export async function tryReloadConfigFromWiki (subreddit: string,): Promise<ConfigReloadResult> {
 	// User-profile pseudo-subreddits have no toolbox wiki page to reload (see tryGetConfig).
 	if (isUserProfileSubreddit(subreddit,)) {
-		return null
+		return {status: 'absent',}
 	}
 	const layout = await resolveWikiLayout(subreddit,)
 	// Non-moderated subs short-circuit to a read-free `notModerated` layout - no page to reload.
 	if (layout.notModerated) {
-		return null
+		return {status: 'absent',}
 	}
 	const page = layout.state === 'legacyFallback' ? OLD_WIKI_PATHS.settings : NEW_WIKI_PATHS.settings
 	const response = await readFromWiki<Record<string, unknown>>(subreddit, page, true,)
 	if (!response.ok) {
 		log.debug('Failed: wiki config',)
-		return null
+		if (response.reason === 'invalid_json') { return {status: 'invalid',} }
+		if (response.reason === 'no_page') { return {status: 'absent',} }
+		return {status: 'error',}
 	}
 	purifyObject(response.data,)
 	normalizeConfig(response.data,)
 	// Refresh the save guard's base revision: a tab that reloads then saves should
 	// condition on the revision it just re-read, not a stale earlier one.
-	await stashConfigRev(subreddit, page,)
+	const revision = await stashConfigRev(subreddit, page,)
 	if (compatMirrorEnabled(layout,)) {
-		return (await reconcileConfigFromLegacy(subreddit, response.data,)).config
+		return {
+			status: 'ok',
+			config: (await reconcileConfigFromLegacy(subreddit, response.data, reconcileOptions(revision,),)).config,
+		}
 	}
-	return response.data
+	return {status: 'ok', config: response.data,}
+}
+
+/**
+ * Reads the freshest toolbox config straight from the canonical wiki page,
+ * bypassing the config cache. Used by config tabs to refresh their state
+ * after an external wiki edit. Callers that need to tell a missing page from an
+ * unreadable one want {@link tryReloadConfigFromWiki} instead.
+ * @param subreddit The subreddit name (without the `r/` prefix).
+ * @returns The purified and normalized config, or `null` if there was none to read.
+ */
+export async function reloadConfigFromWiki (subreddit: string,): Promise<ToolboxConfig | null> {
+	const result = await tryReloadConfigFromWiki(subreddit,)
+	return result.status === 'ok' ? result.config : null
 }
 
 /**
@@ -436,21 +508,159 @@ export async function prepareWikiEditorContent (
 	return {ok: true, content: JSON.stringify(parsed,),}
 }
 
+/**
+ * Rewrites the legacy 6.x config mirror from a canonical config, for save paths
+ * that write the canonical page on their own rather than through the fan-out in
+ * {@link saveToolboxConfig}. A no-op on subs without the compat mirror.
+ *
+ * Never throws: a mirror is a convenience for 6.x mods, and its failure must not
+ * fail a save that already landed.
+ * @param subreddit The subreddit whose mirror to refresh.
+ * @param config The normalized canonical config to down-convert.
+ * @param reason The wiki revision note.
+ * @returns `{ok: true}` when written or skipped, otherwise the failure text.
+ */
+async function refreshLegacyConfigMirror (
+	subreddit: string,
+	config: ToolboxConfig,
+	reason: string,
+): Promise<{ok: true} | {ok: false; message: string}> {
+	try {
+		const layout = await resolveWikiLayout(subreddit,)
+		if (!compatMirrorEnabled(layout,)) { return {ok: true,} }
+		// 6.x reads domain tags and usernote colors off the config page; NXG keeps them
+		// elsewhere, so the down-convert re-injects them from their own sources.
+		const [domainTagsData, usernoteColors,] = await Promise.all([
+			getDomainTagsData(subreddit,),
+			getSubredditColors(subreddit,),
+		],)
+		await apiPostToWiki(
+			subreddit,
+			OLD_WIKI_PATHS.settings,
+			encodeClassicConfig(config, domainTagsData.tags, usernoteColors,),
+			reason,
+			true,
+			false,
+		)
+		return {ok: true,}
+	} catch (err: unknown) {
+		const message = err && typeof err === 'object' && 'responseText' in err
+			? String(err.responseText,)
+			: String(err,)
+		log.warn(`Failed to refresh the config mirror for /r/${subreddit}:`, message,)
+		return {ok: false, message,}
+	}
+}
+
+/** Whether a subreddit's legacy 6.x config mirror is up to date with the canonical page. */
+export interface ConfigMirrorStatus {
+	/**
+	 * `off` - the sub keeps no mirror; `inSync` - the mirror is at least as new as the
+	 * canonical page; `stale` - the canonical page was written more recently, so 6.x mods
+	 * are reading old settings; `unknown` - one of the revision listings could not be read.
+	 */
+	state: 'off' | 'inSync' | 'stale' | 'unknown'
+	/** Unix timestamp (seconds) of the canonical page's newest revision, when known. */
+	canonicalAt?: number
+	/** Unix timestamp (seconds) of the mirror's newest revision, when known. */
+	mirrorAt?: number
+}
+
+/**
+ * Compares the canonical config page against its legacy 6.x mirror so the compatibility
+ * UI can tell a moderator when the mirror has fallen behind - most often because a mirror
+ * write failed, which is otherwise only visible as a single toast at save time.
+ *
+ * Revision dates alone cannot answer this: Reddit records no revision for a write that
+ * changes nothing, so a canonical save touching only NXG-only fields - or enabling
+ * compatibility, which writes the mirror first and the canonical page second - leaves the
+ * mirror legitimately older. An older mirror is therefore only reported `stale` once its
+ * content is confirmed to differ from the mirror this config would produce.
+ *
+ * Deliberately computed on demand rather than tracked in a cached flag: `clearCache`
+ * wipes every cache key, and any module's save calls it, so a stored flag would be
+ * erased at random.
+ * @param subreddit The subreddit to check.
+ */
+export async function getConfigMirrorStatus (subreddit: string,): Promise<ConfigMirrorStatus> {
+	const layout = await resolveWikiLayout(subreddit,)
+	if (!compatMirrorEnabled(layout,)) { return {state: 'off',} }
+	const [canonicalAt, mirrorAt,] = await Promise.all([
+		newestRevisionTimestamp(subreddit, NEW_WIKI_PATHS.settings,),
+		newestRevisionTimestamp(subreddit, OLD_WIKI_PATHS.settings,),
+	],)
+	if (canonicalAt === undefined || mirrorAt === undefined) { return {state: 'unknown',} }
+	if (mirrorAt >= canonicalAt) { return {state: 'inSync', canonicalAt, mirrorAt,} }
+	const config = await getConfig(subreddit,)
+	if (config === undefined) { return {state: 'unknown', canonicalAt, mirrorAt,} }
+	const matches = await legacyMirrorMatchesConfig(subreddit, config,)
+	if (matches === undefined) { return {state: 'unknown', canonicalAt, mirrorAt,} }
+	return {state: matches ? 'inSync' : 'stale', canonicalAt, mirrorAt,}
+}
+
+/** The newest revision timestamp of a wiki page, or `undefined` when it could not be read. */
+async function newestRevisionTimestamp (subreddit: string, page: string,): Promise<number | undefined> {
+	try {
+		const timestamp = (await getWikiRevisions(subreddit, page, 1,))[0]?.timestamp
+		return typeof timestamp === 'number' && Number.isFinite(timestamp,) && timestamp > 0 ? timestamp : undefined
+	} catch (err) {
+		log.debug(`could not read revisions of ${page} for /r/${subreddit}`, err,)
+		return undefined
+	}
+}
+
+/**
+ * Down-converts freshly-saved raw config page text onto the legacy mirror.
+ * @returns The warning text to surface, or `undefined` when there is nothing to report.
+ */
+async function mirrorRawConfigSave (
+	subreddit: string,
+	content: string,
+	note: string,
+): Promise<string | undefined> {
+	let config: Record<string, unknown>
+	try {
+		config = JSON.parse(content,) as Record<string, unknown>
+		purifyObject(config,)
+		normalizeConfig(config,)
+	} catch (parseError) {
+		// Valid JSON that isn't a toolbox config at all. The page was saved as typed;
+		// there is simply nothing sensible to down-convert.
+		log.warn(`Raw config save for /r/${subreddit} is not a usable config; skipped the 6.x mirror:`, parseError,)
+		return undefined
+	}
+	if (!isConfigValidVersion(subreddit, config,)) {
+		// A schema this build does not understand. Down-converting it would write a
+		// mirror derived from fields we may be reading wrong - leave the mirror alone.
+		return undefined
+	}
+	const mirrored = await refreshLegacyConfigMirror(subreddit, config, note,)
+	return mirrored.ok
+		? undefined
+		: 'Page saved, but the 6.x mirror could not be updated - mods on Toolbox 6.x will see the old settings. '
+			+ 'Use "Refresh 6.x mirror now" in the Compatibility tab.'
+}
+
 /** The outcome of a {@link saveWikiEditorPage} call, for the caller to turn into user feedback. */
 export type WikiEditorSaveResult =
-	| {ok: true}
+	| {ok: true; mirrorWarning?: string}
 	| {ok: false; automodError: string | null; message: string}
 
 /**
  * Writes already-validated wiki-editor content to the page and clears the config cache on success.
  * Performs no user feedback of its own - the caller decides what to surface from the returned result.
+ *
+ * A raw save of the canonical config page also refreshes the legacy 6.x mirror. Without
+ * that the mirror is left behind holding the pre-edit config, which 6.x mods would keep
+ * reading - and which every reconcile then has to arbitrate against.
  * @param subreddit The subreddit whose wiki page to write.
  * @param actualPage The resolved wiki page path.
  * @param content The content to save (JSON pages must already be minified/validated by the caller).
  * @param note The wiki revision note.
  * @param isAutomod Whether the page is AutoModerator YAML (parses AutoMod `special_errors` on failure).
- * @returns `{ok: true}` on success, or `{ok: false, automodError, message}` where `automodError` is the
- *   purified inline AutoMod error (or `null`) and `message` is the toast text the caller should show.
+ * @returns `{ok: true}` on success (with `mirrorWarning` when the 6.x mirror could not be
+ *   refreshed), or `{ok: false, automodError, message}` where `automodError` is the purified
+ *   inline AutoMod error (or `null`) and `message` is the toast text the caller should show.
  */
 export async function saveWikiEditorPage (
 	subreddit: string,
@@ -461,8 +671,12 @@ export async function saveWikiEditorPage (
 ): Promise<WikiEditorSaveResult> {
 	try {
 		await apiPostToWiki(subreddit, actualPage, content, note, false, isAutomod,)
+		let mirrorWarning: string | undefined
+		if (!isAutomod && actualPage === NEW_WIKI_PATHS.settings) {
+			mirrorWarning = await mirrorRawConfigSave(subreddit, content, note,)
+		}
 		await clearCache()
-		return {ok: true,}
+		return mirrorWarning === undefined ? {ok: true,} : {ok: true, mirrorWarning,}
 	} catch (err: unknown) {
 		if (isAutomod) {
 			let automodError: string | null = null
@@ -614,7 +828,12 @@ async function doSaveToolboxConfig (
 				await apiPostToWiki(subreddit, page, payloadFor(page,), reason, true, false,)
 			} catch (mirrorError: unknown) {
 				log.warn(`Failed to refresh the config mirror at ${page}:`, mirrorError,)
-				if (!silent) { negativeTextFeedback('Settings saved, but the 6.x mirror page could not be updated.',) }
+				if (!silent) {
+					negativeTextFeedback(
+						'Settings saved, but the 6.x mirror could not be updated - mods on Toolbox 6.x will see '
+							+ 'the old settings. Use "Refresh 6.x mirror now" in the Compatibility tab.',
+					)
+				}
 			}
 		}
 

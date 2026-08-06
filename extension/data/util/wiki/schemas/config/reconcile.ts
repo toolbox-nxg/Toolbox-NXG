@@ -5,21 +5,36 @@
  * With 6.x compatibility on, 6.x builds read and rewrite the legacy page
  * wholesale, knowing nothing about the NXG page. The NXG page is canonical,
  * so those edits have to be detected and folded back in - the config analog
- * of the usernotes reconcile path. Detection is purely content-based: the
- * mirror is a deterministic down-convert of the NXG config, so after
- * normalizing both sides into the current schema, any difference in the
- * fields 6.x owns means the legacy page carries data the NXG page lacks.
+ * of the usernotes reconcile path.
  *
- * Known edge: a failed mirror write leaves the legacy page stale, and the
- * next reconcile briefly re-adopts the previous values of the 6.x-owned
- * fields. The next save rewrites the mirror and heals the divergence - the
- * same tradeoff the usernotes diff makes.
+ * Adopting the mirror discards whatever the NXG page held, so it happens only
+ * behind two guards, cheapest first:
+ *
+ * 1. **Content.** The mirror is a deterministic down-convert of the NXG
+ *    config, so the comparison is against the mirror we *would* write
+ *    ({@link mirrorViewOfConfig}), not against the NXG config directly. Both
+ *    sides then pass through identical transforms, which makes an unedited
+ *    mirror compare equal by construction - however lossy the v1 round trip
+ *    is for any particular field. (It is lossy: the mirror is written `ver: 1`
+ *    and `normalizeConfig` URI-decodes every string on a v1 page, including
+ *    the ones `encodeClassicConfig` never escaped.) The NXG config is still
+ *    compared first, since that is the common case and costs nothing.
+ * 2. **Recency.** A remaining difference is only adopted when the legacy
+ *    page's newest revision is strictly newer than the canonical page's.
+ *    Without this, a mirror left stale by a failed write - or by a save path
+ *    that does not fan out - silently reverts the moderator's change on every
+ *    subsequent read, forever, since the merged result is never written back.
+ *
+ * Both guards fail toward the canonical page: an unreadable revision listing
+ * keeps the NXG values. Not adopting is recoverable (the next successful read
+ * arbitrates again); adopting on a guess is silent data loss.
  */
 
-import {readFromWiki,} from '../../../../api/resources/wiki'
+import {getWikiRevisions, readFromWiki,} from '../../../../api/resources/wiki'
 import {purifyObject,} from '../../../data/purify'
 import createLogger from '../../../infra/logging'
 import {isTombstone, OLD_WIKI_PATHS,} from '../../wikiConstants'
+import {encodeClassicConfig,} from './codec'
 import {ensureStableIds, normalizeConfig,} from './schema'
 import type {ToolboxConfig,} from './schema'
 
@@ -162,37 +177,155 @@ export function adoptLegacyConfigFields (nxg: ToolboxConfig, legacy: ToolboxConf
 }
 
 /**
+ * Returns the config as the legacy mirror would carry it: down-converted to the
+ * classic v1 wire shape and read back through the same normalization every
+ * legacy read runs. Comparing this against the mirror on the wiki - rather than
+ * comparing the NXG config directly - makes an unedited mirror equal by
+ * construction, so a lossy v1 round trip can never be mistaken for a 6.x edit.
+ *
+ * Domain tags and usernote colors are deliberately not passed to the
+ * down-convert: they live on their own NXG pages, and `normalizeConfig` deletes
+ * both fields on read, so they can never participate in the comparison.
+ * @param config The canonical normalized NXG config.
+ */
+export function mirrorViewOfConfig (config: ToolboxConfig,): ToolboxConfig {
+	const view = encodeClassicConfig(config,) as unknown as Record<string, unknown>
+	purifyObject(view,)
+	normalizeConfig(view,)
+	return view
+}
+
+/**
+ * The newest revision timestamp (unix seconds) of a subreddit's legacy config
+ * page, or `undefined` when the listing could not be read or carries no usable
+ * timestamp. Never throws: an unavailable timestamp means "cannot arbitrate",
+ * which the caller resolves in favor of the canonical page.
+ */
+async function newestLegacyRevisionTimestamp (subreddit: string,): Promise<number | undefined> {
+	try {
+		const revisions = await getWikiRevisions(subreddit, OLD_WIKI_PATHS.settings, 1,)
+		const timestamp = revisions[0]?.timestamp
+		return typeof timestamp === 'number' && Number.isFinite(timestamp,) && timestamp > 0 ? timestamp : undefined
+	} catch (error) {
+		log.warn(`Could not read the legacy config revisions for /r/${subreddit}:`, error,)
+		return undefined
+	}
+}
+
+/**
+ * Reads and normalizes the legacy mirror page, or `undefined` when there is nothing
+ * usable there: a missing page, a tombstone, or a read/parse failure. Never throws -
+ * a flaky mirror must not break a config read.
+ */
+async function readLegacyConfig (subreddit: string,): Promise<ToolboxConfig | undefined> {
+	try {
+		const response = await readFromWiki<Record<string, unknown>>(subreddit, OLD_WIKI_PATHS.settings, true,)
+		if (!response.ok || isTombstone(response.data,)) { return undefined }
+		purifyObject(response.data,)
+		normalizeConfig(response.data,)
+		return response.data
+	} catch (error) {
+		log.warn(`Could not read the legacy config mirror for /r/${subreddit}:`, error,)
+		return undefined
+	}
+}
+
+/**
+ * Whether the legacy mirror on the wiki carries the same 6.x-owned content the given
+ * canonical config would produce - i.e. whether it holds no 6.x edit and is not
+ * lagging behind an NXG edit. Runs the same content comparison as the reconcile's
+ * first guard, so the two can never disagree about what "in sync" means.
+ *
+ * Only the 6.x-owned fields participate; domain tags and usernote colors are injected
+ * into the mirror from their own NXG pages and are dropped on read, so they cannot be
+ * compared here.
+ * @param subreddit The subreddit whose mirror to inspect.
+ * @param nxgConfig The canonical normalized NXG config.
+ * @returns `true`/`false`, or `undefined` when the mirror could not be read.
+ */
+export async function legacyMirrorMatchesConfig (
+	subreddit: string,
+	nxgConfig: ToolboxConfig,
+): Promise<boolean | undefined> {
+	const legacy = await readLegacyConfig(subreddit,)
+	if (legacy === undefined) { return undefined }
+	return legacyOwnedFieldsEqual(nxgConfig, legacy,)
+		|| legacyOwnedFieldsEqual(mirrorViewOfConfig(nxgConfig,), legacy,)
+}
+
+/** What a reconcile decided, for callers that log or surface the reason. */
+export type ReconcileOutcome =
+	/** The mirror carries no 6.x edit (either directly equal, or equal to the mirror we would write). */
+	| 'equal'
+	/** The mirror was newer and its 6.x-owned fields were folded in. */
+	| 'adopted'
+	/** The mirror differs but is older than the canonical page, so the NXG values were kept. */
+	| 'keptCanonical'
+	/** The mirror differs but recency could not be established, so the NXG values were kept. */
+	| 'unarbitrable'
+
+/** Options for {@link reconcileConfigFromLegacy}. */
+export interface ReconcileConfigOptions {
+	/**
+	 * Unix timestamp (seconds) of the canonical page revision `nxgConfig` was read
+	 * from, used to arbitrate against the mirror's newest revision. Omitted when the
+	 * caller could not determine it, which keeps the canonical config unchanged.
+	 */
+	nxgRevisionTimestamp?: number
+}
+
+/**
  * Reads the legacy `toolbox` page and folds any 6.x edits into the given NXG
- * config in memory. The wiki is not written here - callers cache the merged
- * result and the next save persists it (rewriting the mirror and restoring
- * equality). Missing pages, tombstones, and read/parse failures are all
- * no-ops: a flaky mirror must never break config reads.
+ * config in memory, subject to the content and recency guards described at the
+ * top of this file. The wiki is not written here - callers cache the merged
+ * result and the next save persists it. Missing pages, tombstones, and
+ * read/parse failures are all no-ops: a flaky mirror must never break config
+ * reads, nor overwrite canonical data.
  * @param subreddit The subreddit whose legacy page to check.
  * @param nxgConfig The canonical normalized NXG config.
- * @returns The (possibly merged) config and whether anything was adopted.
+ * @param options Arbitration inputs (see {@link ReconcileConfigOptions}).
+ * @returns The (possibly merged) config, whether anything was adopted, and why.
  */
 export async function reconcileConfigFromLegacy (
 	subreddit: string,
 	nxgConfig: ToolboxConfig,
-): Promise<{config: ToolboxConfig; changed: boolean}> {
-	let legacy: ToolboxConfig
-	try {
-		const response = await readFromWiki<Record<string, unknown>>(subreddit, OLD_WIKI_PATHS.settings, true,)
-		if (!response.ok || isTombstone(response.data,)) {
-			return {config: nxgConfig, changed: false,}
-		}
-		purifyObject(response.data,)
-		normalizeConfig(response.data,)
-		legacy = response.data
-	} catch (error) {
-		log.warn(`Could not read the legacy config mirror for /r/${subreddit}:`, error,)
-		return {config: nxgConfig, changed: false,}
+	options: ReconcileConfigOptions = {},
+): Promise<{config: ToolboxConfig; changed: boolean; outcome: ReconcileOutcome}> {
+	const legacy = await readLegacyConfig(subreddit,)
+	if (legacy === undefined) {
+		return {config: nxgConfig, changed: false, outcome: 'equal',}
 	}
 
 	if (legacyOwnedFieldsEqual(nxgConfig, legacy,)) {
-		return {config: nxgConfig, changed: false,}
+		return {config: nxgConfig, changed: false, outcome: 'equal',}
+	}
+
+	// Guard 1: the difference may be an artifact of the v1 down-convert rather than a
+	// 6.x edit. Compare against the mirror this config would produce, which round-trips
+	// identically to the one on the wiki.
+	if (legacyOwnedFieldsEqual(mirrorViewOfConfig(nxgConfig,), legacy,)) {
+		return {config: nxgConfig, changed: false, outcome: 'equal',}
+	}
+
+	// Guard 2: a real difference. Adopt only when 6.x wrote the mirror *after* the
+	// canonical page was last written - otherwise this is a stale mirror about to
+	// revert an edit the moderator made in NXG.
+	const legacyTimestamp = await newestLegacyRevisionTimestamp(subreddit,)
+	const nxgTimestamp = options.nxgRevisionTimestamp
+	if (legacyTimestamp === undefined || nxgTimestamp === undefined) {
+		log.warn(
+			`The 6.x mirror for /r/${subreddit} differs but could not be dated; keeping the canonical config.`,
+		)
+		return {config: nxgConfig, changed: false, outcome: 'unarbitrable',}
+	}
+	if (legacyTimestamp <= nxgTimestamp) {
+		log.warn(
+			`The 6.x mirror for /r/${subreddit} is older than the canonical config; keeping the NXG values `
+				+ '(the next save refreshes the mirror).',
+		)
+		return {config: nxgConfig, changed: false, outcome: 'keptCanonical',}
 	}
 
 	log.debug(`Adopting 6.x config edits from the legacy page for /r/${subreddit}`,)
-	return {config: adoptLegacyConfigFields(nxgConfig, legacy,), changed: true,}
+	return {config: adoptLegacyConfigFields(nxgConfig, legacy,), changed: true, outcome: 'adopted',}
 }

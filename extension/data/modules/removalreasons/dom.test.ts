@@ -935,6 +935,45 @@ describe('createRemovalReasonsHandlers', () => {
 			expect(props.visibleReasons[0],).toMatchObject({nativeReasonId: 'rr1',},)
 		})
 
+		it('passes ampersands and angle brackets through the config fields unescaped', async () => {
+			// These fields all end up in submitted content - the comment body, the Modmail
+			// subject, the log post's title, a flair value - so HTML-encoding them here would
+			// post a literal "&amp;". Nothing downstream consumes them as raw HTML.
+			getNativeRemovalReasons.mockResolvedValue([],)
+			getConfig.mockResolvedValue({
+				removalReasons: {
+					reasons: [{title: 'Spam & scams', text: 'no spam', flairText: 'A & B', flairCSS: 'a>b',},],
+					header: 'Rules & guidelines',
+					footer: '<3 the mods',
+					pmsubject: 'Removed: R&D post',
+					logsub: 'testsublog',
+					logtitle: 'Removed & logged: {title}',
+					logreason: 'spam & abuse',
+				},
+			},)
+			document.body.innerHTML = `
+                <div class="thing link" data-fullname="t3_post" data-subreddit="testsub">
+                    <span class="remove-button">
+                        <button class="togglebutton">remove</button>
+                    </span>
+                </div>
+            `
+			const event = makeClick(document.querySelector('.togglebutton',)!,)
+			await createRemovalReasonsHandlers({...handlerSettings, alwaysShow: false,},).handleClick(event,)
+
+			const {data,} = showRemovalReasonsOverlay.mock.calls[0]![0]
+			expect(data.header,).toBe('Rules & guidelines',)
+			expect(data.footer,).toBe('<3 the mods',)
+			expect(data.subject,).toBe('Removed: R&D post',)
+			expect(data.logTitle,).toBe('Removed & logged: {title}',)
+			expect(data.logReason,).toBe('spam & abuse',)
+			expect(data.reasons[0],).toMatchObject({
+				title: 'Spam & scams',
+				flairText: 'A & B',
+				flairCSS: 'a>b',
+			},)
+		})
+
 		it('leaves the message template blank when the subreddit has no config at all', async () => {
 			getNativeRemovalReasons.mockResolvedValue([{id: 'rr1', title: 'Spam', message: 'No spam allowed',},],)
 			getConfig.mockResolvedValue(undefined,)

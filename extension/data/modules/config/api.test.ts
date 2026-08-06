@@ -85,11 +85,14 @@ import {
 	convertUsernotesEditorText,
 	formatWikiEditorText,
 	getConfig,
+	getConfigMirrorStatus,
 	getUsernotesEditorView,
 	prepareWikiEditorContent,
 	reloadConfigFromWiki,
 	saveToolboxConfig,
+	saveWikiEditorPage,
 	tryGetConfig,
+	tryReloadConfigFromWiki,
 } from './moduleapi'
 
 describe('normalizeConfig', () => {
@@ -460,6 +463,10 @@ describe('getConfig', () => {
 	},)
 	afterEach(() => {
 		vi.clearAllMocks()
+		// clearAllMocks keeps implementations, so the per-page revision mock the
+		// arbitration tests install would otherwise leak into later suites.
+		vi.mocked(getWikiRevisions,).mockResolvedValue([],)
+		vi.mocked(setCache,).mockResolvedValue(undefined,)
 	},)
 
 	it('returns undefined for a cached no-config sub without calling the wiki', async () => {
@@ -590,6 +597,18 @@ describe('getConfig', () => {
 		expect(result,).toBe(configData,)
 	})
 
+	it('still returns the config when caching it fails', async () => {
+		// An invalidated extension context (navigation, an extension reload) rejects the
+		// cache write. The config was already read successfully - the caller must get it.
+		const configData = {removalReasons: {header: 'hi',},}
+		vi.mocked(readFromWiki,).mockResolvedValue({ok: true, data: configData,},)
+		vi.mocked(setCache,).mockImplementation(async (_moduleId, key,) => {
+			if (key === 'configCache') { throw new Error('Extension context invalidated',) }
+		},)
+
+		expect(await getConfig('sub',),).toBe(configData,)
+	})
+
 	it('reads the NXG page for compat-off subs', async () => {
 		resolveWikiLayout.mockResolvedValue(
 			{subreddit: 'sub', state: 'nxg', compatibilityWrites: false,},
@@ -601,10 +620,12 @@ describe('getConfig', () => {
 		expect(readFromWiki,).toHaveBeenCalledWith('sub', 'toolbox-nxg', true,)
 	})
 
-	it('compat-on: adopts 6.x edits from a diverged legacy mirror', async () => {
-		resolveWikiLayout.mockResolvedValue(
-			{subreddit: 'sub', state: 'nxg', compatibilityWrites: true,},
-		)
+	/**
+	 * Points the two config pages at a diverged pair, with the legacy mirror carrying an
+	 * extra 6.x-added reason, and dates each page's newest revision so the reconcile can
+	 * arbitrate between them.
+	 */
+	function mockDivergedPages (nxgAt: number, legacyAt: number,) {
 		const nxgData = {
 			ver: 2,
 			removalReasons: {reasons: [{id: 'aaaaaaaa', title: 'Spam', text: 'No spam',},],},
@@ -623,6 +644,19 @@ describe('getConfig', () => {
 				? {ok: true, data: nxgData,} as WikiReadResult
 				: {ok: true, data: legacyData,} as WikiReadResult
 		)
+		vi.mocked(getWikiRevisions,).mockImplementation(async (_sub: string, page: string,) => [{
+			id: `rev-${page}`,
+			timestamp: page === 'toolbox-nxg' ? nxgAt : legacyAt,
+			author: 'mod',
+			reason: '',
+		},])
+	}
+
+	it('compat-on: adopts 6.x edits from a legacy mirror written later', async () => {
+		resolveWikiLayout.mockResolvedValue(
+			{subreddit: 'sub', state: 'nxg', compatibilityWrites: true,},
+		)
+		mockDivergedPages(1000, 2000,)
 
 		const result = await getConfig('sub',)
 
@@ -631,6 +665,32 @@ describe('getConfig', () => {
 		// The content-matched entry keeps its NXG id; the new one gets a fresh id.
 		expect(reasons[0]!.id,).toBe('aaaaaaaa',)
 		expect(reasons[1]!.id,).toMatch(/^[a-z0-9]{8}$/,)
+	})
+
+	it('compat-on: keeps the canonical config when the legacy mirror is stale', async () => {
+		// The reported bug: a mirror left behind by a failed write must not revert the
+		// config a moderator just saved on the canonical page.
+		resolveWikiLayout.mockResolvedValue(
+			{subreddit: 'sub', state: 'nxg', compatibilityWrites: true,},
+		)
+		mockDivergedPages(2000, 1000,)
+
+		const result = await getConfig('sub',)
+
+		expect(result!.removalReasons.reasons.map((r,) => r.title),).toEqual(['Spam',],)
+	})
+
+	it('compat-on: keeps the canonical config when its revision carries no timestamp', async () => {
+		// Reddit occasionally lists a revision without a timestamp, which reads back as 0.
+		// Arbitrating against that would make every mirror look newer and adopt.
+		resolveWikiLayout.mockResolvedValue(
+			{subreddit: 'sub', state: 'nxg', compatibilityWrites: true,},
+		)
+		mockDivergedPages(0, 1000,)
+
+		const result = await getConfig('sub',)
+
+		expect(result!.removalReasons.reasons.map((r,) => r.title),).toEqual(['Spam',],)
 	})
 
 	it('compat-on: an agreeing legacy mirror changes nothing', async () => {
@@ -693,6 +753,27 @@ describe('reloadConfigFromWiki', () => {
 
 		expect(await reloadConfigFromWiki('sub',),).toBeNull()
 		expect(readFromWiki,).not.toHaveBeenCalled()
+	})
+
+	it('distinguishes absent, invalid and failed reads', async () => {
+		// The config editor opens an empty default only for `absent`; the other two must
+		// surface an error instead, or a save from a blank editor overwrites a real config.
+		vi.mocked(readFromWiki,).mockResolvedValue({ok: false, reason: 'no_page',},)
+		expect(await tryReloadConfigFromWiki('sub',),).toEqual({status: 'absent',},)
+
+		vi.mocked(readFromWiki,).mockResolvedValue({ok: false, reason: 'invalid_json',},)
+		expect(await tryReloadConfigFromWiki('sub',),).toEqual({status: 'invalid',},)
+
+		vi.mocked(readFromWiki,).mockResolvedValue({ok: false, reason: 'unknown_error',},)
+		expect(await tryReloadConfigFromWiki('sub',),).toEqual({status: 'error',},)
+	})
+
+	it('reports absent for a non-moderated sub', async () => {
+		resolveWikiLayout.mockResolvedValue(
+			{subreddit: 'sub', state: 'nxg', compatibilityWrites: false, notModerated: true,},
+		)
+
+		expect(await tryReloadConfigFromWiki('sub',),).toEqual({status: 'absent',},)
 	})
 })
 
@@ -1086,5 +1167,179 @@ describe('NXG shard envelope handling', () => {
 		const saved = JSON.parse((result as {ok: true; content: string}).content,)
 		expect(saved.users,).toBeUndefined()
 		expect(JSON.parse(zlibInflate(saved.blob,),),).toEqual(shardUsers,)
+	})
+})
+
+describe('saveWikiEditorPage', () => {
+	const configText = JSON.stringify({
+		ver: 2,
+		removalReasons: {logtitle: 'RAW-EDIT {title}', reasons: [{title: 'Spam', text: 'no spam',},],},
+	},)
+
+	beforeEach(() => {
+		resolveWikiLayout.mockResolvedValue(
+			{subreddit: 'sub', state: 'nxg', compatibilityWrites: true,},
+		)
+		vi.mocked(tbApiPostToWiki,).mockResolvedValue(undefined,)
+	},)
+	afterEach(() => {
+		vi.clearAllMocks()
+	},)
+
+	/** The `postToWiki` call targeting the legacy mirror page, if there was one. */
+	function mirrorWrite () {
+		return vi.mocked(tbApiPostToWiki,).mock.calls.find((call,) => call[1] === 'toolbox')
+	}
+
+	it('refreshes the 6.x mirror after a raw save of the canonical config page', async () => {
+		// Without this the mirror keeps the pre-edit config, which 6.x mods would go on
+		// reading and which every later reconcile then has to arbitrate against.
+		const result = await saveWikiEditorPage('sub', 'toolbox-nxg', configText, 'raw edit', false,)
+
+		expect(result,).toEqual({ok: true,},)
+		const mirrored = mirrorWrite()
+		expect(mirrored,).toBeDefined()
+		const payload = mirrored![2] as ToolboxConfig
+		expect(payload.ver,).toBe(1,)
+		expect(payload.removalReasons.logtitle,).toBe('RAW-EDIT {title}',)
+		// Reason text is escape()-encoded, because 6.x unescapes it unconditionally.
+		expect(payload.removalReasons.reasons[0]!.text,).toBe(escape('no spam',),)
+	})
+
+	it('does not touch the mirror on a compat-off sub', async () => {
+		resolveWikiLayout.mockResolvedValue(
+			{subreddit: 'sub', state: 'nxg', compatibilityWrites: false,},
+		)
+
+		await saveWikiEditorPage('sub', 'toolbox-nxg', configText, 'raw edit', false,)
+
+		expect(mirrorWrite(),).toBeUndefined()
+	})
+
+	it.each([
+		['usernotes', 'toolbox-nxg/usernotes',],
+		['a usernotes shard', 'toolbox-nxg/usernotes/ab',],
+		['automod', 'config/automoderator',],
+	],)('does not touch the mirror when saving %s', async (_name, page,) => {
+		await saveWikiEditorPage('sub', page, configText, 'raw edit', page === 'config/automoderator',)
+
+		expect(mirrorWrite(),).toBeUndefined()
+	},)
+
+	it('reports a failed mirror write without failing the save', async () => {
+		vi.mocked(tbApiPostToWiki,).mockImplementation(async (_sub: string, page: string,) => {
+			if (page === 'toolbox') { throw new Error('no wiki permission',) }
+		},)
+
+		const result = await saveWikiEditorPage('sub', 'toolbox-nxg', configText, 'raw edit', false,)
+
+		expect(result.ok,).toBe(true,)
+		expect((result as {ok: true; mirrorWarning?: string}).mirrorWarning,).toContain('6.x mirror',)
+	})
+
+	it('skips the mirror when the saved page is not a config object', async () => {
+		await saveWikiEditorPage('sub', 'toolbox-nxg', JSON.stringify('just a string',), 'raw edit', false,)
+
+		expect(mirrorWrite(),).toBeUndefined()
+	})
+
+	it('skips the mirror when the saved page uses an unsupported schema version', async () => {
+		// Down-converting a schema this build cannot read would derive the mirror from
+		// fields it may be misinterpreting.
+		await saveWikiEditorPage('sub', 'toolbox-nxg', JSON.stringify({ver: 99,},), 'raw edit', false,)
+
+		expect(mirrorWrite(),).toBeUndefined()
+	})
+})
+
+describe('getConfigMirrorStatus', () => {
+	afterEach(() => {
+		vi.clearAllMocks()
+		vi.mocked(getWikiRevisions,).mockResolvedValue([],)
+	},)
+
+	/** Dates each config page's newest revision. */
+	function mockRevisions (canonicalAt: number | null, mirrorAt: number | null,) {
+		vi.mocked(getWikiRevisions,).mockImplementation(async (_sub: string, page: string,) => {
+			const at = page === 'toolbox-nxg' ? canonicalAt : mirrorAt
+			return at === null ? [] : [{id: `rev-${page}`, timestamp: at, author: 'mod', reason: '',},]
+		},)
+	}
+
+	it('reports off when the sub keeps no mirror', async () => {
+		resolveWikiLayout.mockResolvedValue(
+			{subreddit: 'sub', state: 'nxg', compatibilityWrites: false,},
+		)
+
+		expect(await getConfigMirrorStatus('sub',),).toEqual({state: 'off',},)
+		expect(getWikiRevisions,).not.toHaveBeenCalled()
+	})
+
+	/** Serves the two config pages, with the mirror carrying whatever `legacyReasons` says. */
+	function mockPages (legacyReasons: Array<{title: string; text: string}> | null,) {
+		vi.mocked(readFromWiki,).mockImplementation(async (_sub: string, page: string,) =>
+			page === 'toolbox-nxg'
+				? {
+					ok: true,
+					data: {ver: 2, removalReasons: {reasons: [{id: 'aaaaaaaa', title: 'Spam', text: 'No spam',},],},},
+				} as WikiReadResult
+				: legacyReasons === null
+				? {ok: false, reason: 'unknown_error',} as WikiReadResult
+				: {ok: true, data: {ver: 1, removalReasons: {reasons: legacyReasons,},},} as WikiReadResult
+		)
+	}
+
+	it('reports stale when the older mirror also differs in content', async () => {
+		resolveWikiLayout.mockResolvedValue(
+			{subreddit: 'sub', state: 'nxg', compatibilityWrites: true,},
+		)
+		mockRevisions(2000, 1000,)
+		mockPages([{title: 'Old wording', text: 'Pre-edit text',},],)
+
+		expect(await getConfigMirrorStatus('sub',),).toEqual({state: 'stale', canonicalAt: 2000, mirrorAt: 1000,},)
+	})
+
+	it('reports inSync when an older mirror still carries the same content', async () => {
+		// Reddit records no revision for a write that changes nothing, and enabling
+		// compatibility writes the mirror before the canonical page - neither is a
+		// failed mirror write, so neither may raise the warning.
+		resolveWikiLayout.mockResolvedValue(
+			{subreddit: 'sub', state: 'nxg', compatibilityWrites: true,},
+		)
+		mockRevisions(2000, 1000,)
+		// The mirror matches modulo the stripped id.
+		mockPages([{title: 'Spam', text: 'No spam',},],)
+
+		expect(await getConfigMirrorStatus('sub',),).toEqual({state: 'inSync', canonicalAt: 2000, mirrorAt: 1000,},)
+	})
+
+	it('reports unknown when the older mirror cannot be read', async () => {
+		resolveWikiLayout.mockResolvedValue(
+			{subreddit: 'sub', state: 'nxg', compatibilityWrites: true,},
+		)
+		mockRevisions(2000, 1000,)
+		mockPages(null,)
+
+		expect(await getConfigMirrorStatus('sub',),).toEqual({state: 'unknown', canonicalAt: 2000, mirrorAt: 1000,},)
+	})
+
+	it('reports inSync when the mirror is at least as new', async () => {
+		resolveWikiLayout.mockResolvedValue(
+			{subreddit: 'sub', state: 'nxg', compatibilityWrites: true,},
+		)
+		mockRevisions(1000, 1000,)
+
+		expect((await getConfigMirrorStatus('sub',)).state,).toBe('inSync',)
+		// A mirror that is not behind needs no content comparison.
+		expect(readFromWiki,).not.toHaveBeenCalled()
+	})
+
+	it('reports unknown when a revision listing is unavailable', async () => {
+		resolveWikiLayout.mockResolvedValue(
+			{subreddit: 'sub', state: 'nxg', compatibilityWrites: true,},
+		)
+		mockRevisions(2000, null,)
+
+		expect(await getConfigMirrorStatus('sub',),).toEqual({state: 'unknown',},)
 	})
 })
