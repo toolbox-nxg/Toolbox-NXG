@@ -86,7 +86,7 @@
         "eslint-plugin-react-hooks": "^7.1.1",
         "globals": "^17.8.0",
         "happy-dom": "^20.11.0",
-        "jsdom": "^29.1.1",
+        "jsdom": "^30.0.1",
         "patch-package": "^8.0.1",
         "rollup": "^4.62.2",
         "rollup-plugin-copy": "^3.5.0",
