@@ -37,7 +37,7 @@ export function getThingRemovedAtEl (thing: Element,): Element | null {
 
 /**
  * Returns the first `.score` element within a thing whose computed `display` is not `'none'`.
- * Requires a live document with layout; cannot be unit-tested with jsdom.
+ * Requires a live document with layout; cannot be unit-tested in a headless DOM.
  */
 export function getThingVisibleScoreEl (thing: Element,): Element | null {
 	return Array.from(thing.querySelectorAll('.score',),).find(

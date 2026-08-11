@@ -1,6 +1,5 @@
 /** Tests for TBModule.init module isolation and showSettings root teardown. */
 
-// @vitest-environment jsdom
 import {beforeEach, describe, expect, it, vi,} from 'vitest'
 
 const errorLog = vi.hoisted(() => vi.fn())

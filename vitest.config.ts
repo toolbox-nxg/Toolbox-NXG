@@ -2,8 +2,12 @@ import {defineConfig,} from 'vitest/config'
 
 export default defineConfig({
 	test: {
-		// happy-dom avoids the jsdom → html-encoding-sniffer → @exodus/bytes
-		// ESM/CJS incompatibility that breaks tests on Node 20 + jsdom 29.
+		// The only DOM environment: every test runs here, so there is one set of DOM
+		// quirks to reason about rather than two. jsdom was previously pinned per-file
+		// by a handful of tests via `// @vitest-environment jsdom`; none of them needed
+		// anything happy-dom lacks (no XPath, no computed styles), so the dependency was
+		// dropped. Reach for jsdom again only if a test genuinely needs its fuller CSS
+		// or XPath support -- that means re-adding the devDependency, not a stray pragma.
 		environment: 'happy-dom',
 		environmentOptions: {
 			happyDOM: {

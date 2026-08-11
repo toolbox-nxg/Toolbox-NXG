@@ -1,6 +1,5 @@
 /** Tests for the useEscapeKey modal-stacking discipline. */
 
-// @vitest-environment jsdom
 import {act,} from 'react'
 import {createRoot, type Root,} from 'react-dom/client'
 import {afterEach, describe, expect, it, vi,} from 'vitest'

@@ -1,6 +1,5 @@
 /** Tests for URL-derived page-type flags and their refresh on navigation. */
 
-// @vitest-environment jsdom
 import {afterEach, beforeEach, describe, expect, it, vi,} from 'vitest'
 
 /** Reloads pageContext.ts fresh with the given path as the current location. */

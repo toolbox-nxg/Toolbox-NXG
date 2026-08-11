@@ -1,6 +1,5 @@
 /** Tests for the proposals runtime wiring (setup.ts). */
 
-// @vitest-environment jsdom
 import {afterEach, beforeEach, describe, expect, it, vi,} from 'vitest'
 
 // Pulled in transitively via the proposals event bus' cross-tab broadcast.
