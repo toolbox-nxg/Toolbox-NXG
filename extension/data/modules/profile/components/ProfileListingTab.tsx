@@ -3,7 +3,7 @@ import {useEffect, useRef, useState,} from 'react'
 
 import {getModSubs,} from '../../../api/resources/modSubs'
 import {BanState, getBanState,} from '../../../api/resources/relationships'
-import {getUserListingPage,} from '../../../api/resources/users'
+import {getUserPage,} from '../../../api/resources/users'
 import {ActionButton,} from '../../../shared/controls/ActionButton'
 import {neutralTextFeedback, positiveTextFeedback,} from '../../../store/feedback'
 import {forEachChunkedDynamic,} from '../../../util/data/iter'
@@ -31,7 +31,6 @@ import {
 	type ProfileEntry,
 	type ProfileListing,
 	profileListingEntryMatches,
-	type ProfileListingPage,
 	type ProfilePageCache,
 	type RepostData,
 	type RepostInfo,
@@ -361,7 +360,7 @@ export function ListingTab ({
 		}
 
 		setIsFetching(true,)
-		getUserListingPage<ProfileListingPage>(user, listing, {
+		getUserPage<ProfileEntry>(user, listing, {
 			raw_json: '1',
 			after: after === 'fetch' ? '' : after || '',
 			sort: state.sort,
@@ -369,8 +368,8 @@ export function ListingTab ({
 			t: 'all',
 		},).then((data,) => {
 			if (!mountedRef.current) { return }
-			const nextAfter = data.data.after || false
-			const newItems = cachePage(state.sort, data.data.children, nextAfter,)
+			const nextAfter = data.cursor || false
+			const newItems = cachePage(state.sort, data.items, nextAfter,)
 			if (!after) { clearSitetable() }
 			void appendItems(newItems,)
 			update({loaded: true, after: nextAfter, error: undefined, searchRunning: false,},)
@@ -396,13 +395,13 @@ export function ListingTab ({
 			searchRunning: false,
 		},)
 		clearSitetable()
-		getUserListingPage<ProfileListingPage>(user, listing, {raw_json: '1', sort: newSort, limit: '25', t: 'all',},)
+		getUserPage<ProfileEntry>(user, listing, {raw_json: '1', sort: newSort, limit: '25', t: 'all',},)
 			.then(
 				(data,) => {
 					if (!mountedRef.current) { return }
-					cachePage(newSort, data.data.children, data.data.after || false,)
-					void appendItems(data.data.children,)
-					update({loaded: true, after: data.data.after || false, error: undefined,},)
+					cachePage(newSort, data.items, data.cursor || false,)
+					void appendItems(data.items,)
+					update({loaded: true, after: data.cursor || false, error: undefined,},)
 				},
 			).catch((error: unknown,) => {
 				if (!mountedRef.current) { return }
@@ -485,7 +484,7 @@ export function ListingTab ({
 				if (cache.exhausted) { break }
 				pageCount += 1
 
-				const data = await getUserListingPage<ProfileListingPage>(user, listing, {
+				const data = await getUserPage<ProfileEntry>(user, listing, {
 					raw_json: '1',
 					after: after || '',
 					sort: sortMethod,
@@ -493,10 +492,10 @@ export function ListingTab ({
 					t: 'all',
 				},)
 				if (cancelSearchRef.current) { break }
-				cachePage(sortMethod, data.data.children, data.data.after || false,)
-				neutralTextFeedback(`Searching profile page ${pageCount} with ${data.data.children.length} items`,)
+				cachePage(sortMethod, data.items, data.cursor || false,)
+				neutralTextFeedback(`Searching profile page ${pageCount} with ${data.items.length} items`,)
 				const results: ProfileEntry[] = []
-				data.data.children.forEach((value,) => {
+				data.items.forEach((value,) => {
 					if (profileListingEntryMatches(value, compiledSearch,)) {
 						results.push(renderEntryForSearch(
 							value,
@@ -512,8 +511,8 @@ export function ListingTab ({
 				} else {
 					update({searchPageCount: pageCount,},)
 				}
-				if (!data.data.after) { break }
-				after = data.data.after
+				if (!data.cursor) { break }
+				after = data.cursor
 			}
 
 			if (!hits && sitetableRef.current && !getProfileThings(sitetableRef.current,).length) {

@@ -2,10 +2,18 @@
 
 import {apiOauthGetJSON,} from '../transport/http'
 import type {QueryParams,} from '../transport/http'
+import {pageFromListing,} from '../transport/pagination'
+import type {Page,} from '../transport/pagination'
 
 /**
  * A Reddit listing response. The generic parameter `T` narrows the `children` element type;
  * use `unknown` when callers inspect the children dynamically.
+ *
+ * API-layer only: this is the REST wire envelope, and `after`/`before` are REST cursors with
+ * no equivalent in a cursor-connection API. Resource modules unwrap it with `pageFromListing`
+ * and return `Page<T>`; `npm run lint:guard` fails if it is imported outside `api/`. It stays
+ * exported solely so `things.ts` can type `RedditThing.replies`, where Reddit nests a Listing
+ * inside the comment tree.
  */
 export interface RedditListing<T = unknown,> {
 	kind: 'Listing'
@@ -24,14 +32,14 @@ export interface RedditListing<T = unknown,> {
  */
 // Accepts a pre-built path rather than a subreddit name because the modlog queue
 // module constructs its own multi-sub paths (e.g. `/r/sub1+sub2/`).
-export const getModLogByPath = <T = unknown,>(subredditPath: string, query?: QueryParams,): Promise<RedditListing<T>> =>
-	apiOauthGetJSON<RedditListing<T>>(`${subredditPath}about/log.json`, query,)
+export const getModLogByPath = <T = unknown,>(subredditPath: string, query?: QueryParams,): Promise<Page<T>> =>
+	apiOauthGetJSON<RedditListing<T>>(`${subredditPath}about/log.json`, query,).then(pageFromListing,)
 
 /**
  * Fetches moderation log entries for a subreddit.
  * The generic parameter `T` narrows the element type of `data.children`.
  */
-export const getModLog = <T = unknown,>(subreddit: string, query?: QueryParams,): Promise<RedditListing<T>> =>
+export const getModLog = <T = unknown,>(subreddit: string, query?: QueryParams,): Promise<Page<T>> =>
 	getModLogByPath<T>(`/r/${subreddit}/`, query,)
 
 /**
@@ -58,8 +66,8 @@ export interface RedditModLogEntry {
  * @param limit How many entries to request (Reddit's natural order, most-recent first).
  */
 export async function getModLogEntries<T,> (subreddit: string, limit = '100',): Promise<T[]> {
-	const {data,} = await getModLog<{data: T}>(subreddit, {limit, raw_json: '1',},)
-	return data.children.map((child,) => child.data)
+	const {items,} = await getModLog<{data: T}>(subreddit, {limit, raw_json: '1',},)
+	return items.map((child,) => child.data)
 }
 
 /**
@@ -70,11 +78,12 @@ export const getSubredditListing = <T = unknown,>(
 	subreddit: string,
 	page: string,
 	query?: QueryParams,
-): Promise<RedditListing<T>> => apiOauthGetJSON<RedditListing<T>>(`/r/${subreddit}/about/${page}.json`, query,)
+): Promise<Page<T>> =>
+	apiOauthGetJSON<RedditListing<T>>(`/r/${subreddit}/about/${page}.json`, query,).then(pageFromListing,)
 
 /**
  * Fetches the modqueue or unmoderated listing for one or more subreddits.
- * The generic parameter `T` narrows the element type of `data.children`.
+ * The generic parameter `T` narrows the item type of the returned page.
  * @param options Query options.
  * @param subreddits A `+`-joined list of subreddit names (e.g. `sub1+sub2`).
  * @param page Which queue to fetch.
@@ -88,8 +97,9 @@ export function getModerationQueueListing<T = unknown,> ({
 	subreddits: string
 	page: 'modqueue' | 'unmoderated'
 	limit: number
-},): Promise<RedditListing<T>> {
+},): Promise<Page<T>> {
 	return apiOauthGetJSON<RedditListing<T>>(`/r/${subreddits}/about/${page}.json`, {limit: String(limit,),},)
+		.then(pageFromListing,)
 }
 
 /** The subset of `/r/<sub>/about.json` this codebase reads. */

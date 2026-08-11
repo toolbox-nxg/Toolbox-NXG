@@ -13,7 +13,7 @@
         "lint": "eslint . && npm run lint:guard",
         "lint:fix": "eslint . --fix",
         "lint:params": "node scripts/check-param-order.mjs",
-        "lint:guard": "node scripts/check-moderation-imports.mjs",
+        "lint:guard": "node scripts/check-moderation-imports.mjs && node scripts/check-transport-leak.mjs",
         "lint:css": "stylelint \"extension/**/*.css\"",
         "lint:css:fix": "stylelint \"extension/**/*.css\" --fix",
         "fmt": "dprint check",

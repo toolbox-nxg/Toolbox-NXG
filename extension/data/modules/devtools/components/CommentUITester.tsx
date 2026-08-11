@@ -1,7 +1,6 @@
 /** Developer tool for rendering Reddit comment/thread/listing UI elements and testing in-page notifications. */
 import {useRef, useState,} from 'react'
 
-import type {RedditListing,} from '../../../api/resources/subreddits'
 import type {CommentData, RedditContentThing, RedditMoreChildren, RedditThing,} from '../../../api/resources/things'
 import {ActionButton,} from '../../../shared/controls/ActionButton'
 import {Backdrop,} from '../../../shared/window/Backdrop'
@@ -16,6 +15,15 @@ import {
 } from '../../../util/ui/redditElementsInit'
 
 import css from './CommentUITester.module.css'
+
+/**
+ * The raw Reddit listing envelope, declared locally rather than imported from the API layer.
+ * This tester deliberately renders whatever JSON an arbitrary dev-entered URL returns, so it
+ * works at the wire level; feature code uses the transport-neutral `Page` instead.
+ */
+interface RawListing<T,> {
+	data: {children: T[]}
+}
 
 /** Props for the CommentUITester component. */
 export interface CommentUITesterProps {
@@ -48,17 +56,17 @@ export function CommentUITester ({onClose, fetchListing,}: CommentUITesterProps,
 			fullCommentsLink: true,
 		}
 		if (mode === 'thread') {
-			const thread = data as [unknown, RedditListing<RedditThing<CommentData> | RedditMoreChildren>,]
+			const thread = data as [unknown, RawListing<RedditThing<CommentData> | RedditMoreChildren>,]
 			const comments = makeCommentThread(thread[1].data.children, commentOptions,)
 			siteTableRef.current.appendChild(comments,)
 			tbRedditEvent(comments,)
 		} else if (mode === 'single') {
-			const thread = data as [unknown, RedditListing<RedditThing<CommentData>>,]
+			const thread = data as [unknown, RawListing<RedditThing<CommentData>>,]
 			const comment = makeSingleComment(thread[1].data.children[0]!, commentOptions,)
 			siteTableRef.current.appendChild(comment,)
 			tbRedditEvent(comment,)
 		} else {
-			const listing = data as RedditListing<RedditContentThing>
+			const listing = data as RawListing<RedditContentThing>
 			await forEachChunkedDynamic(listing.data.children, (entry: RedditContentThing,) => {
 				if (entry.kind === 't3' && siteTableRef.current) {
 					const submission = makeSubmissionEntry(entry,)

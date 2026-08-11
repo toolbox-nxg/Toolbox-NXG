@@ -2,12 +2,12 @@
 
 import {useEffect, useRef,} from 'react'
 import {getModLogByPath,} from '../../../api/resources/subreddits'
-import type {RedditListing,} from '../../../api/resources/subreddits'
+import type {Page,} from '../../../api/transport/pagination'
 import createLogger from '../../../util/infra/logging'
 import type {ModLogEntry,} from '../schema'
 
-/** The `data` envelope of a paginated mod-log listing response. */
-type ModLogPageData = RedditListing<{kind: string; data: ModLogEntry}>['data']
+/** One page of mod-log entries, as cached between fetches. */
+type ModLogPageData = Page<{kind: string; data: ModLogEntry}>
 
 const log = createLogger('ModMatrix',)
 const limit = 500
@@ -73,8 +73,7 @@ export function useModLogFetch (
 				if (cached != null) {
 					data = cached
 				} else {
-					const response = await getModLogByPath<{kind: string; data: ModLogEntry}>(relativeUrl, requestData,)
-					data = response.data
+					data = await getModLogByPath<{kind: string; data: ModLogEntry}>(relativeUrl, requestData,)
 					dataCacheRef.current[cacheKey] = data
 				}
 			} catch (err: unknown) {
@@ -96,7 +95,7 @@ export function useModLogFetch (
 			const entries: ModLogEntry[] = []
 			let finished = false
 
-			for (const child of (data.children ?? [])) {
+			for (const child of data.items) {
 				const item = child.data
 				if (minDate != null && minDate > item.created_utc * 1000) {
 					finished = true
@@ -106,10 +105,10 @@ export function useModLogFetch (
 				entries.push(item,)
 			}
 
-			if (data.after == null || data.after === afterRef.current) {
+			if (data.cursor == null || data.cursor === afterRef.current) {
 				finished = true
 			} else {
-				afterRef.current = data.after
+				afterRef.current = data.cursor
 			}
 
 			onBatch(entries, !finished,)

@@ -150,10 +150,8 @@ async function findUserInSubredditListing<T extends {name: string},> (
 	page: string,
 	user: string,
 ): Promise<T | undefined> {
-	const data = await getSubredditListing(subreddit, page, {user,},)
-	const children = data?.data?.children
-	if (!Array.isArray(children,)) { return undefined }
-	return findByName(children as T[], user,)
+	const {items,} = await getSubredditListing<T>(subreddit, page, {user,},)
+	return findByName(items, user,)
 }
 
 /**
@@ -186,9 +184,10 @@ export const getModeratorListResult = async (
 	targetUser: string,
 	currentUser: string,
 ): Promise<ModeratorListResult> => {
-	const data = await getSubredditListing<{name: string; mod_permissions: string[]}>(subreddit, 'moderators',)
-	const children = data?.data?.children
-	const mods = Array.isArray(children,) ? children : []
+	const {items: mods,} = await getSubredditListing<{name: string; mod_permissions: string[]}>(
+		subreddit,
+		'moderators',
+	)
 	const targetIsMod = findByName(mods, targetUser,) !== undefined
 	const currentEntry = findByName(mods, currentUser,)
 	const currentUserPermissions = currentEntry?.mod_permissions ?? []

@@ -267,14 +267,11 @@ export function ModButtonPopup ({
 				let modName = ''
 				let modLink = '#'
 				try {
-					// Typed at the API response boundary; getModLog returns untyped JSON.
-					const logData = await getModLog(activeSub, {type: 'banuser', limit: '1000',},) as {
-						data: {children: Array<{data: {target_fullname: string; mod: string}}>}
-					}
-					// Defensive: an unexpected response shape (missing data/children) yields an
-					// empty list rather than throwing mid-loop and logging a spurious warning.
-					const entries = logData.data?.children ?? []
-					for (const entry of entries) {
+					const logData = await getModLog<{data: {target_fullname: string; mod: string}}>(
+						activeSub,
+						{type: 'banuser', limit: '1000',},
+					)
+					for (const entry of logData.items) {
 						if (entry.data.target_fullname === userFullname) {
 							modName = entry.data.mod
 							modLink = `/u/${modName}`

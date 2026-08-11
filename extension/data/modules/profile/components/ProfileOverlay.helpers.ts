@@ -1,7 +1,7 @@
 /** Helper utilities for filtering and searching entries displayed in the profile overlay. */
-import type {RedditListing,} from '../../../api/resources/subreddits'
 import type {RedditThing,} from '../../../api/resources/things'
 import type {UserAbout,} from '../../../api/resources/users'
+import type {Page,} from '../../../api/transport/pagination'
 import {literalRegExp,} from '../../../util/data/string'
 import {cleanSubredditName,} from '../../../util/reddit/reddit-domain'
 
@@ -32,8 +32,8 @@ export interface ProfileEntry extends RedditThing<ProfileItemData> {
 	highlight?: string | RegExp
 }
 
-/** One page of profile listing entries (`overview`/`submitted`/`comments`) as returned by the Reddit API. */
-export type ProfileListingPage = RedditListing<ProfileEntry>
+/** One page of profile listing entries (`overview`/`submitted`/`comments`). */
+export type ProfileListingPage = Page<ProfileEntry>
 
 /** Visibility filters applied to profile listing entries in the overlay. */
 export interface ProfileEntryFilters {
@@ -311,7 +311,7 @@ export function cacheListingPage (
 
 /**
  * Fetches a single page of a user's listing. Matches the signature of
- * `getUserListingPage`; injected into `fetchEntireListing` so this module stays
+ * `getUserPage`; injected into `fetchEntireListing` so this module stays
  * free of extension-only imports (and thus unit-testable).
  */
 export type ListingPageFetcher = (
@@ -323,7 +323,7 @@ export type ListingPageFetcher = (
 /**
  * Eagerly fetches every remaining page of a user's listing into the cache.
  * Resumes from wherever the cache currently sits, so already-browsed pages are not re-fetched.
- * @param fetchPage Function that fetches one listing page (pass `getUserListingPage`).
+ * @param fetchPage Function that fetches one listing page (pass `getUserPage`).
  * @param user The Reddit username whose listing is fetched.
  * @param listing The listing to fetch (typically `overview` for full-history repost detection).
  * @param sort The sort order to fetch under.
@@ -354,8 +354,8 @@ export async function fetchEntireListing (
 			limit: '100',
 			t: 'all',
 		},)
-		const nextAfter = data.data.after || false
-		cacheListingPage(store, listing, sort, data.data.children, nextAfter,)
+		const nextAfter = data.cursor || false
+		cacheListingPage(store, listing, sort, data.items, nextAfter,)
 		onProgress?.(cache.pageCount, cache.items.length,)
 		if (!nextAfter) { break }
 		after = nextAfter

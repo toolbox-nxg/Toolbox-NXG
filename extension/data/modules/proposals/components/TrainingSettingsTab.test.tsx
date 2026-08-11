@@ -57,7 +57,8 @@ beforeEach(() => {
 	vi.clearAllMocks()
 	resolveWikiLayout.mockResolvedValue({state: 'nxg', compatibilityWrites: false,},)
 	getSubredditListing.mockResolvedValue({
-		data: {children: [{name: 'ExistingTrainee', mod_permissions: [],}, {name: 'NewMod', mod_permissions: [],},],},
+		items: [{name: 'ExistingTrainee', mod_permissions: [],}, {name: 'NewMod', mod_permissions: [],},],
+		cursor: null,
 	},)
 	container = document.createElement('div',)
 	document.body.appendChild(container,)
@@ -120,13 +121,12 @@ describe('TrainingSettingsTab save', () => {
 	it('locks the current user and more-senior mods, leaving juniors editable', async () => {
 		// Seniority-ordered listing: TopMod (senior), Me, Junior. The current user is "Me".
 		getSubredditListing.mockResolvedValue({
-			data: {
-				children: [
-					{name: 'TopMod', mod_permissions: [],},
-					{name: 'Me', mod_permissions: [],},
-					{name: 'Junior', mod_permissions: [],},
-				],
-			},
+			items: [
+				{name: 'TopMod', mod_permissions: [],},
+				{name: 'Me', mod_permissions: [],},
+				{name: 'Junior', mod_permissions: [],},
+			],
+			cursor: null,
 		},)
 		getCurrentUser.mockResolvedValue('me',)
 

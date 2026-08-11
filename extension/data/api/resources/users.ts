@@ -2,7 +2,8 @@
 
 import {apiOauthGetJSON,} from '../transport/http'
 import type {QueryParams,} from '../transport/http'
-import {fetchAllListingPages,} from '../transport/pagination'
+import {fetchAllListingPages, pageFromListing,} from '../transport/pagination'
+import type {Page,} from '../transport/pagination'
 
 /** Response shape of `/user/{user}/about.json` (Reddit kind `t2`). */
 export interface UserAbout {
@@ -74,8 +75,25 @@ export const getUserComments = (user: string, maxCount?: number,): Promise<unkno
 	fetchUserListing(user, 'comments', maxCount,)
 
 /**
- * Fetches one page of a user listing (submitted, comments, saved, overview,
- * moderated_subreddits, trophies, etc.).
+ * Fetches one page of a user listing (submitted, comments, saved, overview, ...) as a
+ * transport-neutral {@link Page}.
+ *
+ * Prefer this over {@link getUserListingPage} for anything that returns a Reddit listing:
+ * it keeps the `{kind: 'Listing', data: {children, after}}` envelope inside the API layer.
+ * @param user Username whose listing is fetched.
+ * @param listing Listing name, e.g. `overview`, `submitted`, `comments`.
+ * @param query Optional query parameters; pass the previous page's cursor as `after`.
+ */
+export const getUserPage = <T,>(user: string, listing: string, query?: QueryParams,): Promise<Page<T>> =>
+	apiOauthGetJSON<{data: {children?: T[]; after?: string | null}}>(`/user/${user}/${listing}.json`, query,)
+		.then(pageFromListing,)
+
+/**
+ * Fetches one page of a user endpoint as its raw JSON body.
+ *
+ * Only for user endpoints that are *not* Reddit listings (e.g. `moderated_subreddits`,
+ * `trophies`), which have their own bespoke shapes. Listing endpoints should use
+ * {@link getUserPage} instead.
  */
 export const getUserListingPage = <T = Record<string, unknown>,>(
 	user: string,

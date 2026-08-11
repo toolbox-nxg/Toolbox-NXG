@@ -26,7 +26,7 @@ export function useDrilldownFetch (
 		getModLogByPath<{data: ModLogEntry}>(relativeUrl, {type: actionCode, mod, limit: '20',},)
 			.then((result,) => {
 				if (!active) { return }
-				setEntries((result.data?.children ?? []).map((c,) => c.data),)
+				setEntries(result.items.map((c,) => c.data),)
 			},)
 			.catch(() => {
 				if (!active) { return }

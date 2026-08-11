@@ -1,8 +1,8 @@
 /** Scan-and-remove loop backing the profile bulk-remove panel. */
 import {removeThing,} from '../../../api/resources/things'
-import {getUserListingPage,} from '../../../api/resources/users'
+import {getUserPage,} from '../../../api/resources/users'
 import {registerItemSubreddit, unregisterItemSubreddit,} from '../../../util/infra/captureGuard'
-import type {ProfileListingPage,} from './ProfileOverlay.helpers'
+import type {ProfileEntry,} from './ProfileOverlay.helpers'
 
 /** Running totals reported back to the panel as the scan progresses. */
 export interface BulkRemoveProgress {
@@ -47,14 +47,14 @@ export async function bulkRemoveUserContent (
 	let after: string | undefined
 
 	while (!opts.isCancelled()) {
-		const data = await getUserListingPage<ProfileListingPage>(user, 'overview', {
+		const data = await getUserPage<ProfileEntry>(user, 'overview', {
 			raw_json: '1',
 			after: after ?? '',
 			sort: 'new',
 			limit: '100',
 			t: 'all',
 		},)
-		const children = data.data.children ?? []
+		const children = data.items
 		totalScanned += children.length
 		opts.onProgress({scanned: totalScanned, removed: totalRemoved,},)
 
@@ -73,7 +73,7 @@ export async function bulkRemoveUserContent (
 			opts.onProgress({scanned: totalScanned, removed: totalRemoved,},)
 		}
 
-		if (!data.data.after || opts.isCancelled()) { break }
-		after = data.data.after
+		if (!data.cursor || opts.isCancelled()) { break }
+		after = data.cursor
 	}
 }

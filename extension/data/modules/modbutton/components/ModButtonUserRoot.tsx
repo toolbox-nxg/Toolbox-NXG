@@ -3,10 +3,9 @@
 import {getCurrentUser,} from '../../../api/resources/me'
 import {sendModmail,} from '../../../api/resources/modmail'
 import {addContributor, addModerator, removeContributor, removeModerator,} from '../../../api/resources/relationships'
-import type {RedditListing,} from '../../../api/resources/subreddits'
 import type {RedditContentThing,} from '../../../api/resources/things'
 import {removeThing,} from '../../../api/resources/things'
-import {getUserListingPage,} from '../../../api/resources/users'
+import {getUserPage,} from '../../../api/resources/users'
 import {AuthorButton,} from '../../../shared/controls/AuthorButton'
 import {GeneralButton,} from '../../../shared/controls/GeneralButton'
 import {negativeTextFeedback,} from '../../../store/feedback'
@@ -111,14 +110,14 @@ function createActions (): ModButtonActions {
 			}
 			let after: string | undefined
 			while (true) {
-				const data = await getUserListingPage<RedditListing<RedditContentThing>>(user, 'overview', {
+				const data = await getUserPage<RedditContentThing>(user, 'overview', {
 					raw_json: '1',
 					after: after ?? '',
 					sort: 'new',
 					limit: '100',
 					t: 'all',
 				},)
-				const children = data.data.children ?? []
+				const children = data.items
 				for (const item of children) {
 					if (item.data?.subreddit?.toLowerCase() !== subreddit.toLowerCase()) { continue }
 					if (item.data?.banned_by) { continue }
@@ -136,8 +135,8 @@ function createActions (): ModButtonActions {
 						unregisterItemSubreddit(fullname,)
 					}
 				}
-				if (!data.data.after) { break }
-				after = data.data.after
+				if (!data.cursor) { break }
+				after = data.cursor
 			}
 		},
 		async flairUser (params,) {

@@ -99,7 +99,7 @@ export function createSidebarSortHandlers () {
 
 						function updateModqueueCount (subName: string,) {
 							getSubredditListing(subName, page, {limit: '100',},).then((d,) => {
-								const items = d.data.children.length
+								const items = d.items.length
 								log.debug(`  subreddit: ${subName} items: ${items}`,)
 								void setCache(
 									massModeration,
@@ -111,8 +111,8 @@ export function createSidebarSortHandlers () {
 									// selector still matches the anchor we created for this subreddit.
 									`a[href$="/r/${encodeURIComponent(subName,)}/about/${page}"]`,
 								) ?? []).forEach((a: Element,) => {
-									a.textContent = String(d.data.children.length,)
-									a.setAttribute('count', String(d.data.children.length,),)
+									a.textContent = String(d.items.length,)
+									a.setAttribute('count', String(d.items.length,),)
 								},)
 							},).catch((error: unknown,) => log.error(error,))
 						}

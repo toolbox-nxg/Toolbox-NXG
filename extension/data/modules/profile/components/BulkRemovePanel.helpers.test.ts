@@ -14,9 +14,9 @@ import {bulkRemoveUserContent,} from './BulkRemovePanel.helpers'
 // guard inside removeThing. Only the network listing fetch and the low-level HTTP
 // transport are stubbed, so the real removeThing → assertActionAllowed →
 // postRedditApiVoid chain runs.
-const getUserListingPage = vi.fn()
+const getUserPage = vi.fn()
 vi.mock('../../../api/resources/users', () => ({
-	getUserListingPage: (...args: unknown[]) => getUserListingPage(...args,),
+	getUserPage: (...args: unknown[]) => getUserPage(...args,),
 }),)
 
 const apiOauthPOST = vi.fn()
@@ -31,8 +31,8 @@ function child (name: string, subreddit: string, extra: Record<string, unknown> 
 }
 
 /** Returns a single listing page (no further pages). */
-function page (children: unknown[],) {
-	return {data: {children, after: null,},}
+function page (items: unknown[],) {
+	return {items, cursor: null,}
 }
 
 /** Restores all capture-guard state to its inert defaults. */
@@ -44,7 +44,7 @@ function resetGuard () {
 }
 
 beforeEach(() => {
-	getUserListingPage.mockReset()
+	getUserPage.mockReset()
 	apiOauthPOST.mockReset()
 	// postRedditApiVoid runs `await response.json()`, so return a minimal Response-like.
 	apiOauthPOST.mockResolvedValue({json: async () => ({}),},)
@@ -61,7 +61,7 @@ describe('bulkRemoveUserContent', () => {
 		setCaptureActivePredicate((sub,) => sub === 'othersub')
 		setCaptureAnywherePredicate(() => true)
 
-		getUserListingPage.mockResolvedValue(page([
+		getUserPage.mockResolvedValue(page([
 			child('t1_keep1', 'targetsub',),
 			child('t3_other', 'somewhereelse',), // different sub → filtered out
 			child('t1_banned', 'targetsub', {banned_by: 'mod',},), // already removed → skipped
@@ -84,12 +84,12 @@ describe('bulkRemoveUserContent', () => {
 	})
 
 	it('stops scanning when cancelled before the first page', async () => {
-		getUserListingPage.mockResolvedValue(page([child('t1_a', 'targetsub',),],),)
+		getUserPage.mockResolvedValue(page([child('t1_a', 'targetsub',),],),)
 		await bulkRemoveUserContent('targetsub', 'someuser', {
 			isCancelled: () => true,
 			onProgress: () => {},
 		},)
-		expect(getUserListingPage,).not.toHaveBeenCalled()
+		expect(getUserPage,).not.toHaveBeenCalled()
 		expect(apiOauthPOST,).not.toHaveBeenCalled()
 	})
 })

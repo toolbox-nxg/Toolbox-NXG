@@ -73,7 +73,7 @@ const flush = () => new Promise((resolve,) => setTimeout(resolve, 0,))
 beforeEach(() => {
 	vi.clearAllMocks()
 	getTime.mockReturnValue(NOW,)
-	getModerationQueueListing.mockResolvedValue({data: {children: [],},},)
+	getModerationQueueListing.mockResolvedValue({items: [], cursor: null,},)
 	getModmailUnreadCount.mockResolvedValue({},)
 },)
 
@@ -141,14 +141,13 @@ describe('notifier new-item detection', () => {
 			modqueuePushed: ['t3_old',], // the item that rotated out was already notified
 		},)
 		getModerationQueueListing.mockResolvedValue({
-			data: {
-				children: [
-					{
-						kind: 't3',
-						data: {name: 't3_new', permalink: '/r/s/x', title: 'New', author: 'a', subreddit: 's',},
-					},
-				],
-			},
+			items: [
+				{
+					kind: 't3',
+					data: {name: 't3_new', permalink: '/r/s/x', title: 'New', author: 'a', subreddit: 's',},
+				},
+			],
+			cursor: null,
 		},)
 		const {getmessages,} = createNotifierHandlers(makeOptions({modNotifications: true,},), module,)
 
@@ -168,14 +167,13 @@ describe('notifier new-item detection', () => {
 			modqueuePushed: ['t3_seen',],
 		},)
 		getModerationQueueListing.mockResolvedValue({
-			data: {
-				children: [
-					{
-						kind: 't3',
-						data: {name: 't3_seen', permalink: '/r/s/x', title: 'Seen', author: 'a', subreddit: 's',},
-					},
-				],
-			},
+			items: [
+				{
+					kind: 't3',
+					data: {name: 't3_seen', permalink: '/r/s/x', title: 'Seen', author: 'a', subreddit: 's',},
+				},
+			],
+			cursor: null,
 		},)
 		const {getmessages,} = createNotifierHandlers(makeOptions({modNotifications: true,},), module,)
 
@@ -195,14 +193,13 @@ describe('notifier showNotifications master switch', () => {
 			modqueuePushed: [],
 		},)
 		getModerationQueueListing.mockResolvedValue({
-			data: {
-				children: [
-					{
-						kind: 't3',
-						data: {name: 't3_new', permalink: '/r/s/x', title: 'New', author: 'a', subreddit: 's',},
-					},
-				],
-			},
+			items: [
+				{
+					kind: 't3',
+					data: {name: 't3_new', permalink: '/r/s/x', title: 'New', author: 'a', subreddit: 's',},
+				},
+			],
+			cursor: null,
 		},)
 		return module
 	}

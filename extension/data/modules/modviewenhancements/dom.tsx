@@ -1,7 +1,7 @@
 /** DOM integration for the Mod View Enhancements module - applies visual and informational augmentations to submissions and reports across the mod queue, subreddit listings, and comment pages. */
 import {isModSub,} from '../../api/resources/modSubs'
 import {getModLog,} from '../../api/resources/subreddits'
-import type {RedditListing,} from '../../api/resources/subreddits'
+import type {Page,} from '../../api/transport/pagination'
 import {getCurrentSubredditName, getSiteTable,} from '../../dom/oldReddit/page'
 import {
 	getModReports,
@@ -160,7 +160,7 @@ export function createModViewEnhancementsHandlers ({
 		log.debug(subreddit,)
 		const highlightEnabled = await highlightEnabledPromise
 		type AutomodAction = {details?: string; target_fullname?: string; target_permalink?: string}
-		let json: RedditListing<{kind: string; data: AutomodAction}>
+		let json: Page<{kind: string; data: AutomodAction}>
 		try {
 			json = await getModLog<{kind: string; data: AutomodAction}>(subreddit, {
 				limit: '500',
@@ -170,7 +170,7 @@ export function createModViewEnhancementsHandlers ({
 			log.error('getAutomodActionReason: getModLog failed', err,)
 			return
 		}
-		json.data.children.forEach((value,) => {
+		json.items.forEach((value,) => {
 			const actionReasonText = value.data.details ?? ''
 			const targetFullName = value.data.target_fullname
 			if (!targetFullName) { return }

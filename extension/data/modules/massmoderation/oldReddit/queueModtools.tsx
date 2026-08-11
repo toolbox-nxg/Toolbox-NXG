@@ -4,8 +4,8 @@ import {createElement,} from 'react'
 
 import {isModSub,} from '../../../api/resources/modSubs'
 import {getModLog,} from '../../../api/resources/subreddits'
-import type {RedditListing,} from '../../../api/resources/subreddits'
 import {approveThing, ignoreReports, removeThing,} from '../../../api/resources/things'
+import type {Page,} from '../../../api/transport/pagination'
 import {getQueueTabMenu, getSiteTable,} from '../../../dom/oldReddit/page'
 import {
 	getAllThingCheckboxes,
@@ -720,7 +720,7 @@ export function createModtoolsHandlers (
 		let resolved = 0
 		try {
 			type ModLogChild = {data?: {target_fullname?: string; action?: string; mod?: string}}
-			let response: RedditListing<ModLogChild>
+			let response: Page<ModLogChild>
 			try {
 				// postSite is the queue's subreddit, or '' on multi-sub queues - fall back to `mod`.
 				response = await getModLog<ModLogChild>(postSite || 'mod', {limit: '100', raw_json: '1',},)
@@ -730,7 +730,7 @@ export function createModtoolsHandlers (
 
 			// Mod log is newest-first; keep only the most recent resolving action per target.
 			const actionsByFullname = new Map<string, {family: ActionFamily; spam: boolean; mod: string}>()
-			for (const child of response?.data?.children ?? []) {
+			for (const child of response.items) {
 				const data = child?.data
 				const fullname: string | undefined = data?.target_fullname
 				if (!fullname || actionsByFullname.has(fullname,)) { continue }

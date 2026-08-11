@@ -157,7 +157,7 @@ export function createQueueHandlers (
 	function getModlog (subreddit: string, callback: () => void,) {
 		getModLog<{kind: string; data: ActionEntry & {target_fullname?: string}}>(subreddit, {limit: '500',},).then(
 			(json,) => {
-				json.data.children.forEach((value,) => {
+				json.items.forEach((value,) => {
 					const fullname = value.data.target_fullname
 					const actionID = value.data.id
 					if (!fullname || !has(modlogCache, subreddit,)) { return }

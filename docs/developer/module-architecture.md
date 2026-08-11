@@ -281,6 +281,21 @@ The `Lifecycle` object manages everything that needs cleanup when the module re-
 - For `fetch` / `TBApi.getJSON` results: `any` at the immediate response boundary is acceptable; don't carry `any` deeper into business logic
 - Domain types flow from `schema.ts` → `api.ts` / `dom.ts` / `components/`; never in reverse
 
+### Listing pagination
+
+Reddit's `.json` listing endpoints wrap results in `{kind: 'Listing', data: {children, after, before}}`.
+That envelope is a transport detail — `after` is a REST cursor with no equivalent in a
+cursor-connection API — so it stays inside `api/`.
+
+- Resource modules unwrap it with `pageFromListing` and return `Page<T>` from `api/transport/pagination`
+- Feature code reads `.items` and `.cursor`, and treats `cursor` as opaque: hand it back to the next
+  fetch unchanged, never parse or construct one
+- `npm run lint:guard` fails on `RedditListing` imports or `.data.after` / `.data.before` access outside `api/`
+
+`.data.children` is _not_ restricted: Reddit's comment tree nests Listings recursively
+(`RedditThing.replies`, and a `more` node's `children` array of comment ids), so that access is
+legitimate tree traversal rather than pagination.
+
 ---
 
 ## Pre-PR checklist

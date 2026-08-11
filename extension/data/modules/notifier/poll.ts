@@ -252,13 +252,13 @@ export function createNotifierHandlers (
 			page: 'modqueue',
 			limit: 100,
 		},).then(async (json,) => {
-			const count = json.data.children.length || 0
+			const count = json.items.length || 0
 			// Bucket the aggregate listing's items by subreddit so the "subreddits you
 			// moderate" drawer can show a per-sub badge without firing its own requests.
 			// Counts share the aggregate's fetch limit, so they may undercount once the
 			// combined queue exceeds `limit` items.
 			const modqueueBySubreddit: Record<string, number> = {}
-			for (const child of json.data.children) {
+			for (const child of json.items) {
 				const sub = child.data.subreddit
 				if (typeof sub !== 'string' || !sub) { continue }
 				const key = sub.toLowerCase()
@@ -273,7 +273,7 @@ export function createNotifierHandlers (
 			if (notifyModqueue) {
 				const pusheditems = await module.get('modqueuePushed',)
 				if (consolidatedMessages) {
-					const newItems = json.data.children.filter((v,) => !pusheditems.includes(v.data.name,))
+					const newItems = json.items.filter((v,) => !pusheditems.includes(v.data.name,))
 					const labels = newItems.map((v,) => {
 						const {author, subreddit,} = v.data
 						return v.kind === 't3'
@@ -295,7 +295,7 @@ export function createNotifierHandlers (
 						dedupeKey: modqueueDedupeKey,
 					},)
 				} else {
-					json.data.children.forEach((value,) => {
+					json.items.forEach((value,) => {
 						if (pusheditems.includes(value.data.name,)) {
 							return
 						}
@@ -339,7 +339,7 @@ export function createNotifierHandlers (
 				page: 'unmoderated',
 				limit: 100,
 			},).then(async (json,) => {
-				const count = json.data.children.length || 0
+				const count = json.items.length || 0
 
 				// Same as the modqueue path: don't gate on the count (which misses
 				// churn and a capped queue); the `lastSeenUnmoderated` timestamp
@@ -348,7 +348,7 @@ export function createNotifierHandlers (
 					const lastSeen = await module.get('lastSeenUnmoderated',)
 
 					if (consolidatedMessages) {
-						const newItems = json.data.children.filter(
+						const newItems = json.items.filter(
 							(v,) => !lastSeen || v.data.created_utc * 1000 > lastSeen,
 						)
 						const labels = newItems.map(
@@ -365,7 +365,7 @@ export function createNotifierHandlers (
 							dedupeKey: unmoderatedDedupeKey,
 						},)
 					} else {
-						json.data.children.forEach((value,) => {
+						json.items.forEach((value,) => {
 							if (!lastSeen || value.data.created_utc * 1000 > lastSeen) {
 								const uqpermalink = value.data.permalink
 								const uqtitle = value.data.title

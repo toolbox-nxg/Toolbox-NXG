@@ -72,7 +72,7 @@ const getCounterState = vi.hoisted(() =>
 vi.mock('../../notifier/store', () => ({updateCounters, getCounterState,}),)
 const getModuleSettingAsync = vi.hoisted(() => vi.fn().mockResolvedValue(false,))
 vi.mock('../../../util/persistence/settings', () => ({getModuleSettingAsync,}),)
-const getModLog = vi.hoisted(() => vi.fn().mockResolvedValue({data: {children: [],},},))
+const getModLog = vi.hoisted(() => vi.fn().mockResolvedValue({items: [], cursor: null,},))
 vi.mock('../../../api/resources/subreddits', () => ({getModLog,}),)
 const negativeTextFeedback = vi.hoisted(() => vi.fn())
 vi.mock('../../../store/feedback', () => ({negativeTextFeedback, positiveTextFeedback: vi.fn(),}),)
@@ -128,7 +128,7 @@ describe('queue modtools auto-refresh', () => {
 		provideLocation.mockClear()
 		renderAtLocation.mockClear()
 		sortThings.mockReset()
-		getModLog.mockResolvedValue({data: {children: [],},},)
+		getModLog.mockResolvedValue({items: [], cursor: null,},)
 	},)
 
 	afterEach(() => {
@@ -360,12 +360,13 @@ describe('queue modtools auto-refresh', () => {
 
 	it('colors and relabels a queue item removed by another mod, and updates the count', async () => {
 		setBigModQueueHtml()
-		getModLog.mockResolvedValue({data: {children: [],},},)
+		getModLog.mockResolvedValue({items: [], cursor: null,},)
 		const handlers = createModtoolsHandlers({set: vi.fn(),} as unknown as Module, settings,)
 		await handlers.syncModlogActions()
 
 		getModLog.mockResolvedValue({
-			data: {children: [{data: {target_fullname: 't3_x', action: 'removelink', mod: 'otheruser',},},],},
+			items: [{data: {target_fullname: 't3_x', action: 'removelink', mod: 'otheruser',},},],
+			cursor: null,
 		},)
 		await handlers.syncModlogActions()
 
@@ -382,12 +383,13 @@ describe('queue modtools auto-refresh', () => {
 
 	it('marks a spammed item as spammed and an approved item as approved', async () => {
 		setBigModQueueHtml()
-		getModLog.mockResolvedValue({data: {children: [],},},)
+		getModLog.mockResolvedValue({items: [], cursor: null,},)
 		const handlers = createModtoolsHandlers({set: vi.fn(),} as unknown as Module, settings,)
 		await handlers.syncModlogActions()
 
 		getModLog.mockResolvedValue({
-			data: {children: [{data: {target_fullname: 't3_x', action: 'spamlink', mod: 'spamcop',},},],},
+			items: [{data: {target_fullname: 't3_x', action: 'spamlink', mod: 'spamcop',},},],
+			cursor: null,
 		},)
 		await handlers.syncModlogActions()
 
@@ -401,7 +403,7 @@ describe('queue modtools auto-refresh', () => {
 
 	it('leaves items absent from the mod log untouched and does not change the count', async () => {
 		setBigModQueueHtml()
-		getModLog.mockResolvedValue({data: {children: [],},},)
+		getModLog.mockResolvedValue({items: [], cursor: null,},)
 		const handlers = createModtoolsHandlers({set: vi.fn(),} as unknown as Module, settings,)
 
 		await handlers.syncModlogActions()
@@ -414,12 +416,13 @@ describe('queue modtools auto-refresh', () => {
 
 	it('does not re-count an item already reconciled on a prior run', async () => {
 		setBigModQueueHtml()
-		getModLog.mockResolvedValue({data: {children: [],},},)
+		getModLog.mockResolvedValue({items: [], cursor: null,},)
 		const handlers = createModtoolsHandlers({set: vi.fn(),} as unknown as Module, settings,)
 		await handlers.syncModlogActions()
 
 		getModLog.mockResolvedValue({
-			data: {children: [{data: {target_fullname: 't3_x', action: 'removelink', mod: 'otheruser',},},],},
+			items: [{data: {target_fullname: 't3_x', action: 'removelink', mod: 'otheruser',},},],
+			cursor: null,
 		},)
 		await handlers.syncModlogActions()
 		await handlers.syncModlogActions()
@@ -434,7 +437,8 @@ describe('queue modtools auto-refresh', () => {
 		// actions - doing so recolored unrelated items and relabeled their remove buttons.
 		setBigModQueueHtml()
 		getModLog.mockResolvedValue({
-			data: {children: [{data: {target_fullname: 't3_x', action: 'removelink', mod: 'reddit',},},],},
+			items: [{data: {target_fullname: 't3_x', action: 'removelink', mod: 'reddit',},},],
+			cursor: null,
 		},)
 		const handlers = createModtoolsHandlers({set: vi.fn(),} as unknown as Module, settings,)
 

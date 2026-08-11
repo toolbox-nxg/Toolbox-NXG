@@ -90,7 +90,7 @@ export function TrainingSettingsTab ({state, saveRef, onSave,}: Props,) {
 		void (async () => {
 			try {
 				const listing = await getSubredditListing<ModeratorEntry>(subreddit, 'moderators', {limit: '100',},)
-				if (!cancelled) { setMods(listing?.data?.children ?? [],) }
+				if (!cancelled) { setMods(listing.items,) }
 			} catch (err) {
 				log.warn(`could not load moderators for /r/${subreddit}`, err,)
 				if (!cancelled) { setError('Could not load the moderator list.',) }

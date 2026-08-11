@@ -1,7 +1,7 @@
 /** Full-page profile overlay that lets moderators browse, filter, and search a user's Reddit activity. */
 import {useEffect, useRef, useState,} from 'react'
 
-import {getUserListingPage,} from '../../../api/resources/users'
+import {getUserPage,} from '../../../api/resources/users'
 import {FullPageDialog,} from '../../../shared/window/FullPageDialog'
 import {TabBar,} from '../../../shared/window/TabBar'
 import {negativeTextFeedback, neutralTextFeedback, positiveTextFeedback,} from '../../../store/feedback'
@@ -86,7 +86,7 @@ function ProfileOverlay ({user, initialListing, initialOptions, subredditColor, 
 		neutralTextFeedback('Fetching full history for repost detection...',)
 		try {
 			const items = await fetchEntireListing(
-				getUserListingPage,
+				getUserPage,
 				user,
 				'overview',
 				'new',
