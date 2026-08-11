@@ -23,6 +23,7 @@ function init (options: QueueToolsSettings,) {
 		showRecentActionsOnRemoved,
 		showReportReasons,
 		expandActionReasonQueue,
+		expandActionReasonEverywhere,
 		queueCreature,
 	} = options
 
@@ -32,6 +33,7 @@ function init (options: QueueToolsSettings,) {
 		showReportReasons,
 		queueCreature,
 		expandActionReasonQueue,
+		expandActionReasonEverywhere,
 	},)
 	lifecycle.mount(queueHandlers.cleanup,)
 	lifecycle.on(window, 'TBNewPage', queueHandlers.handleNewPage,)

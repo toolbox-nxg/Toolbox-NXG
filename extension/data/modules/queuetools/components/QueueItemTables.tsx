@@ -23,6 +23,7 @@ import {ReportsTable,} from './ReportsTable'
  * @param showRecentActionsOnApproved Whether the recent-actions table shows on approved (not removed) items.
  * @param showRecentActionsOnRemoved Whether the recent-actions table shows on removed items.
  * @param showReportReasons Whether the ignored-reports feature is enabled.
+ * @param autoExpandActions Whether the actions table starts expanded on every page, not just queues.
  * @param getActions Factory-provided function to retrieve cached mod-log actions.
  * @param checkIsMod Factory-provided check for whether the current user moderates a subreddit.
  * @param getThingData Factory-provided fetch for a thing's raw data fields.
@@ -34,6 +35,7 @@ export function QueueItemTables (
 		showRecentActionsOnApproved,
 		showRecentActionsOnRemoved,
 		showReportReasons,
+		autoExpandActions,
 		getActions,
 		checkIsMod,
 		getThingData,
@@ -43,6 +45,7 @@ export function QueueItemTables (
 		showRecentActionsOnApproved: boolean
 		showRecentActionsOnRemoved: boolean
 		showReportReasons: boolean
+		autoExpandActions: boolean
 		getActions: GetActions
 		checkIsMod: (subreddit: string,) => Promise<boolean>
 		getThingData: (thingId: string,) => Promise<Record<string, unknown>>
@@ -55,8 +58,11 @@ export function QueueItemTables (
 	const itemActions = useItemActions(context, {getActions, checkIsMod, getThingData,}, showActionsFeature,)
 	const reportData = useItemReports(context, getReports, showReportReasons,)
 
+	// `toolbox-show-actions` is set on the body by the page handler while the queue-only auto-expand
+	// setting applies; `autoExpandActions` is the page-independent setting, so either one starting
+	// true opens the table without a click.
 	const [showActions, setShowActions,] = useState(
-		() => document.body.classList.contains('toolbox-show-actions',),
+		() => autoExpandActions || document.body.classList.contains('toolbox-show-actions',),
 	)
 	const [showReports, setShowReports,] = useState(false,)
 

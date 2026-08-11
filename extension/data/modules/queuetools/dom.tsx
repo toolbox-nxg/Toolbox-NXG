@@ -129,6 +129,7 @@ export function createQueueHandlers (
 		showReportReasons,
 		queueCreature,
 		expandActionReasonQueue,
+		expandActionReasonEverywhere,
 	}: Pick<
 		QueueToolsSettings,
 		| 'showRecentActionsOnApproved'
@@ -136,6 +137,7 @@ export function createQueueHandlers (
 		| 'showReportReasons'
 		| 'queueCreature'
 		| 'expandActionReasonQueue'
+		| 'expandActionReasonEverywhere'
 	>,
 ) {
 	/** Per-subreddit modlog cache. Lives in the factory closure to avoid module-level mutable state. */
@@ -333,6 +335,7 @@ export function createQueueHandlers (
 					showRecentActionsOnApproved={showRecentActionsOnApproved}
 					showRecentActionsOnRemoved={showRecentActionsOnRemoved}
 					showReportReasons={reportsEnabled}
+					autoExpandActions={expandActionReasonEverywhere}
 					getActions={getActions}
 					checkIsMod={isModSub}
 					getThingData={getThingData}

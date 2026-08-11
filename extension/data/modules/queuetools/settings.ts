@@ -27,6 +27,14 @@ export const settings = defineSettings(
 			description: 'Automatically expand the mod action table in queues',
 		},
 		{
+			id: 'expandActionReasonEverywhere',
+			sharedPolicy: 'raw',
+			type: 'boolean',
+			default: false,
+			description:
+				'Automatically expand the mod action table everywhere it appears, not just in queues (subreddit listings, comments pages, profiles)',
+		},
+		{
 			id: 'showReportReasons',
 			sharedPolicy: 'raw',
 			type: 'boolean',
