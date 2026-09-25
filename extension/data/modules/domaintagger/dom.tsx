@@ -292,8 +292,6 @@ export function createDomainTaggerHandlers (
 	},)
 
 	// Renders the "T" edit button (old Reddit) or the full indicator+button (Shreddit).
-	// handleTagButtonClick is referenced here but assigned later in this closure; it is always
-	// defined by the time any provider calls this renderer.
 	renderAtLocation('thingDomainControls', {id: 'domaintagger.button', lifecycle,}, ({context, target,},) => {
 		if (context.platform === RedditPlatform.Shreddit) {
 			const detail = context.rawDetail as ShredditDomainDetail
@@ -665,7 +663,7 @@ export function createDomainTaggerHandlers (
 		)
 	}
 
-	const handleTagButtonClick: DomainTaggerHandlers['handleTagButtonClick'] = async (element, event,) => {
+	async function handleTagButtonClick (element: Element, event: MouseEvent,): Promise<void> {
 		// Shreddit path
 		const shredditPost = element.closest('shreddit-post',)
 		if (shredditPost) {

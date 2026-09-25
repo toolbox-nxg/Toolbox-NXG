@@ -77,6 +77,23 @@ export async function listRetiredUsernoteShardPages (
 }
 
 /**
+ * Session-scoped per-subreddit state from the last successful sharded read or
+ * write: the manifest, per-shard content fingerprints for dirty detection,
+ * and per-shard page sizes for the manager UI. Only ever a hint - a save
+ * without it falls back to re-reading (or rewriting) every shard, never to
+ * data loss.
+ */
+interface SessionShardState {
+	manifest: UsernotesManifest
+	/** Content fingerprint by shard page suffix. */
+	fingerprints: Record<string, string>
+	/** Page size in bytes by shard page suffix. */
+	pageBytes: Record<string, number>
+}
+
+const sessionStates = new Map<string, SessionShardState>()
+
+/**
  * Lists the shard page suffixes currently referenced by a subreddit's
  * usernotes manifest, for UIs that expose the raw shard pages (the config
  * overlay's advanced editor tabs). Prefers the session state from the last
@@ -114,23 +131,6 @@ export interface ShardedStorageInfo {
 	/** Bytes of the largest shard page, to show headroom against the split limit. */
 	largestShardBytes: number
 }
-
-/**
- * Session-scoped per-subreddit state from the last successful sharded read or
- * write: the manifest, per-shard content fingerprints for dirty detection,
- * and per-shard page sizes for the manager UI. Only ever a hint - a save
- * without it falls back to re-reading (or rewriting) every shard, never to
- * data loss.
- */
-interface SessionShardState {
-	manifest: UsernotesManifest
-	/** Content fingerprint by shard page suffix. */
-	fingerprints: Record<string, string>
-	/** Page size in bytes by shard page suffix. */
-	pageBytes: Record<string, number>
-}
-
-const sessionStates = new Map<string, SessionShardState>()
 
 /**
  * Clears the session shard state for a subreddit (or all subreddits). Called

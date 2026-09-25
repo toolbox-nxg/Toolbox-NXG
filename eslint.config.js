@@ -88,10 +88,8 @@ const sourceRules = {
 			allowArrowFunctions: true,
 		},
 	],
-	// 10 pre-existing forward references (module vars + deferred-callback refs) that all
-	// work; warn for now and pay down rather than risk reordering for a style rule.
 	'no-use-before-define': [
-		'warn',
+		'error',
 		'nofunc',
 	],
 	'object-shorthand': [

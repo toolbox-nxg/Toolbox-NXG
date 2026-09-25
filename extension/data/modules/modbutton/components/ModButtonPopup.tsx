@@ -586,6 +586,10 @@ export function ModButtonPopup ({
 		}
 	}
 
+	const effectiveMaxMessage = (removeAll && banPermanent)
+		? maxBanMessageLength - removalNotice.length
+		: maxBanMessageLength
+
 	const handleSave = async (isGlobal: boolean,) => {
 		setLastAction(actionType,)
 
@@ -715,9 +719,6 @@ export function ModButtonPopup ({
 
 	const isBanRelated = actionType === 'ban' || actionType === 'change ban'
 	const isMuteAction = actionType === 'mute'
-	const effectiveMaxMessage = (removeAll && banPermanent)
-		? maxBanMessageLength - removalNotice.length
-		: maxBanMessageLength
 
 	let footer: React.ReactNode = null
 	if (activeTabIndex === 0) {

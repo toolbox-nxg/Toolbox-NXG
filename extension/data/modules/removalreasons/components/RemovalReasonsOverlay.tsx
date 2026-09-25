@@ -674,7 +674,7 @@ export function RemovalReasonsOverlay ({
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [],)
 
-	const handleLeaveUsernoteToggle = async (checked: boolean,) => {
+	async function handleLeaveUsernoteToggle (checked: boolean,) {
 		setLeaveUsernote(checked,)
 		if (checked && subredditColors === null && !colorsLoading) {
 			setColorsLoading(true,)

@@ -423,16 +423,16 @@ export function createModmailHandlers (
 					button.click()
 					return
 				}
-				const stopAttrTimeout = scope.timeout(() => {
-					void stopAttrObserver()
-				}, 2000,)
 				const stopAttrObserver = scope.observe(button, () => {
 					if (!button.disabled) {
 						button.click()
-						void stopAttrTimeout()
 						void stopAttrObserver()
 					}
 				}, {attributes: true, attributeFilter: ['disabled',],},)
+				// Give up after 2s; disconnecting is a no-op if the observer already stopped itself.
+				scope.timeout(() => {
+					void stopAttrObserver()
+				}, 2000,)
 			}
 
 			waitForButton()

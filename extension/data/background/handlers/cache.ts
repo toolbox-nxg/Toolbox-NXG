@@ -62,6 +62,10 @@ function buildCacheKey (userId: string, storageKey: string,): string {
 	return `${cacheKeyPrefix(userId,)}${storageKey}`
 }
 
+// TTL values in minutes, kept in memory and refreshed when settings change.
+let shortCacheTTL = 15
+let longCacheTTL = 45
+
 /**
  * Returns the TTL in ms for `storageKey`, or `null` if the key never expires.
  * Reads the current module-level `shortCacheTTL` / `longCacheTTL` values.
@@ -123,10 +127,6 @@ function cleanupStaleUserCacheSafely (redditUserIdBase36: string,) {
 		log.error('staleUserCacheCleanup:', error,)
 	},)
 }
-
-// TTL values in minutes, kept in memory and refreshed when settings change.
-let shortCacheTTL = 15
-let longCacheTTL = 45
 
 /** Reads short and long cache TTL values from `tbsettings` and updates the module-level variables. */
 async function loadCacheTTLs () {
