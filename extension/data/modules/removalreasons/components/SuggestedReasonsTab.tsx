@@ -170,7 +170,10 @@ const emptyMappingValues: MappingFormValues = {pattern: '', includeUserReports: 
 /** Renders the suggested-reasons mapping editor within the toolbox subreddit config overlay. */
 export function SuggestedReasonsTab ({state, addRef, disabledRef, onSave,}: Props,) {
 	const rr = state.config.removalReasons ?? {}
-	const reasons: RemovalReason[] = Array.isArray(rr.reasons,) ? rr.reasons : []
+	const reasons = useMemo(
+		(): RemovalReason[] => Array.isArray(rr.reasons,) ? rr.reasons : [],
+		[rr.reasons,],
+	)
 	const reasonTitleById = useMemo(
 		() => new Map(reasons.filter((reason,) => reason.id).map((reason,) => [reason.id as string, reason.title,]),),
 		[reasons,],

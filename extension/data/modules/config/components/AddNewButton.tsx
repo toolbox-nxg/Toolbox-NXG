@@ -31,7 +31,7 @@ export function AddNewButton ({label, triggerRef, disabledRef,}: Props,) {
 		return () => {
 			disabledRef.current = null
 		}
-	}, [],)
+	}, [disabledRef,],)
 	return (
 		<ActionButton primary disabled={disabled} type="button" onClick={() => triggerRef.current?.()}>
 			<Icon icon="addCircle" />

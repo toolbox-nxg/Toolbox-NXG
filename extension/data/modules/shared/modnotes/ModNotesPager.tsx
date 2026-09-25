@@ -87,6 +87,8 @@ export function ModNotesPager ({user, subreddit, filter: noteFilter, layout,}: M
 						)
 				),
 			),
+		// refreshKey is unused in the body on purpose: bumping it after a delete re-runs the fetch.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 		[subreddit, user, noteFilter, asCards, refreshKey, deleteNote,],
 	)
 

@@ -81,7 +81,7 @@ export function BanMacroTab ({state, saveRef, onSave,}: Props,) {
 		return () => {
 			saveRef.current = null
 		}
-	}, [],)
+	}, [saveRef,],)
 
 	return (
 		<div className={css.root}>

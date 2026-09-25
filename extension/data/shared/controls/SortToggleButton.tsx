@@ -29,10 +29,10 @@ export function useSortMode (sortRef?: SortModeRef,): boolean {
 		return () => {
 			sortRef.toggle = null
 		}
-	}, [],)
+	}, [sortRef,],)
 	useEffect(() => {
 		sortRef?.onChange?.(sorting,)
-	}, [sorting,],)
+	}, [sorting, sortRef,],)
 
 	return sorting
 }
@@ -50,7 +50,7 @@ export function SortToggleButton ({sortRef,}: {sortRef: SortModeRef},) {
 		return () => {
 			sortRef.onChange = null
 		}
-	}, [],)
+	}, [sortRef,],)
 
 	return (
 		<ActionButton

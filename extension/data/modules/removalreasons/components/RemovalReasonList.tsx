@@ -824,7 +824,7 @@ export function RemovalReasonList ({state, addRef, disabledRef, sortRef, onSave,
 				parent = parent.parentElement
 			}
 		}
-	}, [showAddForm,],)
+	}, [showAddForm, disabledRef,],)
 
 	/** True in sort mode: cards collapse to headers to make reordering easier. */
 	const sorting = useSortMode(sortRef,)
@@ -894,7 +894,7 @@ export function RemovalReasonList ({state, addRef, disabledRef, sortRef, onSave,
 		return () => {
 			addRef.current = null
 		}
-	}, [],)
+	}, [addRef,],)
 
 	// Persist a reason list to config and push it upstream. Strips the local `_key` field,
 	// clears any pending reorder (the whole list is serialized here, carrying the reorder

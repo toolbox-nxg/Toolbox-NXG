@@ -605,7 +605,7 @@ export function UsernoteTypeList (
 		return () => {
 			saveRef.current = null
 		}
-	}, [],)
+	}, [saveRef,],)
 
 	const usageCountOf = (key: string,) => usageCounts?.get(key,) ?? (usageCounts ? 0 : undefined)
 

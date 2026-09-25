@@ -546,7 +546,7 @@ export function ModMacroList ({state, addRef, disabledRef, sortRef,}: ModMacroLi
 				parent = parent.parentElement
 			}
 		}
-	}, [showAddForm,],)
+	}, [showAddForm, disabledRef,],)
 
 	/** True in sort mode: cards collapse to headers to make reordering easier. */
 	const sorting = useSortMode(sortRef,)
@@ -612,7 +612,7 @@ export function ModMacroList ({state, addRef, disabledRef, sortRef,}: ModMacroLi
 		return () => {
 			addRef.current = null
 		}
-	}, [],)
+	}, [addRef,],)
 
 	const handleSaveEdit = (index: number, form: MacroFormState,) => {
 		const newMacros = [...macros,]

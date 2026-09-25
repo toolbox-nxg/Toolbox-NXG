@@ -48,6 +48,9 @@ import {type FlairTemplate, UserFlairTab,} from './UserFlairTab'
 
 const log = createLogger('ModButton',)
 
+/** Stable fallback while mod subs load, so the memos keyed on `modSubs` don't recompute every render. */
+const noModSubs: string[] = []
+
 /** Props for the ModButtonPopup component. */
 interface ModButtonPopupProps {
 	/** Normalized thing/author info used to pre-populate ban fields and token replacement. */
@@ -157,7 +160,7 @@ export function ModButtonPopup ({
 	const [userModlogLoaded, setUserModlogLoaded,] = useState(false,)
 
 	// Mod subs list
-	const modSubs = (useFetched(getModSubs(false,),)) ?? []
+	const modSubs = (useFetched(getModSubs(false,),)) ?? noModSubs
 
 	// Moderated subs eligible for global actions (excludeGlobal filtered out)
 	const globalTargetSubs = useMemo(

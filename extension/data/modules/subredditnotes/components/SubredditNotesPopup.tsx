@@ -451,7 +451,7 @@ export function SubredditNotesPopup ({
 			tags: editTags,
 			updatedAt: Date.now(),
 		},).catch(() => {},)
-	}, [activeSlug, editTags.join('\n',), editorLoading, editorValue, activeSubreddit, saving, unsaved,],)
+	}, [activeSlug, editTags, editorLoading, editorValue, activeSubreddit, saving, unsaved,],)
 
 	const handleCancelDraft = () => {
 		if (!draftNote) { return }
