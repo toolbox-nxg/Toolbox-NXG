@@ -719,6 +719,45 @@ describe('createRemovalReasonsHandlers', () => {
 		expect(showRemovalReasonsOverlay,).not.toHaveBeenCalled()
 	})
 
+	it('announces a shift-click removal so other modules can react to it', async () => {
+		document.body.innerHTML = `
+            <div class="thing link" data-fullname="t3_post" data-subreddit="testsub">
+                <a class="toolbox-removal-reason-remove" data-id="t3_post" data-subreddit="testsub">remove</a>
+            </div>
+        `
+		const listener = vi.fn()
+		window.addEventListener('TB_THING_REMOVED', listener,)
+		const event = makeClick(document.querySelector('.toolbox-removal-reason-remove',)!, true,)
+
+		await createRemovalReasonsHandlers(handlerSettings,).handleClick(event,)
+		window.removeEventListener('TB_THING_REMOVED', listener,)
+
+		expect(listener,).toHaveBeenCalledOnce()
+		expect(listener.mock.calls[0]![0].detail,).toEqual({thingId: 't3_post', spam: false,},)
+	})
+
+	it('announces an overlay removal only once the overlay reports it removed', async () => {
+		document.body.innerHTML = `
+            <div class="thing link" data-fullname="t3_post" data-subreddit="testsub">
+                <span class="remove-button">
+                    <button class="togglebutton" data-event-action="spam">spam</button>
+                </span>
+            </div>
+        `
+		const listener = vi.fn()
+		window.addEventListener('TB_THING_REMOVED', listener,)
+
+		await createRemovalReasonsHandlers(handlerSettings,).handleClick(
+			makeClick(document.querySelector('.togglebutton',)!,),
+		)
+		expect(listener,).not.toHaveBeenCalled()
+		showRemovalReasonsOverlay.mock.calls[0]![0].onRemoved()
+		window.removeEventListener('TB_THING_REMOVED', listener,)
+
+		expect(listener,).toHaveBeenCalledOnce()
+		expect(listener.mock.calls[0]![0].detail,).toEqual({thingId: 't3_post', spam: true,},)
+	})
+
 	it('does not intercept clicks on buttons whose text only contains "remove" as a substring (e.g. "Removes" filter chip)', async () => {
 		document.body.innerHTML = `<button type="button">Removes</button>`
 		const btn = document.querySelector('button',)!

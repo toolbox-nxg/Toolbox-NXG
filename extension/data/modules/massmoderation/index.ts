@@ -4,6 +4,7 @@ import './massmoderation.css'
 
 import {createLifecycle,} from '../../framework/lifecycle'
 import {Module,} from '../../framework/module'
+import {events,} from '../../util/reddit/events'
 import {isModpage,} from '../../util/reddit/pageContext'
 import {createExpandReportsHandlers,} from './oldReddit/expandReports'
 import {createMassModerationSetup, createModtoolsActivator,} from './oldReddit/queueModtools'
@@ -39,6 +40,7 @@ function init (options: MassModerationSettings,) {
 		if (!mt) { return }
 		lifecycle.mount(mt.cleanup,)
 		lifecycle.on(window, 'TBNewThings', mt.handleNewThings,)
+		lifecycle.on(window, events.TB_THING_REMOVED, mt.handleThingRemoved,)
 		lifecycle.delegate<MouseEvent>(body, 'click', '.thing .entry', mt.handleThingEntry,)
 		lifecycle.delegate(body, 'click', '.reported-stamp', mt.handleReportedStamp,)
 		lifecycle.delegate(body, 'click', '.thing input[type=checkbox]', mt.handleThingCheckbox,)

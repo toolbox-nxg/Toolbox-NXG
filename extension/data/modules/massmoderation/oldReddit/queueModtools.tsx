@@ -353,6 +353,40 @@ export function createModtoolsHandlers (
 		},)
 	}
 
+	/**
+	 * Reflects a single-item action taken on this page: deselects the item, decrements the modbar
+	 * count when the action resolves it out of the queue, then hides it (hide-after-action) or
+	 * recolors it to match the action.
+	 * @param thing The actioned queue item.
+	 * @param resolvesItem Whether the action takes the item out of the queue.
+	 * @param color The action highlight class to apply when not hiding, or null for none.
+	 */
+	function resolveThingLocally (
+		thing: Element,
+		resolvesItem: boolean,
+		color: 'approved' | 'removed' | 'spammed' | null,
+	): void {
+		const cb = getThingCheckbox(thing,)
+		if (cb) { cb.checked = false }
+		// A user action polls immediately so the queue reconciles without waiting out the countdown.
+		controls?.triggerAutoRefresh()
+		if (resolvesItem) {
+			// Mark as counted so the mod-log reconcile below doesn't decrement it a second time.
+			thing.classList.add('toolbox-modlog-actioned',)
+			decrementQueueCounter(1,)
+		}
+		// Reconcile other items with the mod log (e.g. actioned by another mod meanwhile).
+		void syncModlogActions()
+		if (hideActionedItems) {
+			log.debug('hiding item',)
+			thing.classList.add('toolbox-mm-hidden',)
+			syncHiddenCount()
+		} else if (color) {
+			thing.classList.remove('removed', 'spammed', 'approved',)
+			thing.classList.add(color,)
+		}
+	}
+
 	/** Counts all hidden things and pushes the count to the toolbar controls. */
 	function syncHiddenCount (): void {
 		const count = document.querySelectorAll('.thing.toolbox-mm-hidden',).length
@@ -857,36 +891,35 @@ export function createModtoolsHandlers (
 		handlePrettyButton (button: Element,) {
 			const thing = button.closest<HTMLElement>('.thing',)
 			if (!thing) { return }
-			const cb = getThingCheckbox(thing,)
-			if (cb) { cb.checked = false }
-			// A user action polls immediately so the queue reconciles without waiting out the countdown.
-			controls?.triggerAutoRefresh()
 			// Approve/remove/spam always resolve the item out of the queue; ignoring reports only does
-			// so when Better Buttons is set to auto-approve on ignore. Reflect resolutions in the
-			// modbar count immediately.
+			// so when Better Buttons is set to auto-approve on ignore.
 			const action = button.getAttribute('data-event-action',)
 			const resolvesItem = action === 'approve' || action === 'remove' || action === 'spam'
 				|| (action === 'ignorereports' && approveOnIgnore)
-			if (resolvesItem) {
-				// Mark as counted so the mod-log reconcile below doesn't decrement it a second time.
-				thing.classList.add('toolbox-modlog-actioned',)
-				decrementQueueCounter(1,)
-			}
-			// Reconcile other items with the mod log (e.g. actioned by another mod meanwhile).
-			void syncModlogActions()
-			if (hideActionedItems) {
-				log.debug('hiding item',)
-				thing.classList.add('toolbox-mm-hidden',)
-			} else if (button.classList.contains('negative',)) {
-				thing.classList.remove('removed', 'approved',)
-				thing.classList.add('spammed',)
-			} else if (button.classList.contains('neutral',)) {
-				thing.classList.remove('spammed', 'approved',)
-				thing.classList.add('removed',)
-			} else if (button.classList.contains('positive',)) {
-				thing.classList.remove('removed', 'spammed',)
-				thing.classList.add('approved',)
-			}
+			const color = button.classList.contains('negative',)
+				? 'spammed'
+				: button.classList.contains('neutral',)
+				? 'removed'
+				: button.classList.contains('positive',)
+				? 'approved'
+				: null
+			resolveThingLocally(thing, resolvesItem, color,)
+		},
+
+		/**
+		 * Resolves a queue item removed through a control that swallows its click (the removal
+		 * reasons remove button), so it never reaches {@link handlePrettyButton}.
+		 */
+		handleThingRemoved (event: Event,) {
+			if (!(event instanceof CustomEvent)) { return }
+			const detail: unknown = event.detail
+			if (!detail || typeof detail !== 'object' || !('thingId' in detail)) { return }
+			const {thingId,} = detail
+			const spam = 'spam' in detail && detail.spam === true
+			const thing = getThings().find((t,) => getThingFullname(t,) === thingId)
+			// Already counted (e.g. reconciled from the mod log first) - don't resolve it twice.
+			if (!thing || thing.classList.contains('toolbox-modlog-actioned',)) { return }
+			resolveThingLocally(thing, true, spam ? 'spammed' : 'removed',)
 		},
 	}
 }

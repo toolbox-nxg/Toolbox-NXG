@@ -300,6 +300,49 @@ describe('queue modtools auto-refresh', () => {
 		expect(updateCounters,).toHaveBeenCalledWith({modqueueCount: 4,},)
 	})
 
+	function removedEvent (thingId: string, spam = false,) {
+		return new CustomEvent('TB_THING_REMOVED', {detail: {thingId, spam,},},)
+	}
+
+	it('hides an item removed through removal reasons when hide-after-action is on', () => {
+		setQueueHtml('remove',)
+		const handlers = createModtoolsHandlers({set: vi.fn(),} as unknown as Module, {
+			...settings,
+			hideActionedItems: true,
+		},)
+
+		handlers.handleThingRemoved(removedEvent('t3_x',),)
+
+		const thing = document.querySelector('.thing',)!
+		expect(thing.classList.contains('toolbox-mm-hidden',),).toBe(true,)
+		expect(updateCounters,).toHaveBeenCalledWith({modqueueCount: 4,},)
+	})
+
+	it('colors an item removed through removal reasons when hide-after-action is off', () => {
+		setQueueHtml('remove',)
+		const handlers = createModtoolsHandlers({set: vi.fn(),} as unknown as Module, settings,)
+
+		handlers.handleThingRemoved(removedEvent('t3_x', true,),)
+
+		const thing = document.querySelector('.thing',)!
+		expect(thing.classList.contains('toolbox-mm-hidden',),).toBe(false,)
+		expect(thing.classList.contains('spammed',),).toBe(true,)
+	})
+
+	it('ignores a removal event for an item that was already counted', () => {
+		setQueueHtml('remove',)
+		document.querySelector('.thing',)!.classList.add('toolbox-modlog-actioned',)
+		const handlers = createModtoolsHandlers({set: vi.fn(),} as unknown as Module, {
+			...settings,
+			hideActionedItems: true,
+		},)
+
+		handlers.handleThingRemoved(removedEvent('t3_x',),)
+
+		expect(document.querySelector('.thing',)!.classList.contains('toolbox-mm-hidden',),).toBe(false,)
+		expect(updateCounters,).not.toHaveBeenCalled()
+	})
+
 	it('decrements the modbar count by the number of items actioned via the toolbar', async () => {
 		document.body.innerHTML = `
 			<div id="siteTable" class="sitetable">

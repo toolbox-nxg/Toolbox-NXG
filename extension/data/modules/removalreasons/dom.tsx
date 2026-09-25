@@ -21,6 +21,7 @@ import {selectorOptionKey,} from '../../util/data/string'
 import createLogger from '../../util/infra/logging'
 import {isOldReddit, RedditPlatform,} from '../../util/infra/platform'
 import {getModuleSettingAsync,} from '../../util/persistence/settings'
+import {events, sendEvent,} from '../../util/reddit/events'
 import {pageDetails, postSite,} from '../../util/reddit/pageContext'
 import type {ThingInfo,} from '../../util/reddit/thingInfo'
 import {getApiThingInfo,} from '../../util/reddit/thingInfo'
@@ -337,6 +338,17 @@ function markRemovedFeedback (thing: HTMLElement | null, button: HTMLElement | n
 	}
 }
 
+/**
+ * Tells other modules that an item was actually removed (never for a captured proposal). The
+ * removal controls here swallow their click, so modules that watch Reddit's native mod buttons
+ * (e.g. Mass Moderation's hide-after-action) would otherwise never learn the item was actioned.
+ * @param thingId Fullname of the removed thing.
+ * @param spam Whether it was removed as spam.
+ */
+function announceRemoved (thingId: string, spam: boolean,) {
+	sendEvent(events.TB_THING_REMOVED, {thingId, spam,},)
+}
+
 /** Event handler callbacks returned by {@link createRemovalReasonsHandlers}. */
 export interface RemovalReasonsHandlers {
 	/** Handles document-level click events that may open the removal reasons overlay. */
@@ -526,12 +538,13 @@ export function createRemovalReasonsHandlers ({
 				// removal targets; fall back to a constructed post link when no precise
 				// permalink was passed.
 				const itemLink = link ?? buildItemLink(thingSubreddit, thingID,)
-				await proposeOrRemove({
+				const outcome = await proposeOrRemove({
 					subreddit: thingSubreddit,
 					itemId: thingID,
 					itemKind: isComment ? 'comment' : 'post',
 					...(itemLink ? {link: itemLink,} : {}),
 				}, spam ?? false,)
+				if (outcome === 'performed') { announceRemoved(thingID, spam ?? false,) }
 			} catch (error) {
 				log.error(`Unable to continue removal for ${thingID}:`, error,)
 			}
@@ -734,6 +747,7 @@ export function createRemovalReasonsHandlers ({
 			document.body.style.overflow = 'hidden'
 		}
 		const onRemoved = () => {
+			if (!isAddRemovalReason) { announceRemoved(thingID, spam ?? false,) }
 			// Prefer the directly-captured element; fall back to a fullname query for paths
 			// where we didn't traverse to the thing (isToolboxRemove, shreddit shadow DOM, etc.)
 			const thing = thingElement
@@ -1094,6 +1108,7 @@ export function createRemovalReasonsHandlers ({
 								element.closest<HTMLElement>('[data-fullname]',),
 								element as HTMLElement,
 							)
+							announceRemoved(thingID, false,)
 						}
 					} else if (thingID) {
 						// We have the item but not its subreddit (and we're not on a single-sub
@@ -1131,6 +1146,7 @@ export function createRemovalReasonsHandlers ({
 							const removeLabel = element.querySelector<HTMLElement>('.togglebutton',)
 								?? (element instanceof HTMLElement ? element : null)
 							markRemovedFeedback(thing, removeLabel, isSpamAction ? 'spammed' : 'removed',)
+							announceRemoved(thingID, isSpamAction,)
 						}
 					} else if (thingID) {
 						// Item found but no subreddit to route the gateway removal through (and not

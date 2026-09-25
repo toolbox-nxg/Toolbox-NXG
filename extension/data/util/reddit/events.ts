@@ -6,10 +6,10 @@ import createLogger from '../infra/logging'
 
 const log = createLogger('TBPageContext',)
 
-/** Dispatches a CustomEvent with the given name on the window. */
-export function sendEvent (tbuEvent: string,) {
+/** Dispatches a CustomEvent with the given name (and optional `detail` payload) on the window. */
+export function sendEvent (tbuEvent: string, detail?: unknown,) {
 	log.debug('Sending event:', tbuEvent,)
-	window.dispatchEvent(new CustomEvent(tbuEvent,),)
+	window.dispatchEvent(new CustomEvent(tbuEvent, {detail,},),)
 }
 
 /**
@@ -47,5 +47,6 @@ export const events = {
 	TB_PROPOSALS_CHANGED: 'TB_PROPOSALS_CHANGED',
 	TB_SAMPLE_SOUND: 'TB_SAMPLE_SOUND',
 	TB_SYNTAX_SETTINGS: 'TB_SYNTAX_SETTINGS',
+	TB_THING_REMOVED: 'TB_THING_REMOVED',
 	TB_UPDATE_COUNTERS: 'TB_UPDATE_COUNTERS',
 }
