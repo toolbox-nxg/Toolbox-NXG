@@ -27,6 +27,7 @@ import {
 	DeflatedNote,
 	DeflatedUser,
 	isNoteActive,
+	legacyTypesRepair,
 	NoteAttribution,
 	NXG_USERNOTES_FORMAT,
 	NXG_USERNOTES_VER,
@@ -243,6 +244,47 @@ export function seedV6Types (data: UserNotesData, configColors?: UserNoteColor[]
 		}
 	}
 	return types
+}
+
+/**
+ * Returns `true` for a placeholder type definition - the `{key, text: key,
+ * color: ''}` entry {@link seedV6Types} invents for a key it has no
+ * definition for.
+ */
+export function isPlaceholderType (type: UserNoteColor,): boolean {
+	return type.text === type.key && type.color === ''
+}
+
+/**
+ * Returns `true` when a dataset still needs the {@link legacyTypesRepair}:
+ * it has placeholder types and the repair has not already run.
+ */
+export function needsLegacyTypesRepair (notes: UserNotesData,): boolean {
+	return !notes.repairs?.includes(legacyTypesRepair,)
+		&& (notes.types ?? []).some(isPlaceholderType,)
+}
+
+/**
+ * Repairs placeholder type definitions (see {@link isPlaceholderType}) using
+ * the subreddit's configured `usernoteColors`. Only exact placeholders are
+ * touched, so names and colors a mod has since edited are kept.
+ * @param types The current type definitions (not mutated).
+ * @param configColors The subreddit's `usernoteColors` config.
+ * @returns The repaired list, and whether anything changed.
+ */
+export function healPlaceholderTypes (
+	types: UserNoteColor[],
+	configColors: UserNoteColor[],
+): {types: UserNoteColor[]; changed: boolean} {
+	const byKey = new Map(configColors.map((c,) => [c.key, c,]),)
+	let changed = false
+	const healed = types.map((t,) => {
+		const configured = byKey.get(t.key,)
+		if (!configured || !isPlaceholderType(t,)) { return t }
+		changed = true
+		return {...t, text: configured.text, color: configured.color,}
+	},)
+	return {types: healed, changed,}
 }
 
 // --- nxg-usernotes shard format --------------------------------------------

@@ -157,6 +157,50 @@ export interface LegacyConfig extends ToolboxConfig {
 	usernoteColors?: LegacyUsernoteColor[]
 }
 
+/**
+ * Reads the inline `usernoteColors` array off a raw legacy config page,
+ * keeping only well-formed entries. Must run before {@link normalizeConfig},
+ * which strips the field; applies the same pre-v2 string decoding it would.
+ * @param raw The parsed (purified, not yet normalized) legacy config page.
+ */
+export function extractLegacyUsernoteColors (raw: Record<string, unknown>,): LegacyUsernoteColor[] {
+	const colors = raw['usernoteColors']
+	if (!Array.isArray(colors,)) { return [] }
+	const decode = legacyStringDecoder(raw,)
+	return colors.flatMap((entry: unknown,): LegacyUsernoteColor[] => {
+		if (!entry || typeof entry !== 'object') { return [] }
+		const {key, text, color,} = entry as Record<string, unknown>
+		if (typeof key !== 'string' || !key || typeof text !== 'string' || typeof color !== 'string') { return [] }
+		return [{key: decode(key,), text: decode(text,), color: decode(color,),},]
+	},)
+}
+
+/**
+ * Reads the inline `domainTags` array off a raw legacy config page, keeping
+ * only well-formed entries. Must run before {@link normalizeConfig}, which
+ * strips the field; applies the same pre-v2 string decoding it would.
+ * @param raw The parsed (purified, not yet normalized) legacy config page.
+ */
+export function extractLegacyDomainTags (raw: Record<string, unknown>,): LegacyDomainTag[] {
+	const tags = raw['domainTags']
+	if (!Array.isArray(tags,)) { return [] }
+	const decode = legacyStringDecoder(raw,)
+	return tags.flatMap((entry: unknown,): LegacyDomainTag[] => {
+		if (!entry || typeof entry !== 'object') { return [] }
+		const {name, color, note,} = entry as Record<string, unknown>
+		if (typeof name !== 'string' || !name || typeof color !== 'string') { return [] }
+		const tag: LegacyDomainTag = {name: decode(name,), color: decode(color,),}
+		if (typeof note === 'string') { tag.note = decode(note,) }
+		return [tag,]
+	},)
+}
+
+/** Returns the string decoder {@link normalizeConfig} would apply to a raw page (pre-v2 pages are encoded). */
+function legacyStringDecoder (raw: Record<string, unknown>,): (s: string,) => string {
+	const encoded = typeof raw['ver'] !== 'number' || raw['ver'] < 2
+	return (s,) => encoded ? tbDecode(s,) : s
+}
+
 /** Default empty toolbox config used when a subreddit has no existing wiki page. */
 export const config: ToolboxConfig = {
 	ver: configSchema,

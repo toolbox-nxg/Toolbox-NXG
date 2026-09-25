@@ -10,15 +10,21 @@
  */
 
 import {isModSub,} from '../../api/resources/modSubs'
-import {getWikiPages, getWikiRevisions, postToWiki, readFromWiki,} from '../../api/resources/wiki'
+import {getWikiPages, getWikiRevisions, postToWiki, readFromWiki, readWikiRevision,} from '../../api/resources/wiki'
 import {utils,} from '../../framework/moduleIds'
+import {unescapeJSON,} from '../data/encoding'
 import {purifyObject,} from '../data/purify'
 import createLogger from '../infra/logging'
 import {clearCache, getCache, setCache,} from '../persistence/cache'
 import {encodeClassicConfig,} from './schemas/config/codec'
 import {adoptLegacyConfigFields, legacyOwnedFieldsEqual,} from './schemas/config/reconcile'
-import {config as defaultToolboxConfig, normalizeConfig,} from './schemas/config/schema'
-import type {ToolboxConfig,} from './schemas/config/schema'
+import {
+	config as defaultToolboxConfig,
+	extractLegacyDomainTags,
+	extractLegacyUsernoteColors,
+	normalizeConfig,
+} from './schemas/config/schema'
+import type {LegacyDomainTag, LegacyUsernoteColor, ToolboxConfig,} from './schemas/config/schema'
 import {decodeDomainTagsPage,} from './schemas/domaintags/codec'
 import type {DomainTag,} from './schemas/domaintags/schema'
 import {
@@ -28,7 +34,7 @@ import {
 	normalizeIndex,
 } from './schemas/subredditnotes/codec'
 import type {SubredditNoteIndex,} from './schemas/subredditnotes/schema'
-import {decodeUsernotesV6, encodeUsernotesV6, seedV6Types,} from './schemas/usernotes/codec'
+import {decodeUsernotesV6, encodeUsernotesV6, isPlaceholderType, seedV6Types,} from './schemas/usernotes/codec'
 import {reconcileFromLegacy,} from './schemas/usernotes/reconcile'
 import type {RawUsernotesBlob, UserNoteColor, UserNotesData,} from './schemas/usernotes/schema'
 import {clearSessionShardState, readShardedUsernotes, writeShardedUsernotes,} from './schemas/usernotes/sharded'
@@ -219,6 +225,101 @@ async function resolveNoteIndex (
 	return rebuilt
 }
 
+/** Most revisions of the legacy config page a recovery scan will read. */
+const maxRecoveryReads = 25
+
+/**
+ * Visits the legacy `toolbox` config page's revisions newest first, as raw
+ * (purified, not normalized) parsed pages, until `visit` returns `true`.
+ * Recovery reads history because the current page cannot be trusted:
+ * 6.x-compat config saves rewrite its inline `usernoteColors` / `domainTags`
+ * from NXG's own (possibly lost) data, and turning compat off replaces it
+ * with a tombstone. Unparseable revisions are skipped.
+ * @param subreddit The subreddit whose legacy config history to scan.
+ * @param visit Inspects one revision; returns `true` to stop scanning.
+ * @throws When the revision list, or every revision read, fails - a transient
+ *   error the caller should retry rather than treat as an empty history.
+ */
+async function scanLegacyConfigRevisions (
+	subreddit: string,
+	visit: (raw: Record<string, unknown>,) => boolean,
+): Promise<void> {
+	let revisions
+	try {
+		revisions = await getWikiRevisions(subreddit, OLD_WIKI_PATHS.settings, 100,)
+	} catch (error) {
+		// A sub that never had a legacy config page has nothing to recover.
+		const current = await readFromWiki(subreddit, OLD_WIKI_PATHS.settings, false,)
+		if (!current.ok && current.reason === 'no_page') { return }
+		throw error
+	}
+	const toRead = revisions.slice(0, maxRecoveryReads,)
+	let readFailures = 0
+	for (const revision of toRead) {
+		const page = await readWikiRevision(subreddit, OLD_WIKI_PATHS.settings, revision.id,)
+		if (!page.ok) {
+			readFailures++
+			continue
+		}
+		let raw: unknown
+		try {
+			raw = JSON.parse(unescapeJSON(page.data,),)
+		} catch {
+			continue
+		}
+		if (!raw || typeof raw !== 'object' || Array.isArray(raw,)) { continue }
+		purifyObject(raw,)
+		if (visit(raw as Record<string, unknown>,)) { return }
+	}
+	if (toRead.length > 0 && readFailures === toRead.length) {
+		throw new Error('could not read any legacy config revision',)
+	}
+}
+
+/**
+ * Recovers usernote type definitions from the legacy config page's revision
+ * history (see {@link scanLegacyConfigRevisions}). Each key takes its newest
+ * real (non-placeholder) definition.
+ * @param subreddit The subreddit to recover types for.
+ * @param keys The type keys to find definitions for.
+ * @returns The definitions found, possibly fewer than requested.
+ * @throws On a transient read failure.
+ */
+export async function recoverLegacyUsernoteColors (
+	subreddit: string,
+	keys: string[],
+): Promise<LegacyUsernoteColor[]> {
+	const wanted = new Set(keys,)
+	const found = new Map<string, LegacyUsernoteColor>()
+	await scanLegacyConfigRevisions(subreddit, (raw,) => {
+		for (const color of extractLegacyUsernoteColors(raw,)) {
+			if (wanted.has(color.key,) && !found.has(color.key,) && !isPlaceholderType(color,)) {
+				found.set(color.key, color,)
+			}
+		}
+		return found.size === wanted.size
+	},)
+	return [...found.values(),]
+}
+
+/**
+ * Recovers domain tags from the legacy config page's revision history (see
+ * {@link scanLegacyConfigRevisions}): the newest revision carrying any. NXG's
+ * compat mirror omits an empty list, so revisions it wrote after the tags
+ * were lost are skipped rather than read as "no tags".
+ * @param subreddit The subreddit to recover domain tags for.
+ * @returns The recovered tags, or `[]` when no revision has any.
+ * @throws On a transient read failure.
+ */
+export async function recoverLegacyDomainTags (subreddit: string,): Promise<LegacyDomainTag[]> {
+	let found: LegacyDomainTag[] = []
+	await scanLegacyConfigRevisions(subreddit, (raw,) => {
+		found = extractLegacyDomainTags(raw,)
+		return found.length > 0
+	},)
+	return found
+}
+
 /**
  * Migrates a subreddit's toolbox data from the legacy paths to `toolbox-nxg/*`.
  * The legacy pages are never modified, so this is also safe to re-run at any
@@ -269,8 +370,12 @@ export async function migrateSubredditToNxg (
 	// or unreadable NXG config gets the full overwrite, the true repair path.
 	const legacyConfig = await readFromWiki<Record<string, unknown>>(subreddit, OLD_WIKI_PATHS.settings, true,)
 	let legacyData: ToolboxConfig | null = null
+	// The usernote types 6.x keeps inline on the config page; captured before
+	// normalizeConfig strips them, to seed the usernotes manifest in step 2.
+	let legacyUsernoteColors: UserNoteColor[] = []
 	if (legacyConfig.ok && !isTombstone(legacyConfig.data,)) {
 		purifyObject(legacyConfig.data,)
+		legacyUsernoteColors = extractLegacyUsernoteColors(legacyConfig.data,)
 		normalizeConfig(legacyConfig.data,)
 		legacyData = legacyConfig.data
 	} else if (!legacyConfig.ok && legacyConfig.reason !== 'no_page') {
@@ -368,9 +473,9 @@ export async function migrateSubredditToNxg (
 				purifyObject(raw,)
 				const decoded = await decodeUsernotesV6(raw, subreddit,)
 				if (!decoded) { throw new Error('usernotes schema too old to be understood',) }
-				// Seed the manifest's type definitions from the config migrated
-				// in step 1 (falling back to the defaults).
-				decoded.types = seedV6Types(decoded, nxgConfig['usernoteColors'] as UserNoteColor[] | undefined,)
+				// Seed the manifest's type definitions from the legacy config's
+				// inline usernoteColors (falling back to the defaults).
+				decoded.types = seedV6Types(decoded, legacyUsernoteColors,)
 				const {written,} = await writeShardedUsernotes(subreddit, decoded, MIGRATION_REASON,)
 				result.copied.push(...written,)
 			}

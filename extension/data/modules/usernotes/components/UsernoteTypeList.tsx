@@ -23,7 +23,7 @@ import {ActionButton,} from '../../../shared/controls/ActionButton'
 import {Icon,} from '../../../shared/controls/Icon'
 import {TextInput,} from '../../../shared/controls/NormalInput'
 import {SortModeRef, SortToggleButton, useSortMode,} from '../../../shared/controls/SortToggleButton'
-import {positiveTextFeedback,} from '../../../store/feedback'
+import {negativeTextFeedback, positiveTextFeedback,} from '../../../store/feedback'
 import {
 	autoContrastColor,
 	colorNameToHex,
@@ -35,7 +35,8 @@ import {
 import createLogger from '../../../util/infra/logging'
 import {type ConfigState, generateConfigId,} from '../../../util/wiki/schemas/config/schema'
 import {defaultUsernoteTypes, UserNoteColor,} from '../../../util/wiki/schemas/usernotes/schema'
-import {getUserNotes, updateUserNotes,} from '../../shared/usernotes/moduleapi'
+import {refreshClassicConfigInlineFields, unsyncedClassicEditsWarning,} from '../../config/moduleapi'
+import {getSubredditColors, getUserNotes, updateUserNotes,} from '../../shared/usernotes/moduleapi'
 import {noteTypeColorStyle,} from '../../shared/usernotes/noteTypeColorStyle'
 import css from './UsernoteTypeList.module.css'
 
@@ -380,9 +381,11 @@ export function UsernoteTypeList (
 				}
 			}
 			setUsageCounts(counts,)
-		},).catch(() => {
-			// No notes page or load failure: show defaults, counts stay unknown.
-			if (!cancelled) { setTypes(fromRaw(defaultUsernoteTypes,),) }
+		},).catch(async () => {
+			// No notes page or load failure: show the configured types (the legacy
+			// config's, else the defaults); counts stay unknown.
+			const colors = await getSubredditColors(subreddit,)
+			if (!cancelled) { setTypes(fromRaw(colors,),) }
 		},)
 		return () => {
 			cancelled = true
@@ -467,12 +470,27 @@ export function UsernoteTypeList (
 		)
 		// Merge the type list into the live dataset so a note another mod added
 		// while this config panel was open isn't overwritten by a stale snapshot.
-		void updateUserNotes(subreddit, (fresh,) => {
-			fresh.types = serialized
-			return 'Updated usernote types'
-		},).then(() => {
-			positiveTextFeedback('Usernote types saved',)
-		},)
+		void (async () => {
+			// Checked before the save, which bumps the page it compares against.
+			const overwriteWarning = await unsyncedClassicEditsWarning(subreddit, 'usernoteColors',)
+			await updateUserNotes(subreddit, (fresh,) => {
+				fresh.types = serialized
+				return 'Updated usernote types'
+			},)
+			// 6.x reads types off the classic config page, which is also their only
+			// storage on legacy-fallback subs - rewrite it from the types just saved.
+			const classic = await refreshClassicConfigInlineFields(subreddit, 'Updated usernote types',)
+			if (!classic.ok) {
+				negativeTextFeedback(
+					`Usernote types saved, but the toolbox config page was not updated: ${classic.message}`,
+				)
+			} else if (overwriteWarning) {
+				// Shown after the save so its own feedback can't replace it.
+				negativeTextFeedback(overwriteWarning, {duration: 10_000,},)
+			} else {
+				positiveTextFeedback('Usernote types saved',)
+			}
+		})()
 	}
 	handleSaveRef.current = handleSave
 	useEffect(() => {

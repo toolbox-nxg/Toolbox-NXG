@@ -6,6 +6,8 @@ import {beforeEach, describe, expect, it, vi,} from 'vitest'
 const readFromWiki = vi.hoisted(() => vi.fn())
 const postToWiki = vi.hoisted(() => vi.fn())
 const getWikiPages = vi.hoisted(() => vi.fn())
+const getWikiRevisions = vi.hoisted(() => vi.fn())
+const readWikiRevision = vi.hoisted(() => vi.fn())
 const isModSub = vi.hoisted(() => vi.fn())
 const getCache = vi.hoisted(() => vi.fn())
 const setCache = vi.hoisted(() => vi.fn())
@@ -23,8 +25,9 @@ const normalizeConfig = vi.hoisted(() =>
 		}
 		if (!Array.isArray(config.removalReasons.reasons,)) { config.removalReasons.reasons = [] }
 		if (!Array.isArray(config.modMacros,)) { config.modMacros = [] }
-		if (!Array.isArray(config.domainTags,)) { config.domainTags = [] }
-		if (!Array.isArray(config.usernoteColors,)) { config.usernoteColors = [] }
+		// Like the real one, strip the inline fields that live on dedicated pages.
+		delete config.domainTags
+		delete config.usernoteColors
 		if (!config.banMacros || typeof config.banMacros !== 'object' || Array.isArray(config.banMacros,)) {
 			config.banMacros = null
 		}
@@ -41,7 +44,10 @@ const sendMessage = vi.hoisted(() =>
 )
 
 vi.mock('webextension-polyfill', () => ({default: {runtime: {sendMessage,},},}),)
-vi.mock('../../api/resources/wiki', () => ({readFromWiki, postToWiki, getWikiPages,}),)
+vi.mock(
+	'../../api/resources/wiki',
+	() => ({readFromWiki, postToWiki, getWikiPages, getWikiRevisions, readWikiRevision,}),
+)
 vi.mock('../../api/resources/modSubs', () => ({isModSub,}),)
 vi.mock('../../framework/moduleIds', () => ({utils: 'utils',}),)
 vi.mock('../../store/feedback', () => ({negativeTextFeedback: vi.fn(),}),)
@@ -55,6 +61,7 @@ vi.mock('../data/encoding', () => ({
 	zlibDeflate: (text: string,) => btoa(text,),
 	zlibInflate: (text: string,) => atob(text,),
 	htmlDecode: (text: string,) => text,
+	tbDecode: (text: string,) => decodeURIComponent(text,),
 	unescapeJSON: (text: string,) => text,
 	byteLength: (text: string,) => new TextEncoder().encode(text,).length,
 }),)
@@ -67,7 +74,14 @@ import type {UsernotesUser,} from './schemas/usernotes/schema'
 import {clearSessionShardState,} from './schemas/usernotes/sharded'
 import type {UsernotesManifest,} from './schemas/usernotes/sharding'
 import {clearWikiLayoutCache,} from './wikiLayoutCache'
-import {bootstrapFreshSub, copyNxgToLegacy, migrateSubredditToNxg, setCompatibilityMode,} from './wikiMigration'
+import {
+	bootstrapFreshSub,
+	copyNxgToLegacy,
+	migrateSubredditToNxg,
+	recoverLegacyDomainTags,
+	recoverLegacyUsernoteColors,
+	setCompatibilityMode,
+} from './wikiMigration'
 
 /** Serializes a user→notes map into legacy v6 usernotes page text. */
 function legacyNotesText (users: Record<string, unknown>,): string {
@@ -153,10 +167,9 @@ describe('migrateSubredditToNxg', () => {
 			'toolbox-nxg/user-settings',
 		],)
 		// The NXG config carries the config data plus the compat flag.
-		expect(writtenData('toolbox-nxg',),).toMatchObject({
-			'domainTags': [{name: 'example.com',},],
-			'Toolbox.Utils.compatibilityWrites': true,
-		},)
+		expect(writtenData('toolbox-nxg',),).toMatchObject({'Toolbox.Utils.compatibilityWrites': true,},)
+		// Inline domain tags belong on their dedicated page, never the config.
+		expect(writtenData('toolbox-nxg',),).not.toHaveProperty('domainTags',)
 		// Usernotes land in the sharded layout: a shard page plus the manifest.
 		const manifest = writtenData('toolbox-nxg/usernotes',) as UsernotesManifest
 		expect(manifest.format,).toBe('tbun-manifest',)
@@ -241,6 +254,19 @@ describe('migrateSubredditToNxg', () => {
 		expect(result.failed,).toEqual([],)
 		expect(writtenData('toolbox-nxg',),).toEqual({'Toolbox.Utils.compatibilityWrites': true,},)
 		expect((writtenData('toolbox-nxg/usernotes',) as UsernotesManifest).format,).toBe('tbun-manifest',)
+	})
+
+	it('seeds usernote types from the legacy config\'s inline usernoteColors', async () => {
+		mockWikiPages({
+			toolbox: {usernoteColors: [{key: 'ban', text: 'Perm. Ban', color: '#8b0000',},],},
+			usernotes: legacyNotesText({testuser: {ns: [{n: 'x', t: 1, m: 0, l: '', w: 0,},],},},),
+		},)
+
+		const result = await migrateSubredditToNxg('sub',)
+
+		expect(result.failed,).toEqual([],)
+		const manifest = writtenData('toolbox-nxg/usernotes',) as UsernotesManifest
+		expect(manifest.types,).toEqual([{key: 'ban', text: 'Perm. Ban', color: '#8b0000',},],)
 	})
 
 	it('re-runs reconcile-merge instead of clobbering NXG-only state', async () => {
@@ -371,14 +397,14 @@ describe('migrateSubredditToNxg', () => {
 
 	it('overwrites existing NXG pages (idempotent re-run)', async () => {
 		mockWikiPages({
-			'toolbox': {domainTags: [],},
+			'toolbox': {modMacros: [{text: 'legacy macro',},],},
 			'toolbox-nxg': {stale: true,},
 		},)
 
 		const result = await migrateSubredditToNxg('sub',)
 
 		expect(result.failed,).toEqual([],)
-		expect(writtenData('toolbox-nxg',),).toMatchObject({domainTags: [],},)
+		expect(writtenData('toolbox-nxg',),).toMatchObject({modMacros: [{text: 'legacy macro',},],},)
 	})
 })
 
@@ -470,7 +496,7 @@ describe('copyNxgToLegacy', () => {
 
 		expect(result.failed,).toEqual([],)
 		// The legacy copy is the classic v1 schema with NXG metadata stripped.
-		expect(writtenData('toolbox',),).toMatchObject({domainTags: [], ver: 1,},)
+		expect(writtenData('toolbox',),).toMatchObject({ver: 1,},)
 		// The sharded notes are merged into one legacy v6 blob.
 		const legacyNotes = writtenData('usernotes',) as {ver: number; blob: string}
 		expect(legacyNotes.ver,).toBe(6,)
@@ -561,7 +587,7 @@ describe('setCompatibilityMode', () => {
 		const result = await setCompatibilityMode('sub', true,)
 
 		expect(result.failed,).toEqual([],)
-		expect(writtenData('toolbox',),).toMatchObject({domainTags: [], ver: 1,},)
+		expect(writtenData('toolbox',),).toMatchObject({ver: 1,},)
 		expect(writtenData('toolbox-nxg',),).toMatchObject({'Toolbox.Utils.compatibilityWrites': true,},)
 		expect(clearCache,).toHaveBeenCalled()
 		expect(setCache,).toHaveBeenCalledWith(
@@ -579,5 +605,67 @@ describe('setCompatibilityMode', () => {
 
 		expect(result.failed,).toEqual([{page: 'toolbox-nxg', reason: 'page too large',},],)
 		expect(writtenData('toolbox',),).toBeUndefined()
+	})
+})
+
+describe('recoverLegacyUsernoteColors', () => {
+	/** Serves the given page texts as the legacy config's revisions, newest first. */
+	function mockRevisions (texts: (string | null)[],) {
+		getWikiRevisions.mockResolvedValue(texts.map((_text, i,) => ({id: `r${i}`,})),)
+		readWikiRevision.mockImplementation((_sub: string, _page: string, id: string,) => {
+			const text = texts[Number(id.slice(1,),)]
+			return Promise.resolve(text === null ? {ok: false, reason: 'unknown_error',} : {ok: true, data: text,},)
+		},)
+	}
+
+	it('skips placeholder and tombstone revisions to find the real definitions', async () => {
+		mockRevisions([
+			JSON.stringify({'Toolbox.Utils.wikiLayout': 'nxg',},),
+			JSON.stringify({ver: 1, usernoteColors: [{key: 'rant', text: 'rant', color: '',},],},),
+			JSON.stringify({ver: 1, usernoteColors: [{key: 'rant', text: 'Rant%20Warning', color: '#800080',},],},),
+		],)
+
+		const colors = await recoverLegacyUsernoteColors('sub', ['rant',],)
+
+		expect(colors,).toEqual([{key: 'rant', text: 'Rant Warning', color: '#800080',},],)
+	})
+
+	it('takes each key\'s newest definition and stops once all are found', async () => {
+		mockRevisions([
+			JSON.stringify({ver: 1, usernoteColors: [{key: 'a', text: 'New A', color: 'red',},],},),
+			JSON.stringify({ver: 1, usernoteColors: [{key: 'a', text: 'Old A', color: 'blue',},],},),
+		],)
+
+		const colors = await recoverLegacyUsernoteColors('sub', ['a',],)
+
+		expect(colors,).toEqual([{key: 'a', text: 'New A', color: 'red',},],)
+		expect(readWikiRevision,).toHaveBeenCalledTimes(1,)
+	})
+
+	it('returns nothing for a sub that never had a legacy config page', async () => {
+		getWikiRevisions.mockRejectedValue(new Error('404',),)
+		mockWikiPages({},)
+
+		await expect(recoverLegacyUsernoteColors('sub', ['a',],),).resolves.toEqual([],)
+	})
+
+	it('recovers domain tags from the newest revision carrying any', async () => {
+		mockRevisions([
+			// NXG's compat mirror omits an empty list, so this is not read as "no tags".
+			JSON.stringify({ver: 1,},),
+			JSON.stringify({ver: 1, domainTags: [{name: 'a.com', color: 'red', note: 'spam%20site',},],},),
+			JSON.stringify({ver: 1, domainTags: [{name: 'old.com', color: 'blue',},],},),
+		],)
+
+		const tags = await recoverLegacyDomainTags('sub',)
+
+		expect(tags,).toEqual([{name: 'a.com', color: 'red', note: 'spam site',},],)
+		expect(readWikiRevision,).toHaveBeenCalledTimes(2,)
+	})
+
+	it('throws when no revision could be read, so the repair is retried', async () => {
+		mockRevisions([null, null,],)
+
+		await expect(recoverLegacyUsernoteColors('sub', ['a',],),).rejects.toThrow()
 	})
 })

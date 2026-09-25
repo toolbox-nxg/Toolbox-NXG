@@ -67,6 +67,8 @@ export interface UsernotesManifest {
 	 * retried on later manifest writes and dropped once tombstoned.
 	 */
 	retired?: string[]
+	/** One-time data repairs already applied; see `UserNotesData.repairs`. */
+	repairs?: string[]
 }
 
 /**
@@ -102,6 +104,7 @@ export function isUsernotesManifest (value: unknown,): value is UsernotesManifes
 		|| !Array.isArray(manifest.shards,)
 		|| manifest.shards.length === 0
 		|| (manifest.retired !== undefined && !Array.isArray(manifest.retired,))
+		|| (manifest.repairs !== undefined && !Array.isArray(manifest.repairs,))
 	) {
 		return false
 	}
@@ -210,8 +213,13 @@ export function pickSplitBoundary (users: UsernotesUser[], rangeStart: number,):
  * anyway the last shard wins and the result is flagged `corrupted`.
  * @param shards The decoded per-shard datasets, in manifest order.
  * @param types The manifest's type definitions, attached to the result.
+ * @param repairs The manifest's applied repair markers, attached to the result.
  */
-export function mergeShardData (shards: UserNotesData[], types: UserNoteColor[],): UserNotesData {
+export function mergeShardData (
+	shards: UserNotesData[],
+	types: UserNoteColor[],
+	repairs?: string[],
+): UserNotesData {
 	const users: Record<string, UsernotesUser> = {}
 	let corrupted = false
 	for (const shard of shards) {
@@ -222,6 +230,7 @@ export function mergeShardData (shards: UserNotesData[], types: UserNoteColor[],
 		}
 	}
 	const merged: UserNotesData = {ver: 6, users, types: types.map((t,) => ({...t,})),}
+	if (repairs?.length) { merged.repairs = [...repairs,] }
 	if (corrupted) { merged.corrupted = true }
 	return merged
 }

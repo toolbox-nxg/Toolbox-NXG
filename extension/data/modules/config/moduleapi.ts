@@ -16,9 +16,22 @@ import {
 	reconcileConfigFromLegacy,
 	type ReconcileConfigOptions,
 } from '../../util/wiki/schemas/config/reconcile'
-import {isConfigValidVersion, normalizeConfig, ToolboxConfig,} from '../../util/wiki/schemas/config/schema'
+import {
+	config as defaultToolboxConfig,
+	extractLegacyDomainTags,
+	extractLegacyUsernoteColors,
+	isConfigValidVersion,
+	normalizeConfig,
+	ToolboxConfig,
+} from '../../util/wiki/schemas/config/schema'
 import {NXG_USERNOTES_FORMAT,} from '../../util/wiki/schemas/usernotes/schema'
-import {COMPAT_WRITES_KEY, NEW_WIKI_PATHS, OLD_WIKI_PATHS,} from '../../util/wiki/wikiConstants'
+import {
+	COMPAT_WRITES_KEY,
+	DOMAIN_TAGS_PAGE,
+	isTombstone,
+	NEW_WIKI_PATHS,
+	OLD_WIKI_PATHS,
+} from '../../util/wiki/wikiConstants'
 import {compatMirrorEnabled, getWikiWritePaths, resolveWikiLayout,} from '../../util/wiki/wikiPaths'
 import {getDomainTagsData,} from '../domaintagger/moduleapi'
 import {getSubredditColors,} from '../shared/usernotes/moduleapi'
@@ -549,6 +562,114 @@ async function refreshLegacyConfigMirror (
 			: String(err,)
 		log.warn(`Failed to refresh the config mirror for /r/${subreddit}:`, message,)
 		return {ok: false, message,}
+	}
+}
+
+/**
+ * Rewrites the classic `toolbox` page after an edit to data that 6.x reads
+ * inline from it but NXG keeps on dedicated pages (usernote types, domain
+ * tags). With the compat mirror on this refreshes the mirror; on
+ * legacy-fallback subs the classic page is the only place usernote types are
+ * stored, so without this an edit lives only in the local cache. A no-op on
+ * NXG-only subs. The down-convert reads both fields through their caches, which
+ * the editing save has just updated.
+ *
+ * Silent (callers own any feedback) and never throws.
+ * @param subreddit The subreddit whose classic config page to rewrite.
+ * @param reason The wiki revision note.
+ * @returns `{ok: true}` when written or not needed, otherwise the failure text.
+ */
+export async function refreshClassicConfigInlineFields (
+	subreddit: string,
+	reason: string,
+): Promise<{ok: true} | {ok: false; message: string}> {
+	try {
+		const layout = await resolveWikiLayout(subreddit,)
+		const fallback = layout.state === 'legacyFallback'
+		if (!fallback && !compatMirrorEnabled(layout,)) { return {ok: true,} }
+
+		const current = await tryReloadConfigFromWiki(subreddit,)
+		// A fallback sub without a config page gets one: it is where 6.x keeps these fields.
+		const absentOk = fallback && current.status === 'absent'
+		if (current.status !== 'ok' && !absentOk) {
+			return {ok: false, message: `the toolbox config page could not be read (${current.status})`,}
+		}
+		const config = current.status === 'ok' ? current.config : structuredClone(defaultToolboxConfig,)
+
+		if (!fallback) { return await refreshLegacyConfigMirror(subreddit, config, reason,) }
+		// On fallback subs the classic page is canonical: write it through the
+		// conflict-guarded save rather than the unconditional mirror write.
+		const saved = await saveToolboxConfig(subreddit, config, reason, {silent: true,},)
+		if (saved.ok) { return {ok: true,} }
+		return {
+			ok: false,
+			message: saved.reason === 'conflict' ? 'the config changed elsewhere' : saved.message ?? 'unknown error',
+		}
+	} catch (err: unknown) {
+		log.warn(`Failed to rewrite the classic config page for /r/${subreddit}:`, err,)
+		return {ok: false, message: String(err,),}
+	}
+}
+
+/** A classic-config field 6.x reads inline but NXG keeps on a dedicated page. */
+export type ClassicInlineField = 'usernoteColors' | 'domainTags'
+
+/** Per inline field: its display name, the NXG page it lives on, and its classic-page extractor. */
+const classicInlineFields = {
+	usernoteColors: {label: 'usernote type', page: NEW_WIKI_PATHS.usernotes, extract: extractLegacyUsernoteColors,},
+	domainTags: {label: 'domain tag', page: DOMAIN_TAGS_PAGE, extract: extractLegacyDomainTags,},
+} as const
+
+/**
+ * Checks whether an edit to an inline field is about to overwrite 6.x changes on
+ * the classic page. NXG never adopts 6.x edits to these fields, so on a compat-on sub a
+ * 6.x mod's change survives only until NXG next rewrites the classic page.
+ * Must run *before* the NXG save: it compares the classic page against NXG's
+ * pre-edit data, and against the NXG page's timestamp before this save bumps it.
+ *
+ * Warns only when both the content differs from what NXG would mirror and the
+ * classic page is the newer of the two - a mirror left stale by a failed refresh
+ * differs too, but is older. Best-effort: any read failure skips the warning.
+ *
+ * Returns the warning rather than showing it: feedback is single-slot, so the
+ * caller shows it after the save, where the save's own messages can't replace it.
+ * @param subreddit The subreddit about to be edited.
+ * @param field The inline field the edit touches.
+ * @returns The warning text, or `undefined` when there is nothing to warn about.
+ */
+export async function unsyncedClassicEditsWarning (
+	subreddit: string,
+	field: ClassicInlineField,
+): Promise<string | undefined> {
+	try {
+		if (!compatMirrorEnabled(await resolveWikiLayout(subreddit,),)) { return undefined }
+		const legacy = await readFromWiki<Record<string, unknown>>(subreddit, OLD_WIKI_PATHS.settings, true,)
+		if (!legacy.ok || isTombstone(legacy.data,)) { return undefined }
+		purifyObject(legacy.data,)
+
+		// Push NXG's value through the same down-convert and extract as the page,
+		// so encoding artifacts compare equal by construction.
+		const {label, page, extract,} = classicInlineFields[field]
+		const mirror = field === 'usernoteColors'
+			? encodeClassicConfig(
+				structuredClone(defaultToolboxConfig,),
+				undefined,
+				await getSubredditColors(subreddit,),
+			)
+			: encodeClassicConfig(structuredClone(defaultToolboxConfig,), (await getDomainTagsData(subreddit,)).tags,)
+		const onPage = JSON.stringify(extract(legacy.data,),)
+		if (onPage === JSON.stringify(extract(mirror as unknown as Record<string, unknown>,),)) { return undefined }
+
+		const [classicAt, nxgAt,] = await Promise.all([
+			newestRevisionTimestamp(subreddit, OLD_WIKI_PATHS.settings,),
+			newestRevisionTimestamp(subreddit, page,),
+		],)
+		if (classicAt === undefined || nxgAt === undefined || classicAt <= nxgAt) { return undefined }
+		return `The 6.x config page had ${label} changes Toolbox didn't have (likely made in Toolbox 6.x), `
+			+ 'and this save overwrote them - re-enter any you want to keep.'
+	} catch (err: unknown) {
+		log.debug(`Could not check the classic config page of /r/${subreddit} for 6.x edits:`, err,)
+		return undefined
 	}
 }
 

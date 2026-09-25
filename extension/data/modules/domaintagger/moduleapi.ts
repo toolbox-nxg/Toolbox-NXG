@@ -3,20 +3,22 @@
  * `toolbox-nxg/domain-tags` wiki page, separate from the main toolbox config.
  */
 import {isModSub,} from '../../api/resources/modSubs'
-import {readFromWiki,} from '../../api/resources/wiki'
+import {getWikiRevisions, readFromWiki,} from '../../api/resources/wiki'
 import {negativeTextFeedback, neutralTextFeedback, positiveTextFeedback,} from '../../store/feedback'
 import {purifyObject,} from '../../util/data/purify'
 import createLogger from '../../util/infra/logging'
 import {clearCache,} from '../../util/persistence/cache'
 import {mutateWikiPage, type WikiMutator,} from '../../util/wiki/mutateWikiPage'
-import type {LegacyConfig,} from '../../util/wiki/schemas/config/schema'
+import type {LegacyDomainTag,} from '../../util/wiki/schemas/config/schema'
 import {
 	decodeDomainTagsPage,
 	domainTagsCodec,
 	makeDefaultDomainTagsData,
 } from '../../util/wiki/schemas/domaintags/codec'
+import {legacyDomainTagsRepair,} from '../../util/wiki/schemas/domaintags/schema'
 import type {DomainTag, DomainTagsData,} from '../../util/wiki/schemas/domaintags/schema'
 import {DOMAIN_TAGS_PAGE,} from '../../util/wiki/wikiConstants'
+import {recoverLegacyDomainTags,} from '../../util/wiki/wikiMigration'
 
 import {findTagForDomain,} from './matching'
 
@@ -63,6 +65,10 @@ export async function getDomainTagsData (subreddit: string,): Promise<DomainTags
 		const decoded = decodeDomainTagsPage(response.data, subreddit,)
 		if (decoded) {
 			dataCache.set(subreddit, decoded,)
+			if (!decoded.tags.length && !decoded.repairs?.includes(legacyDomainTagsRepair,)) {
+				// Background, one-time: the read itself never waits on the repair.
+				void repairLegacyDomainTags(subreddit,)
+			}
 			return decoded
 		}
 	}
@@ -74,22 +80,10 @@ export async function getDomainTagsData (subreddit: string,): Promise<DomainTags
 	}
 
 	// Page doesn't exist yet. Domain tags are part of the expected NXG config, so
-	// we persist a stub - a default, or one seeded with any legacy domainTags array
-	// still living in ToolboxConfig - so subsequent reads find a real page instead
-	// of 404ing (which logs a noisy TBApi error on every load otherwise).
+	// we persist a stub - a default, or one seeded with the legacy config's inline
+	// domainTags - so subsequent reads find a real page instead of 404ing (which
+	// logs a noisy TBApi error on every load otherwise).
 	const freshData = makeDefaultDomainTagsData()
-	// Lazily import getConfig only on this migration path. config/moduleapi imports
-	// getDomainTagsData (for its legacy config down-convert on save), so a static
-	// import here would form a circular dependency; a dynamic import keeps the
-	// static module graph one-way (config -> domaintagger, matching usernotes).
-	// This branch runs at most once per subreddit, before a domain-tags page exists.
-	const {getConfig,} = await import('../config/moduleapi')
-	const oldConfig = await getConfig(subreddit,) as LegacyConfig | undefined
-	const legacyTags = oldConfig?.domainTags ?? []
-	if (legacyTags.length > 0) {
-		log.debug(`Migrating ${legacyTags.length} legacy domain tags for /r/${subreddit}`,)
-		freshData.tags = legacyTags.map((t,) => makeZeroedTag(t,))
-	}
 
 	// Only create the page for subs the viewer moderates: the write needs wiki
 	// perms, so persisting to a foreign sub (e.g. the import-tags feature reading
@@ -102,34 +96,107 @@ export async function getDomainTagsData (subreddit: string,): Promise<DomainTags
 		log.warn(`Could not determine mod status for /r/${subreddit}; skipping domain-tags page creation`, err,)
 	}
 	if (moderatesSub) {
+		let legacyTags: LegacyDomainTag[] = []
+		try {
+			legacyTags = await recoverLegacyDomainTags(subreddit,)
+			// Seeded from the legacy history already, so the repair for early empty
+			// stubs has nothing left to do here.
+			freshData.repairs = [legacyDomainTagsRepair,]
+		} catch (err: unknown) {
+			log.warn(`Could not read legacy domain tags for /r/${subreddit}; the repair will retry`, err,)
+		}
+		if (legacyTags.length > 0) {
+			log.debug(`Migrating ${legacyTags.length} legacy domain tags for /r/${subreddit}`,)
+			freshData.tags = legacyTags.map((t,) => makeZeroedTag(t,))
+		}
 		// Persist immediately so subsequent reads don't re-migrate or re-404.
 		const reason = legacyTags.length > 0
 			? 'domain tagger: migrate tags to dedicated page'
 			: 'domain tagger: initialize domain tags page'
-		await saveDomainTagsData(subreddit, freshData, reason,)
+		// No classic-page refresh: this data was just read from it.
+		await replaceDomainTagsData(subreddit, freshData, reason, false,)
 	}
 
 	dataCache.set(subreddit, freshData,)
 	return freshData
 }
 
+/** Subreddits with a {@link repairLegacyDomainTags} run in flight, so concurrent reads don't each scan the history. */
+const legacyDomainTagsRepairsInFlight = new Set<string>()
+
+/**
+ * Restores domain tags that early builds lost by creating this page as an
+ * empty stub instead of seeding it from the legacy config, recovering them
+ * from the legacy config's revision history. Only an untouched stub (a single
+ * revision) is restored - a page edited since may have been emptied on
+ * purpose. The repair marker is recorded either way, so it runs once per
+ * subreddit; a failure is logged and retried on a later session.
+ *
+ * Writes directly rather than through {@link mutateDomainTags}: it runs
+ * unprompted, so it must not toast or clear caches.
+ */
+async function repairLegacyDomainTags (subreddit: string,): Promise<void> {
+	if (legacyDomainTagsRepairsInFlight.has(subreddit,)) { return }
+	legacyDomainTagsRepairsInFlight.add(subreddit,)
+	try {
+		if (!await isModSub(subreddit,)) { return }
+		const revisions = await getWikiRevisions(subreddit, DOMAIN_TAGS_PAGE, 2,)
+		const recovered = revisions.length === 1 ? await recoverLegacyDomainTags(subreddit,) : []
+		await mutateWikiPage<DomainTagsData, void>({
+			subreddit,
+			page: DOMAIN_TAGS_PAGE,
+			codec: domainTagsCodec,
+			reason: 'domain tagger: restore tags lost in migration',
+			writeOptions: {listed: 'true',},
+			mutator: (current,) => {
+				if (current.repairs?.includes(legacyDomainTagsRepair,)) { return {write: false, result: undefined,} }
+				// Re-checked against fresh data: never overwrite tags added meanwhile.
+				if (!current.tags.length) { current.tags = recovered.map((t,) => makeZeroedTag(t,)) }
+				current.repairs = [...current.repairs ?? [], legacyDomainTagsRepair,]
+				return {write: true, result: undefined,}
+			},
+			onCommit: (subreddit, data,) => {
+				dataCache.set(subreddit, structuredClone(data,),)
+			},
+		},)
+		log.info(`Restored ${recovered.length} domain tags for /r/${subreddit}`,)
+		if (recovered.length > 0) {
+			const {refreshClassicConfigInlineFields,} = await import('../config/moduleapi')
+			await refreshClassicConfigInlineFields(subreddit, 'domain tagger: restore tags lost in migration',)
+		}
+	} catch (err: unknown) {
+		log.warn(`Could not repair domain tags for /r/${subreddit}:`, err,)
+	} finally {
+		legacyDomainTagsRepairsInFlight.delete(subreddit,)
+	}
+}
+
 /**
  * Conflict-safe mutation of a subreddit's domain tags page. Reads the current page,
  * applies `mutator` to it, and writes conditioned on that revision - a concurrent
  * writer elsewhere causes a re-apply against fresh data rather than a silent clobber.
- * Domain tags are NXG-only (no legacy mirror - 6.x reads them from the config page),
- * so this writes a single page. Owns the standard save feedback + cache invalidation;
- * never rejects (failures surface as a toast), matching the old fire-and-forget save.
+ * 6.x reads domain tags inline from the classic config page, so a tag edit also
+ * rewrites that page on subs that keep it (compat mirror or legacy fallback). Owns
+ * the standard save feedback + cache invalidation; never rejects (failures surface
+ * as a toast), matching the old fire-and-forget save.
  * @param subreddit The subreddit whose domain tags to mutate.
  * @param mutator Applies the change to the current data (re-run on every conflict retry).
  * @param reason The wiki revision note.
+ * @param refreshClassic Whether to rewrite the classic config page after a write.
+ *   Off for changes it doesn't carry (stat counters) or data read from it.
  */
 async function mutateDomainTags (
 	subreddit: string,
 	mutator: WikiMutator<DomainTagsData, void>,
 	reason: string,
+	refreshClassic: boolean,
 ): Promise<void> {
 	log.debug('saving domain tags to wiki',)
+	// Dynamic import: config/moduleapi imports this module (for its down-convert),
+	// so a static import would form a cycle.
+	const configApi = refreshClassic ? await import('../config/moduleapi') : undefined
+	// Checked before the write, which bumps the page it compares against.
+	const overwriteWarning = await configApi?.unsyncedClassicEditsWarning(subreddit, 'domainTags',)
 	neutralTextFeedback('saving to wiki',)
 	let committed = false
 	try {
@@ -150,7 +217,19 @@ async function mutateDomainTags (
 			// Only invalidate caches and report success when a write actually landed
 			// (a no-op mutation neither wrote nor needs a "saved" toast).
 			await clearCache()
-			positiveTextFeedback('wiki page saved',)
+			// 6.x reads domain tags inline from the classic config page.
+			const classic = await configApi?.refreshClassicConfigInlineFields(subreddit, reason,)
+			if (classic && !classic.ok) {
+				negativeTextFeedback(
+					`Domain tags saved, but the toolbox config page was not updated - mods on Toolbox 6.x will see `
+						+ `the old tags: ${classic.message}`,
+				)
+			} else if (overwriteWarning) {
+				// Shown after the save so its own feedback can't replace it.
+				negativeTextFeedback(overwriteWarning, {duration: 10_000,},)
+			} else {
+				positiveTextFeedback('wiki page saved',)
+			}
 		}
 	} catch (err: unknown) {
 		log.error(err,)
@@ -170,13 +249,29 @@ async function mutateDomainTags (
  * @param reason The wiki revision note.
  */
 export function saveDomainTagsData (subreddit: string, data: DomainTagsData, reason: string,): Promise<void> {
-	return mutateDomainTags(subreddit, (current,) => {
-		// Overwrite the canonical fields in place so the loop persists this exact data.
-		current.ver = data.ver
-		current.showCounts = data.showCounts
-		current.tags = structuredClone(data.tags,)
-		return {write: true, result: undefined,}
-	}, reason,)
+	return replaceDomainTagsData(subreddit, data, reason, true,)
+}
+
+/** Implements {@link saveDomainTagsData}; see {@link mutateDomainTags} for `refreshClassic`. */
+function replaceDomainTagsData (
+	subreddit: string,
+	data: DomainTagsData,
+	reason: string,
+	refreshClassic: boolean,
+): Promise<void> {
+	return mutateDomainTags(
+		subreddit,
+		(current,) => {
+			// Overwrite the canonical fields in place so the loop persists this exact data.
+			current.ver = data.ver
+			current.showCounts = data.showCounts
+			current.tags = structuredClone(data.tags,)
+			if (data.repairs?.length) { current.repairs = [...data.repairs,] }
+			return {write: true, result: undefined,}
+		},
+		reason,
+		refreshClassic,
+	)
 }
 
 /**
@@ -192,33 +287,38 @@ export async function saveDomainTag (subreddit: string, domainTag: DomainTag,): 
 	// add/update/delete decision is re-derived inside the mutator against fresh data.
 	const reason = domainTag.color === 'none' ? `delete tag "${domainTag.name}"` : `save tag "${domainTag.name}"`
 
-	await mutateDomainTags(subreddit, (current,) => {
-		const existingIndex = current.tags.findIndex((t,) => t.name === domainTag.name)
+	await mutateDomainTags(
+		subreddit,
+		(current,) => {
+			const existingIndex = current.tags.findIndex((t,) => t.name === domainTag.name)
 
-		if (domainTag.color === 'none') {
-			// Nothing to remove (already gone, possibly via a concurrent writer): no-op.
-			if (existingIndex === -1) { return {write: false, result: undefined,} }
-			current.tags.splice(existingIndex, 1,)
-			return {write: true, result: undefined,}
-		}
-
-		if (existingIndex !== -1) {
-			// Preserve counts; only update editable fields.
-			const existing = current.tags[existingIndex]!
-			const merged: DomainTag = {
-				name: existing.name,
-				color: domainTag.color,
-				approvalCount: existing.approvalCount,
-				removalCount: existing.removalCount,
+			if (domainTag.color === 'none') {
+				// Nothing to remove (already gone, possibly via a concurrent writer): no-op.
+				if (existingIndex === -1) { return {write: false, result: undefined,} }
+				current.tags.splice(existingIndex, 1,)
+				return {write: true, result: undefined,}
 			}
-			if (domainTag.note !== undefined) { merged.note = domainTag.note }
-			if (domainTag.removalThreshold !== undefined) { merged.removalThreshold = domainTag.removalThreshold }
-			current.tags[existingIndex] = merged
-		} else {
-			current.tags.push(makeZeroedTag(domainTag, true,),)
-		}
-		return {write: true, result: undefined,}
-	}, reason,)
+
+			if (existingIndex !== -1) {
+				// Preserve counts; only update editable fields.
+				const existing = current.tags[existingIndex]!
+				const merged: DomainTag = {
+					name: existing.name,
+					color: domainTag.color,
+					approvalCount: existing.approvalCount,
+					removalCount: existing.removalCount,
+				}
+				if (domainTag.note !== undefined) { merged.note = domainTag.note }
+				if (domainTag.removalThreshold !== undefined) { merged.removalThreshold = domainTag.removalThreshold }
+				current.tags[existingIndex] = merged
+			} else {
+				current.tags.push(makeZeroedTag(domainTag, true,),)
+			}
+			return {write: true, result: undefined,}
+		},
+		reason,
+		true,
+	)
 }
 
 /**
@@ -241,19 +341,24 @@ export async function incrementDomainStat (
 	const cached = await getDomainTagsData(subreddit,)
 	if (!findTagForDomain(domain, cached.tags,)) { return }
 
-	await mutateDomainTags(subreddit, (current,) => {
-		// Find the tag matching this domain (exact -> glob -> suffix), then locate its
-		// index so we can bump the stat counter. Shares the matcher with the DOM layer.
-		const matched = findTagForDomain(domain, current.tags,)
-		if (!matched) { return {write: false, result: undefined,} }
-		const index = current.tags.indexOf(matched,)
-		if (action === 'approve') {
-			current.tags[index]!.approvalCount++
-		} else {
-			current.tags[index]!.removalCount++
-		}
-		return {write: true, result: undefined,}
-	}, `domain tagger: recorded ${action} for ${domain}`,)
+	await mutateDomainTags(
+		subreddit,
+		(current,) => {
+			// Find the tag matching this domain (exact -> glob -> suffix), then locate its
+			// index so we can bump the stat counter. Shares the matcher with the DOM layer.
+			const matched = findTagForDomain(domain, current.tags,)
+			if (!matched) { return {write: false, result: undefined,} }
+			const index = current.tags.indexOf(matched,)
+			if (action === 'approve') {
+				current.tags[index]!.approvalCount++
+			} else {
+				current.tags[index]!.removalCount++
+			}
+			return {write: true, result: undefined,}
+		},
+		`domain tagger: recorded ${action} for ${domain}`,
+		false,
+	)
 }
 
 /**

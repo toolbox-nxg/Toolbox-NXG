@@ -17,12 +17,10 @@ vi.mock('webextension-polyfill', () => ({
 // focused on the save/down-convert logic — color/tag injection is covered by
 // codec.test.ts. Without this, the real sources fall back to the default color
 // set and leak into every saveToolboxConfig assertion.
-vi.mock('../domaintagger/moduleapi', () => ({
-	getDomainTagsData: vi.fn().mockResolvedValue({tags: [],},),
-}),)
-vi.mock('../shared/usernotes/moduleapi', () => ({
-	getSubredditColors: vi.fn().mockResolvedValue([],),
-}),)
+const getDomainTagsData = vi.hoisted(() => vi.fn().mockResolvedValue({tags: [],},))
+vi.mock('../domaintagger/moduleapi', () => ({getDomainTagsData,}),)
+const getSubredditColors = vi.hoisted(() => vi.fn().mockResolvedValue([],))
+vi.mock('../shared/usernotes/moduleapi', () => ({getSubredditColors,}),)
 
 vi.mock('../../framework/moduleIds', () => ({utils: 'utils',}),)
 vi.mock('../../api/resources/wiki', () => ({
@@ -88,11 +86,13 @@ import {
 	getConfigMirrorStatus,
 	getUsernotesEditorView,
 	prepareWikiEditorContent,
+	refreshClassicConfigInlineFields,
 	reloadConfigFromWiki,
 	saveToolboxConfig,
 	saveWikiEditorPage,
 	tryGetConfig,
 	tryReloadConfigFromWiki,
+	unsyncedClassicEditsWarning,
 } from './moduleapi'
 
 describe('normalizeConfig', () => {
@@ -774,6 +774,139 @@ describe('reloadConfigFromWiki', () => {
 		)
 
 		expect(await tryReloadConfigFromWiki('sub',),).toEqual({status: 'absent',},)
+	})
+})
+
+describe('refreshClassicConfigInlineFields', () => {
+	/** Serves each page's JSON (a fresh copy per read); unlisted pages read as `reason`. */
+	function mockPages (pages: Record<string, object>, reason = 'no_page',) {
+		vi.mocked(readFromWiki,).mockImplementation(async (_sub: string, page: string,) =>
+			page in pages
+				? {ok: true, data: structuredClone(pages[page],),} as WikiReadResult
+				: {ok: false, reason,} as WikiReadResult
+		)
+	}
+	const classic = {ver: 1, removalReasons: {reasons: [],}, modMacros: [], banMacros: null,}
+
+	beforeEach(() => {
+		writeWikiPageConditional.mockResolvedValue({ok: true,},)
+		vi.mocked(tbApiPostToWiki,).mockResolvedValue(undefined,)
+	},)
+	afterEach(() => {
+		vi.clearAllMocks()
+	},)
+
+	it('does nothing on NXG-only subs, which keep no classic page', async () => {
+		resolveWikiLayout.mockResolvedValue({subreddit: 'sub', state: 'nxg', compatibilityWrites: false,},)
+
+		await expect(refreshClassicConfigInlineFields('sub', 'r',),).resolves.toEqual({ok: true,},)
+		expect(readFromWiki,).not.toHaveBeenCalled()
+		expect(tbApiPostToWiki,).not.toHaveBeenCalled()
+		expect(writeWikiPageConditional,).not.toHaveBeenCalled()
+	})
+
+	it('refreshes only the 6.x mirror on compat-on subs', async () => {
+		resolveWikiLayout.mockResolvedValue({subreddit: 'sub', state: 'nxg', compatibilityWrites: true,},)
+		mockPages({'toolbox-nxg': {...classic, ver: 2,}, 'toolbox': classic,},)
+
+		await expect(refreshClassicConfigInlineFields('sub', 'r',),).resolves.toEqual({ok: true,},)
+		expect(vi.mocked(tbApiPostToWiki,).mock.calls.map((call,) => call[1]),).toEqual(['toolbox',],)
+		expect(writeWikiPageConditional,).not.toHaveBeenCalled()
+	})
+
+	it('rewrites the canonical classic page through the guarded save on legacy-fallback subs', async () => {
+		resolveWikiLayout.mockResolvedValue({subreddit: 'sub', state: 'legacyFallback', compatibilityWrites: false,},)
+		getWikiWritePaths.mockResolvedValue(['toolbox',],)
+		mockPages({toolbox: classic,},)
+
+		await expect(refreshClassicConfigInlineFields('sub', 'r',),).resolves.toEqual({ok: true,},)
+		expect(writeWikiPageConditional.mock.calls.map((call,) => call[1]),).toEqual(['toolbox',],)
+		// Silent: the caller owns the feedback.
+		expect(showTextFeedback,).not.toHaveBeenCalled()
+	})
+
+	it('creates the classic page on a legacy-fallback sub that has none', async () => {
+		resolveWikiLayout.mockResolvedValue({subreddit: 'sub', state: 'legacyFallback', compatibilityWrites: false,},)
+		getWikiWritePaths.mockResolvedValue(['toolbox',],)
+		mockPages({},)
+
+		await expect(refreshClassicConfigInlineFields('sub', 'r',),).resolves.toEqual({ok: true,},)
+		expect(writeWikiPageConditional,).toHaveBeenCalledTimes(1,)
+	})
+
+	it('fails without writing when the config page cannot be read', async () => {
+		resolveWikiLayout.mockResolvedValue({subreddit: 'sub', state: 'legacyFallback', compatibilityWrites: false,},)
+		mockPages({}, 'unknown_error',)
+
+		const result = await refreshClassicConfigInlineFields('sub', 'r',)
+
+		expect(result.ok,).toBe(false,)
+		expect(writeWikiPageConditional,).not.toHaveBeenCalled()
+		expect(tbApiPostToWiki,).not.toHaveBeenCalled()
+	})
+})
+
+describe('unsyncedClassicEditsWarning', () => {
+	const compatOn = {subreddit: 'sub', state: 'nxg', compatibilityWrites: true,}
+	/** Serves the classic page and dates it and the NXG usernotes manifest. */
+	function mockClassic (page: object, classicAt: number, nxgAt: number,) {
+		vi.mocked(readFromWiki,).mockResolvedValue({ok: true, data: structuredClone(page,),} as WikiReadResult,)
+		vi.mocked(getWikiRevisions,).mockImplementation(async (_sub: string, wikiPage: string,) => [{
+			id: 'r',
+			timestamp: wikiPage === 'toolbox' ? classicAt : nxgAt,
+			author: 'm',
+			reason: '',
+		},])
+	}
+	const nxgTypes = [{key: 'ban', text: 'Ban', color: 'red',},]
+
+	beforeEach(() => {
+		resolveWikiLayout.mockResolvedValue(compatOn,)
+		getSubredditColors.mockResolvedValue(nxgTypes,)
+	},)
+	afterEach(() => {
+		vi.clearAllMocks()
+		vi.mocked(getWikiRevisions,).mockResolvedValue([],)
+		getSubredditColors.mockResolvedValue([],)
+	},)
+
+	it('warns when the classic page differs and is newer', async () => {
+		mockClassic({ver: 1, usernoteColors: [{key: 'ban', text: 'Edited in 6.x', color: 'red',},],}, 200, 100,)
+
+		const warning = await unsyncedClassicEditsWarning('sub', 'usernoteColors',)
+
+		expect(warning,).toContain('usernote type',)
+	})
+
+	it('stays quiet when the classic page matches what NXG would mirror', async () => {
+		mockClassic({ver: 1, usernoteColors: nxgTypes,}, 200, 100,)
+
+		await expect(unsyncedClassicEditsWarning('sub', 'usernoteColors',),).resolves.toBeUndefined()
+		// Equal content short-circuits before any revision listing.
+		expect(getWikiRevisions,).not.toHaveBeenCalled()
+	})
+
+	it('stays quiet for a stale mirror: different, but older than NXG', async () => {
+		mockClassic({ver: 1, usernoteColors: [{key: 'ban', text: 'Old', color: 'red',},],}, 100, 200,)
+
+		await expect(unsyncedClassicEditsWarning('sub', 'usernoteColors',),).resolves.toBeUndefined()
+	})
+
+	it('compares domain tags against the domain-tags page', async () => {
+		getDomainTagsData.mockResolvedValueOnce({tags: [],},)
+		mockClassic({ver: 1, domainTags: [{name: 'a.com', color: 'red',},],}, 200, 100,)
+
+		const warning = await unsyncedClassicEditsWarning('sub', 'domainTags',)
+
+		expect(warning,).toContain('domain tag',)
+		expect(vi.mocked(getWikiRevisions,).mock.calls.map((call,) => call[1]),).toContain('toolbox-nxg/domain-tags',)
+	})
+
+	it('only checks compat-on subs', async () => {
+		resolveWikiLayout.mockResolvedValue({subreddit: 'sub', state: 'legacyFallback', compatibilityWrites: false,},)
+
+		await expect(unsyncedClassicEditsWarning('sub', 'usernoteColors',),).resolves.toBeUndefined()
+		expect(readFromWiki,).not.toHaveBeenCalled()
 	})
 })
 

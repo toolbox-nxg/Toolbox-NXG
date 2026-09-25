@@ -9,9 +9,13 @@ import {nowInSeconds,} from '../../../util/data/time'
 import createLogger from '../../../util/infra/logging'
 import {createPerKeyQueue,} from '../../../util/infra/perKeyQueue'
 import {getCache, setCache,} from '../../../util/persistence/cache'
+import {extractLegacyUsernoteColors,} from '../../../util/wiki/schemas/config/schema'
 import {
 	decodeUsernotesV6,
 	encodeUsernotesV6,
+	healPlaceholderTypes,
+	isPlaceholderType,
+	needsLegacyTypesRepair,
 	noteIdentityKey,
 	seedV6Types,
 } from '../../../util/wiki/schemas/usernotes/codec'
@@ -25,6 +29,7 @@ import {
 	AUTO_ARCHIVER,
 	defaultUsernoteTypes,
 	isNoteActive,
+	legacyTypesRepair,
 	notesSchema,
 	RawUsernotesBlob,
 	UserNoteColor,
@@ -34,6 +39,7 @@ import {
 } from '../../../util/wiki/schemas/usernotes/schema'
 import {readShardedUsernotes, writeShardedUsernotes,} from '../../../util/wiki/schemas/usernotes/sharded'
 import {OLD_WIKI_PATHS,} from '../../../util/wiki/wikiConstants'
+import {recoverLegacyUsernoteColors,} from '../../../util/wiki/wikiMigration'
 import {compatMirrorEnabled, resolveWikiLayout,} from '../../../util/wiki/wikiPaths'
 import {ModNote, PendingNoteRequest,} from '../modnotes/schema'
 import {type FoundUser, resolveDualKeyUser,} from './noteMutations'
@@ -136,6 +142,10 @@ export async function getUserNotes (subreddit: string, forceSkipCache?: boolean,
 	}
 
 	await updateNoteCache(subreddit, notes,)
+	if (layout.state !== 'legacyFallback' && needsLegacyTypesRepair(notes,)) {
+		// Background, one-time: the load itself never waits on the repair.
+		void repairLegacyTypes(subreddit,)
+	}
 	if (cachedSubsWithNoNotes.includes(subreddit,)) {
 		await setCache(utils, 'noNotes', cachedSubsWithNoNotes.filter((cached,) => cached !== subreddit),)
 	}
@@ -162,7 +172,7 @@ async function readLegacyUsernotes (subreddit: string,): Promise<UserNotesData |
 	purifyObject(raw,)
 	const notes = await decodeUsernotesV6(raw, subreddit,)
 	if (!notes) { throw new Error('usernotes schema too old to be understood',) }
-	seedDefaultTypes(notes,)
+	await seedTypesFromLegacyConfig(subreddit, notes,)
 	return notes
 }
 
@@ -191,18 +201,95 @@ async function readNxgUsernotes (subreddit: string, reconcile: boolean,): Promis
 	if (!notes.types?.length) {
 		// Manifests missing type definitions (and datasets sourced purely from
 		// the legacy mirror) get them seeded so the next save embeds them.
-		seedDefaultTypes(notes,)
+		await seedTypesFromLegacyConfig(subreddit, notes,)
 	}
 	return notes
 }
 
-/** Seeds `notes.types` from the built-in defaults, supplemented by any unknown keys found in existing notes. */
-function seedDefaultTypes (notes: UserNotesData,): void {
-	notes.types = seedV6Types(notes,)
+/**
+ * Seeds `notes.types` for data that carries no type definitions of its own:
+ * the legacy config page's inline `usernoteColors` (where 6.x keeps them),
+ * else the built-in defaults, plus any unknown keys found in existing notes.
+ * An unreadable config page falls back to the defaults rather than failing the load.
+ */
+async function seedTypesFromLegacyConfig (subreddit: string, notes: UserNotesData,): Promise<void> {
+	notes.types = seedV6Types(notes, await readLegacyConfigColors(subreddit,),)
 }
+
+/**
+ * Reads the legacy config page's inline `usernoteColors`, or `[]` when the page
+ * is missing, unreadable, or a tombstone.
+ */
+async function readLegacyConfigColors (subreddit: string,): Promise<UserNoteColor[]> {
+	const response = await readFromWiki<Record<string, unknown>>(subreddit, OLD_WIKI_PATHS.settings, true,)
+	if (!response.ok) { return [] }
+	purifyObject(response.data,)
+	return extractLegacyUsernoteColors(response.data,)
+}
+
+/**
+ * Session memo of {@link readLegacyConfigColors} for subs with no usernotes, whose
+ * types {@link getSubredditColors} can't take from a notes dataset. It is called on
+ * every usernotes render, and a notes-less sub never gets a note cache entry.
+ */
+const legacyColorsForNotelessSubs = new Map<string, Promise<UserNoteColor[]>>()
 
 /** Per-subreddit save queue: concurrent usernotes saves for one subreddit run in call order. */
 const enqueueUsernotesSave = createPerKeyQueue()
+
+/** Subreddits with a {@link repairLegacyTypes} run in flight, so concurrent loads don't each scan the wiki history. */
+const legacyTypesRepairsInFlight = new Set<string>()
+
+/**
+ * Restores usernote type names and colors that early migrations replaced
+ * with placeholders (name = key, no color), recovering them from the legacy
+ * config page's revision history. Only placeholders are patched. The repair
+ * marker is recorded even when nothing is recoverable, so it runs once per
+ * subreddit; a failure is logged and retried on a later load.
+ *
+ * Writes only the manifest (shard contents are unchanged) and deliberately
+ * bypasses {@link doSaveUserNotes}: it runs unprompted, so it must not toast,
+ * and a mod without wiki write access should fail silently.
+ */
+async function repairLegacyTypes (subreddit: string,): Promise<void> {
+	if (legacyTypesRepairsInFlight.has(subreddit,)) { return }
+	legacyTypesRepairsInFlight.add(subreddit,)
+	try {
+		await enqueueUsernotesSave(subreddit, async () => {
+			const stored = await readShardedUsernotes(subreddit,)
+			if (stored.kind !== 'sharded') { return }
+			const notes = stored.notes
+			if (!notes.types?.length) { notes.types = seedV6Types(notes,) }
+			if (!needsLegacyTypesRepair(notes,)) { return }
+
+			const placeholderKeys = notes.types.filter(isPlaceholderType,).map((t,) => t.key)
+			const recovered = await recoverLegacyUsernoteColors(subreddit, placeholderKeys,)
+			const {types,} = healPlaceholderTypes(notes.types, recovered,)
+			notes.types = types
+			notes.repairs = [...notes.repairs ?? [], legacyTypesRepair,]
+			await writeShardedUsernotes(subreddit, notes, 'Restore usernote types lost in migration',)
+			log.info(`Restored ${recovered.length} of ${placeholderKeys.length} usernote types for /r/${subreddit}`,)
+
+			// Patch the cached dataset rather than replacing it: it may hold 6.x
+			// edits folded in on read that the stored shards don't have yet.
+			const cachedNotes = await getCache(utils, 'noteCache', {},) as Record<string, UserNotesData>
+			const cached = cachedNotes[subreddit]
+			if (cached) {
+				cached.types = types
+				cached.repairs = notes.repairs
+				await setCache(utils, 'noteCache', cachedNotes,)
+			}
+		},)
+		// Outside the save queue: the down-convert reads types via getUserNotes.
+		// Dynamic import: config/moduleapi imports this module, so a static import would cycle.
+		const {refreshClassicConfigInlineFields,} = await import('../../config/moduleapi')
+		await refreshClassicConfigInlineFields(subreddit, 'Restore usernote types lost in migration',)
+	} catch (error: unknown) {
+		log.warn(`Could not repair usernote types for /r/${subreddit}:`, error,)
+	} finally {
+		legacyTypesRepairsInFlight.delete(subreddit,)
+	}
+}
 
 /**
  * Encodes and saves usernotes to the subreddit wiki, then updates the cache.
@@ -367,7 +454,10 @@ async function doUpdateUserNotes (
 		notes = await getUserNotes(subreddit, true,)
 	} catch (error: unknown) {
 		if (error instanceof Error && error.message === 'no_page') {
+			// First notes for this sub: seed the types it has configured on the
+			// legacy config page, not the built-in defaults.
 			notes = {ver: notesSchema, users: {},}
+			await seedTypesFromLegacyConfig(subreddit, notes,)
 		} else {
 			log.warn('Failed to read usernotes for update:', error,)
 			return undefined
@@ -408,15 +498,24 @@ function cleanUserNotes (data: UserNotesData,): UserNotesData {
 }
 
 /**
- * Returns the usernote type colors for a subreddit from the usernotes manifest,
- * falling back to the built-in defaults when the subreddit has no notes page.
+ * Returns the usernote type colors for a subreddit from its usernotes data. A
+ * subreddit with no usernotes falls back to the legacy config page's inline
+ * `usernoteColors`, then the built-in defaults.
  */
 export async function getSubredditColors (subreddit: string,): Promise<UserNoteColor[]> {
 	try {
 		const notes = await getUserNotes(subreddit,)
 		return notes.types?.length ? notes.types : defaultUsernoteTypes
 	} catch {
-		return defaultUsernoteTypes
+		// No usernotes yet (e.g. a sub migrated without a usernotes page): its types
+		// may still be configured on the legacy config page, where 6.x keeps them.
+		let colors = legacyColorsForNotelessSubs.get(subreddit,)
+		if (!colors) {
+			colors = readLegacyConfigColors(subreddit,).catch(() => [])
+			legacyColorsForNotelessSubs.set(subreddit, colors,)
+		}
+		const configured = await colors
+		return configured.length ? configured : defaultUsernoteTypes
 	}
 }
 

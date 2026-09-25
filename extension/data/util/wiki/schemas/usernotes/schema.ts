@@ -114,9 +114,22 @@ export interface UserNotesData {
 	 * defaults on load.
 	 */
 	types?: UserNoteColor[]
+	/**
+	 * One-time data repairs already applied to this subreddit's NXG usernotes
+	 * (see {@link legacyTypesRepair}). Carried on the manifest so a repair runs
+	 * once per subreddit rather than once per moderator.
+	 */
+	repairs?: string[]
 	/** True when the data was found to contain malformed entries that were silently dropped on load. */
 	corrupted?: boolean
 }
+
+/**
+ * Repair marker for type definitions lost by early migrations, which seeded
+ * placeholder types (name = key, no color) instead of the subreddit's
+ * configured `usernoteColors`.
+ */
+export const legacyTypesRepair = 'legacyTypes'
 
 /** All notes for a single Reddit user within a subreddit. */
 export interface UsernotesUser {

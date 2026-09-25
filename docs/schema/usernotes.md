@@ -41,6 +41,7 @@ The manifest is a JSON envelope at schema version 7, continuing the classic user
 | `types`   | yes      | `UserNoteColor[]`     | Usernote type definitions; the canonical source for a subreddit's note types (see [`UserNoteColor`](#usernotecolor)) |
 | `shards`  | yes      | `UsernotesShardRef[]` | Shard range descriptors, sorted by `start`; `shards[0].start` is always `0`                                          |
 | `retired` | no       | `string[]`            | Page suffixes retired by a split whose tombstone write failed; retried on the next save                              |
+| `repairs` | no       | `string[]`            | One-time data repairs already applied, so each runs once per subreddit (currently only `legacyTypes`)                |
 
 Each entry in `shards` is a `UsernotesShardRef`:
 

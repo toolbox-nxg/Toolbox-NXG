@@ -29,14 +29,21 @@ vi.mock('../../../store/textFeedbackSlice', () => ({
 	TextFeedbackKind: {Neutral: 'neutral', Positive: 'positive', Negative: 'negative',},
 }),)
 vi.mock('../../../util/data/purify', () => ({purifyObject: vi.fn(),}),)
-vi.mock('../../config/moduleapi', () => ({getConfig: vi.fn().mockResolvedValue(null,),}),)
+const refreshClassicConfigInlineFields = vi.hoisted(() => vi.fn().mockResolvedValue({ok: true,},))
+vi.mock(
+	'../../config/moduleapi',
+	() => ({getConfig: vi.fn().mockResolvedValue(null,), refreshClassicConfigInlineFields,}),
+)
 vi.mock('../../../util/data/encoding', () => ({
 	zlibDeflate: (s: string,) => btoa(s,),
 	zlibInflate: (s: string,) => atob(s,),
 	htmlDecode: (s: string,) => s,
+	tbDecode: (s: string,) => decodeURIComponent(s,),
 	unescapeJSON: (s: string,) => s,
 	byteLength: (s: string,) => new TextEncoder().encode(s,).length,
 }),)
+const recoverLegacyUsernoteColors = vi.hoisted(() => vi.fn())
+vi.mock('../../../util/wiki/wikiMigration', () => ({recoverLegacyUsernoteColors,}),)
 const resolveWikiLayout = vi.hoisted(() =>
 	vi.fn().mockResolvedValue({subreddit: 'sub', state: 'legacyFallback', compatibilityWrites: false,},)
 )
@@ -71,6 +78,7 @@ import {
 	activeNotes,
 	autoArchiveOldNotes,
 	findSubredditColor,
+	getSubredditColors,
 	getUser,
 	getUserNotes,
 	saveUserNotes,
@@ -159,6 +167,21 @@ describe('getUserNotes', () => {
 		expect(note.link,).toBe('/r/sub/comments/abc123/',)
 	})
 
+	it('seeds legacy-sub types from the legacy config\'s usernoteColors, not the defaults', async () => {
+		vi.mocked(readFromWiki,).mockImplementation(async (_sub: string, page: string,) =>
+			page === 'toolbox'
+				? {
+					ok: true,
+					data: {ver: 1, usernoteColors: [{key: 'botban', text: 'Bot%20Ban!', color: '#123456',},],},
+				}
+				: {ok: true, data: JSON.stringify(makeRawBlob(),),}
+		)
+
+		const result = await getUserNotes('sub',)
+
+		expect(result.types,).toEqual([{key: 'botban', text: 'Bot Ban!', color: '#123456',},],)
+	})
+
 	it('reads the sharded layout for migrated compat-off subs', async () => {
 		mockLayout('nxg', false,)
 		mockWikiPages({
@@ -173,6 +196,72 @@ describe('getUserNotes', () => {
 		expect(result.types,).toEqual(singleShardManifest().types,)
 		// The legacy page is never consulted when compat is off.
 		expect(vi.mocked(readFromWiki,).mock.calls.some((call,) => call[1] === 'usernotes'),).toBe(false,)
+	})
+
+	it('repairs placeholder types in the background, writing only the manifest', async () => {
+		mockLayout('nxg', false,)
+		const manifest = singleShardManifest()
+		manifest.types = [
+			{key: 'rant', text: 'rant', color: '',},
+			{key: 'orphan', text: 'orphan', color: '',},
+			{key: 'edited', text: 'Edited', color: 'blue',},
+		]
+		mockWikiPages({
+			[NXG_PAGE]: JSON.stringify(manifest,),
+			[`${NXG_PAGE}/s1-00000000`]: JSON.stringify(encodeNotesShard({testuser: makeUser('testuser',),},),),
+		},)
+		recoverLegacyUsernoteColors.mockResolvedValue([{key: 'rant', text: 'Rant Warning', color: '#800080',},],)
+
+		await getUserNotes('sub',)
+
+		await vi.waitFor(() => expect(postToWiki,).toHaveBeenCalled())
+		expect(recoverLegacyUsernoteColors,).toHaveBeenCalledWith('sub', ['rant', 'orphan',],)
+		expect(vi.mocked(postToWiki,).mock.calls.map((call,) => call[1]),).toEqual([NXG_PAGE,],)
+		const written = vi.mocked(postToWiki,).mock.calls[0]![2] as UsernotesManifest
+		// Recovered placeholders are restored; unrecoverable ones and real types are kept as-is.
+		expect(written.types,).toEqual([
+			{key: 'rant', text: 'Rant Warning', color: '#800080',},
+			{key: 'orphan', text: 'orphan', color: '',},
+			{key: 'edited', text: 'Edited', color: 'blue',},
+		],)
+		// Marked done even though 'orphan' had no definition, so it never rescans.
+		expect(written.repairs,).toEqual(['legacyTypes',],)
+		// 6.x users get the restored types too.
+		await vi.waitFor(() => expect(refreshClassicConfigInlineFields,).toHaveBeenCalled())
+	})
+
+	it('does not repair again once the manifest records the repair', async () => {
+		mockLayout('nxg', false,)
+		const manifest = singleShardManifest()
+		manifest.types = [{key: 'orphan', text: 'orphan', color: '',},]
+		manifest.repairs = ['legacyTypes',]
+		mockWikiPages({
+			[NXG_PAGE]: JSON.stringify(manifest,),
+			[`${NXG_PAGE}/s1-00000000`]: JSON.stringify(encodeNotesShard({testuser: makeUser('testuser',),},),),
+		},)
+
+		const result = await getUserNotes('sub',)
+
+		expect(result.repairs,).toEqual(['legacyTypes',],)
+		expect(recoverLegacyUsernoteColors,).not.toHaveBeenCalled()
+		expect(postToWiki,).not.toHaveBeenCalled()
+	})
+
+	it('leaves the repair unmarked when recovery fails, so a later load retries', async () => {
+		mockLayout('nxg', false,)
+		const manifest = singleShardManifest()
+		manifest.types = [{key: 'rant', text: 'rant', color: '',},]
+		mockWikiPages({
+			[NXG_PAGE]: JSON.stringify(manifest,),
+			[`${NXG_PAGE}/s1-00000000`]: JSON.stringify(encodeNotesShard({testuser: makeUser('testuser',),},),),
+		},)
+		recoverLegacyUsernoteColors.mockRejectedValue(new Error('network',),)
+
+		await getUserNotes('sub',)
+
+		await vi.waitFor(() => expect(recoverLegacyUsernoteColors,).toHaveBeenCalled())
+		await new Promise((resolve,) => setTimeout(resolve, 0,))
+		expect(postToWiki,).not.toHaveBeenCalled()
 	})
 
 	it('compat-on: merges 6.x edits from the legacy mirror into the view', async () => {
@@ -653,6 +742,28 @@ describe('updateUserNotes', () => {
 		},)
 	}
 
+	it('seeds a sub\'s first notes with the legacy config\'s types, not the defaults', async () => {
+		// Migrated without a usernotes page: no manifest, but types configured for 6.x.
+		mockLayout('nxg', false,)
+		const configured = [{key: 'rant', text: 'Rant Warning', color: '#800080',},]
+		vi.mocked(readFromWiki,).mockImplementation(async (_sub: string, page: string,) =>
+			page === 'toolbox'
+				? {ok: true, data: {ver: 1, usernoteColors: configured,},} as WikiReadResult
+				: {ok: false, reason: 'no_page',} as WikiReadResult
+		)
+
+		await updateUserNotes('firstnotes', (fresh,) =>
+			applyUserNoteMutation(fresh, 'newuser', {
+				change: 'add',
+				note: {note: 'n', time: 1700000001, mod: 'me', type: 'rant', link: '',},
+			},),)
+
+		const manifest = vi.mocked(postToWiki,).mock.calls.find((call,) =>
+			call[1] === NXG_PAGE
+		)![2] as UsernotesManifest
+		expect(manifest.types,).toEqual(configured,)
+	})
+
 	it('merges the caller mutation into the live wiki state instead of clobbering it', async () => {
 		// Another mod added `existing` after this tab's snapshot; the wiki has it.
 		mockExistingUser('existing', 'their note',)
@@ -750,6 +861,29 @@ describe('updateUserNotes', () => {
 		releaseFirst()
 		await Promise.all([first, second,],)
 		expect(order,).toHaveLength(2,)
+	})
+})
+
+describe('getSubredditColors', () => {
+	it('falls back to the legacy config\'s types for a sub with no usernotes, read once per session', async () => {
+		mockLayout('nxg', false,)
+		const configured = [{key: 'rant', text: 'Rant Warning', color: '#800080',},]
+		vi.mocked(readFromWiki,).mockImplementation(async (_sub: string, page: string,) =>
+			page === 'toolbox'
+				? {ok: true, data: {ver: 1, usernoteColors: configured,},} as WikiReadResult
+				: {ok: false, reason: 'no_page',} as WikiReadResult
+		)
+
+		expect(await getSubredditColors('noteless',),).toEqual(configured,)
+		expect(await getSubredditColors('noteless',),).toEqual(configured,)
+		expect(vi.mocked(readFromWiki,).mock.calls.filter((call,) => call[1] === 'toolbox'),).toHaveLength(1,)
+	})
+
+	it('falls back to the defaults when the legacy config has no types either', async () => {
+		mockLayout('nxg', false,)
+		mockWikiPages({},)
+
+		expect(await getSubredditColors('bare',),).toEqual(defaultUsernoteTypes,)
 	})
 })
 

@@ -10,13 +10,9 @@ The page is restricted to moderator-only access (`permlevel: 2`).
 
 ## Migration from config
 
-Older builds stored domain tags inside the main subreddit config as `domainTags: DomainTag[]` on the `toolbox-nxg` page. On the first read of the dedicated domain-tags page, NXG automatically migrates any tags found there:
+Toolbox 6.x stores domain tags inline on the classic `toolbox` config page as `domainTags`. When a moderator first reads the dedicated domain-tags page and it does not exist yet, NXG creates it, seeded with those tags (`approvalCount: 0`, `removalCount: 0`). The tags are read from the `toolbox` page's revision history (the newest revision carrying any), not its current content: with 6.x compatibility on, NXG rewrites that page from its own data, and turning compatibility off replaces it with a tombstone.
 
-1. Reads `ToolboxConfig.domainTags` from the existing config.
-2. Creates a new `toolbox-nxg/domain-tags` page seeded with those tags (`approvalCount: 0`, `removalCount: 0`).
-3. Removes `domainTags` from the config page and saves.
-
-After migration the `domainTags` field is absent from the config page permanently.
+Early builds created the page empty instead. A one-time repair restores those tags the same way, but only into a page that is still untouched (a single revision and no tags); either way it records `legacyDomainTags` in `repairs` so it never runs again.
 
 ## Schema reference
 
@@ -26,7 +22,8 @@ After migration the `domainTags` field is absent from the config page permanentl
 {
     "ver": 1,
     "showCounts": false,
-    "tags": [ ... ]
+    "tags": [ ... ],
+    "repairs": ["legacyDomainTags"]
 }
 ```
 
@@ -35,6 +32,7 @@ After migration the `domainTags` field is absent from the config page permanentl
 | `ver`        | integer       | Schema version; currently `1`                                                          |
 | `showCounts` | boolean       | When `true`, approval/removal counts are shown inline in the domain indicator on posts |
 | `tags`       | `DomainTag[]` | The list of domain tag entries for this subreddit                                      |
+| `repairs`    | `string[]`    | Optional. One-time data repairs already applied (currently only `legacyDomainTags`)    |
 
 ### `DomainTag`
 

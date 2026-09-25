@@ -27,6 +27,13 @@ export function normalizeDomainTagsData (raw: any,): asserts raw is DomainTagsDa
 	if (typeof raw.showCounts !== 'boolean') { raw.showCounts = false }
 
 	if (!Array.isArray(raw.tags,)) { raw.tags = [] }
+	if (raw.repairs !== undefined) {
+		const repairs = Array.isArray(raw.repairs,)
+			? raw.repairs.filter((r: unknown,) => typeof r === 'string')
+			: []
+		if (repairs.length > 0) { raw.repairs = repairs }
+		else { delete raw.repairs }
+	}
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- filters and coerces arbitrary parsed entries before they are asserted to DomainTag[]
 	raw.tags = (raw.tags as any[]).filter((entry: any,) => {

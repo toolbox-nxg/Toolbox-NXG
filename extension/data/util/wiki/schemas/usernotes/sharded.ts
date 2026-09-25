@@ -245,7 +245,7 @@ export async function readShardedUsernotes (subreddit: string,): Promise<Sharded
 	},)
 	sessionStates.set(subreddit, {manifest, fingerprints, pageBytes,},)
 
-	const notes = mergeShardData(shards.map((shard,) => shard.notes), manifest.types,)
+	const notes = mergeShardData(shards.map((shard,) => shard.notes), manifest.types, manifest.repairs,)
 	return {kind: 'sharded', notes, manifest,}
 }
 
@@ -328,12 +328,16 @@ export async function writeShardedUsernotes (
 	const baselineShards = JSON.stringify(manifest.shards,)
 	const baselineTypes = JSON.stringify(manifest.types,)
 	const baselineRetired = JSON.stringify(manifest.retired ?? [],)
+	const baselineRepairs = JSON.stringify(manifest.repairs ?? [],)
 	const preExistingPages = new Set(manifestOnWiki ? manifest.shards.map((ref,) => ref.page) : [],)
 
 	// The manifest carries the type definitions; refresh them from the seeded
 	// dataset so type edits propagate.
 	if (notes.types?.length) {
 		manifest.types = notes.types
+	}
+	if (notes.repairs?.length) {
+		manifest.repairs = notes.repairs
 	}
 
 	// Partition the dataset and plan the writes: a shard is dirty when its
@@ -426,6 +430,7 @@ export async function writeShardedUsernotes (
 		|| JSON.stringify(manifest.shards,) !== baselineShards
 		|| JSON.stringify(manifest.types,) !== baselineTypes
 		|| JSON.stringify(manifest.retired ?? [],) !== baselineRetired
+		|| JSON.stringify(manifest.repairs ?? [],) !== baselineRepairs
 
 	// Writes, sequentially: dirty shards first, manifest last. A failure
 	// anywhere aborts with the old manifest still authoritative.

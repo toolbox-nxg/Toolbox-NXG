@@ -6,26 +6,34 @@ import {afterEach, describe, expect, it, vi,} from 'vitest'
 
 const getUserNotes = vi.hoisted(() => vi.fn())
 const updateUserNotes = vi.hoisted(() => vi.fn().mockResolvedValue(undefined,))
+const refreshClassicConfigInlineFields = vi.hoisted(() => vi.fn().mockResolvedValue({ok: true,},))
+const unsyncedClassicEditsWarning = vi.hoisted(() => vi.fn().mockResolvedValue(undefined,))
+const negativeTextFeedback = vi.hoisted(() => vi.fn())
+const positiveTextFeedback = vi.hoisted(() => vi.fn())
 
 vi.mock('../../../util/ui/reactMount', () => ({
 	classes: (...parts: Array<string | false | null | undefined>) => parts.filter(Boolean,).join(' ',),
 	mountPopup: vi.fn(),
 }),)
 vi.mock('../../../store/feedback', () => ({
-	negativeTextFeedback: vi.fn(),
+	negativeTextFeedback,
 	neutralTextFeedback: vi.fn(),
-	positiveTextFeedback: vi.fn(),
+	positiveTextFeedback,
 }),)
 vi.mock('../../../util/infra/logging', () => ({default: () => ({debug: vi.fn(), error: vi.fn(),}),}),)
 vi.mock('../../config/moduleapi', () => ({
+	refreshClassicConfigInlineFields,
 	reloadConfigFromWiki: vi.fn(),
+	unsyncedClassicEditsWarning,
 	saveToolboxConfig: vi.fn().mockResolvedValue(undefined,),
 }),)
-vi.mock('../../shared/usernotes/moduleapi', () => ({getUserNotes, updateUserNotes,}),)
+const getSubredditColors = vi.hoisted(() => vi.fn())
+vi.mock('../../shared/usernotes/moduleapi', () => ({getSubredditColors, getUserNotes, updateUserNotes,}),)
 ;(globalThis as {IS_REACT_ACT_ENVIRONMENT?: boolean}).IS_REACT_ACT_ENVIRONMENT = true
 
 import {SortModeRef,} from '../../../shared/controls/SortToggleButton'
 import type {ConfigState,} from '../../../util/wiki/schemas/config/schema'
+import {defaultUsernoteTypes,} from '../../../util/wiki/schemas/usernotes/schema'
 import type {UserNoteColor,} from '../../../util/wiki/schemas/usernotes/schema'
 import {UsernoteTypeList, UsernoteTypeListFooter,} from './UsernoteTypeList'
 
@@ -90,10 +98,14 @@ afterEach(() => {
 	getUserNotes.mockReset()
 	getUserNotes.mockRejectedValue(new Error('no_page',),)
 	updateUserNotes.mockClear()
+	refreshClassicConfigInlineFields.mockClear()
+	negativeTextFeedback.mockClear()
+	positiveTextFeedback.mockClear()
 	vi.clearAllMocks()
 },)
 
 getUserNotes.mockRejectedValue(new Error('no_page',),)
+getSubredditColors.mockResolvedValue(defaultUsernoteTypes,)
 
 /**
  * Replays the transform the type editor handed to `updateUserNotes` against a
@@ -121,6 +133,15 @@ describe('UsernoteTypeList', () => {
 		expect(host.textContent,).toContain('Good Contributor',)
 	})
 
+	it('shows the configured types, not the defaults, for a sub with no usernotes', async () => {
+		getSubredditColors.mockResolvedValueOnce([{key: 'rant', text: 'Rant Warning', color: '#800080',},],)
+		const state = makeState()
+		const {host,} = await renderList(state,)
+
+		await vi.waitFor(() => expect(host.querySelectorAll('input[name="type-name"]',),).toHaveLength(1,))
+		expect(host.querySelector<HTMLInputElement>('input[name="type-name"]',)!.value,).toBe('Rant Warning',)
+	})
+
 	it('preserves an existing key when the type is renamed', async () => {
 		getUserNotes.mockResolvedValue({
 			ver: 6,
@@ -141,6 +162,54 @@ describe('UsernoteTypeList', () => {
 		expect(subreddit,).toBe('testsub',)
 		expect(reason,).toBe('Updated usernote types',)
 		expect(types,).toEqual([{key: 'gooduser', text: 'Great Contributor', color: 'green',},],)
+		// The classic config page (6.x's copy, and the only storage on legacy subs) is rewritten.
+		expect(refreshClassicConfigInlineFields,).toHaveBeenCalledWith('testsub', 'Updated usernote types',)
+		expect(positiveTextFeedback,).toHaveBeenCalledWith('Usernote types saved',)
+	})
+
+	it('shows the 6.x overwrite warning instead of the success message', async () => {
+		getUserNotes.mockResolvedValue({
+			ver: 6,
+			users: {},
+			types: [{key: 'gooduser', text: 'Good Contributor', color: 'green',},],
+		},)
+		unsyncedClassicEditsWarning.mockResolvedValueOnce('overwrote 6.x changes',)
+		const state = makeState()
+		const {saveRef,} = await renderList(state,)
+
+		await act(async () => {
+			saveRef.current!()
+		},)
+
+		await vi.waitFor(() => expect(negativeTextFeedback,).toHaveBeenCalled())
+		expect(unsyncedClassicEditsWarning,).toHaveBeenCalledWith('testsub', 'usernoteColors',)
+		// Checked before the save bumps the NXG page.
+		expect(unsyncedClassicEditsWarning.mock.invocationCallOrder[0],).toBeLessThan(
+			updateUserNotes.mock.invocationCallOrder[0]!,
+		)
+		expect(negativeTextFeedback.mock.calls[0]![0],).toBe('overwrote 6.x changes',)
+		expect(positiveTextFeedback,).not.toHaveBeenCalled()
+	})
+
+	it('warns when the classic config page could not be rewritten', async () => {
+		getUserNotes.mockResolvedValue({
+			ver: 6,
+			users: {},
+			types: [{key: 'gooduser', text: 'Good Contributor', color: 'green',},],
+		},)
+		refreshClassicConfigInlineFields.mockResolvedValueOnce({ok: false, message: 'no wiki permission',},)
+		const state = makeState()
+		const {saveRef,} = await renderList(state,)
+
+		await act(async () => {
+			saveRef.current!()
+			await Promise.resolve()
+			await Promise.resolve()
+			await Promise.resolve()
+		},)
+
+		expect(positiveTextFeedback,).not.toHaveBeenCalled()
+		expect(negativeTextFeedback.mock.calls[0]![0],).toContain('no wiki permission',)
 	})
 
 	it('generates a key for new types and serializes optional fields only when set', async () => {

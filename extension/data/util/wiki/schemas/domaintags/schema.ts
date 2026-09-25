@@ -41,7 +41,19 @@ export interface DomainTagsData {
 	showCounts: boolean
 	/** The list of configured domain tags for this subreddit. */
 	tags: DomainTag[]
+	/**
+	 * One-time data repairs already applied (see {@link legacyDomainTagsRepair}),
+	 * so each runs once per subreddit rather than once per moderator.
+	 */
+	repairs?: string[]
 }
+
+/**
+ * Repair marker for domain tags lost by early builds, which created this page
+ * as an empty stub instead of seeding it from the legacy config's inline
+ * `domainTags`.
+ */
+export const legacyDomainTagsRepair = 'legacyDomainTags'
 
 /** Default empty domain tags data used when a subreddit has no existing wiki page. */
 export const defaultDomainTagsData: DomainTagsData = {
