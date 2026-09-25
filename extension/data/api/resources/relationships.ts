@@ -70,7 +70,7 @@ export const banUser = async ({
 	banContext?: string
 },) => {
 	assertActionAllowed('banUser', {subreddit,},)
-	return postRedditApiVoid('/api/friend', {
+	await postRedditApiVoid('/api/friend', {
 		api_type: 'json',
 		type: 'banned',
 		name: user,
@@ -128,7 +128,7 @@ export const muteUser = async ({
 	duration?: number
 },) => {
 	assertActionAllowed('muteUser', {subreddit,},)
-	return postRedditApiVoid('/api/friend', {
+	await postRedditApiVoid('/api/friend', {
 		api_type: 'json',
 		type: 'muted',
 		name: user,

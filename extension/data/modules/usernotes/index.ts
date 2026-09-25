@@ -11,7 +11,7 @@ const self = new Module<UserNotesSettings>({
 	docSlug: 'usernotes',
 	enabledByDefault: true,
 	settings,
-}, async function init (initialSettings: UserNotesSettings,) {
+}, function init (initialSettings: UserNotesSettings,) {
 	const lifecycle = createLifecycle()
 	const display = createNotesDisplay(initialSettings,)
 	const manager = createNotesManager(initialSettings,)

@@ -1165,26 +1165,26 @@ describe('prepareWikiEditorContent', () => {
 
 	it('passes AutoModerator YAML through verbatim', async () => {
 		const yaml = 'type: comment\naction: remove'
-		await expect(prepareWikiEditorContent(yaml, {isUsernotes: false, isAutomod: true,},),).resolves.toEqual(
+		expect(prepareWikiEditorContent(yaml, {isUsernotes: false, isAutomod: true,},),).toEqual(
 			{ok: true, content: yaml,},
 		)
 	})
 
 	it('rejects invalid JSON with a message', async () => {
-		const result = await prepareWikiEditorContent('{nope', {isUsernotes: false, isAutomod: false,},)
+		const result = prepareWikiEditorContent('{nope', {isUsernotes: false, isAutomod: false,},)
 		expect(result.ok,).toBe(false,)
 	})
 
 	it('minifies valid JSON', async () => {
-		await expect(prepareWikiEditorContent('{\n  "a": 1\n}', {isUsernotes: false, isAutomod: false,},),)
-			.resolves.toEqual({ok: true, content: '{"a":1}',},)
+		expect(prepareWikiEditorContent('{\n  "a": 1\n}', {isUsernotes: false, isAutomod: false,},),)
+			.toEqual({ok: true, content: '{"a":1}',},)
 	})
 
 	it('recompresses the blob of expanded v6 usernotes', async () => {
 		const users = {someuser: {ns: [{n: 'note', t: 0, m: 0, l: '', w: 0,},],},}
 		const expanded = JSON.stringify({ver: 6, constants: {users: [], warnings: [],}, users,},)
 
-		const result = await prepareWikiEditorContent(expanded, usernotesOpts,)
+		const result = prepareWikiEditorContent(expanded, usernotesOpts,)
 
 		expect(result.ok,).toBe(true,)
 		const saved = JSON.parse((result as {ok: true; content: string}).content,)
@@ -1195,7 +1195,7 @@ describe('prepareWikiEditorContent', () => {
 	it('leaves v6 pages that still have their blob untouched apart from minifying', async () => {
 		const page = {ver: 6, constants: {}, blob: 'abc',}
 
-		await expect(prepareWikiEditorContent(JSON.stringify(page, null, 4,), usernotesOpts,),).resolves.toEqual(
+		expect(prepareWikiEditorContent(JSON.stringify(page, null, 4,), usernotesOpts,),).toEqual(
 			{ok: true, content: JSON.stringify(page,),},
 		)
 	})
@@ -1226,7 +1226,7 @@ describe('convertUsernotesEditorText', () => {
 		const users = {someuser: {ns: [],},}
 		const page = JSON.stringify({ver: 6, blob: zlibDeflate(JSON.stringify(users,),),},)
 
-		const result = await convertUsernotesEditorText(page, 'decompressed',)
+		const result = convertUsernotesEditorText(page, 'decompressed',)
 
 		expect(result.ok,).toBe(true,)
 		expect(JSON.parse((result as {ok: true; text: string}).text,).users,).toEqual(users,)
@@ -1234,7 +1234,7 @@ describe('convertUsernotesEditorText', () => {
 
 	it('re-deflates expanded v6 JSON into its blob', async () => {
 		const users = {someuser: {ns: [],},}
-		const result = await convertUsernotesEditorText(
+		const result = convertUsernotesEditorText(
 			JSON.stringify({ver: 6, users,},),
 			'compressed',
 		)
@@ -1247,13 +1247,13 @@ describe('convertUsernotesEditorText', () => {
 
 	it('is a no-op when the text is already in the requested form', async () => {
 		const page = '{"ver":6,"blob":"abc"}'
-		await expect(convertUsernotesEditorText(page, 'compressed',),).resolves.toEqual(
+		expect(convertUsernotesEditorText(page, 'compressed',),).toEqual(
 			{ok: true, text: page,},
 		)
 	})
 
 	it('reports unrecognized text', async () => {
-		await expect(convertUsernotesEditorText('not usernotes', 'compressed',),).resolves.toMatchObject(
+		expect(convertUsernotesEditorText('not usernotes', 'compressed',),).toMatchObject(
 			{ok: false,},
 		)
 	})
@@ -1278,13 +1278,13 @@ describe('NXG shard envelope handling', () => {
 			blob: zlibDeflate(JSON.stringify(shardUsers,),),
 		},)
 
-		const expanded = await convertUsernotesEditorText(page, 'decompressed',)
+		const expanded = convertUsernotesEditorText(page, 'decompressed',)
 		expect(expanded.ok,).toBe(true,)
 		const expandedParsed = JSON.parse((expanded as {ok: true; text: string}).text,)
 		expect(expandedParsed.blob,).toBeUndefined()
 		expect(expandedParsed.users,).toEqual(shardUsers,)
 
-		const compressed = await convertUsernotesEditorText((expanded as {ok: true; text: string}).text, 'compressed',)
+		const compressed = convertUsernotesEditorText((expanded as {ok: true; text: string}).text, 'compressed',)
 		expect(compressed.ok,).toBe(true,)
 		const compressedParsed = JSON.parse((compressed as {ok: true; text: string}).text,)
 		expect(compressedParsed.users,).toBeUndefined()
@@ -1294,7 +1294,7 @@ describe('NXG shard envelope handling', () => {
 	it('recompresses an expanded shard envelope on save', async () => {
 		const expanded = JSON.stringify({format: 'nxg-usernotes', ver: 1, users: shardUsers,},)
 
-		const result = await prepareWikiEditorContent(expanded, usernotesOpts,)
+		const result = prepareWikiEditorContent(expanded, usernotesOpts,)
 
 		expect(result.ok,).toBe(true,)
 		const saved = JSON.parse((result as {ok: true; content: string}).content,)

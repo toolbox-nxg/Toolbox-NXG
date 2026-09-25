@@ -210,7 +210,7 @@ function insertIntoComposer (composer: Element, text: string,): boolean {
 	return false
 }
 
-async function applyModmailMacro (wrapper: Element, subreddit: string, macro: MacroConfig, reset: () => void,) {
+function applyModmailMacro (wrapper: Element, subreddit: string, macro: MacroConfig, reset: () => void,) {
 	const composer = wrapper.querySelector('shreddit-composer',)
 	if (!composer) {
 		negativeTextFeedback('Could not find modmail composer',)
@@ -300,8 +300,8 @@ export function createModmailHandlers (
 					type: 'modmail',
 					presentation: 'button',
 					label: 'Mod macros',
-					onSelectMacro: async (macro: MacroConfig, _dropdown: Element, reset: () => void,) => {
-						await applyModmailMacro(wrapper, context.subreddit ?? '', macro, reset,)
+					onSelectMacro: (macro: MacroConfig, _dropdown: Element, reset: () => void,) => {
+						applyModmailMacro(wrapper, context.subreddit ?? '', macro, reset,)
 					},
 				},),
 		)

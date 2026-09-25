@@ -28,7 +28,7 @@ export interface MacroSelectProps {
 	 * @param dropdown The host element of the select control (used to position the edit popup).
 	 * @param reset Resets the select back to the placeholder option.
 	 */
-	onSelectMacro: (macro: MacroConfig, dropdown: Element, reset: () => void,) => Promise<void>
+	onSelectMacro: (macro: MacroConfig, dropdown: Element, reset: () => void,) => void | Promise<void>
 	/**
 	 * How to render the control - `'select'` shows a plain `<select>`, while `'button'` overlays
 	 * a transparent select on top of a styled button.

@@ -116,7 +116,7 @@ export async function getSettingAsync (moduleID: string, setting: string, defaul
  * @param setting Key of the setting.
  * @param defaultVal Value returned when the setting is unset.
  */
-export async function getModuleSettingAsync<T = unknown,> (
+export function getModuleSettingAsync<T = unknown,> (
 	moduleID: string,
 	setting: string,
 	defaultVal?: T,

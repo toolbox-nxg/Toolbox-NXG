@@ -94,13 +94,13 @@ async function fetchNativeRemovalReasons (subreddit: string,): Promise<NativeRem
  * @param subreddit The subreddit whose native reasons to read.
  * @param options Fetch options. `fresh` bypasses both cache layers and refreshes them.
  */
-export const getNativeRemovalReasons = async (
+export const getNativeRemovalReasons = (
 	subreddit: string,
 	options?: {fresh?: boolean},
 ): Promise<NativeRemovalReason[]> => {
 	if (!options?.fresh) {
 		const memory = inMemoryNativeReasons.get(subreddit,)
-		if (memory && memory.expiresAt > Date.now()) { return memory.reasons }
+		if (memory && memory.expiresAt > Date.now()) { return Promise.resolve(memory.reasons,) }
 
 		const ongoing = ongoingFetches.get(subreddit,)
 		if (ongoing) { return ongoing }

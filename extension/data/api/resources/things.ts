@@ -189,7 +189,7 @@ export const approveThing = makeThingAction('/api/approve', 'approveThing',)
 /** Removes a post or comment. */
 export const removeThing = async (id: string, spam = false,) => {
 	assertActionAllowed('removeThing', {fullname: id,},)
-	return postRedditApiVoid('/api/remove', {id, spam: String(spam,),},)
+	await postRedditApiVoid('/api/remove', {id, spam: String(spam,),},)
 }
 
 /** Ignores reports on a post or comment. */
@@ -217,7 +217,7 @@ export const unlock = makeThingAction('/api/unlock', 'unlock',)
 export const stickyThread = async (id: string, position: number | undefined, state = true,) => {
 	// Guards both sticky and unsticky, since unstickyThread delegates here.
 	assertActionAllowed('stickyThread', {fullname: id,},)
-	return postRedditApiVoid('/api/set_subreddit_sticky', {
+	await postRedditApiVoid('/api/set_subreddit_sticky', {
 		id,
 		num: position == null ? undefined : String(position,),
 		state: String(state,),

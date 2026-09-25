@@ -23,7 +23,7 @@ export async function getMacroConfig (subreddit: string,): Promise<MacroConfig[]
  * @param subreddit The subreddit name (without the `r/` prefix).
  * @returns The normalized config object, or `null` if the wiki read failed.
  */
-export async function reloadToolboxConfig (subreddit: string,): Promise<ToolboxConfig | null> {
+export function reloadToolboxConfig (subreddit: string,): Promise<ToolboxConfig | null> {
 	return reloadConfigFromWiki(subreddit,)
 }
 

@@ -65,8 +65,7 @@ const sourceRules = {
 	'prefer-numeric-literals': 'error',
 	'prefer-rest-params': 'error',
 	'prefer-template': 'error',
-	// 139 pre-existing violations; warn for now so CI stays green while we pay it down.
-	'require-await': 'warn',
+	'require-await': 'error',
 	'arrow-body-style': [
 		'error',
 		'as-needed',
@@ -194,6 +193,17 @@ export default tseslint.config(
 		],
 		rules: {
 			'no-restricted-imports': 'off',
+		},
+	},
+	{
+		// Tests use async callbacks deliberately: mock implementations must return promises, and
+		// `act(async () => ...)` flushes microtasks even when the callback itself awaits nothing.
+		files: [
+			'**/*.test.ts',
+			'**/*.test.tsx',
+		],
+		rules: {
+			'require-await': 'off',
 		},
 	},
 )

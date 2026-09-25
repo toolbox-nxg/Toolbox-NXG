@@ -89,8 +89,8 @@ interface Props {
  * relocates. Never called for `usernotesShard` - shard tabs always pass their
  * exact path via the `literalPage` prop instead.
  */
-async function getEditorPage (page: WikiPage, subreddit: string,): Promise<string> {
-	if (page === 'automoderator') { return 'config/automoderator' }
+function getEditorPage (page: WikiPage, subreddit: string,): Promise<string> {
+	if (page === 'automoderator') { return Promise.resolve('config/automoderator',) }
 	const name: WikiPageName = page === 'toolbox' ? 'settings' : 'usernotes'
 	return getWikiReadPath(name, subreddit,)
 }
@@ -145,9 +145,9 @@ export function WikiEditorTab ({subreddit, page, literalPage, saveRef, revisionN
 	 * view. Falls back to the compressed text (still editable and saveable)
 	 * with a feedback toast when decompression fails.
 	 */
-	async function presentLoadedText (text: string,): Promise<string> {
+	function presentLoadedText (text: string,): string {
 		if (!isUsernotesLike || getUsernotesEditorView(text,) !== 'compressed') { return text }
-		const converted = await convertUsernotesEditorText(text, 'decompressed',)
+		const converted = convertUsernotesEditorText(text, 'decompressed',)
 		if (!converted.ok) {
 			negativeTextFeedback(converted.message,)
 			return text
@@ -218,7 +218,7 @@ export function WikiEditorTab ({subreddit, page, literalPage, saveRef, revisionN
 				isLoadedRef.current = true
 				return
 			}
-			const text = await presentLoadedText(result.text,)
+			const text = presentLoadedText(result.text,)
 			if (stale) { return }
 			setText(text,)
 			isLoadedRef.current = true
@@ -267,7 +267,7 @@ export function WikiEditorTab ({subreddit, page, literalPage, saveRef, revisionN
 		void (async () => {
 			// Validate/minify JSON and recompress decompressed usernotes
 			// (expanded v6 users back into the zlib blob).
-			const prepared = await prepareWikiEditorContent(
+			const prepared = prepareWikiEditorContent(
 				rawContent,
 				{isUsernotes: isUsernotesLike, isAutomod,},
 			)
@@ -308,13 +308,12 @@ export function WikiEditorTab ({subreddit, page, literalPage, saveRef, revisionN
 			return
 		}
 		const target = currentView === 'compressed' ? 'decompressed' : 'compressed'
-		void convertUsernotesEditorText(content, target,).then((converted,) => {
-			if (!converted.ok) {
-				negativeTextFeedback(converted.message,)
-				return
-			}
-			setText(converted.text,)
-		},)
+		const converted = convertUsernotesEditorText(content, target,)
+		if (!converted.ok) {
+			negativeTextFeedback(converted.message,)
+			return
+		}
+		setText(converted.text,)
 	}
 
 	// Expose the wiki-history API for the footer's rollback dropdown. Assigned
@@ -337,13 +336,13 @@ export function WikiEditorTab ({subreddit, page, literalPage, saveRef, revisionN
 					actualPage,
 					revision.id,
 					{isUsernotes: isUsernotesLike, isAutomod,},
-				).then(async (result,) => {
+				).then((result,) => {
 					if (!result.ok) {
 						setText('error getting wiki data.',)
 						negativeTextFeedback('Could not load that revision.',)
 						return
 					}
-					setText(await presentLoadedText(result.text,),)
+					setText(presentLoadedText(result.text,),)
 					isLoadedRef.current = true
 					neutralTextFeedback(
 						`Loaded revision from ${

@@ -12,7 +12,7 @@ const self = new Module<AnnouncementsSettings>({
 	docSlug: '', // No dedicated documentation page; suppresses the help link.
 	enabledByDefault: true,
 	settings,
-}, async function init () {
+}, function init () {
 	const lifecycle = createLifecycle()
 	setupAnnouncementBuilder(lifecycle,)
 	// Fire-and-forget: fetches the wiki and shows any unseen notes. No-op on dev builds.

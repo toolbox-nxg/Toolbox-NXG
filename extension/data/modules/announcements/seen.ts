@@ -11,7 +11,7 @@ import {announcements,} from '../../framework/moduleIds'
 import {getSettingAsync, setSettingAsync,} from '../../util/persistence/settings'
 
 /** Returns the ids of announcement notes the user has already seen. */
-export async function getSeenIds (): Promise<string[]> {
+export function getSeenIds (): Promise<string[]> {
 	return getSettingAsync(announcements, 'seenNotes', [],) as Promise<string[]>
 }
 
@@ -30,7 +30,7 @@ let writeChain: Promise<void> = Promise.resolve()
  * so rapid successive calls don't overwrite each other.
  * @param id The note id to mark seen.
  */
-export async function markSeen (id: string,): Promise<void> {
+export function markSeen (id: string,): Promise<void> {
 	const next = writeChain.then(async () => {
 		const seenIds = await getSeenIds()
 		if (seenIds.includes(id,)) {

@@ -69,7 +69,7 @@ export interface MacrosHandlers {
  * @param showMacroPreview Whether to show a live markdown preview.
  * @param resetSelect Resets the macro-select control after the popup closes.
  */
-export async function editMacro (
+export function editMacro (
 	dropdown: Element,
 	info: ThingInfo,
 	macro: MacroConfig,
@@ -279,7 +279,7 @@ export function createMacrosHandlers ({showMacroPreview,}: MacrosSettings,): Mac
 	function createSelectCallback (thingFullname: string, subreddit: string, topLevel: boolean,) {
 		return async (macro: MacroConfig, dropdown: Element, reset: () => void,) => {
 			const thingInfo = await getApiThingInfo(subreddit, thingFullname, false,) as ThingInfo
-			await editMacro(dropdown, thingInfo, macro, topLevel, showMacroPreview, reset,)
+			editMacro(dropdown, thingInfo, macro, topLevel, showMacroPreview, reset,)
 		}
 	}
 

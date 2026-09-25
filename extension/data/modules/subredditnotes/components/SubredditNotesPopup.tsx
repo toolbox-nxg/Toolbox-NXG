@@ -358,7 +358,7 @@ export function SubredditNotesPopup ({
 		}
 	}
 
-	const handleCreate = async () => {
+	const handleCreate = () => {
 		if (!confirmLoseChanges()) { return }
 
 		const now = Date.now()
@@ -627,7 +627,7 @@ export function SubredditNotesPopup ({
 								<button
 									type="button"
 									className={css.newNoteButton}
-									onClick={() => void handleCreate()}
+									onClick={handleCreate}
 									disabled={editorLoading || saving || !currentUser}
 								>
 									+ New note

@@ -447,10 +447,10 @@ export type UsernotesConvertResult =
  * @param text The current editor text.
  * @param target The representation to convert to.
  */
-export async function convertUsernotesEditorText (
+export function convertUsernotesEditorText (
 	text: string,
 	target: 'compressed' | 'decompressed',
-): Promise<UsernotesConvertResult> {
+): UsernotesConvertResult {
 	const view = getUsernotesEditorView(text,)
 	if (view === null) {
 		return {ok: false, message: 'This page is not recognized as usernotes data.',}
@@ -493,10 +493,10 @@ export type WikiEditorPrepareResult =
  * @param content The editor text.
  * @param opts What kind of page this is.
  */
-export async function prepareWikiEditorContent (
+export function prepareWikiEditorContent (
 	content: string,
 	opts: WikiEditorPageOptions,
-): Promise<WikiEditorPrepareResult> {
+): WikiEditorPrepareResult {
 	if (opts.isAutomod) {
 		return {ok: true, content,}
 	}

@@ -76,7 +76,7 @@ interface ModSubListingPage {
  * Fetches all subreddits the current user moderates, with automatic pagination
  * and 504 retry (up to 5 attempts per page).
  */
-export async function getModeratedSubreddits (): Promise<ModeratedSubredditChild[]> {
+export function getModeratedSubreddits (): Promise<ModeratedSubredditChild[]> {
 	return fetchAllListingPages<ModeratedSubredditChild>(
 		(after,) => apiOauthGetJSON<ModSubListingPage>('/subreddits/mine/moderator.json', {after, limit: '100',},),
 		{maxRetries: 5,},

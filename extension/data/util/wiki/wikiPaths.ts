@@ -76,7 +76,7 @@ export interface ResolveWikiLayoutOptions {
  * @param subreddit The subreddit to resolve.
  * @param options Resolution options (see {@link ResolveWikiLayoutOptions}).
  */
-export async function resolveWikiLayout (
+export function resolveWikiLayout (
 	subreddit: string,
 	options: ResolveWikiLayoutOptions = {},
 ): Promise<WikiLayout> {
@@ -89,7 +89,7 @@ export async function resolveWikiLayout (
  * @param subreddit The subreddit to inspect.
  * @param options Resolution options (see {@link ResolveWikiLayoutOptions}).
  */
-export async function peekWikiLayout (
+export function peekWikiLayout (
 	subreddit: string,
 	options: ResolveWikiLayoutOptions = {},
 ): Promise<WikiLayout> {
@@ -97,13 +97,13 @@ export async function peekWikiLayout (
 }
 
 /** Cache/in-flight handling shared by {@link resolveWikiLayout} and {@link peekWikiLayout}. */
-async function cachedResolve (
+function cachedResolve (
 	subreddit: string,
 	silent: boolean,
 	options: ResolveWikiLayoutOptions,
 ): Promise<WikiLayout> {
 	const sessionHit = sessionLayouts.get(subreddit,)
-	if (sessionHit) { return sessionHit }
+	if (sessionHit) { return Promise.resolve(sessionHit,) }
 
 	// First caller wins: concurrent resolutions of the same sub share one
 	// in-flight promise regardless of which entry point started it.

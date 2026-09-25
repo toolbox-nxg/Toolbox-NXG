@@ -273,8 +273,8 @@ function ProposalsReviewPopup ({currentSubreddit, onClose,}: Props,) {
 	 * Confirms before discarding unsent rejection feedback. Returns `true` to proceed
 	 * (nothing to discard, or the user confirmed) or `false` to keep the draft.
 	 */
-	async function confirmDiscardFeedback (): Promise<boolean> {
-		if (!rejecting || !feedbackDraft.trim()) { return true }
+	function confirmDiscardFeedback (): Promise<boolean> {
+		if (!rejecting || !feedbackDraft.trim()) { return Promise.resolve(true,) }
 		return reactAlert({message: 'Discard your unsent rejection feedback? Click OK to discard.',},)
 	}
 

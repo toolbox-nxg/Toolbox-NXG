@@ -89,7 +89,7 @@ export async function postToWiki (
  * @param listed Whether the page appears in the wiki page list.
  * @param permlevel Edit permission level: `'0'` = use subreddit setting, `'1'` = approved users only, `'2'` = mods only.
  */
-export async function setWikiPageSettings ({
+export function setWikiPageSettings ({
 	subreddit,
 	page,
 	listed,

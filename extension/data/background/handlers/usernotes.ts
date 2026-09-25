@@ -25,11 +25,12 @@ export function registerUsernoteHandlers () {
 		const flightKey = `${cacheKey}:${blob}`
 		let flight = inFlight.get(flightKey,)
 		if (!flight) {
-			flight = (async () => {
+			// A promise chain (not a bare call) so a parse/inflate throw lands in the catch below.
+			flight = Promise.resolve().then(() => {
 				const users = JSON.parse(zlibInflate(blob,),) as Record<string, unknown>
 				decompressCache.set(cacheKey, {blob, users,},)
 				return users
-			})()
+			},)
 			inFlight.set(flightKey, flight,)
 		}
 
