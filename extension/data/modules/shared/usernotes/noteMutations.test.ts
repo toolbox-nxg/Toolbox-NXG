@@ -5,7 +5,7 @@ import {describe, expect, it,} from 'vitest'
 
 import {nowInSeconds,} from '../../../util/data/time'
 import type {UserNoteEntry, UserNotesData,} from '../../../util/wiki/schemas/usernotes/schema'
-import {applyUserNoteMutation, makeUserNoteEntry, mergeDualKeyNotes,} from './noteMutations'
+import {applyUserNoteMutation, makeUserNoteEntry, mergeDualKeyNotes, retypeNotes,} from './noteMutations'
 
 /** A dataset with one user holding two indexed notes (newest first). */
 function makeData (): UserNotesData {
@@ -245,5 +245,29 @@ describe('mergeDualKeyNotes', () => {
 			['a', 2,],
 		],)
 		expect(merged.nextIndex,).toBe(4,)
+	})
+})
+
+describe('retypeNotes', () => {
+	it('moves merged-away types to their replacement, archived notes included', () => {
+		const data: UserNotesData = {
+			ver: 7,
+			users: {
+				alice: {
+					name: 'alice',
+					nextIndex: 3,
+					notes: [
+						{index: 0, note: 'a', type: 'old', mod: 'm', time: 1,},
+						{index: 1, note: 'b', type: 'keep', mod: 'm', time: 2,},
+						{index: 2, note: 'c', type: 'old', mod: 'm', time: 3, archived: {by: 'm', at: 4,},},
+					],
+				},
+				bob: {name: 'bob', nextIndex: 1, notes: [{index: 0, note: 'd', mod: 'm', time: 5,},],},
+			},
+		}
+
+		expect(retypeNotes(data, new Map([['old', 'new',],],),),).toBe(2,)
+		expect(data.users['alice']!.notes.map((n,) => n.type),).toEqual(['new', 'keep', 'new',],)
+		expect(data.users['bob']!.notes[0]!.type,).toBeUndefined()
 	})
 })

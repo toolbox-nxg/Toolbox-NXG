@@ -34,9 +34,10 @@ import {
 } from '../../../util/data/color'
 import createLogger from '../../../util/infra/logging'
 import {type ConfigState, generateConfigId,} from '../../../util/wiki/schemas/config/schema'
-import {defaultUsernoteTypes, UserNoteColor,} from '../../../util/wiki/schemas/usernotes/schema'
+import {countNotesByType, defaultUsernoteTypes, UserNoteColor,} from '../../../util/wiki/schemas/usernotes/schema'
 import {refreshClassicConfigInlineFields, unsyncedClassicEditsWarning,} from '../../config/moduleapi'
 import {getSubredditColors, getUserNotes, updateUserNotes,} from '../../shared/usernotes/moduleapi'
+import {retypeNotes,} from '../../shared/usernotes/noteMutations'
 import {noteTypeColorStyle,} from '../../shared/usernotes/noteTypeColorStyle'
 import css from './UsernoteTypeList.module.css'
 
@@ -67,6 +68,16 @@ interface UsernoteType {
 	errorMsg: string
 	/** True while the card shows the delete confirmation bar for an in-use type. */
 	confirmingDelete: boolean
+	/** True while the card shows the bar for merging its notes into another type. */
+	confirmingMerge: boolean
+}
+
+/** Another type a card's notes can be merged into. */
+interface MergeTarget {
+	key: string
+	text: string
+	/** Notes currently of that type, or undefined while unknown. */
+	usageCount: number | undefined
 }
 
 /**
@@ -83,7 +94,20 @@ function fromRaw (raw: UserNoteColor[],): UsernoteType[] {
 		nameError: false,
 		errorMsg: '',
 		confirmingDelete: false,
+		confirmingMerge: false,
 	}))
+}
+
+/**
+ * Records that `from`'s notes move to `to`, keeping the map flat: earlier
+ * merges into `from` are redirected to `to`, so every replacement is a type
+ * that still exists and one pass over the notes applies them all.
+ */
+function addTypeMerge (merges: ReadonlyMap<string, string>, from: string, to: string,): Map<string, string> {
+	const next = new Map<string, string>()
+	for (const [source, target,] of merges) { next.set(source, target === from ? to : target,) }
+	next.set(from, to,)
+	return next
 }
 
 /** Returns a fresh type key that does not collide with any key already in use. */
@@ -99,18 +123,25 @@ type SaveRef = {current: (() => void) | null}
 function SortableTypeCard ({
 	type,
 	usageCount,
+	mergeTargets,
 	collapsed,
 	onChange,
 	onRemove,
+	onMerge,
 }: {
 	type: UsernoteType
 	/** Number of existing notes referencing this type, or undefined while unknown. */
 	usageCount: number | undefined
+	/** The other types this one's notes can be merged into. */
+	mergeTargets: MergeTarget[]
 	/** True in sort mode: only headers render, making reordering easier. */
 	collapsed: boolean
 	onChange: (patch: UsernoteTypePatch,) => void
 	onRemove: () => void
+	/** Moves this type's notes to the type with the given key and removes this one. */
+	onMerge: (targetKey: string,) => void
 },) {
+	const [mergeTarget, setMergeTarget,] = useState('',)
 	const {attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging,} = useSortable({
 		id: type.id,
 	},)
@@ -127,9 +158,11 @@ function SortableTypeCard ({
 
 	/** Deletes immediately for unused types; in-use types get a confirmation bar first. */
 	const requestRemove = () => {
-		if ((usageCount ?? 0) > 0) { onChange({confirmingDelete: true,},) }
+		if ((usageCount ?? 0) > 0) { onChange({confirmingDelete: true, confirmingMerge: false,},) }
 		else { onRemove() }
 	}
+	// Merging only makes sense for a type that has notes to move.
+	const canMerge = (usageCount ?? 0) > 0 && mergeTargets.length > 0
 
 	return (
 		<div ref={setNodeRef} style={style} className={css.card}>
@@ -155,6 +188,16 @@ function SortableTypeCard ({
 					</span>
 				)}
 				<div className={css.cardActions}>
+					{canMerge && !collapsed && (
+						<ActionButton
+							inline
+							type="button"
+							title="Move this type's notes to another type and remove this one"
+							onClick={() => onChange({confirmingMerge: true, confirmingDelete: false,},)}
+						>
+							Merge into...
+						</ActionButton>
+					)}
 					<button
 						type="button"
 						className={css.deleteButton}
@@ -173,6 +216,48 @@ function SortableTypeCard ({
 					</span>
 					<ActionButton inline type="button" onClick={onRemove}>Delete</ActionButton>
 					<ActionButton inline type="button" onClick={() => onChange({confirmingDelete: false,},)}>
+						Cancel
+					</ActionButton>
+				</div>
+			)}
+			{!collapsed && type.confirmingMerge && canMerge && (
+				<div className={css.mergeRow}>
+					<span className={css.confirmText}>
+						Move {usageCount} note{usageCount === 1 ? '' : 's'} to
+					</span>
+					<select
+						className={css.mergeSelect}
+						aria-label="Type to merge into"
+						value={mergeTarget}
+						onChange={(e,) => setMergeTarget(e.target.value,)}
+					>
+						<option value="">Choose a type...</option>
+						{mergeTargets.map((target,) => (
+							<option key={target.key} value={target.key}>
+								{/* Counts tell apart types that share a name. */}
+								{target.text || 'Untitled'}
+								{target.usageCount
+									? ` (${target.usageCount} note${target.usageCount === 1 ? '' : 's'})`
+									: ''}
+							</option>
+						))}
+					</select>
+					<ActionButton
+						inline
+						type="button"
+						disabled={!mergeTargets.some((t,) => t.key === mergeTarget)}
+						onClick={() => onMerge(mergeTarget,)}
+					>
+						Merge
+					</ActionButton>
+					<ActionButton
+						inline
+						type="button"
+						onClick={() => {
+							setMergeTarget('',)
+							onChange({confirmingMerge: false,},)
+						}}
+					>
 						Cancel
 					</ActionButton>
 				</div>
@@ -363,6 +448,8 @@ export function UsernoteTypeList (
 	const [types, setTypes,] = useState<UsernoteType[]>([],)
 	/** Notes-per-type-key tally for usage chips and safe delete; null until loaded. */
 	const [usageCounts, setUsageCounts,] = useState<Map<string, number> | null>(null,)
+	/** Merges staged until the next save: merged-away type key -> replacement type key. */
+	const [merges, setMerges,] = useState<Map<string, string>>(new Map(),)
 	/** True in sort mode: cards collapse to headers to make reordering easier. */
 	const sorting = useSortMode(sortRef,)
 	const subreddit = state.subreddit ?? ''
@@ -374,13 +461,7 @@ export function UsernoteTypeList (
 		getUserNotes(subreddit, skipCache,).then((notes,) => {
 			if (cancelled) { return }
 			setTypes(fromRaw(notes.types?.length ? notes.types : defaultUsernoteTypes,),)
-			const counts = new Map<string, number>()
-			for (const user of Object.values(notes.users,)) {
-				for (const note of user.notes) {
-					if (note.type) { counts.set(note.type, (counts.get(note.type,) ?? 0) + 1,) }
-				}
-			}
-			setUsageCounts(counts,)
+			setUsageCounts(countNotesByType(notes,),)
 		},).catch(async () => {
 			// No notes page or load failure: show the configured types (the legacy
 			// config's, else the defaults); counts stay unknown.
@@ -421,11 +502,28 @@ export function UsernoteTypeList (
 			nameError: false,
 			errorMsg: '',
 			confirmingDelete: false,
+			confirmingMerge: false,
 		},])
 	}
 
 	const removeType = (index: number,) => {
 		setTypes((prev,) => prev.filter((_, i,) => i !== index))
+	}
+
+	/** Stages moving one type's notes to another, removing the merged-away card. */
+	const mergeType = (index: number, targetKey: string,) => {
+		const source = types[index]
+		if (!source || source.key === targetKey) { return }
+		setMerges((prev,) => addTypeMerge(prev, source.key, targetKey,))
+		// Show the moved notes on the target now; the notes themselves move on save.
+		setUsageCounts((prev,) => {
+			if (!prev) { return prev }
+			const next = new Map(prev,)
+			next.set(targetKey, (next.get(targetKey,) ?? 0) + (next.get(source.key,) ?? 0),)
+			next.delete(source.key,)
+			return next
+		},)
+		removeType(index,)
 	}
 
 	const handleSaveRef = useRef<() => void>(() => {},)
@@ -473,10 +571,14 @@ export function UsernoteTypeList (
 		void (async () => {
 			// Checked before the save, which bumps the page it compares against.
 			const overwriteWarning = await unsyncedClassicEditsWarning(subreddit, 'usernoteColors',)
-			await updateUserNotes(subreddit, (fresh,) => {
+			let retyped = 0
+			const saved = await updateUserNotes(subreddit, (fresh,) => {
+				// Applied to the fresh read too, so notes added since the panel opened move as well.
+				retyped = retypeNotes(fresh, merges,)
 				fresh.types = serialized
-				return 'Updated usernote types'
+				return merges.size ? 'Merged usernote types' : 'Updated usernote types'
 			},)
+			if (saved) { setMerges(new Map(),) }
 			// 6.x reads types off the classic config page, which is also their only
 			// storage on legacy-fallback subs - rewrite it from the types just saved.
 			const classic = await refreshClassicConfigInlineFields(subreddit, 'Updated usernote types',)
@@ -488,7 +590,11 @@ export function UsernoteTypeList (
 				// Shown after the save so its own feedback can't replace it.
 				negativeTextFeedback(overwriteWarning, {duration: 10_000,},)
 			} else {
-				positiveTextFeedback('Usernote types saved',)
+				positiveTextFeedback(
+					retyped
+						? `Usernote types saved; ${retyped} note${retyped === 1 ? '' : 's'} moved`
+						: 'Usernote types saved',
+				)
 			}
 		})()
 	}
@@ -501,6 +607,8 @@ export function UsernoteTypeList (
 		}
 	}, [],)
 
+	const usageCountOf = (key: string,) => usageCounts?.get(key,) ?? (usageCounts ? 0 : undefined)
+
 	return (
 		<div id="toolbox-config-usernote-types" className={css.root}>
 			<DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -510,10 +618,16 @@ export function UsernoteTypeList (
 							<SortableTypeCard
 								key={type.id}
 								type={type}
-								usageCount={usageCounts?.get(type.key,) ?? (usageCounts ? 0 : undefined)}
+								usageCount={usageCountOf(type.key,)}
+								mergeTargets={types.filter((t,) => t.key && t.key !== type.key).map((t,) => ({
+									key: t.key,
+									text: t.text,
+									usageCount: usageCountOf(t.key,),
+								}))}
 								collapsed={sorting}
 								onChange={(patch,) => updateType(i, patch,)}
 								onRemove={() => removeType(i,)}
+								onMerge={(targetKey,) => mergeType(i, targetKey,)}
 							/>
 						))}
 					</div>

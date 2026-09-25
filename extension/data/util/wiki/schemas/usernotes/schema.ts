@@ -133,6 +133,17 @@ export interface UserNotesData {
  */
 export const seededTypesRepair = 'seededTypes'
 
+/** Counts notes per type key across a dataset, archived notes included. */
+export function countNotesByType (notes: UserNotesData,): Map<string, number> {
+	const counts = new Map<string, number>()
+	for (const user of Object.values(notes.users,)) {
+		for (const note of user.notes) {
+			if (note.type) { counts.set(note.type, (counts.get(note.type,) ?? 0) + 1,) }
+		}
+	}
+	return counts
+}
+
 /** All notes for a single Reddit user within a subreddit. */
 export interface UsernotesUser {
 	name: string

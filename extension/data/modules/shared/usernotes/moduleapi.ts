@@ -11,7 +11,6 @@ import {createPerKeyQueue,} from '../../../util/infra/perKeyQueue'
 import {getCache, setCache,} from '../../../util/persistence/cache'
 import {extractLegacyUsernoteColors,} from '../../../util/wiki/schemas/config/schema'
 import {
-	countNotesByType,
 	decodeUsernotesV6,
 	encodeUsernotesV6,
 	isSeededType,
@@ -28,6 +27,7 @@ import {
 } from '../../../util/wiki/schemas/usernotes/reconcile'
 import {
 	AUTO_ARCHIVER,
+	countNotesByType,
 	defaultUsernoteTypes,
 	isNoteActive,
 	notesSchema,

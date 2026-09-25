@@ -230,3 +230,26 @@ export function applyUserNoteMutation (
 			return `unarchive note ${mutation.index} on user ${user}`
 	}
 }
+
+/**
+ * Moves every note of a merged-away type onto its replacement, archived notes
+ * included. Merges must already be flattened (no replacement is itself a
+ * merged-away key), which a single pass relies on.
+ * @param data The usernotes dataset to rewrite in place.
+ * @param merges Merged-away type key -> replacement type key.
+ * @returns The number of notes retyped.
+ */
+export function retypeNotes (data: UserNotesData, merges: ReadonlyMap<string, string>,): number {
+	if (merges.size === 0) { return 0 }
+	let retyped = 0
+	for (const user of Object.values(data.users,)) {
+		for (const note of user.notes) {
+			const replacement = note.type ? merges.get(note.type,) : undefined
+			if (replacement !== undefined) {
+				note.type = replacement
+				retyped++
+			}
+		}
+	}
+	return retyped
+}

@@ -330,17 +330,6 @@ export function repairSeededTypes (
 	},)
 }
 
-/** Counts notes per type key across a dataset, archived notes included. */
-export function countNotesByType (notes: UserNotesData,): Map<string, number> {
-	const counts = new Map<string, number>()
-	for (const user of Object.values(notes.users,)) {
-		for (const note of user.notes) {
-			if (note.type) { counts.set(note.type, (counts.get(note.type,) ?? 0) + 1,) }
-		}
-	}
-	return counts
-}
-
 // --- nxg-usernotes shard format --------------------------------------------
 
 /** Returns `true` when a parsed page object is an NXG usernotes shard envelope. */

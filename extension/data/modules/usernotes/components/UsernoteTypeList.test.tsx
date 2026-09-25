@@ -280,6 +280,88 @@ describe('UsernoteTypeList', () => {
 		expect(host.querySelectorAll('input[name="type-name"]',),).toHaveLength(0,)
 	})
 
+	it('merges one type\'s notes into another on save, including notes added since loading', async () => {
+		getUserNotes.mockResolvedValue({
+			ver: 6,
+			users: {
+				alice: {
+					notes: [{note: 'a', type: 'spamwarn', mod: 'm', time: 1,}, {
+						note: 'b',
+						type: 'spamwarn',
+						mod: 'm',
+						time: 2,
+					},],
+				},
+				bob: {notes: [{note: 'c', type: 'rant', mod: 'm', time: 3,},],},
+			},
+			types: [
+				{key: 'spamwarn', text: 'Spam Warning', color: 'purple',},
+				{key: 'rant', text: 'Rant Warning', color: '#800080',},
+				{key: 'gooduser', text: 'Good Contributor', color: 'green',},
+			],
+		},)
+		const {host, saveRef,} = await renderList(makeState(),)
+
+		// Only types with notes to move offer a merge.
+		const mergeButtons = Array.from(host.querySelectorAll('button',),).filter((b,) =>
+			b.textContent === 'Merge into...'
+		)
+		expect(mergeButtons,).toHaveLength(2,)
+		click(mergeButtons[0]!,)
+
+		const select = host.querySelector<HTMLSelectElement>('select[aria-label="Type to merge into"]',)!
+		// Counts tell apart types that share a name; the merging type itself is not offered.
+		expect(Array.from(select.options,).map((o,) => o.textContent),).toEqual([
+			'Choose a type...',
+			'Rant Warning (1 note)',
+			'Good Contributor',
+		],)
+		const confirm = Array.from(host.querySelectorAll('button',),).find((b,) => b.textContent === 'Merge')!
+		expect(confirm.disabled,).toBe(true,)
+		act(() => {
+			Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value',)!.set!.call(select, 'rant',)
+			select.dispatchEvent(new Event('change', {bubbles: true,},),)
+		},)
+		click(confirm,)
+
+		// The merged-away card is gone and its notes count toward the target.
+		expect(host.querySelectorAll('input[name="type-name"]',),).toHaveLength(2,)
+		expect(host.textContent,).toContain('3 notes',)
+
+		type Dataset = {ver: number; users: Record<string, {notes: {type?: string}[]}>; types?: UserNoteColor[]}
+		// A spamwarn note another mod added after the panel loaded moves too.
+		const fresh: Dataset = {
+			ver: 6,
+			users: {
+				alice: {notes: [{type: 'spamwarn',}, {type: 'spamwarn',},],},
+				bob: {notes: [{type: 'rant',},],},
+				carol: {notes: [{type: 'spamwarn',}, {type: 'gooduser',},],},
+			},
+		}
+		let reason: string | undefined
+		updateUserNotes.mockImplementationOnce((_sub: string, transform: (n: Dataset,) => string,) => {
+			reason = transform(fresh,)
+			return Promise.resolve(fresh,)
+		},)
+		await act(async () => {
+			saveRef.current!()
+			await Promise.resolve()
+			await Promise.resolve()
+			await Promise.resolve()
+		},)
+
+		expect(reason,).toBe('Merged usernote types',)
+		expect(Object.values(fresh.users,).flatMap((u,) => u.notes.map((n,) => n.type)),).toEqual([
+			'rant',
+			'rant',
+			'rant',
+			'rant',
+			'gooduser',
+		],)
+		expect(fresh.types!.map((t,) => t.key),).toEqual(['rant', 'gooduser',],)
+		expect(positiveTextFeedback,).toHaveBeenCalledWith('Usernote types saved; 3 notes moved',)
+	})
+
 	it('omits usage chips when notes cannot be loaded and deletes without confirmation', async () => {
 		// getUserNotes rejects by default (set in afterEach); falls back to defaultUsernoteTypes.
 		const state = makeState()

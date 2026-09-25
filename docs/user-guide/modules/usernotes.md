@@ -45,6 +45,12 @@ If a subreddit has no custom types configured, the built-in defaults are used:
 | `permban`   | Permanent Ban    | dark red |
 | `botban`    | Bot Ban          | black    |
 
+### Merging types
+
+Each note records its type by an internal key, not by its label. Toolbox 6.x created a new key whenever a type was recreated or renamed, so a long-running subreddit can end up with several types that mean the same thing, e.g. an older "Spam Warning" and a newer "Rant Warning" that mods used for the same purpose. NXG lists every type that existing notes use, so these show up side by side.
+
+To fold one into another, open the Usernote Types tab, click **Merge into...** on the type to retire, pick the type its notes should move to, and click **Merge**. The note counts on each card help tell apart types that share a name. The move takes effect when you click **Save usernote types**: every note of the merged type (archived ones included) switches to the chosen type, and the merged type is removed.
+
 ## Archiving
 
 Archived notes are hidden from the active note list but kept permanently. They can be revealed by toggling "show archived" in the usernotes popup.
