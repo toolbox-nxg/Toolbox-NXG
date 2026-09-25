@@ -5,12 +5,13 @@ import {useSelector,} from 'react-redux'
 
 import {RootState,} from '../../store'
 
-/** A ref whose `.current` a parent calls to trigger a child's save. */
+/** A ref whose `.current` a parent calls to trigger a child's action (save, add, import). */
 export type SaveRef = {current: (() => void) | null}
 
 /**
- * Wires a child component's save handler up to a parent-provided {@link SaveRef}
- * so the parent (e.g. a config overlay's footer button) can trigger the save.
+ * Wires a child component's handler up to a parent-provided {@link SaveRef} so the
+ * parent (e.g. a config overlay's footer button) can trigger it - a save, or any
+ * other footer-driven action such as "add new" or "import".
  * The latest `handleSave` is always invoked via an internal ref, so callers may
  * pass a fresh closure each render without re-running the effect.
  * @param saveRef The parent's ref to populate, or `undefined` to opt out.
@@ -25,7 +26,7 @@ export const useSaveRef = (saveRef: SaveRef | undefined, handleSave: () => void,
 		return () => {
 			saveRef.current = null
 		}
-	}, [],) // eslint-disable-line react-hooks/exhaustive-deps
+	}, [saveRef,],)
 }
 
 /**

@@ -14,6 +14,7 @@ import {ActionButton,} from '../../../shared/controls/ActionButton'
 import {CheckboxInput,} from '../../../shared/controls/CheckboxInput'
 import {Icon,} from '../../../shared/controls/Icon'
 import {TextInput,} from '../../../shared/controls/NormalInput'
+import {type SaveRef, useSaveRef,} from '../../../util/ui/hooks'
 import {generateConfigId,} from '../../../util/wiki/schemas/config/schema'
 import type {ConfigState, ToolboxConfig,} from '../../../util/wiki/schemas/config/schema'
 import {parseAutomodReasons, staticReasonPart,} from '../automodReasons'
@@ -23,8 +24,6 @@ import css from './SuggestedReasonsTab.module.css'
 /** Load state of the subreddit's AutoMod report reasons. */
 type AutomodLoad = 'loading' | 'ok' | 'error'
 
-/** Ref whose `.current` is called by the parent (footer) to open the add-mapping form. */
-type AddRef = {current: (() => void) | null}
 /** Ref whose `.current` toggles external controls (the add button) while the add form is open. */
 type DisabledRef = {current: ((disabled: boolean,) => void) | null}
 
@@ -49,7 +48,7 @@ interface Props {
 	/** Config state object for the current subreddit. */
 	state: ConfigState
 	/** Optional ref wired up so the parent footer can open the add-mapping form. */
-	addRef?: AddRef
+	addRef?: SaveRef
 	/** Optional ref wired up so the parent can disable the add button while the add form is open. */
 	disabledRef?: DisabledRef
 	/** Called with the updated config and revision note when a mapping is saved or deleted. */
@@ -214,18 +213,10 @@ export function SuggestedReasonsTab ({state, addRef, disabledRef, onSave,}: Prop
 
 	// Expose the add action to the footer's "Add new suggestion" button, and keep that button
 	// disabled while the add form is already open (mirrors the removal-reasons / macros tabs).
-	const handleAddRef = useRef<() => void>(() => {},)
-	handleAddRef.current = () => {
+	useSaveRef(addRef, () => {
 		setEditingKey(null,)
 		setShowAddForm(true,)
-	}
-	useEffect(() => {
-		if (!addRef) { return }
-		addRef.current = () => handleAddRef.current()
-		return () => {
-			addRef.current = null
-		}
-	}, [],) // eslint-disable-line react-hooks/exhaustive-deps
+	},)
 	useEffect(() => {
 		disabledRef?.current?.(showAddForm,)
 	}, [showAddForm,],) // eslint-disable-line react-hooks/exhaustive-deps

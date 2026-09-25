@@ -28,7 +28,7 @@ import {TextInput,} from '../../../shared/controls/NormalInput'
 import {SortModeRef, useSortMode,} from '../../../shared/controls/SortToggleButton'
 import {TextareaInput,} from '../../../shared/controls/TextareaInput'
 import {negativeTextFeedback,} from '../../../store/feedback'
-import {useMountEffect,} from '../../../util/ui/hooks'
+import {type SaveRef, useMountEffect, useSaveRef,} from '../../../util/ui/hooks'
 import {getMarkdownParser,} from '../../../util/ui/markdown'
 import {type ConfigState, generateConfigId, normalizeConfig,} from '../../../util/wiki/schemas/config/schema'
 import {reloadToolboxConfig, saveMacroConfig,} from '../moduleapi'
@@ -475,8 +475,6 @@ function MacroCard ({
 	)
 }
 
-/** Ref used by a parent settings tab to imperatively trigger adding a new macro. */
-type AddRef = {current: (() => void) | null}
 /** Ref used by a parent settings tab to disable external controls while the add form is open. */
 type DisabledRef = {current: ((disabled: boolean,) => void) | null}
 
@@ -485,7 +483,7 @@ export interface ModMacroListProps {
 	/** Shared config state object passed down from the settings framework. */
 	state: ConfigState
 	/** Optional ref wired up by the parent tab to trigger opening the "add macro" form. */
-	addRef?: AddRef
+	addRef?: SaveRef
 	/** Optional ref wired up by the parent tab to disable save/add buttons while the form is open. */
 	disabledRef?: DisabledRef
 	/** Optional ref connecting the list to a footer Reorder toggle. */
@@ -602,18 +600,10 @@ export function ModMacroList ({state, addRef, disabledRef, sortRef,}: ModMacroLi
 	// order on unmount so the reorder is never silently dropped.
 	useEffect(() => () => flushPendingOrderRef.current(), [],)
 
-	const handleAddRef = useRef<() => void>(() => {},)
-	handleAddRef.current = () => {
+	useSaveRef(addRef, () => {
 		setShowAddForm(true,)
 		void loadFlairTemplates()
-	}
-	useEffect(() => {
-		if (!addRef) { return }
-		addRef.current = () => handleAddRef.current()
-		return () => {
-			addRef.current = null
-		}
-	}, [addRef,],)
+	},)
 
 	const handleSaveEdit = (index: number, form: MacroFormState,) => {
 		const newMacros = [...macros,]

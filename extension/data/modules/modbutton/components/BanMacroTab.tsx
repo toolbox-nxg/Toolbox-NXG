@@ -1,6 +1,6 @@
 /** Settings UI tab for configuring the default ban note, message, duration, and duration presets. */
 
-import {useEffect, useRef, useState,} from 'react'
+import {useRef, useState,} from 'react'
 
 import {CheckboxInput,} from '../../../shared/controls/CheckboxInput'
 import {Icon,} from '../../../shared/controls/Icon'
@@ -8,6 +8,7 @@ import {TextInput,} from '../../../shared/controls/NormalInput'
 import {TextareaInput,} from '../../../shared/controls/TextareaInput'
 import {TokenChips,} from '../../../shared/controls/TokenChips'
 import {negativeTextFeedback, positiveTextFeedback,} from '../../../store/feedback'
+import {type SaveRef, useSaveRef,} from '../../../util/ui/hooks'
 import type {ConfigState,} from '../../../util/wiki/schemas/config/schema'
 import {pickSubstitutionTokens,} from '../../../util/wiki/schemas/shared/tokens'
 import {type BanMacros, DEFAULT_BAN_PRESETS,} from '../schema'
@@ -17,9 +18,6 @@ import css from './BanMacroTab.module.css'
 const banMacroTokens = pickSubstitutionTokens(
 	['{author}', '{subreddit}', '{kind}', '{title}', '{url}', '{mod}', '{body}',],
 )
-
-/** Ref used by a parent settings tab to imperatively trigger saving the ban macro config. */
-export type SaveRef = {current: (() => void) | null}
 
 /** Props for the BanMacroTab component. */
 interface Props {
@@ -73,15 +71,7 @@ export function BanMacroTab ({state, saveRef, onSave,}: Props,) {
 	const banNoteRef = useRef<HTMLInputElement>(null,)
 	const banMessageRef = useRef<HTMLTextAreaElement>(null,)
 
-	const handleSaveRef = useRef(handleSave,)
-	handleSaveRef.current = handleSave
-	useEffect(() => {
-		if (!saveRef) { return }
-		saveRef.current = () => handleSaveRef.current()
-		return () => {
-			saveRef.current = null
-		}
-	}, [saveRef,],)
+	useSaveRef(saveRef, handleSave,)
 
 	return (
 		<div className={css.root}>

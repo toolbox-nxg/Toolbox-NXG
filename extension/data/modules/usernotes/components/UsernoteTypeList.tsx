@@ -17,7 +17,7 @@ import {
 	verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import {CSS,} from '@dnd-kit/utilities'
-import {useEffect, useRef, useState,} from 'react'
+import {useState,} from 'react'
 
 import {ActionButton,} from '../../../shared/controls/ActionButton'
 import {Icon,} from '../../../shared/controls/Icon'
@@ -33,7 +33,7 @@ import {
 	LIGHT_THEME_BG,
 } from '../../../util/data/color'
 import createLogger from '../../../util/infra/logging'
-import {useMountEffect,} from '../../../util/ui/hooks'
+import {type SaveRef, useMountEffect, useSaveRef,} from '../../../util/ui/hooks'
 import {type ConfigState, generateConfigId,} from '../../../util/wiki/schemas/config/schema'
 import {countNotesByType, defaultUsernoteTypes, UserNoteColor,} from '../../../util/wiki/schemas/usernotes/schema'
 import {refreshClassicConfigInlineFields, unsyncedClassicEditsWarning,} from '../../config/moduleapi'
@@ -117,9 +117,6 @@ function generateTypeKey (usedKeys: Set<string>,): string {
 	while (usedKeys.has(key,)) { key = generateConfigId() }
 	return key
 }
-
-/** Ref whose `.current` is invoked by the parent to trigger saving the type list. */
-type SaveRef = {current: (() => void) | null}
 
 function SortableTypeCard ({
 	type,
@@ -527,8 +524,6 @@ export function UsernoteTypeList (
 		removeType(index,)
 	}
 
-	const handleSaveRef = useRef<() => void>(() => {},)
-
 	const handleSave = () => {
 		log.debug('Saving usernote types',)
 		log.debug(`  Num types: ${types.length}`,)
@@ -599,14 +594,7 @@ export function UsernoteTypeList (
 			}
 		})()
 	}
-	handleSaveRef.current = handleSave
-	useEffect(() => {
-		if (!saveRef) { return }
-		saveRef.current = () => handleSaveRef.current()
-		return () => {
-			saveRef.current = null
-		}
-	}, [saveRef,],)
+	useSaveRef(saveRef, handleSave,)
 
 	const usageCountOf = (key: string,) => usageCounts?.get(key,) ?? (usageCounts ? 0 : undefined)
 

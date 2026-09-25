@@ -5,14 +5,11 @@ import {ActionButton,} from '../../../shared/controls/ActionButton'
 import {Icon,} from '../../../shared/controls/Icon'
 import {TextInput,} from '../../../shared/controls/NormalInput'
 import {colorNameToHex, getBestTextColor,} from '../../../util/data/color'
-import {useMountEffect,} from '../../../util/ui/hooks'
+import {type SaveRef, useSaveRef,} from '../../../util/ui/hooks'
 import {defaultDomainTagsData,} from '../../../util/wiki/schemas/domaintags/schema'
 import {fetchDomainTagsFromSubreddit, getDomainTagsData, saveDomainTagsData,} from '../moduleapi'
 import type {DomainTag, DomainTagsData,} from '../schema'
 import css from './DomainTagsTab.module.css'
-
-/** A ref whose `.current` holds a function the parent settings dialog calls when a footer button is clicked. */
-type SaveRef = {current: (() => void) | null}
 
 /** Internal editing representation of a domain tag row, augmented with UI state. */
 interface TagRow {
@@ -172,14 +169,8 @@ export function DomainTagsTab ({subreddit, saveRef, importRef,}: Props,) {
 		void saveDomainTagsData(subreddit, updated, 'updated domain tags',)
 	}
 
-	useMountEffect(() => {
-		if (saveRef) { saveRef.current = () => handleSave() }
-		if (importRef) { importRef.current = () => void handleImport() }
-		return () => {
-			if (saveRef) { saveRef.current = null }
-			if (importRef) { importRef.current = null }
-		}
-	},)
+	useSaveRef(saveRef, handleSave,)
+	useSaveRef(importRef, () => void handleImport(),)
 
 	return (
 		<div className={css.root}>

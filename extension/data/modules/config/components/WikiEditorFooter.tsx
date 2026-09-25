@@ -5,10 +5,8 @@ import type {WikiRevision,} from '../../../api/resources/wiki'
 import {ActionButton,} from '../../../shared/controls/ActionButton'
 import {ActionSelect,} from '../../../shared/controls/ActionSelect'
 import {TextInput,} from '../../../shared/controls/NormalInput'
+import {type SaveRef,} from '../../../util/ui/hooks'
 import type {HistoryRef,} from './WikiEditorTab'
-
-/** Ref-based callback slot for triggering a save imperatively from a footer button. */
-type SaveRef = {current: (() => void) | null}
 
 /** Props for the WikiEditorFooter component. */
 interface Props {
