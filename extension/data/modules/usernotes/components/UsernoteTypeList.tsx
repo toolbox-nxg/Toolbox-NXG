@@ -33,7 +33,7 @@ import {
 	LIGHT_THEME_BG,
 } from '../../../util/data/color'
 import createLogger from '../../../util/infra/logging'
-import {type SaveRef, useMountEffect, useSaveRef,} from '../../../util/ui/hooks'
+import {type TriggerRef, useMountEffect, useTriggerRef,} from '../../../util/ui/hooks'
 import {type ConfigState, generateConfigId,} from '../../../util/wiki/schemas/config/schema'
 import {countNotesByType, defaultUsernoteTypes, UserNoteColor,} from '../../../util/wiki/schemas/usernotes/schema'
 import {refreshClassicConfigInlineFields, unsyncedClassicEditsWarning,} from '../../config/moduleapi'
@@ -441,7 +441,7 @@ function SortableTypeCard ({
 
 /** Renders a sortable, editable card list of usernote type definitions for the toolbox subreddit config. */
 export function UsernoteTypeList (
-	{state, saveRef, sortRef,}: {state: ConfigState; saveRef?: SaveRef; sortRef?: SortModeRef},
+	{state, saveRef, sortRef,}: {state: ConfigState; saveRef?: TriggerRef; sortRef?: SortModeRef},
 ) {
 	const [types, setTypes,] = useState<UsernoteType[]>([],)
 	/** Notes-per-type-key tally for usage chips and safe delete; null until loaded. */
@@ -594,7 +594,7 @@ export function UsernoteTypeList (
 			}
 		})()
 	}
-	useSaveRef(saveRef, handleSave,)
+	useTriggerRef(saveRef, handleSave,)
 
 	const usageCountOf = (key: string,) => usageCounts?.get(key,) ?? (usageCounts ? 0 : undefined)
 

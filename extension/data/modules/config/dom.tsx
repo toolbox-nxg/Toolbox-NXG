@@ -6,7 +6,7 @@ import {ActionButton,} from '../../shared/controls/ActionButton'
 import {SortModeRef, SortToggleButton,} from '../../shared/controls/SortToggleButton'
 import {negativeTextFeedback,} from '../../store/feedback'
 import {TBPageContext,} from '../../util/reddit/pageContext'
-import type {SaveRef,} from '../../util/ui/hooks'
+import type {TriggerRef,} from '../../util/ui/hooks'
 import {config as defaultConfig, ConfigState, isConfigValidVersion,} from '../../util/wiki/schemas/config/schema'
 import {
 	listRetiredUsernoteShardPages,
@@ -66,7 +66,7 @@ interface ShardTabInfo {
  */
 function buildShardTab (subredditConfig: string, shard: ShardTabInfo,): ConfigOverlayTab {
 	const {suffix, active,} = shard
-	const saveRef: SaveRef = {current: null,}
+	const saveRef: TriggerRef = {current: null,}
 	const revisionNoteRef = {current: '',}
 	const historyRef: HistoryRef = {current: null,}
 	const literalPage = shardPagePath(suffix,)
@@ -102,19 +102,19 @@ function buildConfigTabs (
 	onToggleRetiredShards: (checked: boolean,) => void,
 ): ConfigOverlayTab[] {
 	const save = {
-		usernote: {current: null,} as SaveRef,
-		automod: {current: null,} as SaveRef,
-		removalSettings: {current: null,} as SaveRef,
-		domainTags: {current: null,} as SaveRef,
-		domainTagsImport: {current: null,} as SaveRef,
-		banMacro: {current: null,} as SaveRef,
-		addRemovalReason: {current: null,} as SaveRef,
-		addSuggestedReason: {current: null,} as SaveRef,
-		addModMacro: {current: null,} as SaveRef,
-		rawConfig: {current: null,} as SaveRef,
-		rawUsernote: {current: null,} as SaveRef,
-		usernoteSettings: {current: null,} as SaveRef,
-		trainingSettings: {current: null,} as SaveRef,
+		usernote: {current: null,} as TriggerRef,
+		automod: {current: null,} as TriggerRef,
+		removalSettings: {current: null,} as TriggerRef,
+		domainTags: {current: null,} as TriggerRef,
+		domainTagsImport: {current: null,} as TriggerRef,
+		banMacro: {current: null,} as TriggerRef,
+		addRemovalReason: {current: null,} as TriggerRef,
+		addSuggestedReason: {current: null,} as TriggerRef,
+		addModMacro: {current: null,} as TriggerRef,
+		rawConfig: {current: null,} as TriggerRef,
+		rawUsernote: {current: null,} as TriggerRef,
+		usernoteSettings: {current: null,} as TriggerRef,
+		trainingSettings: {current: null,} as TriggerRef,
 	}
 	const disabled = {
 		addRemovalReason: {current: null,} as DisabledRef,

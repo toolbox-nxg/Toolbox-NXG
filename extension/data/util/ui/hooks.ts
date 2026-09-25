@@ -6,27 +6,27 @@ import {useSelector,} from 'react-redux'
 import {RootState,} from '../../store'
 
 /** A ref whose `.current` a parent calls to trigger a child's action (save, add, import). */
-export type SaveRef = {current: (() => void) | null}
+export type TriggerRef = {current: (() => void) | null}
 
 /**
- * Wires a child component's handler up to a parent-provided {@link SaveRef} so the
+ * Wires a child component's handler up to a parent-provided {@link TriggerRef} so the
  * parent (e.g. a config overlay's footer button) can trigger it - a save, or any
  * other footer-driven action such as "add new" or "import".
- * The latest `handleSave` is always invoked via an internal ref, so callers may
+ * The latest `handler` is always invoked via an internal ref, so callers may
  * pass a fresh closure each render without re-running the effect.
- * @param saveRef The parent's ref to populate, or `undefined` to opt out.
- * @param handleSave The component's current save handler.
+ * @param triggerRef The parent's ref to populate, or `undefined` to opt out.
+ * @param handler The component's current handler for the action.
  */
-export const useSaveRef = (saveRef: SaveRef | undefined, handleSave: () => void,) => {
-	const handleSaveRef = useRef(handleSave,)
-	handleSaveRef.current = handleSave
+export const useTriggerRef = (triggerRef: TriggerRef | undefined, handler: () => void,) => {
+	const handlerRef = useRef(handler,)
+	handlerRef.current = handler
 	useEffect(() => {
-		if (!saveRef) { return }
-		saveRef.current = () => handleSaveRef.current()
+		if (!triggerRef) { return }
+		triggerRef.current = () => handlerRef.current()
 		return () => {
-			saveRef.current = null
+			triggerRef.current = null
 		}
-	}, [saveRef,],)
+	}, [triggerRef,],)
 }
 
 /**

@@ -29,7 +29,7 @@ import {SortModeRef, useSortMode,} from '../../../shared/controls/SortToggleButt
 import {TextareaInput,} from '../../../shared/controls/TextareaInput'
 import {TokenChips,} from '../../../shared/controls/TokenChips'
 import {formatRelativeTime,} from '../../../util/data/time'
-import {type SaveRef, useSaveRef,} from '../../../util/ui/hooks'
+import {type TriggerRef, useTriggerRef,} from '../../../util/ui/hooks'
 import {type ConfigState, generateConfigId, type ToolboxConfig,} from '../../../util/wiki/schemas/config/schema'
 import {
 	decodeHtmlAngleBrackets,
@@ -646,7 +646,7 @@ export interface RemovalReasonListProps {
 	/** Config state object for the current subreddit. */
 	state: ConfigState
 	/** Optional ref wired up so the parent can open the add-reason form programmatically. */
-	addRef?: SaveRef
+	addRef?: TriggerRef
 	/** Optional ref wired up so the parent can disable controls while the add form is open. */
 	disabledRef?: DisabledRef
 	/** Optional ref connecting the list to a footer Reorder toggle. */
@@ -881,7 +881,7 @@ export function RemovalReasonList ({state, addRef, disabledRef, sortRef, onSave,
 	// order on unmount so the reorder is never silently dropped.
 	useEffect(() => () => flushPendingOrderRef.current(), [],)
 
-	useSaveRef(addRef, () => {
+	useTriggerRef(addRef, () => {
 		setShowAddForm(true,)
 		void loadFlairTemplates()
 		void loadNoteColors()

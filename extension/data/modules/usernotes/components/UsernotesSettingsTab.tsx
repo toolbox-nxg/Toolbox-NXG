@@ -5,7 +5,7 @@ import {useState,} from 'react'
 import {CheckboxInput,} from '../../../shared/controls/CheckboxInput'
 import {type EnforcementModeOption, EnforcementModeRadio,} from '../../../shared/controls/EnforcementModeRadio'
 import {positiveTextFeedback,} from '../../../store/feedback'
-import {type SaveRef, useSaveRef,} from '../../../util/ui/hooks'
+import {type TriggerRef, useTriggerRef,} from '../../../util/ui/hooks'
 import type {ConfigState, ToolboxConfig,} from '../../../util/wiki/schemas/config/schema'
 import css from './UsernotesSettingsTab.module.css'
 
@@ -14,7 +14,7 @@ interface Props {
 	/** Config state object for the current subreddit. */
 	state: ConfigState
 	/** Optional ref wired up so the parent can trigger saving the settings. */
-	saveRef?: SaveRef
+	saveRef?: TriggerRef
 	/** Called with the updated config and revision note when the user saves. */
 	onSave: (config: ToolboxConfig, reason: string,) => void
 }
@@ -51,7 +51,7 @@ export function UsernotesSettingsTab ({state, saveRef, onSave,}: Props,) {
 		onSave(state.config, 'updated usernotes settings',)
 		positiveTextFeedback('Usernotes settings are saved',)
 	}
-	useSaveRef(saveRef, handleSave,)
+	useTriggerRef(saveRef, handleSave,)
 
 	return (
 		<div id="toolbox-usernotes-settings">

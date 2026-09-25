@@ -3,9 +3,8 @@ import {useEffect, useState,} from 'react'
 
 import {ActionButton,} from '../../../shared/controls/ActionButton'
 import {Icon,} from '../../../shared/controls/Icon'
+import type {TriggerRef,} from '../../../util/ui/hooks'
 
-/** Ref-based callback slot for triggering an action imperatively from outside React. */
-type TriggerRef = {current: (() => void) | null}
 /** Ref-based callback slot for controlling a button's disabled state from outside React. */
 type DisabledRef = {current: ((disabled: boolean,) => void) | null}
 

@@ -5,7 +5,7 @@ import type {WikiRevision,} from '../../../api/resources/wiki'
 import {ActionButton,} from '../../../shared/controls/ActionButton'
 import {ActionSelect,} from '../../../shared/controls/ActionSelect'
 import {TextInput,} from '../../../shared/controls/NormalInput'
-import {type SaveRef,} from '../../../util/ui/hooks'
+import {type TriggerRef,} from '../../../util/ui/hooks'
 import type {HistoryRef,} from './WikiEditorTab'
 
 /** Props for the WikiEditorFooter component. */
@@ -13,7 +13,7 @@ interface Props {
 	/** Label text shown on the save button. */
 	label: string
 	/** Ref assigned by the parent; calling `saveRef.current()` triggers a save. */
-	saveRef: SaveRef
+	saveRef: TriggerRef
 	/** Ref written by this component so the parent can read the current revision note. */
 	revisionNoteRef: {current: string}
 	/** Ref the editor tab assigns its wiki-history API into; enables the rollback dropdown when provided. */

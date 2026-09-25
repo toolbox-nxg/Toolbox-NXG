@@ -8,7 +8,7 @@ import {CheckboxInput,} from '../../../shared/controls/CheckboxInput'
 import {NumberInput,} from '../../../shared/controls/NumberInput'
 import {positiveTextFeedback,} from '../../../store/feedback'
 import createLogger from '../../../util/infra/logging'
-import {type SaveRef, useSaveRef,} from '../../../util/ui/hooks'
+import {type TriggerRef, useTriggerRef,} from '../../../util/ui/hooks'
 import type {ConfigState, ToolboxConfig,} from '../../../util/wiki/schemas/config/schema'
 import type {ProposedActionType,} from '../../../util/wiki/schemas/proposals/schema'
 import {compatMirrorEnabled, resolveWikiLayout,} from '../../../util/wiki/wikiPaths'
@@ -42,7 +42,7 @@ interface Props {
 	/** Config state object for the current subreddit. */
 	state: ConfigState
 	/** Optional ref wired up so the parent can trigger saving the settings. */
-	saveRef?: SaveRef
+	saveRef?: TriggerRef
 	/** Called with the updated config and revision note when the user saves. */
 	onSave: (config: ToolboxConfig, reason: string,) => void
 }
@@ -181,7 +181,7 @@ export function TrainingSettingsTab ({state, saveRef, onSave,}: Props,) {
 		onSave(state.config, 'updated training mode settings',)
 		positiveTextFeedback('Training mode settings are saved',)
 	}
-	useSaveRef(saveRef, handleSave,)
+	useTriggerRef(saveRef, handleSave,)
 
 	return (
 		<div id="toolbox-training-settings">

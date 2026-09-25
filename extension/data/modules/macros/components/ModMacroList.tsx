@@ -28,7 +28,7 @@ import {TextInput,} from '../../../shared/controls/NormalInput'
 import {SortModeRef, useSortMode,} from '../../../shared/controls/SortToggleButton'
 import {TextareaInput,} from '../../../shared/controls/TextareaInput'
 import {negativeTextFeedback,} from '../../../store/feedback'
-import {type SaveRef, useMountEffect, useSaveRef,} from '../../../util/ui/hooks'
+import {type TriggerRef, useMountEffect, useTriggerRef,} from '../../../util/ui/hooks'
 import {getMarkdownParser,} from '../../../util/ui/markdown'
 import {type ConfigState, generateConfigId, normalizeConfig,} from '../../../util/wiki/schemas/config/schema'
 import {reloadToolboxConfig, saveMacroConfig,} from '../moduleapi'
@@ -483,7 +483,7 @@ export interface ModMacroListProps {
 	/** Shared config state object passed down from the settings framework. */
 	state: ConfigState
 	/** Optional ref wired up by the parent tab to trigger opening the "add macro" form. */
-	addRef?: SaveRef
+	addRef?: TriggerRef
 	/** Optional ref wired up by the parent tab to disable save/add buttons while the form is open. */
 	disabledRef?: DisabledRef
 	/** Optional ref connecting the list to a footer Reorder toggle. */
@@ -600,7 +600,7 @@ export function ModMacroList ({state, addRef, disabledRef, sortRef,}: ModMacroLi
 	// order on unmount so the reorder is never silently dropped.
 	useEffect(() => () => flushPendingOrderRef.current(), [],)
 
-	useSaveRef(addRef, () => {
+	useTriggerRef(addRef, () => {
 		setShowAddForm(true,)
 		void loadFlairTemplates()
 	},)

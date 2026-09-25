@@ -25,7 +25,7 @@ vi.mock('../../../util/wiki/wikiPaths', () => ({
 const positiveTextFeedback = vi.hoisted(() => vi.fn())
 vi.mock('../../../store/feedback', () => ({positiveTextFeedback,}),)
 
-import type {SaveRef,} from '../../../util/ui/hooks'
+import type {TriggerRef,} from '../../../util/ui/hooks'
 import {TrainingSettingsTab,} from './TrainingSettingsTab'
 
 let container: HTMLDivElement
@@ -33,7 +33,7 @@ let root: Root
 
 /** Mounts the tab with the given config and returns the save trigger + onSave spy. */
 async function renderTab (config: Record<string, unknown>,) {
-	const saveRef: SaveRef = {current: null,}
+	const saveRef: TriggerRef = {current: null,}
 	const onSave = vi.fn()
 	const state = {config, subreddit: 'sub', postFlairTemplates: null, userFlairTemplates: null,}
 	await act(async () => {

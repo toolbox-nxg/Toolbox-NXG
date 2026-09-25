@@ -430,18 +430,11 @@ The tab footer (`footer:` prop on a `ConfigOverlayTab`) renders in a fixed bar b
 
 ### `saveRef` / `resetRef` / `addRef`
 
-Cross-boundary imperative callbacks — a component exposes a function to its parent (`dom.tsx`) without prop-drilling React state. Always use the stale-closure-safe pattern:
+Cross-boundary imperative callbacks — a component exposes a function to its parent (`dom.tsx`) without prop-drilling React state. All three are `TriggerRef`s; wire them with `useTriggerRef` from `util/ui/hooks`, which always calls the latest handler (so a fresh closure each render is fine) and clears the ref on unmount:
 
 ```ts
-const handleSaveRef = useRef<() => void>(() => {},)
-handleSaveRef.current = handleSave // updated every render
-useEffect(() => {
-	if (!saveRef) { return }
-	saveRef.current = () => handleSaveRef.current()
-	return () => {
-		saveRef.current = null
-	}
-}, [],) // wired once
+useTriggerRef(saveRef, handleSave,)
+useTriggerRef(addRef, () => setShowAddForm(true,),)
 ```
 
 ### `disabledRef`
@@ -493,10 +486,10 @@ The global `advancedMode` setting gates:
 
 ## File Conventions
 
-| File                       | Contains                                                                                                            |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `dom.tsx`                  | Tab definitions, `AddNewButton`, `WikiEditorFooter`, `saveButton`. All `SaveRef` / `DisabledRef` objects live here. |
-| `ComponentName.tsx`        | Purely presentational React. Accepts refs, emits callbacks. No direct wiki reads/writes except on initial load.     |
-| `ComponentName.module.css` | Scoped styles for that component only. No global selectors.                                                         |
+| File                       | Contains                                                                                                               |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `dom.tsx`                  | Tab definitions, `AddNewButton`, `WikiEditorFooter`, `saveButton`. All `TriggerRef` / `DisabledRef` objects live here. |
+| `ComponentName.tsx`        | Purely presentational React. Accepts refs, emits callbacks. No direct wiki reads/writes except on initial load.        |
+| `ComponentName.module.css` | Scoped styles for that component only. No global selectors.                                                            |
 
 Each new list tab needs at minimum: an edit list component, a sort list component, and corresponding CSS modules. The sort component uses `@dnd-kit/core` + `@dnd-kit/sortable` and follows the pattern in `RemovalReasonSortList.tsx`.

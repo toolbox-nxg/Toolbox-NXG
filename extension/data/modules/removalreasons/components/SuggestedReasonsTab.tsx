@@ -14,7 +14,7 @@ import {ActionButton,} from '../../../shared/controls/ActionButton'
 import {CheckboxInput,} from '../../../shared/controls/CheckboxInput'
 import {Icon,} from '../../../shared/controls/Icon'
 import {TextInput,} from '../../../shared/controls/NormalInput'
-import {type SaveRef, useSaveRef,} from '../../../util/ui/hooks'
+import {type TriggerRef, useTriggerRef,} from '../../../util/ui/hooks'
 import {generateConfigId,} from '../../../util/wiki/schemas/config/schema'
 import type {ConfigState, ToolboxConfig,} from '../../../util/wiki/schemas/config/schema'
 import {parseAutomodReasons, staticReasonPart,} from '../automodReasons'
@@ -48,7 +48,7 @@ interface Props {
 	/** Config state object for the current subreddit. */
 	state: ConfigState
 	/** Optional ref wired up so the parent footer can open the add-mapping form. */
-	addRef?: SaveRef
+	addRef?: TriggerRef
 	/** Optional ref wired up so the parent can disable the add button while the add form is open. */
 	disabledRef?: DisabledRef
 	/** Called with the updated config and revision note when a mapping is saved or deleted. */
@@ -213,7 +213,7 @@ export function SuggestedReasonsTab ({state, addRef, disabledRef, onSave,}: Prop
 
 	// Expose the add action to the footer's "Add new suggestion" button, and keep that button
 	// disabled while the add form is already open (mirrors the removal-reasons / macros tabs).
-	useSaveRef(addRef, () => {
+	useTriggerRef(addRef, () => {
 		setEditingKey(null,)
 		setShowAddForm(true,)
 	},)

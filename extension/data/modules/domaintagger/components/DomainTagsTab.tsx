@@ -5,7 +5,7 @@ import {ActionButton,} from '../../../shared/controls/ActionButton'
 import {Icon,} from '../../../shared/controls/Icon'
 import {TextInput,} from '../../../shared/controls/NormalInput'
 import {colorNameToHex, getBestTextColor,} from '../../../util/data/color'
-import {type SaveRef, useSaveRef,} from '../../../util/ui/hooks'
+import {type TriggerRef, useTriggerRef,} from '../../../util/ui/hooks'
 import {defaultDomainTagsData,} from '../../../util/wiki/schemas/domaintags/schema'
 import {fetchDomainTagsFromSubreddit, getDomainTagsData, saveDomainTagsData,} from '../moduleapi'
 import type {DomainTag, DomainTagsData,} from '../schema'
@@ -48,9 +48,9 @@ interface Props {
 	/** The subreddit whose domain tags are being managed. */
 	subreddit: string
 	/** Ref through which the parent footer triggers a save of the edited tag list and settings. */
-	saveRef?: SaveRef
+	saveRef?: TriggerRef
 	/** Ref through which the parent footer triggers loading tags from another subreddit. */
-	importRef?: SaveRef
+	importRef?: TriggerRef
 }
 
 /**
@@ -169,8 +169,8 @@ export function DomainTagsTab ({subreddit, saveRef, importRef,}: Props,) {
 		void saveDomainTagsData(subreddit, updated, 'updated domain tags',)
 	}
 
-	useSaveRef(saveRef, handleSave,)
-	useSaveRef(importRef, () => void handleImport(),)
+	useTriggerRef(saveRef, handleSave,)
+	useTriggerRef(importRef, () => void handleImport(),)
 
 	return (
 		<div className={css.root}>

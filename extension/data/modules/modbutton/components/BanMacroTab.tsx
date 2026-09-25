@@ -8,7 +8,7 @@ import {TextInput,} from '../../../shared/controls/NormalInput'
 import {TextareaInput,} from '../../../shared/controls/TextareaInput'
 import {TokenChips,} from '../../../shared/controls/TokenChips'
 import {negativeTextFeedback, positiveTextFeedback,} from '../../../store/feedback'
-import {type SaveRef, useSaveRef,} from '../../../util/ui/hooks'
+import {type TriggerRef, useTriggerRef,} from '../../../util/ui/hooks'
 import type {ConfigState,} from '../../../util/wiki/schemas/config/schema'
 import {pickSubstitutionTokens,} from '../../../util/wiki/schemas/shared/tokens'
 import {type BanMacros, DEFAULT_BAN_PRESETS,} from '../schema'
@@ -24,7 +24,7 @@ interface Props {
 	/** Shared config state object passed down from the settings framework. */
 	state: ConfigState
 	/** Optional ref wired up by the parent tab to trigger saving the ban macro config. */
-	saveRef?: SaveRef
+	saveRef?: TriggerRef
 	/** Called with the validated BanMacros data; the parent is responsible for persisting it. */
 	onSave: (banMacros: BanMacros,) => void
 }
@@ -71,7 +71,7 @@ export function BanMacroTab ({state, saveRef, onSave,}: Props,) {
 	const banNoteRef = useRef<HTMLInputElement>(null,)
 	const banMessageRef = useRef<HTMLTextAreaElement>(null,)
 
-	useSaveRef(saveRef, handleSave,)
+	useTriggerRef(saveRef, handleSave,)
 
 	return (
 		<div className={css.root}>

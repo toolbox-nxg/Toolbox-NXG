@@ -12,8 +12,8 @@ import {setSettingAsync,} from '../../../util/persistence/settings'
 import {link,} from '../../../util/reddit/pageContext'
 import {createEditor, createKeyboardShortcutsHelper,} from '../../../util/ui/codemirrorSetup'
 import type {EditorHandle,} from '../../../util/ui/codemirrorSetup'
-import {useSaveRef, useSetting,} from '../../../util/ui/hooks'
-import type {SaveRef,} from '../../../util/ui/hooks'
+import {useSetting, useTriggerRef,} from '../../../util/ui/hooks'
+import type {TriggerRef,} from '../../../util/ui/hooks'
 import {validateWikiEditorJson,} from '../../../util/wiki/schemas/config/validation'
 import type {WikiEditorDiagnostic,} from '../../../util/wiki/schemas/config/validation'
 import type {WikiPageName,} from '../../../util/wiki/wikiConstants'
@@ -68,7 +68,7 @@ interface Props {
 	 */
 	literalPage?: string
 	/** If provided, the tab will assign a save function into this ref so a footer button can trigger it. */
-	saveRef?: SaveRef
+	saveRef?: TriggerRef
 	/** If provided, the tab will write the current revision note value into this ref before saving. */
 	revisionNoteRef?: {current: string}
 	/** If provided, the tab will assign its wiki-history API into this ref for the footer's rollback dropdown. */
@@ -292,7 +292,7 @@ export function WikiEditorTab ({subreddit, page, literalPage, saveRef, revisionN
 			if (result.mirrorWarning) { negativeTextFeedback(result.mirrorWarning,) }
 		})()
 	}
-	useSaveRef(saveRef, handleSave,)
+	useTriggerRef(saveRef, handleSave,)
 
 	/**
 	 * Toggles the editor between the decompressed (default) and compressed

@@ -9,7 +9,7 @@ import {TextInput,} from '../../../shared/controls/NormalInput'
 import {TextareaInput,} from '../../../shared/controls/TextareaInput'
 import {TokenChips,} from '../../../shared/controls/TokenChips'
 import {positiveTextFeedback,} from '../../../store/feedback'
-import {type SaveRef, useSaveRef, useSetting,} from '../../../util/ui/hooks'
+import {type TriggerRef, useSetting, useTriggerRef,} from '../../../util/ui/hooks'
 import type {ConfigState, ToolboxConfig,} from '../../../util/wiki/schemas/config/schema'
 import {
 	pickSubstitutionTokens,
@@ -36,7 +36,7 @@ interface Props {
 	/** Config state object for the current subreddit. */
 	state: ConfigState
 	/** Optional ref wired up so the parent can trigger saving the settings. */
-	saveRef?: SaveRef
+	saveRef?: TriggerRef
 	/** Called with the updated config and revision note when the user saves. */
 	onSave: (config: ToolboxConfig, reason: string,) => void
 }
@@ -98,7 +98,7 @@ export function RemovalSettingsTab ({state, saveRef, onSave,}: Props,) {
 		onSave(state.config, 'updated removal reason settings',)
 		positiveTextFeedback('Removal reasons settings are saved',)
 	}
-	useSaveRef(saveRef, handleSave,)
+	useTriggerRef(saveRef, handleSave,)
 
 	const subreddit = state.subreddit ?? ''
 
