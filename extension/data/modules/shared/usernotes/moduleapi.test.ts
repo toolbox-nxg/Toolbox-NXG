@@ -110,7 +110,7 @@ function singleShardManifest (): UsernotesManifest {
 		format: 'tbun-manifest',
 		ver: 7,
 		gen: 1,
-		types: [{key: 'botban', text: 'Bot Ban', color: 'black',},],
+		types: [{key: 'botban', text: 'Bot Ban', color: '#000000',},],
 		shards: [{start: 0, page: 's1-00000000',},],
 	}
 }
@@ -210,7 +210,10 @@ describe('getUserNotes', () => {
 			[NXG_PAGE]: JSON.stringify(manifest,),
 			[`${NXG_PAGE}/s1-00000000`]: JSON.stringify(encodeNotesShard({testuser: makeUser('testuser',),},),),
 		},)
-		recoverLegacyUsernoteColors.mockResolvedValue([{key: 'rant', text: 'Rant Warning', color: '#800080',},],)
+		recoverLegacyUsernoteColors.mockResolvedValue({
+			colors: [{key: 'rant', text: 'Rant Warning', color: '#800080',},],
+			customized: true,
+		},)
 
 		await getUserNotes('sub',)
 
@@ -225,16 +228,78 @@ describe('getUserNotes', () => {
 			{key: 'edited', text: 'Edited', color: 'blue',},
 		],)
 		// Marked done even though 'orphan' had no definition, so it never rescans.
-		expect(written.repairs,).toEqual(['legacyTypes',],)
+		expect(written.repairs,).toEqual(['seededTypes',],)
 		// 6.x users get the restored types too.
 		await vi.waitFor(() => expect(refreshClassicConfigInlineFields,).toHaveBeenCalled())
+	})
+
+	it('replaces seeded built-in defaults on a customized sub, dropping the unused ones', async () => {
+		mockLayout('nxg', false,)
+		const manifest = singleShardManifest()
+		manifest.types = [
+			{key: 'spamwatch', text: 'Spam Watch', color: 'fuchsia', colorDark: '#ff71ff',},
+			{key: 'spamwarn', text: 'Spam Warning', color: 'purple', colorDark: '#ffabff',},
+			{key: 'ban', text: 'Ban', color: 'red', colorDark: '#ff8f8f', banDuration: 7,},
+			{key: 'rant_warning', text: 'Rant Warning', color: '#800080',},
+		]
+		// An earlier placeholder-only pass already ran; it must not block this one.
+		manifest.repairs = ['legacyTypes',]
+		const user = makeUser('testuser',)
+		user.notes = [
+			{index: 0, note: 'rant', time: 1700000000, mod: 'mod', type: 'spamwarn', link: '',},
+			{index: 1, note: 'banned', time: 1700000000, mod: 'mod', type: 'ban', link: '',},
+		]
+		user.nextIndex = 2
+		mockWikiPages({
+			[NXG_PAGE]: JSON.stringify(manifest,),
+			[`${NXG_PAGE}/s1-00000000`]: JSON.stringify(encodeNotesShard({testuser: user,},),),
+		},)
+		recoverLegacyUsernoteColors.mockResolvedValue({
+			colors: [{key: 'spamwarn', text: 'Old Rant Warning', color: '#aa00aa',},],
+			customized: true,
+		},)
+
+		await getUserNotes('sub',)
+
+		await vi.waitFor(() => expect(postToWiki,).toHaveBeenCalled())
+		expect(recoverLegacyUsernoteColors,).toHaveBeenCalledWith('sub', ['spamwatch', 'spamwarn', 'ban',],)
+		const written = vi.mocked(postToWiki,).mock.calls[0]![2] as UsernotesManifest
+		expect(written.types,).toEqual([
+			// Recovered: takes the sub's own name and color, without the default's dark color.
+			{key: 'spamwarn', text: 'Old Rant Warning', color: '#aa00aa',},
+			// Unrecoverable but still in use: kept so its notes keep a label.
+			{key: 'ban', text: 'Ban', color: 'red', colorDark: '#ff8f8f', banDuration: 7,},
+			{key: 'rant_warning', text: 'Rant Warning', color: '#800080',},
+		],)
+		expect(written.repairs,).toEqual(['legacyTypes', 'seededTypes',],)
+	})
+
+	it('keeps the built-in defaults of a sub that never customized its types', async () => {
+		mockLayout('nxg', false,)
+		const manifest = singleShardManifest()
+		manifest.types = [
+			{key: 'spamwatch', text: 'Spam Watch', color: 'fuchsia', colorDark: '#ff71ff',},
+			{key: 'orphan', text: 'orphan', color: '',},
+		]
+		mockWikiPages({
+			[NXG_PAGE]: JSON.stringify(manifest,),
+			[`${NXG_PAGE}/s1-00000000`]: JSON.stringify(encodeNotesShard({testuser: makeUser('testuser',),},),),
+		},)
+		recoverLegacyUsernoteColors.mockResolvedValue({colors: [], customized: false,},)
+
+		await getUserNotes('sub',)
+
+		await vi.waitFor(() => expect(postToWiki,).toHaveBeenCalled())
+		const written = vi.mocked(postToWiki,).mock.calls[0]![2] as UsernotesManifest
+		expect(written.types,).toEqual(manifest.types,)
+		expect(written.repairs,).toEqual(['seededTypes',],)
 	})
 
 	it('does not repair again once the manifest records the repair', async () => {
 		mockLayout('nxg', false,)
 		const manifest = singleShardManifest()
 		manifest.types = [{key: 'orphan', text: 'orphan', color: '',},]
-		manifest.repairs = ['legacyTypes',]
+		manifest.repairs = ['seededTypes',]
 		mockWikiPages({
 			[NXG_PAGE]: JSON.stringify(manifest,),
 			[`${NXG_PAGE}/s1-00000000`]: JSON.stringify(encodeNotesShard({testuser: makeUser('testuser',),},),),
@@ -242,7 +307,7 @@ describe('getUserNotes', () => {
 
 		const result = await getUserNotes('sub',)
 
-		expect(result.repairs,).toEqual(['legacyTypes',],)
+		expect(result.repairs,).toEqual(['seededTypes',],)
 		expect(recoverLegacyUsernoteColors,).not.toHaveBeenCalled()
 		expect(postToWiki,).not.toHaveBeenCalled()
 	})

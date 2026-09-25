@@ -34,7 +34,13 @@ import {
 	normalizeIndex,
 } from './schemas/subredditnotes/codec'
 import type {SubredditNoteIndex,} from './schemas/subredditnotes/schema'
-import {decodeUsernotesV6, encodeUsernotesV6, isPlaceholderType, seedV6Types,} from './schemas/usernotes/codec'
+import {
+	decodeUsernotesV6,
+	encodeUsernotesV6,
+	isSeededType,
+	type RecoveredTypes,
+	seedV6Types,
+} from './schemas/usernotes/codec'
 import {reconcileFromLegacy,} from './schemas/usernotes/reconcile'
 import type {RawUsernotesBlob, UserNoteColor, UserNotesData,} from './schemas/usernotes/schema'
 import {clearSessionShardState, readShardedUsernotes, writeShardedUsernotes,} from './schemas/usernotes/sharded'
@@ -225,8 +231,12 @@ async function resolveNoteIndex (
 	return rebuilt
 }
 
-/** Most revisions of the legacy config page a recovery scan will read. */
-const maxRecoveryReads = 25
+/**
+ * Most revisions of the legacy config page a recovery scan will read: one full
+ * page of the revision listing. A subreddit's types can predate many later
+ * config edits, and each scan runs once per subreddit.
+ */
+const maxRecoveryReads = 100
 
 /**
  * Visits the legacy `toolbox` config page's revisions newest first, as raw
@@ -279,27 +289,31 @@ async function scanLegacyConfigRevisions (
 /**
  * Recovers usernote type definitions from the legacy config page's revision
  * history (see {@link scanLegacyConfigRevisions}). Each key takes its newest
- * real (non-placeholder) definition.
+ * real definition: seeded ones (placeholders and untouched built-in
+ * defaults) are skipped, since NXG's compat mirror wrote those back to the
+ * page after a lossy migration.
  * @param subreddit The subreddit to recover types for.
  * @param keys The type keys to find definitions for.
- * @returns The definitions found, possibly fewer than requested.
+ * @returns The definitions found (possibly fewer than requested), and whether
+ *   the subreddit ever had types of its own.
  * @throws On a transient read failure.
  */
 export async function recoverLegacyUsernoteColors (
 	subreddit: string,
 	keys: string[],
-): Promise<LegacyUsernoteColor[]> {
+): Promise<RecoveredTypes> {
 	const wanted = new Set(keys,)
 	const found = new Map<string, LegacyUsernoteColor>()
+	let customized = false
 	await scanLegacyConfigRevisions(subreddit, (raw,) => {
 		for (const color of extractLegacyUsernoteColors(raw,)) {
-			if (wanted.has(color.key,) && !found.has(color.key,) && !isPlaceholderType(color,)) {
-				found.set(color.key, color,)
-			}
+			if (isSeededType(color,)) { continue }
+			customized = true
+			if (wanted.has(color.key,) && !found.has(color.key,)) { found.set(color.key, color,) }
 		}
-		return found.size === wanted.size
+		return customized && found.size === wanted.size
 	},)
-	return [...found.values(),]
+	return {colors: [...found.values(),], customized,}
 }
 
 /**

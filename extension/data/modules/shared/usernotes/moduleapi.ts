@@ -11,12 +11,13 @@ import {createPerKeyQueue,} from '../../../util/infra/perKeyQueue'
 import {getCache, setCache,} from '../../../util/persistence/cache'
 import {extractLegacyUsernoteColors,} from '../../../util/wiki/schemas/config/schema'
 import {
+	countNotesByType,
 	decodeUsernotesV6,
 	encodeUsernotesV6,
-	healPlaceholderTypes,
-	isPlaceholderType,
-	needsLegacyTypesRepair,
+	isSeededType,
+	needsSeededTypesRepair,
 	noteIdentityKey,
+	repairSeededTypes,
 	seedV6Types,
 } from '../../../util/wiki/schemas/usernotes/codec'
 import {
@@ -29,9 +30,9 @@ import {
 	AUTO_ARCHIVER,
 	defaultUsernoteTypes,
 	isNoteActive,
-	legacyTypesRepair,
 	notesSchema,
 	RawUsernotesBlob,
+	seededTypesRepair,
 	UserNoteColor,
 	UserNoteEntry,
 	UserNotesData,
@@ -142,9 +143,9 @@ export async function getUserNotes (subreddit: string, forceSkipCache?: boolean,
 	}
 
 	await updateNoteCache(subreddit, notes,)
-	if (layout.state !== 'legacyFallback' && needsLegacyTypesRepair(notes,)) {
+	if (layout.state !== 'legacyFallback' && needsSeededTypesRepair(notes,)) {
 		// Background, one-time: the load itself never waits on the repair.
-		void repairLegacyTypes(subreddit,)
+		void repairSeededTypeDefinitions(subreddit,)
 	}
 	if (cachedSubsWithNoNotes.includes(subreddit,)) {
 		await setCache(utils, 'noNotes', cachedSubsWithNoNotes.filter((cached,) => cached !== subreddit),)
@@ -237,38 +238,42 @@ const legacyColorsForNotelessSubs = new Map<string, Promise<UserNoteColor[]>>()
 /** Per-subreddit save queue: concurrent usernotes saves for one subreddit run in call order. */
 const enqueueUsernotesSave = createPerKeyQueue()
 
-/** Subreddits with a {@link repairLegacyTypes} run in flight, so concurrent loads don't each scan the wiki history. */
-const legacyTypesRepairsInFlight = new Set<string>()
+/** Subreddits with a {@link repairSeededTypeDefinitions} run in flight, so concurrent loads don't each scan the wiki history. */
+const typeRepairsInFlight = new Set<string>()
 
 /**
- * Restores usernote type names and colors that early migrations replaced
- * with placeholders (name = key, no color), recovering them from the legacy
- * config page's revision history. Only placeholders are patched. The repair
- * marker is recorded even when nothing is recoverable, so it runs once per
- * subreddit; a failure is logged and retried on a later load.
+ * Restores usernote type definitions that early migrations seeded instead of
+ * taking the subreddit's own: placeholders (name = key, no color) and the
+ * built-in defaults. Definitions are recovered from the legacy config page's
+ * revision history; see {@link repairSeededTypes} for what is patched or
+ * dropped. The repair marker is recorded even when nothing is recoverable,
+ * so it runs once per subreddit; a failure is logged and retried on a later
+ * load.
  *
  * Writes only the manifest (shard contents are unchanged) and deliberately
  * bypasses {@link doSaveUserNotes}: it runs unprompted, so it must not toast,
  * and a mod without wiki write access should fail silently.
  */
-async function repairLegacyTypes (subreddit: string,): Promise<void> {
-	if (legacyTypesRepairsInFlight.has(subreddit,)) { return }
-	legacyTypesRepairsInFlight.add(subreddit,)
+async function repairSeededTypeDefinitions (subreddit: string,): Promise<void> {
+	if (typeRepairsInFlight.has(subreddit,)) { return }
+	typeRepairsInFlight.add(subreddit,)
 	try {
 		await enqueueUsernotesSave(subreddit, async () => {
 			const stored = await readShardedUsernotes(subreddit,)
 			if (stored.kind !== 'sharded') { return }
 			const notes = stored.notes
 			if (!notes.types?.length) { notes.types = seedV6Types(notes,) }
-			if (!needsLegacyTypesRepair(notes,)) { return }
+			if (!needsSeededTypesRepair(notes,)) { return }
 
-			const placeholderKeys = notes.types.filter(isPlaceholderType,).map((t,) => t.key)
-			const recovered = await recoverLegacyUsernoteColors(subreddit, placeholderKeys,)
-			const {types,} = healPlaceholderTypes(notes.types, recovered,)
+			const seededKeys = notes.types.filter(isSeededType,).map((t,) => t.key)
+			const recovered = await recoverLegacyUsernoteColors(subreddit, seededKeys,)
+			const types = repairSeededTypes(notes.types, recovered, countNotesByType(notes,),)
 			notes.types = types
-			notes.repairs = [...notes.repairs ?? [], legacyTypesRepair,]
+			notes.repairs = [...notes.repairs ?? [], seededTypesRepair,]
 			await writeShardedUsernotes(subreddit, notes, 'Restore usernote types lost in migration',)
-			log.info(`Restored ${recovered.length} of ${placeholderKeys.length} usernote types for /r/${subreddit}`,)
+			log.info(
+				`Restored ${recovered.colors.length} of ${seededKeys.length} seeded usernote types for /r/${subreddit}`,
+			)
 
 			// Patch the cached dataset rather than replacing it: it may hold 6.x
 			// edits folded in on read that the stored shards don't have yet.
@@ -287,7 +292,7 @@ async function repairLegacyTypes (subreddit: string,): Promise<void> {
 	} catch (error: unknown) {
 		log.warn(`Could not repair usernote types for /r/${subreddit}:`, error,)
 	} finally {
-		legacyTypesRepairsInFlight.delete(subreddit,)
+		typeRepairsInFlight.delete(subreddit,)
 	}
 }
 

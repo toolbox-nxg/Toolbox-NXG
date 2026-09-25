@@ -27,7 +27,6 @@ import {
 	DeflatedNote,
 	DeflatedUser,
 	isNoteActive,
-	legacyTypesRepair,
 	NoteAttribution,
 	NXG_USERNOTES_FORMAT,
 	NXG_USERNOTES_VER,
@@ -35,6 +34,7 @@ import {
 	NxgShardPayload,
 	NxgUsernotesShardPage,
 	RawUsernotesBlob,
+	seededTypesRepair,
 	UserNoteColor,
 	UserNoteEntry,
 	UserNotesData,
@@ -256,35 +256,89 @@ export function isPlaceholderType (type: UserNoteColor,): boolean {
 }
 
 /**
- * Returns `true` when a dataset still needs the {@link legacyTypesRepair}:
- * it has placeholder types and the repair has not already run.
+ * Returns `true` for a type definition identical (name and color) to the
+ * built-in default for its key - what {@link seedV6Types} copies in when it
+ * has no subreddit config to seed from.
  */
-export function needsLegacyTypesRepair (notes: UserNotesData,): boolean {
-	return !notes.repairs?.includes(legacyTypesRepair,)
-		&& (notes.types ?? []).some(isPlaceholderType,)
+export function isSeededDefaultType (type: UserNoteColor,): boolean {
+	const builtIn = defaultUsernoteTypes.find((d,) => d.key === type.key)
+	return builtIn !== undefined && type.text === builtIn.text && type.color === builtIn.color
 }
 
 /**
- * Repairs placeholder type definitions (see {@link isPlaceholderType}) using
- * the subreddit's configured `usernoteColors`. Only exact placeholders are
- * touched, so names and colors a mod has since edited are kept.
- * @param types The current type definitions (not mutated).
- * @param configColors The subreddit's `usernoteColors` config.
- * @returns The repaired list, and whether anything changed.
+ * Returns `true` for a type definition a migration may have invented rather
+ * than taken from the subreddit: a placeholder or an untouched built-in default.
  */
-export function healPlaceholderTypes (
+export function isSeededType (type: UserNoteColor,): boolean {
+	return isPlaceholderType(type,) || isSeededDefaultType(type,)
+}
+
+/**
+ * Returns `true` when a dataset still needs the {@link seededTypesRepair}:
+ * it has seeded types (see {@link isSeededType}) and the repair has not
+ * already run.
+ */
+export function needsSeededTypesRepair (notes: UserNotesData,): boolean {
+	return !notes.repairs?.includes(seededTypesRepair,)
+		&& (notes.types ?? []).some(isSeededType,)
+}
+
+/** What a scan of the legacy config history found for the seeded type keys. */
+export interface RecoveredTypes {
+	/** The newest real (not seeded) definition found for each requested key. */
+	colors: UserNoteColor[]
+	/**
+	 * Whether any revision defined a type of the subreddit's own, i.e. the
+	 * subreddit ever replaced the built-in defaults with custom types.
+	 */
+	customized: boolean
+}
+
+/**
+ * Replaces seeded type definitions (see {@link isSeededType}) with the
+ * subreddit's own, recovered from its legacy config history. Only exact
+ * seeded entries are touched, so names and colors a mod has since edited are
+ * kept.
+ *
+ * On a customized subreddit the built-in defaults were never its types, so a
+ * seeded default no note uses is dropped; one still in use is kept, as its
+ * notes would otherwise lose their label. A never-customized subreddit keeps
+ * its defaults: 6.x offered them too.
+ * @param types The current type definitions (not mutated).
+ * @param recovered The definitions recovered from the config history.
+ * @param usage Notes per type key, archived notes included.
+ * @returns The repaired list.
+ */
+export function repairSeededTypes (
 	types: UserNoteColor[],
-	configColors: UserNoteColor[],
-): {types: UserNoteColor[]; changed: boolean} {
-	const byKey = new Map(configColors.map((c,) => [c.key, c,]),)
-	let changed = false
-	const healed = types.map((t,) => {
+	recovered: RecoveredTypes,
+	usage: ReadonlyMap<string, number>,
+): UserNoteColor[] {
+	const byKey = new Map(recovered.colors.map((c,) => [c.key, c,]),)
+	return types.flatMap((t,): UserNoteColor[] => {
+		const placeholder = isPlaceholderType(t,)
+		const seededDefault = recovered.customized && isSeededDefaultType(t,)
+		if (!placeholder && !seededDefault) { return [t,] }
 		const configured = byKey.get(t.key,)
-		if (!configured || !isPlaceholderType(t,)) { return t }
-		changed = true
-		return {...t, text: configured.text, color: configured.color,}
+		if (configured) {
+			// The default's dark-mode color belongs to the default's color, not the recovered one.
+			const {colorDark: _defaultDark, ...rest} = t
+			return [{...rest, text: configured.text, color: configured.color,},]
+		}
+		if (seededDefault && !usage.get(t.key,)) { return [] }
+		return [t,]
 	},)
-	return {types: healed, changed,}
+}
+
+/** Counts notes per type key across a dataset, archived notes included. */
+export function countNotesByType (notes: UserNotesData,): Map<string, number> {
+	const counts = new Map<string, number>()
+	for (const user of Object.values(notes.users,)) {
+		for (const note of user.notes) {
+			if (note.type) { counts.set(note.type, (counts.get(note.type,) ?? 0) + 1,) }
+		}
+	}
+	return counts
 }
 
 // --- nxg-usernotes shard format --------------------------------------------

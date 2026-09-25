@@ -625,9 +625,38 @@ describe('recoverLegacyUsernoteColors', () => {
 			JSON.stringify({ver: 1, usernoteColors: [{key: 'rant', text: 'Rant%20Warning', color: '#800080',},],},),
 		],)
 
-		const colors = await recoverLegacyUsernoteColors('sub', ['rant',],)
+		const recovered = await recoverLegacyUsernoteColors('sub', ['rant',],)
 
-		expect(colors,).toEqual([{key: 'rant', text: 'Rant Warning', color: '#800080',},],)
+		expect(recovered,).toEqual({
+			colors: [{key: 'rant', text: 'Rant Warning', color: '#800080',},],
+			customized: true,
+		},)
+	})
+
+	it('skips built-in defaults the compat mirror wrote back, reaching the sub\'s older definition', async () => {
+		mockRevisions([
+			JSON.stringify({ver: 1, usernoteColors: [{key: 'spamwarn', text: 'Spam%20Warning', color: 'purple',},],},),
+			JSON.stringify({ver: 1, usernoteColors: [{key: 'spamwarn', text: 'Rant%20Warning', color: '#800080',},],},),
+		],)
+
+		const recovered = await recoverLegacyUsernoteColors('sub', ['spamwarn',],)
+
+		expect(recovered,).toEqual({
+			colors: [{key: 'spamwarn', text: 'Rant Warning', color: '#800080',},],
+			customized: true,
+		},)
+	})
+
+	it('reports a sub whose history only ever held the built-in defaults as not customized', async () => {
+		mockRevisions([
+			JSON.stringify({ver: 1, usernoteColors: [{key: 'spamwarn', text: 'Spam%20Warning', color: 'purple',},],},),
+			JSON.stringify({ver: 1,},),
+		],)
+
+		const recovered = await recoverLegacyUsernoteColors('sub', ['spamwarn',],)
+
+		expect(recovered,).toEqual({colors: [], customized: false,},)
+		expect(readWikiRevision,).toHaveBeenCalledTimes(2,)
 	})
 
 	it('takes each key\'s newest definition and stops once all are found', async () => {
@@ -636,9 +665,9 @@ describe('recoverLegacyUsernoteColors', () => {
 			JSON.stringify({ver: 1, usernoteColors: [{key: 'a', text: 'Old A', color: 'blue',},],},),
 		],)
 
-		const colors = await recoverLegacyUsernoteColors('sub', ['a',],)
+		const recovered = await recoverLegacyUsernoteColors('sub', ['a',],)
 
-		expect(colors,).toEqual([{key: 'a', text: 'New A', color: 'red',},],)
+		expect(recovered.colors,).toEqual([{key: 'a', text: 'New A', color: 'red',},],)
 		expect(readWikiRevision,).toHaveBeenCalledTimes(1,)
 	})
 
@@ -646,7 +675,7 @@ describe('recoverLegacyUsernoteColors', () => {
 		getWikiRevisions.mockRejectedValue(new Error('404',),)
 		mockWikiPages({},)
 
-		await expect(recoverLegacyUsernoteColors('sub', ['a',],),).resolves.toEqual([],)
+		await expect(recoverLegacyUsernoteColors('sub', ['a',],),).resolves.toEqual({colors: [], customized: false,},)
 	})
 
 	it('recovers domain tags from the newest revision carrying any', async () => {
