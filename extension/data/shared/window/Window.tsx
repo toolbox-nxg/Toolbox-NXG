@@ -1,6 +1,7 @@
 /** Generic Toolbox window/panel component with optional drag, toolbar, footer, and close button. */
 
-import {MouseEventHandler, ReactNode, useId, useLayoutEffect, useRef,} from 'react'
+import {MouseEventHandler, ReactNode, useId, useRef,} from 'react'
+import {useMountLayoutEffect,} from '../../util/ui/hooks'
 import {classes,} from '../../util/ui/reactMount'
 
 /**
@@ -74,7 +75,7 @@ export const Window = ({
 	const windowHeaderRef = useRef<HTMLDivElement>(null,)
 	const titleId = useId()
 
-	useLayoutEffect(() => {
+	useMountLayoutEffect(() => {
 		if (draggable && windowRef.current != null && windowHeaderRef.current != null) {
 			if (initialPosition) {
 				windowRef.current.style.top = `${initialPosition.top}px`
@@ -96,7 +97,7 @@ export const Window = ({
 				previouslyFocused.focus({preventScroll: true,},)
 			}
 		}
-	}, [],)
+	},)
 
 	const handleClick: MouseEventHandler<HTMLDivElement> = () => {
 		onClick?.()

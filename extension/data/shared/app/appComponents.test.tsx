@@ -27,7 +27,10 @@ vi.mock('framer-motion', () => ({
 	motion: {div: (props: React.ComponentProps<'div'>,) => <div {...props} />,},
 }),)
 vi.mock('webextension-polyfill', () => ({default: {runtime,},}),)
-vi.mock('../../util/ui/hooks', () => ({useSetting: () => settingValue,}),)
+vi.mock('../../util/ui/hooks', async (importOriginal,) => ({
+	...(await importOriginal<typeof import('../../util/ui/hooks')>()),
+	useSetting: () => settingValue,
+}),)
 vi.mock('../../modules/announcements/components/AnnouncementCard', () => ({
 	AnnouncementCard: ({note, onClose,}: {
 		note: {title: string; body: string}

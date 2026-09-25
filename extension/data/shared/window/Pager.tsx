@@ -1,7 +1,7 @@
 /** Paged content viewer: displays one page of an iterable at a time with
  * navigation controls. */
 
-import {type ReactNode, useEffect, useMemo, useState,} from 'react'
+import {type ReactNode, useEffect, useEffectEvent, useMemo, useState,} from 'react'
 import type {MaybeAsyncIterable,} from '../../util/data/iter'
 import createLogger from '../../util/infra/logging'
 import {classes,} from '../../util/ui/reactMount'
@@ -100,11 +100,14 @@ export const Pager = ({
 		}
 	}
 
+	// Effect event so the effect below re-runs only on paging state, not on each new cacheNextPage closure
+	const requestNextPage = useEffectEvent(() => void cacheNextPage())
+
 	// Pull new pages off our iterator as needed
 	useEffect(() => {
 		// if we're not lazy, gotta cache 'em all
 		if (!lazy && !pagesDone) {
-			void cacheNextPage()
+			requestNextPage()
 			return
 		}
 
@@ -117,7 +120,7 @@ export const Pager = ({
 				setCurrentPageIndex(Math.max(0, cachedPages.length - 1,),)
 			} else {
 				// Cache additional pages until we get the one we want
-				void cacheNextPage()
+				requestNextPage()
 			}
 		}
 	}, [lazy, cachedPages, pagesDone, currentPageIndex,],)

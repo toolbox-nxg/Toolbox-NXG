@@ -1,6 +1,6 @@
 /** Multi-tab popup for performing mod actions (ban, flair, modmail, etc.) on a Reddit user. */
 
-import {ChangeEvent, useEffect, useMemo, useRef, useState,} from 'react'
+import {ChangeEvent, useEffect, useEffectEvent, useMemo, useRef, useState,} from 'react'
 
 import {getFlairSelector, getUserFlairTemplates,} from '../../../api/resources/flair'
 import {getCurrentUser,} from '../../../api/resources/me'
@@ -209,11 +209,15 @@ export function ModButtonPopup ({
 
 	// When activeSub changes, reset per-subreddit state and re-fetch
 	const statusAutoApplied = useRef(false,)
+	// Effect event: the loader re-runs only when the target sub/user changes; everything
+	// else is read as of that moment rather than being a trigger.
+	const readLoaderContext = useEffectEvent(() => ({actions, info, currentUser, checkedSubs,}))
 	useEffect(() => {
 		if (!activeSub || !user) { return }
 		let cancelled = false
+		const ctx = readLoaderContext()
 
-		if (checkedSubs.has(activeSub,)) {
+		if (ctx.checkedSubs.has(activeSub,)) {
 			setCheckedSubs((prev,) => {
 				const next = new Set(prev,)
 				next.delete(activeSub,)
@@ -233,10 +237,12 @@ export function ModButtonPopup ({
 		setUserModlogLoaded(false,)
 		statusAutoApplied.current = false
 
-		actions.getBanMacros(activeSub,).then((macros: BanMacros | null,) => {
+		ctx.actions.getBanMacros(activeSub,).then((macros: BanMacros | null,) => {
 			if (cancelled || !macros) { return }
-			if (macros.banNote) { setBanNote(replaceTokens(info as Record<string, string>, macros.banNote,),) }
-			if (macros.banMessage) { setBanMessage(replaceTokens(info as Record<string, string>, macros.banMessage,),) }
+			if (macros.banNote) { setBanNote(replaceTokens(ctx.info as Record<string, string>, macros.banNote,),) }
+			if (macros.banMessage) {
+				setBanMessage(replaceTokens(ctx.info as Record<string, string>, macros.banMessage,),)
+			}
 			const permanent = macros.defaultBanPermanent !== false
 			setBanPermanent(permanent,)
 			let presets: number[] = DEFAULT_BAN_PRESETS
@@ -255,9 +261,9 @@ export function ModButtonPopup ({
 		},)
 		void (async () => {
 			setSubStatuses((prev,) => new Map(prev,).set(activeSub, loadingStatus,))
-			const currentUserName = currentUser || await getCurrentUser()
+			const currentUserName = ctx.currentUser || await getCurrentUser()
 			if (cancelled) { return }
-			if (!currentUser) { setCurrentUser(currentUserName,) }
+			if (!ctx.currentUser) { setCurrentUser(currentUserName,) }
 
 			const {status, banInfo,} = await fetchSubStatus(activeSub, user, currentUserName,)
 			if (cancelled) { return }
@@ -710,7 +716,7 @@ export function ModButtonPopup ({
 		if (!modSubs.includes(modmailSub,)) {
 			setModmailSub(modSubs.includes(contextSub,) ? contextSub : modSubs[0]!,)
 		}
-	}, [modSubs,],)
+	}, [modSubs, modmailSub, contextSub,],)
 
 	// If the current action is no longer available (e.g. switched from a subreddit where the target was
 	// a mod so 'demod' was selected, to one where they're not), fall back to the first available.
@@ -718,7 +724,7 @@ export function ModButtonPopup ({
 		if (visibleActions.length > 0 && !visibleActions.includes(actionType,)) {
 			setActionType(visibleActions[0]!,)
 		}
-	}, [visibleActions,],)
+	}, [visibleActions, actionType,],)
 
 	const isBanRelated = actionType === 'ban' || actionType === 'change ban'
 	const isMuteAction = actionType === 'mute'

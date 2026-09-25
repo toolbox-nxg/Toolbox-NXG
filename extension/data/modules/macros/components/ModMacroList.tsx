@@ -28,6 +28,7 @@ import {TextInput,} from '../../../shared/controls/NormalInput'
 import {SortModeRef, useSortMode,} from '../../../shared/controls/SortToggleButton'
 import {TextareaInput,} from '../../../shared/controls/TextareaInput'
 import {negativeTextFeedback,} from '../../../store/feedback'
+import {useMountEffect,} from '../../../util/ui/hooks'
 import {getMarkdownParser,} from '../../../util/ui/markdown'
 import {type ConfigState, generateConfigId, normalizeConfig,} from '../../../util/wiki/schemas/config/schema'
 import {reloadToolboxConfig, saveMacroConfig,} from '../moduleapi'
@@ -173,11 +174,11 @@ function MacroForm (
 	const [form, setForm,] = useState<MacroFormState>(() => macroToForm(macro,))
 	const [templates, setTemplates,] = useState<UserFlairTemplate[] | null>(initialTemplates,)
 
-	useEffect(() => {
+	useMountEffect(() => {
 		if (!templates) {
 			void onFlairLoad().then(setTemplates,)
 		}
-	}, [],)
+	},)
 
 	const set = (patch: Partial<MacroFormState>,) => setForm((f,) => ({...f, ...patch,}))
 
@@ -511,7 +512,7 @@ export function ModMacroList ({state, addRef, disabledRef, sortRef,}: ModMacroLi
 	const toEntries = (raw: Macro[],): MacroEntry[] =>
 		raw.map((m,) => ({...m, _key: `macro-${idCounterRef.current++}`,}))
 
-	useEffect(() => {
+	useMountEffect(() => {
 		if (document.body.classList.contains('toolbox-wiki-edited',)) {
 			void reloadToolboxConfig(subreddit,).then((config,) => {
 				if (!config) { return }
@@ -522,7 +523,7 @@ export function ModMacroList ({state, addRef, disabledRef, sortRef,}: ModMacroLi
 		} else {
 			setMacros(toEntries(state.config.modMacros ?? [],),)
 		}
-	}, [],)
+	},)
 
 	const loadFlairTemplates = async (): Promise<UserFlairTemplate[]> => {
 		if (flairTemplates) { return flairTemplates }

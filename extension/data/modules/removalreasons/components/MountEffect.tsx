@@ -1,5 +1,5 @@
 /** Presentational helper that runs an imperative side-effect for a renderer's mounted lifetime. */
-import {useEffect,} from 'react'
+import {useMountEffect,} from '../../../util/ui/hooks'
 
 /** Props for {@link MountEffect}. */
 interface MountEffectProps {
@@ -13,6 +13,6 @@ interface MountEffectProps {
  * without putting that DOM logic inside the component.
  */
 export function MountEffect ({effect,}: MountEffectProps,) {
-	useEffect(() => effect(), [],)
+	useMountEffect(effect,)
 	return null
 }

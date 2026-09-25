@@ -9,6 +9,7 @@ import {sendEvent,} from '../../util/reddit/events'
 import {cleanSubredditName,} from '../../util/reddit/reddit-domain'
 import {createEditor,} from '../../util/ui/codemirrorSetup'
 import type {EditorHandle,} from '../../util/ui/codemirrorSetup'
+import {useMountEffect,} from '../../util/ui/hooks'
 import {ActionButton,} from '../controls/ActionButton'
 import {ActionSelect,} from '../controls/ActionSelect'
 import {CheckboxInput,} from '../controls/CheckboxInput'
@@ -43,7 +44,7 @@ function SyntaxThemeSetting ({value, onChange,}: {value: string; onChange: (v: s
 	const textareaRef = useRef<HTMLTextAreaElement>(null,)
 	const editorRef = useRef<EditorHandle | null>(null,)
 
-	useEffect(() => {
+	useMountEffect(() => {
 		if (textareaRef.current && !editorRef.current) {
 			editorRef.current = createEditor({
 				textarea: textareaRef.current,
@@ -56,7 +57,7 @@ function SyntaxThemeSetting ({value, onChange,}: {value: string; onChange: (v: s
 			editorRef.current?.destroy()
 			editorRef.current = null
 		}
-	}, [],)
+	},)
 
 	useEffect(() => {
 		if (editorRef.current) {

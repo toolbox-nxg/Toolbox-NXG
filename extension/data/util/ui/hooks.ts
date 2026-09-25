@@ -1,6 +1,6 @@
-/** Custom React hooks for Toolbox: promise resolution and settings access. */
+/** Custom React hooks for Toolbox: mount effects, promise resolution and settings access. */
 
-import {useCallback, useEffect, useRef, useState,} from 'react'
+import {type EffectCallback, useCallback, useEffect, useLayoutEffect, useRef, useState,} from 'react'
 import {useSelector,} from 'react-redux'
 
 import {RootState,} from '../../store'
@@ -103,11 +103,37 @@ export const useBusyState = (): [boolean, <T,>(operation: () => Promise<T>,) => 
 	return [busy, runBusy,]
 }
 
-/** React hook that resolves a promise and returns its value. */
+/**
+ * Runs `effect` once after the first render, and its cleanup on unmount. For effects that
+ * deliberately capture their first-render props and callbacks (initial options, `onMount`
+ * handoffs, one-shot fetches) and must not re-run when those identities change.
+ * @param effect The side-effect to run; may return a cleanup function.
+ */
+export function useMountEffect (effect: EffectCallback,): void {
+	// Mount-only by contract: the first-render `effect` is the one that should run.
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	useEffect(effect, [],)
+}
+
+/**
+ * Layout-effect variant of {@link useMountEffect}: runs synchronously after the first
+ * render's DOM mutations, before paint (e.g. initial positioning and focus).
+ * @param effect The side-effect to run; may return a cleanup function.
+ */
+export function useMountLayoutEffect (effect: EffectCallback,): void {
+	// Mount-only by contract, as in useMountEffect.
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	useLayoutEffect(effect, [],)
+}
+
+/**
+ * React hook that resolves a promise and returns its value. Only the promise passed on
+ * the first render is observed; later renders' promises are ignored.
+ */
 export const useFetched = <T,>(promise: Promise<T>,) => {
 	const [value, setValue,] = useState<T | undefined>(undefined,)
 
-	useEffect(() => {
+	useMountEffect(() => {
 		let valid = true
 		void promise.then((result,) => {
 			if (valid) {
@@ -118,7 +144,7 @@ export const useFetched = <T,>(promise: Promise<T>,) => {
 		return () => {
 			valid = false
 		}
-	}, [],)
+	},)
 
 	return value
 }

@@ -33,6 +33,7 @@ import {
 	LIGHT_THEME_BG,
 } from '../../../util/data/color'
 import createLogger from '../../../util/infra/logging'
+import {useMountEffect,} from '../../../util/ui/hooks'
 import {type ConfigState, generateConfigId,} from '../../../util/wiki/schemas/config/schema'
 import {countNotesByType, defaultUsernoteTypes, UserNoteColor,} from '../../../util/wiki/schemas/usernotes/schema'
 import {refreshClassicConfigInlineFields, unsyncedClassicEditsWarning,} from '../../config/moduleapi'
@@ -454,7 +455,7 @@ export function UsernoteTypeList (
 	const sorting = useSortMode(sortRef,)
 	const subreddit = state.subreddit ?? ''
 
-	useEffect(() => {
+	useMountEffect(() => {
 		if (!subreddit) { return }
 		let cancelled = false
 		const skipCache = document.body.classList.contains('toolbox-wiki-edited',)
@@ -471,7 +472,7 @@ export function UsernoteTypeList (
 		return () => {
 			cancelled = true
 		}
-	}, [],)
+	},)
 
 	const sensors = useSensors(
 		useSensor(PointerSensor,),

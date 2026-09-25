@@ -5,6 +5,7 @@ import {ActionButton,} from '../../../shared/controls/ActionButton'
 import {Icon,} from '../../../shared/controls/Icon'
 import {TextInput,} from '../../../shared/controls/NormalInput'
 import {colorNameToHex, getBestTextColor,} from '../../../util/data/color'
+import {useMountEffect,} from '../../../util/ui/hooks'
 import {defaultDomainTagsData,} from '../../../util/wiki/schemas/domaintags/schema'
 import {fetchDomainTagsFromSubreddit, getDomainTagsData, saveDomainTagsData,} from '../moduleapi'
 import type {DomainTag, DomainTagsData,} from '../schema'
@@ -171,14 +172,14 @@ export function DomainTagsTab ({subreddit, saveRef, importRef,}: Props,) {
 		void saveDomainTagsData(subreddit, updated, 'updated domain tags',)
 	}
 
-	useEffect(() => {
+	useMountEffect(() => {
 		if (saveRef) { saveRef.current = () => handleSave() }
 		if (importRef) { importRef.current = () => void handleImport() }
 		return () => {
 			if (saveRef) { saveRef.current = null }
 			if (importRef) { importRef.current = null }
 		}
-	}, [],)
+	},)
 
 	return (
 		<div className={css.root}>

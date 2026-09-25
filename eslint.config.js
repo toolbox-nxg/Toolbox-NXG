@@ -110,9 +110,10 @@ const sourceRules = {
 	],
 	// `rpl` is a Reddit design-system attribute on shreddit elements, not standard HTML.
 	'react/no-unknown-property': ['error', {ignore: ['rpl',],},],
-	// React Hooks: the correctness rule is an error; the deps hint is a warning.
+	// React Hooks. Deliberately mount-only effects use useMountEffect (util/ui/hooks) and
+	// trigger-only effects use useEffectEvent, so real dependency misses stay visible.
 	'react-hooks/rules-of-hooks': 'error',
-	'react-hooks/exhaustive-deps': 'warn',
+	'react-hooks/exhaustive-deps': 'error',
 }
 
 export default tseslint.config(

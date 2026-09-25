@@ -16,6 +16,7 @@ import createLogger from '../../../util/infra/logging'
 import {currentPlatform, getDirectingTo,} from '../../../util/infra/platform'
 import {getLastVersion, toolboxVersion, versionNumber,} from '../../../util/infra/version'
 import {getModuleSettingAsync,} from '../../../util/persistence/settings'
+import {useMountEffect,} from '../../../util/ui/hooks'
 import {reloadPage,} from '../../../util/ui/navigation'
 import {type CounterState, subscribeCounters,} from '../../notifier/store'
 import {MySubredditsPopup,} from './MySubredditsPopup'
@@ -115,9 +116,9 @@ export function ModBar ({
 	// tracks the current page; on old Reddit full reloads remount the bar instead.
 	const [toggleConfig, setToggleConfig,] = useState(() => enableOldNewToggle ? getDirectingTo() : null)
 
-	useEffect(() => {
+	useMountEffect(() => {
 		onMount()
-	}, [],)
+	},)
 
 	useEffect(() => {
 		if (!enableOldNewToggle) { return }
@@ -131,7 +132,7 @@ export function ModBar ({
 	useEffect(() => {
 		document.body.classList.toggle('toolbox-modbar-shown', !hidden,)
 		setSetting('modbarHidden', hidden,)
-	}, [hidden,],)
+	}, [hidden, setSetting,],)
 
 	useEffect(() => () => {
 		document.body.classList.remove('toolbox-modbar-shown',)
@@ -146,7 +147,7 @@ export function ModBar ({
 		return () => el.remove()
 	}, [customCSS,],)
 
-	useEffect(() => {
+	useMountEffect(() => {
 		if (!enableModSubs) { return }
 		let cancelled = false
 		getModSubs(true,).then(async (rawSubsData,) => {
@@ -168,7 +169,7 @@ export function ModBar ({
 		return () => {
 			cancelled = true
 		}
-	}, [],)
+	},)
 
 	useEffect(() => {
 		getLastVersion().then((lastVersion,) => {

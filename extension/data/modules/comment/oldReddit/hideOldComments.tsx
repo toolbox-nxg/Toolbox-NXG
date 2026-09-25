@@ -9,6 +9,7 @@ import {provideLocation, renderAtLocation,} from '../../../dom/uiLocations'
 import {GeneralButton,} from '../../../shared/controls/GeneralButton'
 import createLogger from '../../../util/infra/logging'
 import {RedditPlatform,} from '../../../util/infra/platform'
+import {useMountEffect,} from '../../../util/ui/hooks'
 import {type CommentModuleAdapter,} from '../platformInterface'
 
 const log = createLogger('Comments',)
@@ -38,9 +39,9 @@ function HideOldButton ({
 	},)
 	const [hidden, setHidden,] = useState(false,)
 
-	useEffect(() => {
+	useMountEffect(() => {
 		onMount(setHidden,)
-	}, [],)
+	},)
 
 	// This listener is intentionally managed by React (useEffect + cleanup return) rather than
 	// the module lifecycle: it calls setNoHighlighting and setHidden, which are React state

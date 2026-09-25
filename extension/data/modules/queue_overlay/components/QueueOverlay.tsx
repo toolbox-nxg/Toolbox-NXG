@@ -1,5 +1,5 @@
 /** Queue overlay component that displays old-Reddit mod queues inside an iframe-based overlay window. */
-import {useEffect, useRef, useState,} from 'react'
+import {useCallback, useEffect, useRef, useState,} from 'react'
 
 import {Icon,} from '../../../shared/controls/Icon'
 import {Backdrop,} from '../../../shared/window/Backdrop'
@@ -7,6 +7,7 @@ import {Window,} from '../../../shared/window/Window'
 import store from '../../../store'
 import {startSpinner, stopSpinner,} from '../../../store/spinnerSlice'
 import {link,} from '../../../util/reddit/pageContext'
+import {useMountEffect,} from '../../../util/ui/hooks'
 import {mountReactInBody,} from '../../../util/ui/reactMount'
 
 import {QueueBaseUrls, QueueOverlayHandle, QueueType,} from '../schema'
@@ -85,10 +86,12 @@ function QueueOverlay ({initialType, initialSubreddit, baseUrls, onClose, instan
 	const tabStatesRef = useRef(tabStates,)
 	tabStatesRef.current = tabStates
 
-	function ensureTabLoaded (
+	// Stable across renders (reads only refs, the functional updater, and the fixed
+	// `baseUrls`), so the effects below can depend on it without re-running.
+	const ensureTabLoaded = useCallback((
 		type: QueueType,
 		options?: {forceReload?: boolean | undefined; subreddit?: string | undefined},
-	) {
+	) => {
 		const subreddit = options?.subreddit ?? subredditRef.current
 		setTabStates((prev,) => {
 			const existing = prev[type]
@@ -105,7 +108,7 @@ function QueueOverlay ({initialType, initialSubreddit, baseUrls, onClose, instan
 				},
 			}
 		},)
-	}
+	}, [baseUrls,],)
 
 	function reloadFromInput (type: QueueType,) {
 		const state = tabStates[type]
@@ -122,14 +125,14 @@ function QueueOverlay ({initialType, initialSubreddit, baseUrls, onClose, instan
 	}
 
 	// Mount: load initial tab.
-	useEffect(() => {
+	useMountEffect(() => {
 		ensureTabLoaded(initialType, {subreddit: initialSubreddit,},)
-	}, [],)
+	},)
 
 	// Tab switch: ensure target tab is loaded.
 	useEffect(() => {
 		ensureTabLoaded(activeType,)
-	}, [activeType,],)
+	}, [activeType, ensureTabLoaded,],)
 
 	// Expose imperative API to outside callers (e.g., modbar buttons).
 	useEffect(() => {
@@ -150,7 +153,7 @@ function QueueOverlay ({initialType, initialSubreddit, baseUrls, onClose, instan
 		return () => {
 			if (instanceRef) { instanceRef.current = null }
 		}
-	}, [instanceRef,],)
+	}, [instanceRef, ensureTabLoaded,],)
 
 	return (
 		<Backdrop onClickOutside={onClose}>

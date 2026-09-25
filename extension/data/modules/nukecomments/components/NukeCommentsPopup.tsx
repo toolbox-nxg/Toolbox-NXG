@@ -1,6 +1,6 @@
 /** Popup window that fetches, previews, and bulk-removes or bulk-locks a comment chain. */
 
-import {useEffect, useRef, useState,} from 'react'
+import {useRef, useState,} from 'react'
 
 import {getCommentThread,} from '../../../api/resources/comments'
 import {lock, removeThing,} from '../../../api/resources/things'
@@ -10,6 +10,7 @@ import store from '../../../store'
 import {negativeTextFeedback, neutralTextFeedback,} from '../../../store/feedback'
 import {startSpinner, stopSpinner,} from '../../../store/spinnerSlice'
 import createLogger from '../../../util/infra/logging'
+import {useMountEffect,} from '../../../util/ui/hooks'
 import {mountPopup,} from '../../../util/ui/reactMount'
 import {isTrainingCaptureActive,} from '../../shared/proposals/gateway'
 import type {ExecutionType,} from '../schema'
@@ -131,7 +132,7 @@ export function NukeCommentsPopup ({
 	const autoCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null,)
 
 	// Kick off the initial fetch + parse.
-	useEffect(() => {
+	useMountEffect(() => {
 		store.dispatch(startSpinner(),)
 		parseChain(commentID, postID, subreddit,).then(({removalChain, distinguishedComments,},) => {
 			store.dispatch(stopSpinner(),)
@@ -142,7 +143,7 @@ export function NukeCommentsPopup ({
 		return () => {
 			if (autoCloseTimer.current) { clearTimeout(autoCloseTimer.current,) }
 		}
-	}, [],)
+	},)
 
 	const totalFound = removalChain.length + distinguishedComments.length
 

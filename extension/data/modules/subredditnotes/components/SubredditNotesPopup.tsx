@@ -1,5 +1,5 @@
 /** Popup window for creating, viewing, and editing shared subreddit wiki-based notes. */
-import {ReactNode, useEffect, useMemo, useRef, useState,} from 'react'
+import {ReactNode, useEffect, useEffectEvent, useMemo, useRef, useState,} from 'react'
 
 import {ActionButton,} from '../../../shared/controls/ActionButton'
 import {ActionSelect,} from '../../../shared/controls/ActionSelect'
@@ -37,6 +37,8 @@ import {TagInput,} from './TagInput'
 const log = createLogger('PNotes',)
 const drawerWidthPx = 760
 const drawerPushMediaQuery = '(min-width: 1120px)'
+/** Stable fallback while mod subs load, so effects keyed on `modSubs` don't re-run every render. */
+const noModSubs: string[] = []
 
 /** Loading/error states for the subreddit notes popup. */
 type Mode = 'no-subreddit' | 'not-mod' | 'loading-list' | 'list-error' | 'ready'
@@ -84,7 +86,7 @@ export function SubredditNotesPopup ({
 	currentSubreddit,
 	onClose,
 }: SubredditNotesPopupProps,) {
-	const modSubs = (useFetched(getModSubs(false,),)) ?? []
+	const modSubs = (useFetched(getModSubs(false,),)) ?? noModSubs
 
 	// modSubs loads asynchronously and is empty on the first render, so the active subreddit can't
 	// be resolved at mount. Start with the configured notewiki and let the effect below switch to
@@ -199,9 +201,9 @@ export function SubredditNotesPopup ({
 		}
 	}
 
-	async function loadIndex (): Promise<void> {
-		setNotePrefix(await getNotePagePrefix(activeSubreddit,).catch(() => OLD_NOTE_PAGE_PREFIX),)
-		const {index: loaded, bootstrapped,} = await loadNoteIndex(activeSubreddit,)
+	async function loadIndex (subreddit: string,): Promise<void> {
+		setNotePrefix(await getNotePagePrefix(subreddit,).catch(() => OLD_NOTE_PAGE_PREFIX),)
+		const {index: loaded, bootstrapped,} = await loadNoteIndex(subreddit,)
 		setIndex(loaded,)
 		setMode('ready',)
 		if (bootstrapped) {
@@ -226,7 +228,11 @@ export function SubredditNotesPopup ({
 		} else if (notewiki === '') {
 			setActiveSubreddit(modSubs[0]!,)
 		}
-	}, [modSubs.length, defaultToCurrentSub, currentSubreddit, notewiki,],)
+	}, [modSubs, defaultToCurrentSub, currentSubreddit, notewiki,],)
+
+	// Effect event: the effect below re-runs only when the subreddit changes. The subreddit is
+	// passed explicitly so a call landing after the await can't read a newer one.
+	const loadIndexFor = useEffectEvent(loadIndex,)
 
 	// Load note index whenever the active subreddit changes
 	useEffect(() => {
@@ -247,7 +253,7 @@ export function SubredditNotesPopup ({
 			}
 			setMode('loading-list',)
 			try {
-				await loadIndex()
+				await loadIndexFor(activeSubreddit,)
 			} catch (error) {
 				log.warn('Error loading subreddit notes:', error,)
 				negativeTextFeedback('Could not load subreddit notes, try again.',)
@@ -260,9 +266,13 @@ export function SubredditNotesPopup ({
 		getCurrentUser().then(setCurrentUser,).catch(() => setCurrentUser('unknown',))
 	}, [],)
 
+	// Reset the title field only when a different note becomes active, not when the
+	// active note's saved title changes underneath an edit in progress.
+	const resetEditingTitle = useEffectEvent(() => setEditingTitle(activeNote?.title ?? '',))
+	const activeNoteSlug = activeNote?.slug
 	useEffect(() => {
-		setEditingTitle(activeNote?.title ?? '',)
-	}, [activeNote?.slug,],)
+		resetEditingTitle()
+	}, [activeNoteSlug,],)
 
 	const visibleNotes = useMemo(() =>
 		filterAndSortNotes(index.notes, {

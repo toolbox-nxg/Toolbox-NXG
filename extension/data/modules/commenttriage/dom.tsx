@@ -2,7 +2,7 @@
  * Comment Triage UI component and handler factory: scores, annotates, sorts, and collapses
  * comments by controversy and score to surface the most important comments first.
  */
-import {useEffect, useState,} from 'react'
+import {useState,} from 'react'
 
 import {getCurrentUser,} from '../../api/resources/me'
 import {renderAtLocation,} from '../../dom/uiLocations'
@@ -11,6 +11,7 @@ import {GeneralButton,} from '../../shared/controls/GeneralButton'
 import {Icon,} from '../../shared/controls/Icon'
 import {ModbarButton,} from '../../shared/controls/ModbarButton'
 import {ShadowPortal,} from '../../shared/window/ShadowPortal'
+import {useMountEffect,} from '../../util/ui/hooks'
 import type {CommentTriageAdapter,} from './platformInterface'
 import type {CommentTriageSettings,} from './settings'
 
@@ -45,9 +46,9 @@ function CommentTriageDrawer ({highlightAuto, onStart, onSort, onCollapse, onExp
 	const [started, setStarted,] = useState(highlightAuto,)
 	const [collapsed, setCollapsed,] = useState(false,)
 
-	useEffect(() => {
+	useMountEffect(() => {
 		if (highlightAuto) { onStart() }
-	}, [],)
+	},)
 
 	const handleStart = () => {
 		setStarted(true,)

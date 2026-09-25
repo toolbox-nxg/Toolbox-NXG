@@ -1,5 +1,5 @@
 /** One listing tab (overview/submitted/comments) of the profile overlay: fetching, filtering, search, and rendering. */
-import {useEffect, useRef, useState,} from 'react'
+import {useEffect, useEffectEvent, useRef, useState,} from 'react'
 
 import {getModSubs,} from '../../../api/resources/modSubs'
 import {BanState, getBanState,} from '../../../api/resources/relationships'
@@ -286,8 +286,25 @@ export function ListingTab ({
 		)
 	}
 
+	// Effect events: each effect below re-runs only on its listed triggers, but calls
+	// the latest render's helpers (which read current state and props).
+	const onFiltersChanged = useEffectEvent(applyFilters,)
+	const onRepostsChanged = useEffectEvent(applyReposts,)
+	const onAppendFullHistory = useEffectEvent(() => void appendItems(getCachedListingItems(state.sort,),))
+	const onInitialLoad = useEffectEvent(() => {
+		if (state.searchActive) {
+			void runSearch({
+				subreddit: state.searchSubreddit,
+				content: state.searchContent,
+				regex: state.searchRegex,
+			},)
+		} else {
+			loadPage(undefined,)
+		}
+	},)
+
 	useEffect(() => {
-		applyFilters()
+		onFiltersChanged()
 	}, [filterModThings, hideModActions, modSubsList,],)
 
 	// When repost highlighting is on, render the tab's *entire* fetched history into
@@ -297,12 +314,12 @@ export function ListingTab ({
 	// only appends the items that are not already rendered.
 	useEffect(() => {
 		if (active && highlightReposts && repostData && state.loaded && !state.searchActive) {
-			void appendItems(getCachedListingItems(state.sort,),)
+			onAppendFullHistory()
 		}
 	}, [active, highlightReposts, repostData, state.loaded, state.searchActive, state.sort,],)
 
 	useEffect(() => {
-		applyReposts()
+		onRepostsChanged()
 	}, [highlightReposts, repostData, activeRepostGroup, showOnlyReposts,],)
 
 	// Badges are injected into the DOM (not React), so use a single delegated
@@ -326,15 +343,7 @@ export function ListingTab ({
 	// Initial load when the tab becomes active
 	useEffect(() => {
 		if (!active || state.loaded) { return }
-		if (state.searchActive) {
-			void runSearch({
-				subreddit: state.searchSubreddit,
-				content: state.searchContent,
-				regex: state.searchRegex,
-			},)
-		} else {
-			loadPage(undefined,)
-		}
+		onInitialLoad()
 	}, [active, state.loaded, state.searchActive,],)
 
 	function loadPage (after: string | undefined,) {

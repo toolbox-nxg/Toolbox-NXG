@@ -1,5 +1,4 @@
 /** DOM-level handler factories for the Comments module: keyword highlighting, flat view, and context popups. */
-import {useEffect,} from 'react'
 import {getCommentContext,} from '../../api/resources/comments'
 import {isModSub,} from '../../api/resources/modSubs'
 import type {CommentData, RedditMoreChildren, RedditThing,} from '../../api/resources/things'
@@ -21,6 +20,7 @@ import {
 import {getThingInfo,} from '../../util/reddit/thingInfo'
 import {drawPosition,} from '../../util/ui/drawPosition'
 import {highlight,} from '../../util/ui/highlight'
+import {useMountEffect,} from '../../util/ui/hooks'
 import {showContextPopup,} from './components/ContextPopup'
 import {showFlatViewOverlay,} from './components/FlatViewOverlay'
 
@@ -63,9 +63,9 @@ function HighlightEffect ({target, subreddit, highlighted,}: {
 	subreddit: string
 	highlighted: string[]
 },) {
-	useEffect(() => {
+	useMountEffect(() => {
 		void applyHighlight(target, subreddit, highlighted,)
-	}, [],)
+	},)
 	return null
 }
 

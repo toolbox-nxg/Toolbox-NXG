@@ -4,6 +4,7 @@ import {useCallback, useEffect, useLayoutEffect, useRef, useState,} from 'react'
 
 import {GeneralButton,} from '../../../shared/controls/GeneralButton'
 import {reactAlert,} from '../../../shared/controls/ReactAlert'
+import {useMountEffect,} from '../../../util/ui/hooks'
 import {classes,} from '../../../util/ui/reactMount'
 
 import css from './ModtoolsToolbar.module.css'
@@ -345,7 +346,7 @@ export function ModtoolsToolbar ({
 	}, [autoRefresh, resetAutoRefreshInterval, runAutoRefreshTick,],)
 
 	// Expose imperative controls to parent
-	useEffect(() => {
+	useMountEffect(() => {
 		onMount({
 			setSelectAll: (checked, indeterminate,) => {
 				setSelectAllChecked(checked,)
@@ -355,7 +356,7 @@ export function ModtoolsToolbar ({
 			setHiddenCount,
 			triggerAutoRefresh,
 		},)
-	}, [],)
+	},)
 
 	// Declared above the handlers so handleActionClick can guard on the selection without
 	// tripping no-use-before-define.

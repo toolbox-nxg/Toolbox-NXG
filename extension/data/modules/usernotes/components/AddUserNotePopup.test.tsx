@@ -17,7 +17,8 @@ vi.mock('../../../util/ui/reactMount', () => ({
 	classes: (...parts: Array<string | false | null | undefined>) => parts.filter(Boolean,).join(' ',),
 	mountPopup: vi.fn(),
 }),)
-vi.mock('../../../util/ui/hooks', () => ({
+vi.mock('../../../util/ui/hooks', async (importOriginal,) => ({
+	...(await importOriginal<typeof import('../../../util/ui/hooks')>()),
 	useSetting: (_moduleName: string, settingName: keyof typeof settingValues, defaultValue: unknown,) =>
 		settingValues[settingName] ?? defaultValue,
 }),)

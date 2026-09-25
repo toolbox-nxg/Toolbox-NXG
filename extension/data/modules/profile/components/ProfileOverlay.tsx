@@ -6,6 +6,7 @@ import {FullPageDialog,} from '../../../shared/window/FullPageDialog'
 import {TabBar,} from '../../../shared/window/TabBar'
 import {negativeTextFeedback, neutralTextFeedback, positiveTextFeedback,} from '../../../store/feedback'
 import createLogger from '../../../util/infra/logging'
+import {useMountEffect,} from '../../../util/ui/hooks'
 import {mountPopup,} from '../../../util/ui/reactMount'
 import {ListingTab,} from './ProfileListingTab'
 import {
@@ -114,7 +115,7 @@ function ProfileOverlay ({user, initialListing, initialOptions, subredditColor, 
 	}
 
 	// Apply search/filter params from initialOptions on mount
-	useEffect(() => {
+	useMountEffect(() => {
 		if (initialOptions?.search) {
 			updateTab(initialListing, {
 				searchActive: true,
@@ -122,7 +123,7 @@ function ProfileOverlay ({user, initialListing, initialOptions, subredditColor, 
 				searchContent: initialOptions.content || '',
 			},)
 		}
-	}, [],)
+	},)
 
 	return (
 		<FullPageDialog title={`Toolbox profile for /u/${user}`} className={css.window} onClose={onClose}>

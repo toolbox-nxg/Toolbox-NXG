@@ -5,6 +5,7 @@ import {useEffect, useRef, useState,} from 'react'
 import {ActionButton,} from '../../../shared/controls/ActionButton'
 import {Window,} from '../../../shared/window/Window'
 import {purifyHTML,} from '../../../util/data/purify'
+import {useMountEffect,} from '../../../util/ui/hooks'
 import {getMarkdownParser,} from '../../../util/ui/markdown'
 import {mountPopup,} from '../../../util/ui/reactMount'
 
@@ -60,12 +61,12 @@ export function MacroEditPopup ({
 			if (debounceTimer.current) { clearTimeout(debounceTimer.current,) }
 		}
 	}, [comment, showMacroPreview,],)
-	// Initial render of preview
-	useEffect(() => {
+	// Render the initial preview immediately rather than after the first debounce
+	useMountEffect(() => {
 		if (showMacroPreview) {
 			setPreviewHtml(purifyHTML(parser.current.render(initialComment,),),)
 		}
-	}, [showMacroPreview,],)
+	},)
 
 	const handlePost = async () => {
 		setPosting(true,)

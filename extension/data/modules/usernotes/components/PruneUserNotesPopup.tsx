@@ -89,13 +89,14 @@ export function PruneUserNotesPanel ({
 		options,
 		colors,
 	],)
+	const sampleRows = preview.sampleRows
 	const previewUsers = useMemo(() => {
-		const grouped = new Map<string, typeof preview.sampleRows>()
-		for (const row of preview.sampleRows) {
+		const grouped = new Map<string, typeof sampleRows>()
+		for (const row of sampleRows) {
 			grouped.set(row.user, [...(grouped.get(row.user,) ?? []), row,],)
 		}
 		return [...grouped.entries(),].map(([name, rows,],) => ({name, rows,}))
-	}, [preview.sampleRows,],)
+	}, [sampleRows,],)
 	const hasStatusPrune = byDeleted || bySuspended || byInactive
 	const canConfirm = byAge || hasStatusPrune
 

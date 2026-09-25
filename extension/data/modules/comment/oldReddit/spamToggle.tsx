@@ -2,7 +2,7 @@
  * Scans comment threads for removed/spammed comments, injects approve/spam/remove action buttons,
  * and adds a modbar toggle that shows or hides removed comments.
  */
-import {useEffect, useState,} from 'react'
+import {useState,} from 'react'
 
 import {renderAtLocation,} from '../../../dom/uiLocations'
 import {createLifecycle,} from '../../../framework/lifecycle'
@@ -10,6 +10,7 @@ import {Icon,} from '../../../shared/controls/Icon'
 import {forEachChunkedDynamic,} from '../../../util/data/iter'
 import createLogger from '../../../util/infra/logging'
 import {getThingInfo,} from '../../../util/reddit/thingInfo'
+import {useMountEffect,} from '../../../util/ui/hooks'
 import {modbarExists,} from '../../modbar'
 import {type CommentModuleAdapter,} from '../platformInterface'
 
@@ -31,9 +32,9 @@ interface SpamToggleButtonProps {
 function SpamToggleButton ({onMount,}: SpamToggleButtonProps,) {
 	const [count, setCount,] = useState(0,)
 
-	useEffect(() => {
+	useMountEffect(() => {
 		onMount(setCount,)
-	}, [],)
+	},)
 
 	if (count < 1) { return null }
 

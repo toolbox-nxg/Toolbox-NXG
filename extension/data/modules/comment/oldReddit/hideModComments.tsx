@@ -1,5 +1,5 @@
 /** Registers a button in the comment-thread controls area that hides all moderator-action comments on the page. */
-import {useEffect, useState,} from 'react'
+import {useEffect, useEffectEvent, useState,} from 'react'
 
 import {renderAtLocation,} from '../../../dom/uiLocations'
 import {GeneralButton,} from '../../../shared/controls/GeneralButton'
@@ -50,12 +50,13 @@ function HideModCommentsButton ({adapter,}: HideModCommentsButtonProps,) {
 		}
 		window.addEventListener('TBNewThings', check,)
 		return () => window.removeEventListener('TBNewThings', check,)
-	}, [hasModActions,],)
+	}, [hasModActions, adapter,],)
 
 	// Re-hide mod actions as new things load after the button is clicked.
+	const onNewThings = useEffectEvent(hideActions,)
 	useEffect(() => {
 		if (!hidden) { return }
-		const apply = () => hideActions()
+		const apply = () => onNewThings()
 		window.addEventListener('TBNewThings', apply,)
 		return () => window.removeEventListener('TBNewThings', apply,)
 	}, [hidden,],)
