@@ -52,7 +52,7 @@
         "@uiw/codemirror-themes-all": "^4.25.10",
         "async-mutex": "^0.5.0",
         "codemirror": "^6.0.2",
-        "dompurify": "^3.4.13",
+        "dompurify": "^3.4.17",
         "framer-motion": "^13.4.0",
         "iter-ops": "^3.5.0",
         "pako": "^3.0.0",
@@ -85,7 +85,7 @@
         "eslint-plugin-react": "^7.37.5",
         "eslint-plugin-react-hooks": "^7.1.1",
         "globals": "^17.12.0",
-        "happy-dom": "^20.11.0",
+        "happy-dom": "^21.0.4",
         "patch-package": "^8.0.1",
         "rollup": "^4.62.2",
         "rollup-plugin-copy": "^3.5.0",
@@ -96,7 +96,7 @@
         "typedoc-plugin-markdown": "^4.6.0",
         "typescript": "^6.0.3",
         "typescript-eslint": "^8.70.1",
-        "vitest": "^4.1.8"
+        "vitest": "^4.1.12"
     },
     "optionalDependencies": {
         "@rolldown/binding-linux-x64-gnu": "^1.2.0"
