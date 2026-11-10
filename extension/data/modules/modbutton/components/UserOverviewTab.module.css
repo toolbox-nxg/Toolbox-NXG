@@ -13,6 +13,17 @@
 	gap: var(--toolbox-sp-6);
 }
 
+.flairRow {
+	margin: 0;
+	display: flex;
+	align-items: baseline;
+	gap: var(--toolbox-sp-4);
+}
+
+.flairLabel {
+	font-weight: bold;
+}
+
 .section {
 	border-bottom: 1px solid var(--toolbox-input-border);
 	padding-bottom: var(--toolbox-sp-8);

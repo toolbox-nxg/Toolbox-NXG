@@ -1128,6 +1128,7 @@ export function ModButtonPopup ({
 								user={user}
 								defaultSub={activeSub}
 								modSubs={modSubs}
+								subStatuses={subStatuses}
 							/>
 						)
 						: null,

@@ -1,26 +1,40 @@
-/** User Overview tab for the ModButtonPopup: account info, flair, bans, and removed comments. */
+/** User Overview tab for the ModButtonPopup: account info, flair, bans, and removed content. */
 
-import {useEffect, useState,} from 'react'
+import {useEffect, useRef, useState,} from 'react'
 
 import {getFlairSelector,} from '../../../api/resources/flair'
 import type {FlairSelectorResponse,} from '../../../api/resources/flair'
 import {getAllModNotes,} from '../../../api/resources/modnotes'
 import {getInfoBulk,} from '../../../api/resources/things'
-import type {CommentData,} from '../../../api/resources/things'
 import {aboutUser,} from '../../../api/resources/users'
 import type {UserAbout,} from '../../../api/resources/users'
 import {RelativeTime,} from '../../../shared/controls/RelativeTime'
 import {SelectInput,} from '../../../shared/controls/SelectInput'
 import {link,} from '../../../util/reddit/pageContext'
 
+import type {SubStatus,} from '../schema'
 import {
 	classifyCommentBody,
-	formatBanDate,
+	createNotesAccumulator,
+	finalizeNotes,
+	formatShortDate,
 	type ModNotesResult,
-	processModNotes,
+	type RemovalEntry,
+	processNote,
 	truncateText,
 } from './UserOverviewTab.helpers'
 import css from './UserOverviewTab.module.css'
+
+/** Fields needed from the Reddit API for a removed comment or post preview. */
+type PreviewData = {
+	name: string
+	created_utc: number
+	author: string
+	banned_by?: string | boolean | null
+	permalink: string
+	body?: string
+	title?: string
+}
 
 /** Props for the UserOverviewTab component. */
 interface Props {
@@ -29,13 +43,15 @@ interface Props {
 	defaultSub: string
 	/** All subreddits the current user moderates, for the sub selector dropdown. */
 	modSubs: string[]
+	/** Live per-subreddit status map from the popup, used to derive current ban state. */
+	subStatuses: Map<string, SubStatus>
 }
 
 /**
- * Renders an overview of a user: account info, current flair, ban history, and recent removed comments.
+ * Renders an overview of a user: account info, current flair, ban history, and recent removed content.
  * @param props Component props.
  */
-export function UserOverviewTab ({user, defaultSub, modSubs,}: Props,) {
+export function UserOverviewTab ({user, defaultSub, modSubs, subStatuses,}: Props,) {
 	const [selectedSub, setSelectedSub,] = useState(defaultSub,)
 
 	// User info (global, doesn't change with sub)
@@ -52,19 +68,23 @@ export function UserOverviewTab ({user, defaultSub, modSubs,}: Props,) {
 	const [notesLoading, setNotesLoading,] = useState(true,)
 	const [notesError, setNotesError,] = useState<string | null>(null,)
 
-	// Comment preview state
-	const [commentPreviews, setCommentPreviews,] = useState<
+	// Content preview state (comments and posts combined, split in render)
+	const [contentPreviews, setContentPreviews,] = useState<
 		{
 			fullname: string
 			date: Date
 			body: string | undefined
+			title: string | undefined
 			author: string
-			spam: boolean | undefined
 			bannedBy: string | boolean | null | undefined
 			permalink: string
+			contentType: 'comment' | 'post'
 		}[]
 	>([],)
 	const [previewsLoading, setPreviewsLoading,] = useState(false,)
+
+	// Per-subreddit notes cache: avoids re-fetching when switching back to a sub
+	const notesCacheRef = useRef(new Map<string, ModNotesResult>(),)
 
 	// Effect 1 — user info (runs once per user)
 	useEffect(() => {
@@ -87,15 +107,22 @@ export function UserOverviewTab ({user, defaultSub, modSubs,}: Props,) {
 	useEffect(() => {
 		let cancelled = false
 
-		// Reset sub-scoped state to loading
 		setFlairCurrent(null,)
 		setFlairLoading(true,)
 		setFlairError(null,)
-		setNotesResult(null,)
-		setNotesLoading(true,)
 		setNotesError(null,)
-		setCommentPreviews([],)
+		setContentPreviews([],)
 		setPreviewsLoading(false,)
+
+		// Use cached notes immediately if available; otherwise start loading
+		const cached = notesCacheRef.current.get(selectedSub,)
+		if (cached) {
+			setNotesResult(cached,)
+			setNotesLoading(false,)
+		} else {
+			setNotesResult(null,)
+			setNotesLoading(true,)
+		}
 
 		// Fire flair fetch
 		getFlairSelector(selectedSub, user,).then((result,) => {
@@ -108,34 +135,45 @@ export function UserOverviewTab ({user, defaultSub, modSubs,}: Props,) {
 			setFlairLoading(false,)
 		},)
 
-		// Fire mod notes IIFE
+		// Fire notes + previews IIFE
 		void (async () => {
 			try {
-				const allNotes = []
-				for await (const note of getAllModNotes(selectedSub, user,)) {
+				let result: ModNotesResult
+				if (cached) {
+					result = cached
+				} else {
+					// Stream notes one-at-a-time (no accumulation), break once 3 removals found
+					const acc = createNotesAccumulator()
+					for await (const note of getAllModNotes(selectedSub, user, 'MOD_ACTION',)) {
+						if (cancelled) { return }
+						processNote(note, acc,)
+						if (acc.recentRemovals.length >= 3) { break }
+					}
 					if (cancelled) { return }
-					allNotes.push(note,)
+					result = finalizeNotes(acc,)
+					notesCacheRef.current.set(selectedSub, result,)
+					setNotesResult(result,)
+					setNotesLoading(false,)
 				}
-				if (cancelled) { return }
-
-				const result = processModNotes(allNotes,)
-				setNotesResult(result,)
-				setNotesLoading(false,)
 
 				const fullnames = result.recentRemovals
-					.filter((r,) => r.redditId !== null)
-					.map((r,) => r.redditId!)
+					.filter((r,): r is RemovalEntry & {redditId: string} => r.redditId !== null)
+					.map((r,) => r.redditId)
 
 				if (fullnames.length > 0 && !cancelled) {
 					setPreviewsLoading(true,)
-					const things = await getInfoBulk<CommentData>(fullnames,)
+					const things = await getInfoBulk<PreviewData>(fullnames,)
 					if (cancelled) { return }
 
-					// Build a date map from recentRemovals
 					const dateMap = new Map<string, Date>(
 						result.recentRemovals
-							.filter((r,) => r.redditId !== null)
-							.map((r,) => [r.redditId!, r.date,] as [string, Date,]),
+							.filter((r,): r is RemovalEntry & {redditId: string} => r.redditId !== null)
+							.map((r,) => [r.redditId, r.date,] as [string, Date,]),
+					)
+					const contentTypeMap = new Map<string, 'comment' | 'post'>(
+						result.recentRemovals
+							.filter((r,): r is RemovalEntry & {redditId: string} => r.redditId !== null)
+							.map((r,) => [r.redditId, r.contentType,] as [string, 'comment' | 'post',]),
 					)
 
 					const previews = things
@@ -143,14 +181,15 @@ export function UserOverviewTab ({user, defaultSub, modSubs,}: Props,) {
 							fullname: thing.data.name,
 							date: dateMap.get(thing.data.name,) ?? new Date(thing.data.created_utc * 1000,),
 							body: thing.data.body,
+							title: thing.data.title,
 							author: thing.data.author,
-							spam: thing.data.spam,
 							bannedBy: thing.data.banned_by,
 							permalink: thing.data.permalink,
+							contentType: contentTypeMap.get(thing.data.name,) ?? 'comment' as const,
 						}))
 						.sort((a, b,) => b.date.getTime() - a.date.getTime())
 
-					setCommentPreviews(previews,)
+					setContentPreviews(previews,)
 					setPreviewsLoading(false,)
 				}
 			} catch (error: unknown) {
@@ -189,7 +228,7 @@ export function UserOverviewTab ({user, defaultSub, modSubs,}: Props,) {
 							<span className={css.accountMeta}>
 								{'· Account created '}
 								<time dateTime={new Date(userInfo.created_utc * 1000,).toISOString()}>
-									{formatBanDate(new Date(userInfo.created_utc * 1000,),)}
+									{formatShortDate(new Date(userInfo.created_utc * 1000,),)}
 								</time>
 							</span>
 							{userInfo.is_suspended && <span className={css.suspendedBadge}>SUSPENDED</span>}
@@ -200,105 +239,150 @@ export function UserOverviewTab ({user, defaultSub, modSubs,}: Props,) {
 					: <p className={css.loadingText}>Loading…</p>}
 			</section>
 
-			{/* Flair */}
+			{/* Flair — inline */}
 			<section className={css.section}>
-				<h3 className={css.sectionHeading}>Flair</h3>
-				{flairLoading
-					? <p className={css.loadingText}>Loading…</p>
-					: flairError
-					? <p className={css.errorText}>{flairError}</p>
-					: flairCurrent?.flair_text
-					? <p>{flairCurrent.flair_text}</p>
-					: <p className={css.mutedText}>No flair set</p>}
+				<p className={css.flairRow}>
+					<span className={css.flairLabel}>Flair:</span>
+					{flairLoading
+						? <span className={css.loadingText}>Loading…</span>
+						: flairError
+						? <span className={css.errorText}>{flairError}</span>
+						: flairCurrent?.flair_text
+						? flairCurrent.flair_text
+						: <span className={css.mutedText}>Not set</span>}
+				</p>
 			</section>
 
-			{/* Bans */}
-			<section className={css.section}>
-				<h3 className={css.sectionHeading}>
-					Bans
-					{notesResult?.currentlyBanned && <span className={css.currentBanBadge}>Currently banned</span>}
-				</h3>
-				{notesLoading
-					? <p className={css.loadingText}>Loading…</p>
-					: notesError
-					? <p className={css.errorText}>{notesError}</p>
-					: notesResult!.bans.length === 0
-					? <p className={css.mutedText}>Never banned</p>
-					: (
-						<>
-							<p className={css.banCount}>
-								Banned {notesResult!.bans.length} time{notesResult!.bans.length !== 1 ? 's' : ''}
-							</p>
-							<table className={css.banTable}>
-								<tbody>
-									{notesResult!.bans.map((ban,) => (
-										<tr key={ban.id}>
-											<td className={css.banDuration}>{ban.duration}</td>
-											<td className={css.banDate}>{formatBanDate(ban.date,)}</td>
-											<td>
-												<a href={link(`/user/${encodeURIComponent(ban.moderator,)}`,)}>
-													/u/{ban.moderator}
-												</a>
-											</td>
-											{ban.reason && <td className={css.banReason}>{ban.reason}</td>}
-										</tr>
-									))}
-								</tbody>
-							</table>
-						</>
-					)}
-			</section>
+			{/* Bans + Removed Comments + Removed Posts — all sourced from notesResult */}
+			{(() => {
+				if (notesLoading) { return <p className={css.loadingText}>Loading modlog…</p> }
+				if (notesError) { return <p className={css.errorText}>{notesError}</p> }
+				const notes = notesResult!
+				const commentPreviews = contentPreviews.filter((p,) => p.contentType === 'comment')
+				const postPreviews = contentPreviews.filter((p,) => p.contentType === 'post')
+				const commentRemovals = notes.recentRemovals.filter((r,) => r.contentType === 'comment')
+				const postRemovals = notes.recentRemovals.filter((r,) => r.contentType === 'post')
+				return (
+					<>
+						{/* Bans */}
+						<section className={css.section}>
+							<h3 className={css.sectionHeading}>
+								Bans
+								{subStatuses.get(selectedSub,)?.banned && (
+									<span className={css.currentBanBadge}>Currently banned</span>
+								)}
+							</h3>
+							{notes.bans.length === 0
+								? <p className={css.mutedText}>No Bans in User Modlog</p>
+								: (
+									<>
+										<p className={css.banCount}>
+											Banned {notes.bans.length} time{notes.bans.length !== 1 ? 's' : ''}
+										</p>
+										<table className={css.banTable}>
+											<tbody>
+												{notes.bans.map((ban,) => (
+													<tr key={ban.id}>
+														<td className={css.banDuration}>{ban.duration}</td>
+														<td className={css.banDate}>{formatShortDate(ban.date,)}</td>
+														<td>
+															<a href={link(`/user/${encodeURIComponent(ban.moderator,)}`,)}>
+																/u/{ban.moderator}
+															</a>
+														</td>
+														{ban.reason && <td className={css.banReason}>{ban.reason}</td>}
+													</tr>
+												),)}
+											</tbody>
+										</table>
+									</>
+								)}
+						</section>
 
-			{/* Removed comments */}
-			<section className={css.section}>
-				<h3 className={css.sectionHeading}>Removed Comments</h3>
-				{notesLoading
-					? <p className={css.loadingText}>Loading…</p>
-					: notesError
-					? <p className={css.errorText}>{notesError}</p>
-					: (
-						<>
-							<p className={css.removalCount}>
-								{notesResult!.totalRemovalCount === 0
-									? 'No removed comments'
-									: `${notesResult!.totalRemovalCount} removed`}
-							</p>
-							{previewsLoading && <p className={css.loadingText}>Loading previews…</p>}
-							{commentPreviews.length > 0 && (
-								<table className={css.previewTable}>
-									<tbody>
-										{commentPreviews.map((preview,) => {
-											const classification = classifyCommentBody({
-												body: preview.body,
-												author: preview.author,
-												spam: preview.spam,
-												bannedBy: preview.bannedBy,
-											},)
-											return (
-												<tr key={preview.fullname}>
-													<td className={css.previewDate}>
-														<RelativeTime date={preview.date} />
-													</td>
-													<td className={css.previewBody}>
-														{classification === 'deleted'
-															? <span className={css.mutedText}>[deleted by user]</span>
-															: classification === 'removed-by-reddit'
-															? <span className={css.mutedText}>[removed by Reddit]</span>
-															: (
-																<a href={link(preview.permalink,)}>
-																	&quot;{truncateText(preview.body ?? '', 300,)}&quot;
-																</a>
-															)}
-													</td>
-												</tr>
-											)
-										},)}
-									</tbody>
-								</table>
-							)}
-						</>
-					)}
-			</section>
+						{/* Removed Comments */}
+						<section className={css.section}>
+							<h3 className={css.sectionHeading}>Removed Comments</h3>
+							{commentRemovals.length === 0
+								? <p className={css.mutedText}>No removed comments in modlog</p>
+								: (
+									<>
+										{previewsLoading && <p className={css.loadingText}>Loading previews…</p>}
+										{commentPreviews.length > 0 && (
+											<table className={css.previewTable}>
+												<tbody>
+													{commentPreviews.map((preview,) => {
+														const classification = classifyCommentBody({
+															body: preview.body,
+															author: preview.author,
+															bannedBy: preview.bannedBy,
+														},)
+														return (
+															<tr key={preview.fullname}>
+																<td className={css.previewDate}>
+																	<RelativeTime date={preview.date} />
+																</td>
+																<td className={css.previewBody}>
+																	<a href={link(preview.permalink,)}>
+																		{classification === 'deleted'
+																			? <span className={css.mutedText}>[deleted by user]</span>
+																			: classification === 'removed-by-reddit'
+																			? <span className={css.mutedText}>[removed by Reddit]</span>
+																			: `"${truncateText(preview.body ?? '', 300,)}"`}
+																	</a>
+																</td>
+															</tr>
+														)
+													},)}
+												</tbody>
+											</table>
+										)}
+									</>
+								)}
+						</section>
+
+						{/* Removed Posts */}
+						<section className={css.section}>
+							<h3 className={css.sectionHeading}>Removed Posts</h3>
+							{postRemovals.length === 0
+								? <p className={css.mutedText}>No removed posts in modlog</p>
+								: (
+									<>
+										{previewsLoading && <p className={css.loadingText}>Loading previews…</p>}
+										{postPreviews.length > 0 && (
+											<table className={css.previewTable}>
+												<tbody>
+													{postPreviews.map((preview,) => {
+														const classification = classifyCommentBody({
+															body: preview.title,
+															author: preview.author,
+															bannedBy: preview.bannedBy,
+														},)
+														return (
+															<tr key={preview.fullname}>
+																<td className={css.previewDate}>
+																	<RelativeTime date={preview.date} />
+																</td>
+																<td className={css.previewBody}>
+																	<a href={link(preview.permalink,)}>
+																		{classification === 'deleted'
+																			? <span className={css.mutedText}>[deleted by user]</span>
+																			: classification === 'removed-by-reddit'
+																			? <span className={css.mutedText}>[removed by Reddit]</span>
+																			: `"${truncateText(preview.title ?? '', 300,)}"`}
+																	</a>
+																</td>
+															</tr>
+														)
+													},)}
+												</tbody>
+											</table>
+										)}
+									</>
+								)}
+						</section>
+					</>
+				)
+			})()}
 		</div>
 	)
 }
