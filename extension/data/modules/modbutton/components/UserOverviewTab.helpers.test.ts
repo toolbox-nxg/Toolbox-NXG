@@ -3,7 +3,7 @@
 import {describe, expect, it,} from 'vitest'
 
 import type {ModNote,} from '../../shared/modnotes/schema'
-import {classifyCommentBody, formatBanDate, processModNotes, truncateText,} from './UserOverviewTab.helpers'
+import {classifyCommentBody, formatShortDate, processModNotes, truncateText,} from './UserOverviewTab.helpers'
 
 function makeModNote (overrides: Partial<ModNote> = {},): ModNote {
 	return {
@@ -119,53 +119,112 @@ describe('processModNotes', () => {
 		expect(result.bans,).toEqual([],)
 		expect(result.currentlyBanned,).toBe(false,)
 	})
+
+	it('counts removelink as a post removal', () => {
+		const note = makeModNote({
+			mod_action_data: {action: 'removelink', details: null, description: null, reddit_id: 't3_xyz',},
+		},)
+		const result = processModNotes([note,],)
+		expect(result.totalRemovalCount,).toBe(1,)
+		expect(result.recentRemovals[0]!.contentType,).toBe('post',)
+	})
+
+	it('counts removecomment as a comment removal', () => {
+		const note = makeModNote({
+			mod_action_data: {action: 'removecomment', details: null, description: null, reddit_id: 't1_abc',},
+		},)
+		const result = processModNotes([note,],)
+		expect(result.recentRemovals[0]!.contentType,).toBe('comment',)
+	})
+
+	it('does not count a removal whose terminal state is approved', () => {
+		// approval is newer (appears first in newest-first list)
+		const approve = makeModNote({
+			id: 'approve_1',
+			created_at: 1700000100,
+			mod_action_data: {action: 'approvecomment', details: null, description: null, reddit_id: 't1_abc',},
+		},)
+		const remove = makeModNote({
+			id: 'remove_1',
+			created_at: 1700000000,
+			mod_action_data: {action: 'removecomment', details: null, description: null, reddit_id: 't1_abc',},
+		},)
+		const result = processModNotes([approve, remove,],)
+		expect(result.totalRemovalCount,).toBe(0,)
+		expect(result.recentRemovals.length,).toBe(0,)
+	})
+
+	it('counts a removal that was approved then re-removed', () => {
+		// re-removal is newest (appears first)
+		const removeAgain = makeModNote({
+			id: 'remove_2',
+			created_at: 1700000200,
+			mod_action_data: {action: 'removecomment', details: null, description: null, reddit_id: 't1_abc',},
+		},)
+		const approve = makeModNote({
+			id: 'approve_1',
+			created_at: 1700000100,
+			mod_action_data: {action: 'approvecomment', details: null, description: null, reddit_id: 't1_abc',},
+		},)
+		const remove = makeModNote({
+			id: 'remove_1',
+			created_at: 1700000000,
+			mod_action_data: {action: 'removecomment', details: null, description: null, reddit_id: 't1_abc',},
+		},)
+		const result = processModNotes([removeAgain, approve, remove,],)
+		expect(result.totalRemovalCount,).toBe(1,)
+		expect(result.recentRemovals.length,).toBe(1,)
+	})
+
+	it('does not count an approvelink whose terminal state is approved', () => {
+		const approve = makeModNote({
+			id: 'approve_1',
+			created_at: 1700000100,
+			mod_action_data: {action: 'approvelink', details: null, description: null, reddit_id: 't3_xyz',},
+		},)
+		const remove = makeModNote({
+			id: 'remove_1',
+			created_at: 1700000000,
+			mod_action_data: {action: 'removelink', details: null, description: null, reddit_id: 't3_xyz',},
+		},)
+		const result = processModNotes([approve, remove,],)
+		expect(result.totalRemovalCount,).toBe(0,)
+	})
 })
 
 describe('classifyCommentBody', () => {
 	it('classifies as deleted when author is [deleted]', () => {
-		expect(classifyCommentBody({body: 'some text', author: '[deleted]', spam: undefined, bannedBy: null,},),).toBe(
-			'deleted',
-		)
+		expect(classifyCommentBody({body: 'some text', author: '[deleted]', bannedBy: null,},),).toBe('deleted',)
 	})
 
 	it('classifies as deleted when body is [deleted]', () => {
-		expect(classifyCommentBody({body: '[deleted]', author: 'alice', spam: undefined, bannedBy: null,},),).toBe(
-			'deleted',
-		)
-	})
-
-	it('classifies as removed-by-reddit when spam is true', () => {
-		expect(classifyCommentBody({body: 'text', author: 'alice', spam: true, bannedBy: null,},),).toBe(
-			'removed-by-reddit',
-		)
+		expect(classifyCommentBody({body: '[deleted]', author: 'alice', bannedBy: null,},),).toBe('deleted',)
 	})
 
 	it('classifies as removed-by-reddit when bannedBy is true', () => {
-		expect(classifyCommentBody({body: 'text', author: 'alice', spam: undefined, bannedBy: true,},),).toBe(
-			'removed-by-reddit',
-		)
+		expect(classifyCommentBody({body: 'text', author: 'alice', bannedBy: true,},),).toBe('removed-by-reddit',)
 	})
 
 	it('classifies as removed-by-reddit when bannedBy is "reddit"', () => {
-		expect(classifyCommentBody({body: 'text', author: 'alice', spam: undefined, bannedBy: 'reddit',},),).toBe(
-			'removed-by-reddit',
-		)
+		expect(classifyCommentBody({body: 'text', author: 'alice', bannedBy: 'reddit',},),).toBe('removed-by-reddit',)
 	})
 
 	it('classifies as available when no removal signals are present', () => {
-		expect(classifyCommentBody({body: 'hello world', author: 'alice', spam: undefined, bannedBy: null,},),).toBe(
-			'available',
-		)
+		expect(classifyCommentBody({body: 'hello world', author: 'alice', bannedBy: null,},),).toBe('available',)
+	})
+
+	it('classifies as available when only spam is true (spam field is not a reliable removal signal)', () => {
+		expect(classifyCommentBody({body: 'text', author: 'alice', bannedBy: null,},),).toBe('available',)
 	})
 })
 
-describe('formatBanDate', () => {
+describe('formatShortDate', () => {
 	it('formats a date as DD Mon YY', () => {
-		expect(formatBanDate(new Date(2025, 5, 14,),),).toBe('14 Jun 25',)
+		expect(formatShortDate(new Date(2025, 5, 14,),),).toBe('14 Jun 25',)
 	})
 
 	it('formats a date with zero-padded day', () => {
-		expect(formatBanDate(new Date(2024, 0, 3,),),).toBe('03 Jan 24',)
+		expect(formatShortDate(new Date(2024, 0, 3,),),).toBe('03 Jan 24',)
 	})
 })
 
