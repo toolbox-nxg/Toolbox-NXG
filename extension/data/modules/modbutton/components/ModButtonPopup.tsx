@@ -1,4 +1,4 @@
-/** Multi-tab popup for performing mod actions (ban, flair, modmail, etc.) on a Reddit user. */
+/** Multi-tab popup for performing mod actions (ban, flair, modmail, User Overview, etc.) on a Reddit user. */
 
 import {type ChangeEvent, useEffect, useEffectEvent, useMemo, useState,} from 'react'
 
@@ -47,6 +47,7 @@ import css from './ModButtonPopup.module.css'
 import {SendModmailTab,} from './SendModmailTab'
 import {StatusBadges, SubredditRow,} from './SubredditRow'
 import {type FlairTemplate, UserFlairTab,} from './UserFlairTab'
+import {UserOverviewTab,} from './UserOverviewTab'
 
 const log = createLogger('ModButton',)
 
@@ -120,7 +121,7 @@ function isNotFound (reason: unknown,): boolean {
 	return reason instanceof Error && (reason as RequestError).response?.status === 404
 }
 
-/** Renders the full mod-button popup window with Role, User Flair, Send Modmail, and User Modlog tabs. */
+/** Renders the full mod-button popup window with Role, User Flair, Send Modmail, User Modlog, and User Overview tabs. */
 export function ModButtonPopup ({
 	info,
 	initialPosition,
@@ -257,6 +258,9 @@ export function ModButtonPopup ({
 	// User Modlog tab
 	const [userModlogLoaded, setUserModlogLoaded,] = useState(false,)
 
+	// User Overview tab
+	const [userOverviewLoaded, setUserOverviewLoaded,] = useState(false,)
+
 	// Mod subs list
 	const modSubs = (useFetched(getModSubs(false,),)) ?? noModSubs
 
@@ -329,6 +333,7 @@ export function ModButtonPopup ({
 			setSavedBanMacros([],)
 			setFlairLoaded(false,)
 			setUserModlogLoaded(false,)
+			setUserOverviewLoaded(false,)
 			setSubStatuses(new Map(subStatuses,).set(activeSub, loadingStatus,),)
 		}
 	}
@@ -435,6 +440,12 @@ export function ModButtonPopup ({
 		if (index === userModlogTabIndex || activeTabIndex === userModlogTabIndex) { setUserModlogLoaded(true,) }
 		setActiveTabIndex(index,)
 	}
+
+	// User Overview tab - mark loaded when tab becomes active
+	useEffect(() => {
+		if (!activeSub || !user || activeTabIndex !== 4 || userOverviewLoaded) { return }
+		setUserOverviewLoaded(true,)
+	}, [activeSub, user, activeTabIndex, userOverviewLoaded,],)
 
 	useEffect(() => {
 		if (!activeSub || !user || activeTabIndex !== 1 || flairLoaded) { return }
@@ -1144,6 +1155,18 @@ export function ModButtonPopup ({
 					title: 'User Modlog',
 					content: showUserModlog
 						? <ModNotesPager user={user} subreddit={activeSub} filter="MOD_ACTION" />
+						: null,
+				},
+				{
+					title: 'User Overview',
+					content: userOverviewLoaded
+						? (
+							<UserOverviewTab
+								user={user}
+								defaultSub={activeSub}
+								modSubs={modSubs}
+							/>
+						)
 						: null,
 				},
 			]

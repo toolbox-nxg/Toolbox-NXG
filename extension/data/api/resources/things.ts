@@ -63,6 +63,8 @@ export interface CommentData extends ThingModData {
 	link_title?: string
 	link_author?: string
 	body_html?: string
+	/** Plain-text comment body (not HTML-encoded, unlike body_html). */
+	body?: string
 	controversiality?: number
 	/** Nested replies listing; the empty string is the API sentinel for "no replies". */
 	replies?: RedditListing<RedditThing<CommentData> | RedditMoreChildren> | ''
