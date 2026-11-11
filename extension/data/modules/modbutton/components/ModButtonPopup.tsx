@@ -1188,7 +1188,12 @@ export function ModButtonPopup ({
 			onClose={onClose}
 			footer={footer}
 		>
-			<WindowTabs tabs={tabItems} defaultTabIndex={0} onTabChange={handleTabChange} />
+			<WindowTabs
+				tabs={tabItems}
+				defaultTabIndex={0}
+				onTabChange={handleTabChange}
+				className={css.popupTabs}
+			/>
 		</Window>
 	)
 }

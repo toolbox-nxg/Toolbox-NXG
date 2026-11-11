@@ -11,7 +11,9 @@ import {
 	processNote,
 	recentRemovalLimit,
 	snapshotNotes,
+	summarizeBans,
 	summarizeModNotes,
+	toBanEntry,
 	truncateText,
 } from './UserOverviewTab.helpers'
 
@@ -63,23 +65,10 @@ describe('processNote', () => {
 		expect(accumulator.seenContentIds.size,).toBe(0,)
 	})
 
-	it('records a ban with its fields', () => {
+	it('leaves bans to the separate ban history read', () => {
 		const accumulator = createNotesAccumulator()
-		const note = makeModNote('banuser', {details: '30 days', description: 'rule violation',}, 1700000000,)
-		processNote({...note, operator: 'mod_alice',}, accumulator,)
-		expect(accumulator.bans,).toEqual([{
-			id: note.id,
-			duration: '30 days',
-			date: new Date(1700000000 * 1000,),
-			moderator: 'mod_alice',
-			reason: 'rule violation',
-		},],)
-	})
-
-	it('defaults ban duration to permanent', () => {
-		const accumulator = createNotesAccumulator()
-		processNote(makeModNote('banuser',), accumulator,)
-		expect(accumulator.bans[0],).toMatchObject({duration: 'permanent',},)
+		expect(processNote(makeModNote('banuser',), accumulator,),).toBe(false,)
+		expect(snapshotNotes(accumulator,),).toEqual(snapshotNotes(createNotesAccumulator(),),)
 	})
 
 	it('returns true only when a recent removal is added', () => {
@@ -91,7 +80,7 @@ describe('processNote', () => {
 	it('counts a removal without a fullname but does not preview it', () => {
 		const accumulator = createNotesAccumulator()
 		expect(processNote(makeModNote('removecomment',), accumulator,),).toBe(false,)
-		expect(accumulator.comments,).toEqual({total: 1, recent: [],},)
+		expect(accumulator.comments,).toEqual({total: 1, removals: [],},)
 	})
 })
 
@@ -99,21 +88,19 @@ describe('snapshotNotes', () => {
 	it('does not share arrays with the accumulator', () => {
 		const accumulator = createNotesAccumulator()
 		const snapshot = snapshotNotes(accumulator,)
-		processNote(makeModNote('banuser',), accumulator,)
 		processNote(makeModNote('removecomment', {reddit_id: 't1_a',},), accumulator,)
 		processNote(makeModNote('removelink', {reddit_id: 't3_a',},), accumulator,)
-		expect(snapshot.bans,).toEqual([],)
-		expect(snapshot.comments,).toEqual({total: 0, recent: [],},)
-		expect(snapshot.posts,).toEqual({total: 0, recent: [],},)
+		expect(snapshot.comments,).toEqual({total: 0, removals: [],},)
+		expect(snapshot.posts,).toEqual({total: 0, removals: [],},)
 	})
 })
 
 describe('summarizeModNotes', () => {
 	it('returns an empty summary for no notes', async () => {
 		expect(await summarize([],),).toEqual({
-			bans: [],
-			comments: {total: 0, recent: [],},
-			posts: {total: 0, recent: [],},
+			comments: {total: 0, removals: [],},
+			posts: {total: 0, removals: [],},
+			capped: false,
 		},)
 	})
 
@@ -122,37 +109,96 @@ describe('summarizeModNotes', () => {
 			makeModNote('removelink', {reddit_id: 't3_a',}, 1700000200,),
 			makeModNote('removecomment', {reddit_id: 't1_a',}, 1700000100,),
 		],)
-		expect(result?.posts,).toEqual({total: 1, recent: [{redditId: 't3_a', date: new Date(1700000200 * 1000,),},],},)
+		expect(result?.posts,).toEqual({
+			total: 1,
+			removals: [{redditId: 't3_a', date: new Date(1700000200 * 1000,),},],
+		},)
 		expect(result?.comments,).toEqual({
 			total: 1,
-			recent: [{redditId: 't1_a', date: new Date(1700000100 * 1000,),},],
+			removals: [{redditId: 't1_a', date: new Date(1700000100 * 1000,),},],
 		},)
 	})
 
-	it('counts every removal but previews only the most recent per type', async () => {
+	it('keeps every removal, newest first, so they can be paged through', async () => {
 		const comments = [1, 2, 3, 4, 5,].map((index,) =>
 			makeModNote('removecomment', {reddit_id: `t1_${index}`,}, 1700000100 - index,)
 		)
 		const result = await summarize(comments,)
 		expect(result?.comments.total,).toBe(5,)
-		expect(result?.comments.recent.map((removal,) => removal.redditId),).toEqual(['t1_1', 't1_2', 't1_3',],)
+		expect(result?.comments.removals.map((removal,) => removal.redditId),).toEqual([
+			't1_1',
+			't1_2',
+			't1_3',
+			't1_4',
+			't1_5',
+		],)
 	})
 
-	it('fills post previews even when the newest removals are all comments', async () => {
+	it('reports progress only for the first removals of each type', () => {
+		const accumulator = createNotesAccumulator()
+		const added = [1, 2, 3, 4,].map((index,) =>
+			processNote(makeModNote('removecomment', {reddit_id: `t1_${index}`,},), accumulator,)
+		)
+		expect(added,).toEqual([true, true, true, false,],)
+		expect(accumulator.comments.removals,).toHaveLength(4,)
+		expect(recentRemovalLimit,).toBe(3,)
+	})
+
+	it('finds post removals even when the newest removals are all comments', async () => {
 		const result = await summarize([
 			...[1, 2, 3, 4,].map((index,) => makeModNote('removecomment', {reddit_id: `t1_${index}`,},)),
 			makeModNote('removelink', {reddit_id: 't3_old',},),
 		],)
-		expect(result?.comments.recent,).toHaveLength(recentRemovalLimit,)
-		expect(result?.posts.recent.map((removal,) => removal.redditId),).toEqual(['t3_old',],)
+		expect(result?.comments.removals,).toHaveLength(4,)
+		expect(result?.posts.removals.map((removal,) => removal.redditId),).toEqual(['t3_old',],)
 	})
 
-	it('finds bans older than the recent removals', async () => {
+	it('counts removals as spam', async () => {
 		const result = await summarize([
-			...[1, 2, 3, 4,].map((index,) => makeModNote('removecomment', {reddit_id: `t1_${index}`,},)),
-			makeModNote('banuser', {details: '7 days',},),
+			makeModNote('spamcomment', {reddit_id: 't1_a',},),
+			makeModNote('spamlink', {reddit_id: 't3_a',},),
 		],)
-		expect(result?.bans,).toHaveLength(1,)
+		expect(result?.comments.total,).toBe(1,)
+		expect(result?.posts.total,).toBe(1,)
+	})
+
+	it('does not count a spam removal that was later approved', async () => {
+		const result = await summarize([
+			makeModNote('approvecomment', {reddit_id: 't1_a',}, 1700000100,),
+			makeModNote('spamcomment', {reddit_id: 't1_a',}, 1700000000,),
+		],)
+		expect(result?.comments,).toEqual({total: 0, removals: [],},)
+	})
+
+	it('reads at most the scan limit and marks the result capped', async () => {
+		const read = vi.fn()
+		async function* notes (): AsyncGenerator<ModNote> {
+			for (let index = 0; index < 10; index++) {
+				read()
+				yield makeModNote('removecomment', {reddit_id: `t1_${index}`,},)
+			}
+		}
+		const result = await summarizeModNotes(notes(), new AbortController().signal, () => {}, 4,)
+		expect(result,).toMatchObject({comments: {total: 4,}, capped: true,},)
+		// The note past the limit is only read to learn that there are more.
+		expect(read,).toHaveBeenCalledTimes(5,)
+	})
+
+	it('reads the whole history when there is no limit (Count all)', async () => {
+		const notes = [1, 2, 3, 4, 5, 6,].map((index,) => makeModNote('removecomment', {reddit_id: `t1_${index}`,},))
+		const result = await summarizeModNotes(
+			toAsyncIterable(notes,),
+			new AbortController().signal,
+			() => {},
+			Infinity,
+		)
+		expect(result,).toMatchObject({comments: {total: 6,}, capped: false,},)
+	})
+
+	it('is not capped when the history ends exactly at the limit', async () => {
+		const notes = [1, 2, 3, 4,].map((index,) => makeModNote('removecomment', {reddit_id: `t1_${index}`,},))
+		const result = await summarizeModNotes(toAsyncIterable(notes,), new AbortController().signal, () => {}, 4,)
+		expect(result,).toMatchObject({comments: {total: 4,}, capped: false,},)
 	})
 
 	it('does not double-count the same item removed twice', async () => {
@@ -161,7 +207,7 @@ describe('summarizeModNotes', () => {
 			makeModNote('removecomment', {reddit_id: 't1_abc',}, 1700000000,),
 		],)
 		expect(result?.comments.total,).toBe(1,)
-		expect(result?.comments.recent,).toHaveLength(1,)
+		expect(result?.comments.removals,).toHaveLength(1,)
 	})
 
 	it.each(
@@ -174,7 +220,7 @@ describe('summarizeModNotes', () => {
 			makeModNote(approval, {reddit_id: redditId,}, 1700000100,),
 			makeModNote(removal, {reddit_id: redditId,}, 1700000000,),
 		],)
-		expect(result?.[key],).toEqual({total: 0, recent: [],},)
+		expect(result?.[key],).toEqual({total: 0, removals: [],},)
 	},)
 
 	it('counts a removal that was approved and then removed again', async () => {
@@ -199,7 +245,7 @@ describe('summarizeModNotes', () => {
 		)
 		expect(onRecentRemoval,).toHaveBeenCalledTimes(2,)
 		expect(onRecentRemoval.mock.calls[0]?.[0],).toMatchObject({comments: {total: 1,}, posts: {total: 0,},},)
-		expect(onRecentRemoval.mock.calls[1]?.[0],).toMatchObject({bans: [{},], posts: {total: 1,},},)
+		expect(onRecentRemoval.mock.calls[1]?.[0],).toMatchObject({comments: {total: 1,}, posts: {total: 1,},},)
 	})
 
 	it('stops reading and returns null when aborted', async () => {
@@ -216,6 +262,52 @@ describe('summarizeModNotes', () => {
 		expect(await summarizeModNotes(notes(), controller.signal, onRecentRemoval,),).toBeNull()
 		expect(onRecentRemoval,).toHaveBeenCalledTimes(1,)
 		expect(read,).not.toHaveBeenCalled()
+	})
+})
+
+describe('toBanEntry', () => {
+	it('records a ban with its fields', () => {
+		const note = makeModNote('banuser', {details: '30 days', description: 'rule violation',}, 1700000000,)
+		expect(toBanEntry({...note, operator: 'mod_alice',},),).toEqual({
+			id: note.id,
+			duration: '30 days',
+			date: new Date(1700000000 * 1000,),
+			moderator: 'mod_alice',
+			reason: 'rule violation',
+		},)
+	})
+
+	it('defaults ban duration to permanent', () => {
+		expect(toBanEntry(makeModNote('banuser',),),).toMatchObject({duration: 'permanent',},)
+	})
+
+	it('ignores unbans and notes without mod action data', () => {
+		expect(toBanEntry(makeModNote('unbanuser',),),).toBeNull()
+		expect(toBanEntry({...makeModNote('banuser',), mod_action_data: null,},),).toBeNull()
+	})
+})
+
+describe('summarizeBans', () => {
+	it('collects every ban, newest first, skipping unbans', async () => {
+		const result = await summarizeBans(
+			toAsyncIterable([
+				makeModNote('banuser', {details: '7 days',}, 1700000300,),
+				makeModNote('unbanuser', {}, 1700000200,),
+				makeModNote('banuser', {}, 1700000100,),
+			],),
+			new AbortController().signal,
+		)
+		expect(result?.map((ban,) => ban.duration),).toEqual(['7 days', 'permanent',],)
+	})
+
+	it('returns null when aborted', async () => {
+		const controller = new AbortController()
+		async function* notes (): AsyncGenerator<ModNote> {
+			yield makeModNote('banuser',)
+			controller.abort()
+			yield makeModNote('banuser',)
+		}
+		expect(await summarizeBans(notes(), controller.signal,),).toBeNull()
 	})
 })
 
@@ -238,16 +330,15 @@ describe('classifyContent', () => {
 })
 
 describe('formatShortDate', () => {
-	it('formats a date as DD Mon YY', () => {
-		expect(formatShortDate(new Date(2025, 5, 14,),),).toBe('14 Jun 25',)
-	})
-
-	it('zero-pads the day', () => {
-		expect(formatShortDate(new Date(2024, 0, 3,),),).toBe('03 Jan 24',)
-	})
-
-	it('uses a three-letter abbreviation for September', () => {
-		expect(formatShortDate(new Date(2024, 8, 30,),),).toBe('30 Sep 24',)
+	// The reader's locale decides the order and month names, so check the parts, not the layout.
+	it('shows the zero-padded day, short month and two-digit year', () => {
+		const date = new Date(2024, 0, 3,)
+		const month = new Intl.DateTimeFormat(undefined, {month: 'short',},).format(date,)
+		const formatted = formatShortDate(date,)
+		expect(formatted,).toContain('03',)
+		expect(formatted,).toContain(month,)
+		expect(formatted,).toContain('24',)
+		expect(formatted,).not.toContain('2024',)
 	})
 })
 
@@ -256,8 +347,8 @@ describe('truncateText', () => {
 		expect(truncateText('hello', 10,),).toBe('hello',)
 	})
 
-	it('truncates with ellipsis when longer than maxLength', () => {
-		expect(truncateText('hello world', 5,),).toBe('hello…',)
+	it('truncates with "..." when longer than maxLength', () => {
+		expect(truncateText('hello world', 5,),).toBe('hello...',)
 	})
 
 	it('returns text unchanged at exact boundary', () => {
