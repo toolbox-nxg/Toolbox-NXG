@@ -430,6 +430,10 @@ export function ModButtonPopup ({
 		setSubStatuses((prev,) => new Map(prev,).set(subreddit, status,))
 	}
 
+	const handleOverviewSubredditSelect = (subreddit: string,) => {
+		loadSubStatus(subreddit,).catch((error: unknown,) => log.error('Failed to load sub status:', error,))
+	}
+
 	// The User Modlog tab mounts its pager the first time it's opened for the active subreddit, and
 	// stays mounted after (the loader clears the latch on a subreddit switch).
 	const userModlogTabIndex = 3
@@ -1166,6 +1170,7 @@ export function ModButtonPopup ({
 								defaultSub={activeSub}
 								modSubs={modSubs}
 								subStatuses={subStatuses}
+								onSubredditSelect={handleOverviewSubredditSelect}
 							/>
 						)
 						: null,

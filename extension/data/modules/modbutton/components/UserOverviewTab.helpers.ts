@@ -2,6 +2,12 @@
 
 import type {ModNote,} from '../../shared/modnotes/schema'
 
+/** Number of most-recent removals previewed per content type. */
+export const recentRemovalLimit = 3
+
+/** Kind of content a removal applies to. */
+export type ContentType = 'comment' | 'post'
+
 /** A ban entry extracted from mod notes. */
 export interface BanEntry {
 	id: string
@@ -14,135 +20,147 @@ export interface BanEntry {
 /** A content removal entry extracted from mod notes. */
 export interface RemovalEntry {
 	date: Date
-	redditId: string | null
-	contentType: 'comment' | 'post'
+	/** Fullname of the removed comment or post. */
+	redditId: string
+}
+
+/** Removal totals and most-recent entries for one content type. */
+export interface RemovalSummary {
+	/** Removals whose latest mod action is still a removal, deduplicated by item. */
+	total: number
+	/** Up to `recentRemovalLimit` removals, newest first. */
+	recent: RemovalEntry[]
 }
 
 /** Processed result from mod notes for a user in a subreddit. */
-export interface ModNotesResult {
+export interface ModNotesSummary {
 	bans: BanEntry[]
-	currentlyBanned: boolean
-	totalRemovalCount: number
-	recentRemovals: RemovalEntry[]
+	comments: RemovalSummary
+	posts: RemovalSummary
 }
 
-/** Mutable accumulator for streaming processNote calls. */
-export interface NotesAccumulator {
-	bans: BanEntry[]
-	currentlyBanned: boolean | null
-	totalRemovalCount: number
-	recentRemovals: RemovalEntry[]
+/** Mutable accumulator for streaming `processNote` calls. */
+export interface NotesAccumulator extends ModNotesSummary {
+	/** Items whose latest removal or approval has already been seen. */
 	seenContentIds: Set<string>
 }
 
 /** Input for classifying a comment or post. */
-export interface CommentBodyInput {
-	body: string | undefined
+export interface ContentClassificationInput {
+	/** Comment body or post title. */
+	text: string | undefined
 	author: string
 	bannedBy: string | boolean | null | undefined
 }
 
 /** Classification of a comment or post. */
-export type CommentClassification = 'deleted' | 'removed-by-reddit' | 'available'
+export type ContentClassification = 'deleted' | 'removed-by-reddit' | 'available'
 
-const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',]
+const removalActions = new Map<string, ContentType>([['removecomment', 'comment',], ['removelink', 'post',],],)
+const approvalActions = new Set(['approvecomment', 'approvelink',],)
 
-/** Creates a fresh accumulator for use with processNote. */
+const shortDateFormat = new Intl.DateTimeFormat('en-US', {day: '2-digit', month: 'short', year: '2-digit',},)
+
+/** Creates a fresh accumulator for use with `processNote`. */
 export function createNotesAccumulator (): NotesAccumulator {
 	return {
 		bans: [],
-		currentlyBanned: null,
-		totalRemovalCount: 0,
-		recentRemovals: [],
+		comments: {total: 0, recent: [],},
+		posts: {total: 0, recent: [],},
 		seenContentIds: new Set(),
 	}
 }
 
 /**
  * Processes a single mod note into an accumulator.
- * Notes must be fed newest-first so the first action seen for a content ID is its
- * terminal state: an approval encountered before its older removal prevents that
+ * Notes must be fed newest-first so the first removal or approval seen for an item
+ * is its current state: an approval seen before an older removal stops that
  * removal from being counted.
  * @param note The mod note to process.
- * @param acc Accumulator to mutate in place.
+ * @param accumulator Accumulator to mutate in place.
+ * @returns True when a removal was added to one of the `recent` lists.
  */
-export function processNote (note: ModNote, acc: NotesAccumulator,): void {
-	const modData = note.mod_action_data
-	if (modData === null) { return }
+export function processNote (note: ModNote, accumulator: NotesAccumulator,): boolean {
+	const actionData = note.mod_action_data
+	if (actionData === null) { return false }
+	const date = new Date(note.created_at * 1000,)
 
-	if (modData.action === 'banuser' || modData.action === 'unbanuser') {
-		if (acc.currentlyBanned === null) {
-			acc.currentlyBanned = modData.action === 'banuser'
-		}
-	}
-
-	if (modData.action === 'banuser') {
-		acc.bans.push({
+	if (actionData.action === 'banuser') {
+		accumulator.bans.push({
 			id: note.id,
-			duration: modData.details ?? 'permanent',
-			date: new Date(note.created_at * 1000,),
+			duration: actionData.details ?? 'permanent',
+			date,
 			moderator: note.operator,
-			reason: modData.description,
+			reason: actionData.description,
 		},)
+		return false
 	}
 
-	const isRemoval = modData.action === 'removecomment' || modData.action === 'removelink'
-	const isApproval = modData.action === 'approvecomment' || modData.action === 'approvelink'
+	const removedType = removalActions.get(actionData.action,)
+	if (!removedType && !approvalActions.has(actionData.action,)) { return false }
 
-	if (isRemoval || isApproval) {
-		const id = modData.reddit_id
-		if (id !== null) {
-			if (acc.seenContentIds.has(id,)) { return }
-			acc.seenContentIds.add(id,)
-		}
-		if (isRemoval) {
-			acc.totalRemovalCount++
-			if (acc.recentRemovals.length < 3) {
-				acc.recentRemovals.push({
-					date: new Date(note.created_at * 1000,),
-					redditId: id,
-					contentType: modData.action === 'removelink' ? 'post' : 'comment',
-				},)
-			}
-		}
+	const redditId = actionData.reddit_id
+	if (redditId !== null) {
+		if (accumulator.seenContentIds.has(redditId,)) { return false }
+		accumulator.seenContentIds.add(redditId,)
 	}
+	if (!removedType) { return false }
+
+	const summary = removedType === 'post' ? accumulator.posts : accumulator.comments
+	summary.total++
+	// Without a fullname there is nothing to preview, so it only counts toward the total
+	if (redditId === null || summary.recent.length >= recentRemovalLimit) { return false }
+	summary.recent.push({date, redditId,},)
+	return true
 }
 
 /**
- * Finalizes an accumulator into a ModNotesResult.
- * @param acc The accumulator to finalize.
- * @returns The finalized result.
+ * Copies an accumulator's current results, so the snapshot stays unchanged when
+ * the accumulator keeps being updated.
+ * @param accumulator The accumulator to snapshot.
+ * @returns A summary that does not share arrays with the accumulator.
  */
-export function finalizeNotes (acc: NotesAccumulator,): ModNotesResult {
+export function snapshotNotes (accumulator: NotesAccumulator,): ModNotesSummary {
 	return {
-		bans: acc.bans,
-		currentlyBanned: acc.currentlyBanned ?? false,
-		totalRemovalCount: acc.totalRemovalCount,
-		recentRemovals: acc.recentRemovals,
+		bans: [...accumulator.bans,],
+		comments: {total: accumulator.comments.total, recent: [...accumulator.comments.recent,],},
+		posts: {total: accumulator.posts.total, recent: [...accumulator.posts.recent,],},
 	}
 }
 
 /**
- * Convenience wrapper: processes an array of mod notes (newest-first) and returns the result.
- * @param notes Array of mod notes, newest first.
- * @returns Structured result with bans, ban status, all-time removal count, and recent removals.
+ * Walks a user's mod notes (newest first) and summarizes bans and removals.
+ * @param notes Mod notes, newest first.
+ * @param signal Stops the walk (and the underlying paging) when aborted.
+ * @param onRecentRemoval Called with a snapshot each time a recent removal is found,
+ * so previews can load before the full history has been counted.
+ * @returns The complete summary, or null if the walk was aborted.
  */
-export function processModNotes (notes: ModNote[],): ModNotesResult {
-	const acc = createNotesAccumulator()
-	for (const note of notes) { processNote(note, acc,) }
-	return finalizeNotes(acc,)
+export async function summarizeModNotes (
+	notes: AsyncIterable<ModNote>,
+	signal: AbortSignal,
+	onRecentRemoval: (summary: ModNotesSummary,) => void,
+): Promise<ModNotesSummary | null> {
+	const accumulator = createNotesAccumulator()
+	for await (const note of notes) {
+		if (signal.aborted) { return null }
+		if (processNote(note, accumulator,)) {
+			onRecentRemoval(snapshotNotes(accumulator,),)
+		}
+	}
+	return signal.aborted ? null : snapshotNotes(accumulator,)
 }
 
 /**
  * Classifies a comment or post as deleted, removed by Reddit, or available.
- * @param input Content body, author, and bannedBy field.
+ * @param input Content text, author, and `banned_by` value.
  * @returns The classification of the content.
  */
-export function classifyCommentBody (input: CommentBodyInput,): CommentClassification {
-	if (input.author === '[deleted]' || input.body === '[deleted]') {
+export function classifyContent (input: ContentClassificationInput,): ContentClassification {
+	if (input.author === '[deleted]' || input.text === '[deleted]') {
 		return 'deleted'
 	}
-	if (input.bannedBy === true || input.bannedBy === 'reddit') {
+	if (input.bannedBy === 'reddit') {
 		return 'removed-by-reddit'
 	}
 	return 'available'
@@ -154,10 +172,8 @@ export function classifyCommentBody (input: CommentBodyInput,): CommentClassific
  * @returns The formatted date string.
  */
 export function formatShortDate (date: Date,): string {
-	const day = String(date.getDate(),).padStart(2, '0',)
-	const month = monthNames[date.getMonth()]!
-	const year = String(date.getFullYear(),).slice(-2,)
-	return `${day} ${month} ${year}`
+	const parts = new Map(shortDateFormat.formatToParts(date,).map((part,) => [part.type, part.value,]),)
+	return `${parts.get('day',)} ${parts.get('month',)} ${parts.get('year',)}`
 }
 
 /**
