@@ -1,14 +1,31 @@
 /** Tests for the pure UserOverviewTab helpers. */
 
-import {describe, expect, it,} from 'vitest'
+import {describe, expect, it, vi,} from 'vitest'
 
-import type {ModNote,} from '../../shared/modnotes/schema'
-import {classifyCommentBody, formatShortDate, processModNotes, truncateText,} from './UserOverviewTab.helpers'
+import type {ModNote, ModNoteModActionData,} from '../../shared/modnotes/schema'
+import {
+	classifyContent,
+	createNotesAccumulator,
+	formatShortDate,
+	type ModNotesSummary,
+	processNote,
+	recentRemovalLimit,
+	snapshotNotes,
+	summarizeModNotes,
+	truncateText,
+} from './UserOverviewTab.helpers'
 
-function makeModNote (overrides: Partial<ModNote> = {},): ModNote {
+let nextNoteId = 0
+
+function makeModNote (
+	action: string,
+	actionData: Partial<ModNoteModActionData> = {},
+	createdAt = 1700000000,
+): ModNote {
+	nextNoteId++
 	return {
-		id: 'note_1',
-		created_at: 1000000,
+		id: `note_${nextNoteId}`,
+		created_at: createdAt,
 		type: 'MOD_ACTION',
 		operator: 'mod1',
 		subreddit: 'testsub',
@@ -17,205 +34,207 @@ function makeModNote (overrides: Partial<ModNote> = {},): ModNote {
 		description: null,
 		details: null,
 		user_note_data: null,
-		mod_action_data: null,
-		...overrides,
+		mod_action_data: {action, details: null, description: null, reddit_id: null, ...actionData,},
 	}
 }
 
-describe('processModNotes', () => {
-	it('returns empty result for no notes', () => {
-		const result = processModNotes([],)
-		expect(result.bans,).toEqual([],)
-		expect(result.currentlyBanned,).toBe(false,)
-		expect(result.totalRemovalCount,).toBe(0,)
-		expect(result.recentRemovals,).toEqual([],)
+async function* toAsyncIterable (notes: ModNote[],): AsyncGenerator<ModNote> {
+	for (const note of notes) {
+		yield note
+	}
+}
+
+/** Summarizes notes (newest first) without progress reporting or cancellation. */
+async function summarize (notes: ModNote[],): Promise<ModNotesSummary | null> {
+	return summarizeModNotes(toAsyncIterable(notes,), new AbortController().signal, () => {},)
+}
+
+describe('processNote', () => {
+	it('ignores notes without mod action data', () => {
+		const accumulator = createNotesAccumulator()
+		const note = {...makeModNote('banuser',), mod_action_data: null,}
+		expect(processNote(note, accumulator,),).toBe(false,)
+		expect(snapshotNotes(accumulator,),).toEqual(snapshotNotes(createNotesAccumulator(),),)
 	})
 
-	it('collects a ban entry with correct fields', () => {
-		const note = makeModNote({
-			id: 'ban_1',
-			created_at: 1700000000,
-			operator: 'mod_alice',
-			mod_action_data: {action: 'banuser', details: '30 days', description: 'rule violation', reddit_id: null,},
-		},)
-		const result = processModNotes([note,],)
-		expect(result.bans.length,).toBe(1,)
-		expect(result.bans[0]!.id,).toBe('ban_1',)
-		expect(result.bans[0]!.duration,).toBe('30 days',)
-		expect(result.bans[0]!.moderator,).toBe('mod_alice',)
-		expect(result.bans[0]!.reason,).toBe('rule violation',)
-		expect(result.currentlyBanned,).toBe(true,)
+	it('ignores unrelated mod actions', () => {
+		const accumulator = createNotesAccumulator()
+		expect(processNote(makeModNote('lock', {reddit_id: 't3_a',},), accumulator,),).toBe(false,)
+		expect(accumulator.seenContentIds.size,).toBe(0,)
 	})
 
-	it('sets currentlyBanned=false when newest action is unban', () => {
-		const unban = makeModNote({
-			id: 'unban_1',
-			created_at: 1700000100,
-			mod_action_data: {action: 'unbanuser', details: null, description: null, reddit_id: null,},
-		},)
-		const ban = makeModNote({
-			id: 'ban_1',
-			created_at: 1700000000,
-			mod_action_data: {action: 'banuser', details: 'permanent', description: null, reddit_id: null,},
-		},)
-		// Notes are newest-first from the API
-		const result = processModNotes([unban, ban,],)
-		expect(result.currentlyBanned,).toBe(false,)
-		expect(result.bans.length,).toBe(1,)
+	it('records a ban with its fields', () => {
+		const accumulator = createNotesAccumulator()
+		const note = makeModNote('banuser', {details: '30 days', description: 'rule violation',}, 1700000000,)
+		processNote({...note, operator: 'mod_alice',}, accumulator,)
+		expect(accumulator.bans,).toEqual([{
+			id: note.id,
+			duration: '30 days',
+			date: new Date(1700000000 * 1000,),
+			moderator: 'mod_alice',
+			reason: 'rule violation',
+		},],)
 	})
 
-	it('counts all removals regardless of date', () => {
-		const notes = [1700000500, 1699999999, 1000000000,].map((ts,) =>
-			makeModNote({
-				created_at: ts,
-				mod_action_data: {action: 'removecomment', details: null, description: null, reddit_id: `t1_${ts}`,},
-			},)
-		)
-		const result = processModNotes(notes,)
-		expect(result.totalRemovalCount,).toBe(3,)
-		expect(result.recentRemovals.length,).toBe(3,)
+	it('defaults ban duration to permanent', () => {
+		const accumulator = createNotesAccumulator()
+		processNote(makeModNote('banuser',), accumulator,)
+		expect(accumulator.bans[0],).toMatchObject({duration: 'permanent',},)
 	})
 
-	it('does not double-count the same reddit_id removed twice', () => {
-		const remove1 = makeModNote({
-			id: 'remove_1',
-			created_at: 1700000100,
-			mod_action_data: {action: 'removecomment', details: null, description: null, reddit_id: 't1_abc',},
-		},)
-		const remove2 = makeModNote({
-			id: 'remove_2',
-			created_at: 1700000000,
-			mod_action_data: {action: 'removecomment', details: null, description: null, reddit_id: 't1_abc',},
-		},)
-		const result = processModNotes([remove1, remove2,],)
-		expect(result.totalRemovalCount,).toBe(1,)
-		expect(result.recentRemovals.length,).toBe(1,)
+	it('returns true only when a recent removal is added', () => {
+		const accumulator = createNotesAccumulator()
+		expect(processNote(makeModNote('removecomment', {reddit_id: 't1_a',},), accumulator,),).toBe(true,)
+		expect(processNote(makeModNote('removecomment', {reddit_id: 't1_a',},), accumulator,),).toBe(false,)
 	})
 
-	it('collects at most 3 recent removals even with more notes', () => {
-		const notes = [1, 2, 3, 4, 5,].map((i,) =>
-			makeModNote({
-				id: `removal_${i}`,
-				created_at: 1700000000 + i,
-				mod_action_data: {action: 'removecomment', details: null, description: null, reddit_id: `t1_${i}`,},
-			},)
-		)
-		const result = processModNotes(notes,)
-		expect(result.recentRemovals.length,).toBe(3,)
-		expect(result.totalRemovalCount,).toBe(5,)
-	})
-
-	it('defaults ban duration to permanent when details is null', () => {
-		const note = makeModNote({
-			mod_action_data: {action: 'banuser', details: null, description: null, reddit_id: null,},
-		},)
-		const result = processModNotes([note,],)
-		expect(result.bans[0]!.duration,).toBe('permanent',)
-	})
-
-	it('skips notes where mod_action_data is null', () => {
-		const note = makeModNote({mod_action_data: null,},)
-		const result = processModNotes([note,],)
-		expect(result.bans,).toEqual([],)
-		expect(result.currentlyBanned,).toBe(false,)
-	})
-
-	it('counts removelink as a post removal', () => {
-		const note = makeModNote({
-			mod_action_data: {action: 'removelink', details: null, description: null, reddit_id: 't3_xyz',},
-		},)
-		const result = processModNotes([note,],)
-		expect(result.totalRemovalCount,).toBe(1,)
-		expect(result.recentRemovals[0]!.contentType,).toBe('post',)
-	})
-
-	it('counts removecomment as a comment removal', () => {
-		const note = makeModNote({
-			mod_action_data: {action: 'removecomment', details: null, description: null, reddit_id: 't1_abc',},
-		},)
-		const result = processModNotes([note,],)
-		expect(result.recentRemovals[0]!.contentType,).toBe('comment',)
-	})
-
-	it('does not count a removal whose terminal state is approved', () => {
-		// approval is newer (appears first in newest-first list)
-		const approve = makeModNote({
-			id: 'approve_1',
-			created_at: 1700000100,
-			mod_action_data: {action: 'approvecomment', details: null, description: null, reddit_id: 't1_abc',},
-		},)
-		const remove = makeModNote({
-			id: 'remove_1',
-			created_at: 1700000000,
-			mod_action_data: {action: 'removecomment', details: null, description: null, reddit_id: 't1_abc',},
-		},)
-		const result = processModNotes([approve, remove,],)
-		expect(result.totalRemovalCount,).toBe(0,)
-		expect(result.recentRemovals.length,).toBe(0,)
-	})
-
-	it('counts a removal that was approved then re-removed', () => {
-		// re-removal is newest (appears first)
-		const removeAgain = makeModNote({
-			id: 'remove_2',
-			created_at: 1700000200,
-			mod_action_data: {action: 'removecomment', details: null, description: null, reddit_id: 't1_abc',},
-		},)
-		const approve = makeModNote({
-			id: 'approve_1',
-			created_at: 1700000100,
-			mod_action_data: {action: 'approvecomment', details: null, description: null, reddit_id: 't1_abc',},
-		},)
-		const remove = makeModNote({
-			id: 'remove_1',
-			created_at: 1700000000,
-			mod_action_data: {action: 'removecomment', details: null, description: null, reddit_id: 't1_abc',},
-		},)
-		const result = processModNotes([removeAgain, approve, remove,],)
-		expect(result.totalRemovalCount,).toBe(1,)
-		expect(result.recentRemovals.length,).toBe(1,)
-	})
-
-	it('does not count an approvelink whose terminal state is approved', () => {
-		const approve = makeModNote({
-			id: 'approve_1',
-			created_at: 1700000100,
-			mod_action_data: {action: 'approvelink', details: null, description: null, reddit_id: 't3_xyz',},
-		},)
-		const remove = makeModNote({
-			id: 'remove_1',
-			created_at: 1700000000,
-			mod_action_data: {action: 'removelink', details: null, description: null, reddit_id: 't3_xyz',},
-		},)
-		const result = processModNotes([approve, remove,],)
-		expect(result.totalRemovalCount,).toBe(0,)
+	it('counts a removal without a fullname but does not preview it', () => {
+		const accumulator = createNotesAccumulator()
+		expect(processNote(makeModNote('removecomment',), accumulator,),).toBe(false,)
+		expect(accumulator.comments,).toEqual({total: 1, recent: [],},)
 	})
 })
 
-describe('classifyCommentBody', () => {
-	it('classifies as deleted when author is [deleted]', () => {
-		expect(classifyCommentBody({body: 'some text', author: '[deleted]', bannedBy: null,},),).toBe('deleted',)
+describe('snapshotNotes', () => {
+	it('does not share arrays with the accumulator', () => {
+		const accumulator = createNotesAccumulator()
+		const snapshot = snapshotNotes(accumulator,)
+		processNote(makeModNote('banuser',), accumulator,)
+		processNote(makeModNote('removecomment', {reddit_id: 't1_a',},), accumulator,)
+		processNote(makeModNote('removelink', {reddit_id: 't3_a',},), accumulator,)
+		expect(snapshot.bans,).toEqual([],)
+		expect(snapshot.comments,).toEqual({total: 0, recent: [],},)
+		expect(snapshot.posts,).toEqual({total: 0, recent: [],},)
+	})
+})
+
+describe('summarizeModNotes', () => {
+	it('returns an empty summary for no notes', async () => {
+		expect(await summarize([],),).toEqual({
+			bans: [],
+			comments: {total: 0, recent: [],},
+			posts: {total: 0, recent: [],},
+		},)
 	})
 
-	it('classifies as deleted when body is [deleted]', () => {
-		expect(classifyCommentBody({body: '[deleted]', author: 'alice', bannedBy: null,},),).toBe('deleted',)
+	it('separates comment and post removals', async () => {
+		const result = await summarize([
+			makeModNote('removelink', {reddit_id: 't3_a',}, 1700000200,),
+			makeModNote('removecomment', {reddit_id: 't1_a',}, 1700000100,),
+		],)
+		expect(result?.posts,).toEqual({total: 1, recent: [{redditId: 't3_a', date: new Date(1700000200 * 1000,),},],},)
+		expect(result?.comments,).toEqual({
+			total: 1,
+			recent: [{redditId: 't1_a', date: new Date(1700000100 * 1000,),},],
+		},)
 	})
 
-	it('classifies as removed-by-reddit when bannedBy is true', () => {
-		expect(classifyCommentBody({body: 'text', author: 'alice', bannedBy: true,},),).toBe('removed-by-reddit',)
+	it('counts every removal but previews only the most recent per type', async () => {
+		const comments = [1, 2, 3, 4, 5,].map((index,) =>
+			makeModNote('removecomment', {reddit_id: `t1_${index}`,}, 1700000100 - index,)
+		)
+		const result = await summarize(comments,)
+		expect(result?.comments.total,).toBe(5,)
+		expect(result?.comments.recent.map((removal,) => removal.redditId),).toEqual(['t1_1', 't1_2', 't1_3',],)
+	})
+
+	it('fills post previews even when the newest removals are all comments', async () => {
+		const result = await summarize([
+			...[1, 2, 3, 4,].map((index,) => makeModNote('removecomment', {reddit_id: `t1_${index}`,},)),
+			makeModNote('removelink', {reddit_id: 't3_old',},),
+		],)
+		expect(result?.comments.recent,).toHaveLength(recentRemovalLimit,)
+		expect(result?.posts.recent.map((removal,) => removal.redditId),).toEqual(['t3_old',],)
+	})
+
+	it('finds bans older than the recent removals', async () => {
+		const result = await summarize([
+			...[1, 2, 3, 4,].map((index,) => makeModNote('removecomment', {reddit_id: `t1_${index}`,},)),
+			makeModNote('banuser', {details: '7 days',},),
+		],)
+		expect(result?.bans,).toHaveLength(1,)
+	})
+
+	it('does not double-count the same item removed twice', async () => {
+		const result = await summarize([
+			makeModNote('removecomment', {reddit_id: 't1_abc',}, 1700000100,),
+			makeModNote('removecomment', {reddit_id: 't1_abc',}, 1700000000,),
+		],)
+		expect(result?.comments.total,).toBe(1,)
+		expect(result?.comments.recent,).toHaveLength(1,)
+	})
+
+	it.each(
+		[
+			['approvecomment', 'removecomment', 't1_abc', 'comments',],
+			['approvelink', 'removelink', 't3_xyz', 'posts',],
+		] as const,
+	)('does not count a removal later reversed by %s', async (approval, removal, redditId, key,) => {
+		const result = await summarize([
+			makeModNote(approval, {reddit_id: redditId,}, 1700000100,),
+			makeModNote(removal, {reddit_id: redditId,}, 1700000000,),
+		],)
+		expect(result?.[key],).toEqual({total: 0, recent: [],},)
+	},)
+
+	it('counts a removal that was approved and then removed again', async () => {
+		const result = await summarize([
+			makeModNote('removecomment', {reddit_id: 't1_abc',}, 1700000200,),
+			makeModNote('approvecomment', {reddit_id: 't1_abc',}, 1700000100,),
+			makeModNote('removecomment', {reddit_id: 't1_abc',}, 1700000000,),
+		],)
+		expect(result?.comments.total,).toBe(1,)
+	})
+
+	it('reports partial snapshots as recent removals are found', async () => {
+		const onRecentRemoval = vi.fn()
+		await summarizeModNotes(
+			toAsyncIterable([
+				makeModNote('removecomment', {reddit_id: 't1_a',},),
+				makeModNote('banuser',),
+				makeModNote('removelink', {reddit_id: 't3_a',},),
+			],),
+			new AbortController().signal,
+			onRecentRemoval,
+		)
+		expect(onRecentRemoval,).toHaveBeenCalledTimes(2,)
+		expect(onRecentRemoval.mock.calls[0]?.[0],).toMatchObject({comments: {total: 1,}, posts: {total: 0,},},)
+		expect(onRecentRemoval.mock.calls[1]?.[0],).toMatchObject({bans: [{},], posts: {total: 1,},},)
+	})
+
+	it('stops reading and returns null when aborted', async () => {
+		const controller = new AbortController()
+		const read = vi.fn()
+		async function* notes (): AsyncGenerator<ModNote> {
+			yield makeModNote('removecomment', {reddit_id: 't1_a',},)
+			controller.abort()
+			yield makeModNote('removecomment', {reddit_id: 't1_b',},)
+			read()
+			yield makeModNote('removecomment', {reddit_id: 't1_c',},)
+		}
+		const onRecentRemoval = vi.fn()
+		expect(await summarizeModNotes(notes(), controller.signal, onRecentRemoval,),).toBeNull()
+		expect(onRecentRemoval,).toHaveBeenCalledTimes(1,)
+		expect(read,).not.toHaveBeenCalled()
+	})
+})
+
+describe('classifyContent', () => {
+	it('classifies as deleted when the author is [deleted]', () => {
+		expect(classifyContent({text: 'some text', author: '[deleted]', bannedBy: null,},),).toBe('deleted',)
+	})
+
+	it('classifies as deleted when the text is [deleted]', () => {
+		expect(classifyContent({text: '[deleted]', author: 'alice', bannedBy: null,},),).toBe('deleted',)
 	})
 
 	it('classifies as removed-by-reddit when bannedBy is "reddit"', () => {
-		expect(classifyCommentBody({body: 'text', author: 'alice', bannedBy: 'reddit',},),).toBe('removed-by-reddit',)
+		expect(classifyContent({text: 'text', author: 'alice', bannedBy: 'reddit',},),).toBe('removed-by-reddit',)
 	})
 
-	it('classifies as available when no removal signals are present', () => {
-		expect(classifyCommentBody({body: 'hello world', author: 'alice', bannedBy: null,},),).toBe('available',)
-	})
-
-	it('classifies as available when only spam is true (spam field is not a reliable removal signal)', () => {
-		expect(classifyCommentBody({body: 'text', author: 'alice', bannedBy: null,},),).toBe('available',)
-	})
+	it.each([true, 'some_mod', null, undefined,],)('classifies as available when bannedBy is %s', (bannedBy,) => {
+		expect(classifyContent({text: 'text', author: 'alice', bannedBy,},),).toBe('available',)
+	},)
 })
 
 describe('formatShortDate', () => {
@@ -223,8 +242,12 @@ describe('formatShortDate', () => {
 		expect(formatShortDate(new Date(2025, 5, 14,),),).toBe('14 Jun 25',)
 	})
 
-	it('formats a date with zero-padded day', () => {
+	it('zero-pads the day', () => {
 		expect(formatShortDate(new Date(2024, 0, 3,),),).toBe('03 Jan 24',)
+	})
+
+	it('uses a three-letter abbreviation for September', () => {
+		expect(formatShortDate(new Date(2024, 8, 30,),),).toBe('30 Sep 24',)
 	})
 })
 

@@ -365,6 +365,10 @@ export function ModButtonPopup ({
 		setSubStatuses((prev,) => new Map(prev,).set(subreddit, status,))
 	}
 
+	const handleOverviewSubredditSelect = (subreddit: string,) => {
+		loadSubStatus(subreddit,).catch((error: unknown,) => log.error('Failed to load sub status:', error,))
+	}
+
 	// User modlog tab - mark loaded when tab becomes active
 	useEffect(() => {
 		if (!activeSub || !user || activeTabIndex !== 3 || userModlogLoaded) { return }
@@ -1129,6 +1133,7 @@ export function ModButtonPopup ({
 								defaultSub={activeSub}
 								modSubs={modSubs}
 								subStatuses={subStatuses}
+								onSubredditSelect={handleOverviewSubredditSelect}
 							/>
 						)
 						: null,

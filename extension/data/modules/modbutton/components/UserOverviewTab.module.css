@@ -53,25 +53,28 @@
 	color: var(--toolbox-text-secondary);
 }
 
-.suspendedBadge {
+.badge {
+	padding: var(--toolbox-sp-1) var(--toolbox-sp-4);
+	border-radius: var(--toolbox-radius-pill);
+	font-size: var(--toolbox-fs-10);
+	font-weight: bold;
+}
+
+.errorBadge {
 	background: var(--toolbox-error-bg);
 	color: var(--toolbox-error-text);
-	padding: var(--toolbox-sp-1) var(--toolbox-sp-4);
-	border-radius: var(--toolbox-radius-pill);
-	font-size: var(--toolbox-fs-10);
-	font-weight: bold;
 }
 
-.currentBanBadge {
+.cautionBadge {
 	background: var(--toolbox-caution-bg);
 	color: var(--toolbox-caution-text);
-	padding: var(--toolbox-sp-1) var(--toolbox-sp-4);
-	border-radius: var(--toolbox-radius-pill);
-	font-size: var(--toolbox-fs-10);
-	font-weight: bold;
 }
 
-.banTable {
+.count {
+	margin: 0 0 var(--toolbox-sp-5) 0;
+}
+
+.table {
 	width: 100%;
 	border-collapse: collapse;
 	font-size: var(--toolbox-fs-11);
@@ -89,27 +92,14 @@
 	padding-right: var(--toolbox-sp-6);
 }
 
+.banModerator {
+	white-space: nowrap;
+	padding-right: var(--toolbox-sp-6);
+}
+
 .banReason {
 	color: var(--toolbox-text-body);
-}
-
-.banCount {
-	margin: 0 0 var(--toolbox-sp-5) 0;
-}
-
-.removalCount {
-	margin: 0 0 var(--toolbox-sp-5) 0;
-}
-
-.previewTable {
-	width: 100%;
-	border-collapse: collapse;
-	font-size: var(--toolbox-fs-11);
-}
-
-.previewTable td {
-	padding-bottom: var(--toolbox-sp-4);
-	vertical-align: top;
+	overflow-wrap: anywhere;
 }
 
 .previewDate {
@@ -117,13 +107,17 @@
 	white-space: nowrap;
 	width: 1px;
 	padding-right: var(--toolbox-sp-8);
+	padding-bottom: var(--toolbox-sp-4);
+	vertical-align: top;
 }
 
 .previewBody {
 	overflow-wrap: anywhere;
+	padding-bottom: var(--toolbox-sp-4);
+	vertical-align: top;
 }
 
-.previewBody a {
+.previewLink {
 	color: var(--toolbox-link-color);
 }
 
