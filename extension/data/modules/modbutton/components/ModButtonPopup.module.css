@@ -2,6 +2,17 @@
 	width: 460px;
 }
 
+/*
+ * The tab buttons share the bar, so the row fills it exactly whichever tab is active. They size
+ * to their text, and the active tab is bold (wider), so otherwise a short active tab such as Role
+ * leaves a gap at the right and a long one overflows. Targets WindowTabs' buttons by role, as its
+ * class names are its own; no rule there sets flex, so nothing is overridden.
+ */
+.popupTabs [role="tab"] {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
 /* Role tab - unified sub list */
 .subList {
 	padding: var(--toolbox-sp-2) 0;

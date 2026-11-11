@@ -74,6 +74,12 @@
 	margin: 0 0 var(--toolbox-sp-5) 0;
 }
 
+/* Ban and removal lists scroll instead of growing the popup, however many are shown. */
+.scrollList {
+	max-height: 200px;
+	overflow-y: auto;
+}
+
 .table {
 	width: 100%;
 	border-collapse: collapse;

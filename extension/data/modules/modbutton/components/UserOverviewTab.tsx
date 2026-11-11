@@ -8,6 +8,7 @@ import {getAllModNotes,} from '../../../api/resources/modnotes'
 import {getInfoBulk, type RedditThing,} from '../../../api/resources/things'
 import {aboutUser,} from '../../../api/resources/users'
 import type {UserAbout,} from '../../../api/resources/users'
+import {ActionButton,} from '../../../shared/controls/ActionButton'
 import {RelativeTime,} from '../../../shared/controls/RelativeTime'
 import {SelectInput,} from '../../../shared/controls/SelectInput'
 import createLogger from '../../../util/infra/logging'
@@ -20,8 +21,12 @@ import {
 	type ContentClassification,
 	formatShortDate,
 	type ModNotesSummary,
+	recentRemovalLimit,
 	type RemovalEntry,
+	removalPageSize,
+	removalScanLimit,
 	type RemovalSummary,
+	summarizeBans,
 	summarizeModNotes,
 	truncateText,
 } from './UserOverviewTab.helpers'
@@ -65,15 +70,23 @@ type NotesState =
 	| {status: 'error'; message: string}
 
 const emptySummary: ModNotesSummary = {
-	bans: [],
-	comments: {total: 0, recent: [],},
-	posts: {total: 0, recent: [],},
+	comments: {total: 0, removals: [],},
+	posts: {total: 0, removals: [],},
+	capped: false,
 }
 
 const unavailableLabels: Record<Exclude<ContentClassification, 'available'>, string> = {
 	'deleted': '[deleted by user]',
 	'removed-by-reddit': '[removed by Reddit]',
 }
+
+/** How many removals of each type are previewed; "Show more" raises it a page at a time. */
+interface ShownRemovals {
+	comments: number
+	posts: number
+}
+
+const initialShownRemovals: ShownRemovals = {comments: recentRemovalLimit, posts: recentRemovalLimit,}
 
 /** Props for the UserOverviewTab component. */
 interface Props {
@@ -98,11 +111,17 @@ export function UserOverviewTab ({user, defaultSub, modSubs, subStatuses, onSubr
 	const [account, setAccount,] = useState<LoadState<UserAbout['data']>>({status: 'loading',},)
 	const [flair, setFlair,] = useState<LoadState<FlairSelectorResponse['current']>>({status: 'loading',},)
 	const [notes, setNotes,] = useState<NotesState>({status: 'scanning', summary: emptySummary,},)
+	const [bans, setBans,] = useState<LoadState<BanEntry[]>>({status: 'loading',},)
+	// Subreddits where the mod asked to count past removalScanLimit (the "Count all" button)
+	const [countAllSubs, setCountAllSubs,] = useState<ReadonlySet<string>>(new Set(),)
+	const countAll = countAllSubs.has(selectedSub,)
+	const [shownRemovals, setShownRemovals,] = useState(initialShownRemovals,)
 	// Keyed by fullname; null means /api/info did not return the item
 	const [previews, setPreviews,] = useState<ReadonlyMap<string, ContentPreview | null>>(new Map(),)
 
-	// Both caches live for the life of the popup, so switching back to a subreddit is instant
+	// The caches live for the life of the popup, so switching back to a subreddit is instant
 	const notesCacheRef = useRef(new Map<string, ModNotesSummary>(),)
+	const bansCacheRef = useRef(new Map<string, BanEntry[]>(),)
 	const requestedPreviewIdsRef = useRef(new Set<string>(),)
 
 	useEffect(() => {
@@ -141,20 +160,26 @@ export function UserOverviewTab ({user, defaultSub, modSubs, subStatuses, onSubr
 
 	useEffect(() => {
 		const cached = notesCacheRef.current.get(selectedSub,)
-		if (cached) {
+		// A capped result is final unless the mod asked to count everything.
+		if (cached && !(countAll && cached.capped)) {
 			setNotes({status: 'complete', summary: cached,},)
 			return
 		}
-		setNotes({status: 'scanning', summary: emptySummary,},)
+		// While counting everything, keep showing the capped result's previews.
+		setNotes({status: 'scanning', summary: cached ?? emptySummary,},)
 		const controller = new AbortController()
 		void (async () => {
 			try {
-				// The full history must be walked for accurate totals and ban history; partial
-				// results are published as they arrive so previews show before the walk finishes.
+				// The walk stops after removalScanLimit mod actions unless the mod asked to count
+				// all of them; partial results are published as they arrive so previews show
+				// before it finishes (a full count already has them from the capped result).
 				const summary = await summarizeModNotes(
 					getAllModNotes(selectedSub, user, 'MOD_ACTION',),
 					controller.signal,
-					(partial,) => setNotes({status: 'scanning', summary: partial,},),
+					(partial,) => {
+						if (!cached) { setNotes({status: 'scanning', summary: partial,},) }
+					},
+					countAll ? Infinity : removalScanLimit,
 				)
 				if (!summary) { return }
 				notesCacheRef.current.set(selectedSub, summary,)
@@ -166,12 +191,40 @@ export function UserOverviewTab ({user, defaultSub, modSubs, subStatuses, onSubr
 			}
 		})()
 		return () => controller.abort()
+	}, [user, selectedSub, countAll,],)
+
+	// Bans are read on their own, with the BAN filter, so the ban history is complete and does
+	// not wait on (or get cut off by) the capped removal walk.
+	useEffect(() => {
+		const cached = bansCacheRef.current.get(selectedSub,)
+		if (cached) {
+			setBans({status: 'loaded', value: cached,},)
+			return
+		}
+		setBans({status: 'loading',},)
+		const controller = new AbortController()
+		void (async () => {
+			try {
+				const result = await summarizeBans(getAllModNotes(selectedSub, user, 'BAN',), controller.signal,)
+				if (!result) { return }
+				bansCacheRef.current.set(selectedSub, result,)
+				setBans({status: 'loaded', value: result,},)
+			} catch (error) {
+				if (controller.signal.aborted) { return }
+				log.error('Failed to load ban history:', error,)
+				setBans({status: 'error', message: errorMessage(error,),},)
+			}
+		})()
+		return () => controller.abort()
 	}, [user, selectedSub,],)
 
 	useEffect(() => {
 		if (notes.status === 'error') { return }
 		const {comments, posts,} = notes.summary
-		const missingIds = [...comments.recent, ...posts.recent,]
+		const missingIds = [
+			...comments.removals.slice(0, shownRemovals.comments,),
+			...posts.removals.slice(0, shownRemovals.posts,),
+		]
 			.map((removal,) => removal.redditId)
 			.filter((redditId,) => !requestedPreviewIdsRef.current.has(redditId,))
 		if (missingIds.length === 0) { return }
@@ -196,9 +249,18 @@ export function UserOverviewTab ({user, defaultSub, modSubs, subStatuses, onSubr
 				return next
 			},)
 		})()
-	}, [notes,],)
+	}, [notes, shownRemovals,],)
+
+	const handleCountAll = () => {
+		setCountAllSubs((previous,) => new Set(previous,).add(selectedSub,))
+	}
+
+	const handleShowMore = (kind: keyof ShownRemovals,) => {
+		setShownRemovals((previous,) => ({...previous, [kind]: previous[kind] + removalPageSize,}))
+	}
 
 	const handleSubredditChange = (event: ChangeEvent<HTMLSelectElement>,) => {
+		setShownRemovals(initialShownRemovals,)
 		setSelectedSub(event.target.value,)
 		onSubredditSelect(event.target.value,)
 	}
@@ -220,40 +282,46 @@ export function UserOverviewTab ({user, defaultSub, modSubs, subStatuses, onSubr
 					? <AccountHeader user={user} info={account.value} />
 					: account.status === 'error'
 					? <p className={css.errorText}>{account.message}</p>
-					: <p className={css.loadingText}>Loading…</p>}
+					: <p className={css.loadingText}>Loading...</p>}
 			</section>
 
 			<section className={css.section}>
 				<p className={css.flairRow}>
 					<span className={css.flairLabel}>Flair:</span>
 					{flair.status === 'loading'
-						? <span className={css.loadingText}>Loading…</span>
+						? <span className={css.loadingText}>Loading...</span>
 						: flair.status === 'error'
 						? <span className={css.errorText}>{flair.message}</span>
 						: flair.value?.flair_text || <span className={css.mutedText}>Not set</span>}
 				</p>
 			</section>
 
+			<BanSection bans={bans} currentlyBanned={currentlyBanned} />
+
 			{notes.status === 'error'
 				? <p className={css.errorText}>{notes.message}</p>
 				: (
 					<>
-						<BanSection
-							bans={notes.status === 'complete' ? notes.summary.bans : null}
-							currentlyBanned={currentlyBanned}
-						/>
 						<RemovalSection
 							heading="Removed Comments"
 							contentLabel="comments"
 							summary={notes.summary.comments}
+							shown={shownRemovals.comments}
+							onShowMore={() => handleShowMore('comments',)}
 							complete={notes.status === 'complete'}
+							capped={notes.summary.capped}
+							onCountAll={handleCountAll}
 							previews={previews}
 						/>
 						<RemovalSection
 							heading="Removed Posts"
 							contentLabel="posts"
 							summary={notes.summary.posts}
+							shown={shownRemovals.posts}
+							onShowMore={() => handleShowMore('posts',)}
 							complete={notes.status === 'complete'}
+							capped={notes.summary.capped}
+							onCountAll={handleCountAll}
 							previews={previews}
 						/>
 					</>
@@ -275,7 +343,7 @@ function AccountHeader ({user, info,}: AccountHeaderProps,) {
 		<div className={css.accountHeader}>
 			<a href={userLink(user,)}>/u/{user}</a>
 			<span className={css.accountMeta}>
-				{'· Account created '}
+				{'- Account created '}
 				<time dateTime={created.toISOString()}>{formatShortDate(created,)}</time>
 			</span>
 			{info.is_suspended && <span className={`${css.badge} ${css.errorBadge}`}>SUSPENDED</span>}
@@ -285,8 +353,8 @@ function AccountHeader ({user, info,}: AccountHeaderProps,) {
 
 /** Props for BanSection. */
 interface BanSectionProps {
-	/** Every ban in the user's modlog, or null while the modlog is still being read. */
-	bans: BanEntry[] | null
+	/** Every ban in the user's modlog, read with the BAN filter. */
+	bans: LoadState<BanEntry[]>
 	currentlyBanned: boolean
 }
 
@@ -298,27 +366,31 @@ function BanSection ({bans, currentlyBanned,}: BanSectionProps,) {
 				Bans
 				{currentlyBanned && <span className={`${css.badge} ${css.cautionBadge}`}>Currently banned</span>}
 			</h3>
-			{bans === null
-				? <p className={css.loadingText}>Loading modlog…</p>
-				: bans.length === 0
+			{bans.status === 'loading'
+				? <p className={css.loadingText}>Loading ban history...</p>
+				: bans.status === 'error'
+				? <p className={css.errorText}>{bans.message}</p>
+				: bans.value.length === 0
 				? <p className={css.mutedText}>No Bans in User Modlog</p>
 				: (
 					<>
-						<p className={css.count}>Banned {bans.length} time{bans.length === 1 ? '' : 's'}</p>
-						<table className={css.table}>
-							<tbody>
-								{bans.map((ban,) => (
-									<tr key={ban.id}>
-										<td className={css.banDuration}>{ban.duration}</td>
-										<td className={css.banDate}>{formatShortDate(ban.date,)}</td>
-										<td className={css.banModerator}>
-											<a href={userLink(ban.moderator,)}>/u/{ban.moderator}</a>
-										</td>
-										<td className={css.banReason}>{ban.reason}</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
+						<p className={css.count}>Banned {bans.value.length} time{bans.value.length === 1 ? '' : 's'}</p>
+						<div className={css.scrollList}>
+							<table className={css.table}>
+								<tbody>
+									{bans.value.map((ban,) => (
+										<tr key={ban.id}>
+											<td className={css.banDuration}>{ban.duration}</td>
+											<td className={css.banDate}>{formatShortDate(ban.date,)}</td>
+											<td className={css.banModerator}>
+												<a href={userLink(ban.moderator,)}>/u/{ban.moderator}</a>
+											</td>
+											<td className={css.banReason}>{ban.reason}</td>
+										</tr>
+									))}
+								</tbody>
+							</table>
+						</div>
 					</>
 				)}
 		</section>
@@ -331,43 +403,91 @@ interface RemovalSectionProps {
 	/** Plural content noun used in the summary text (e.g. "comments"). */
 	contentLabel: string
 	summary: RemovalSummary
+	/** How many of the newest removals to preview. */
+	shown: number
+	/** Previews the next page of removals. */
+	onShowMore: () => void
 	/** False while the modlog is still being read, so `summary.total` is not final. */
 	complete: boolean
+	/** True when only the latest `removalScanLimit` mod actions were read, so the total is a lower bound. */
+	capped: boolean
+	/** Reads the rest of the history past `removalScanLimit`, for an exact total. */
+	onCountAll: () => void
 	previews: ReadonlyMap<string, ContentPreview | null>
 }
 
-/** Total removal count and previews of the most recent removals for one content type. */
-function RemovalSection ({heading, contentLabel, summary, complete, previews,}: RemovalSectionProps,) {
+/** Total removal count and previews of the most recent removals for one content type, a page at a time. */
+function RemovalSection (
+	{heading, contentLabel, summary, shown, onShowMore, complete, capped, onCountAll, previews,}: RemovalSectionProps,
+) {
+	const listRef = useRef<HTMLDivElement>(null,)
+	const shownBefore = useRef(shown,)
+	// After "Show more", scroll the list to the first new row, which would otherwise sit below
+	// the list's fold. Only the list scrolls, never the popup or the page.
+	useEffect(() => {
+		const previous = shownBefore.current
+		shownBefore.current = shown
+		const list = listRef.current
+		const firstNew = list?.querySelectorAll('tr',).item(previous,)
+		if (shown <= previous || !list || !firstNew) { return }
+		list.scrollTop += firstNew.getBoundingClientRect().top - list.getBoundingClientRect().top
+	}, [shown,],)
+
 	if (complete && summary.total === 0) {
 		return (
 			<section className={css.section}>
 				<h3 className={css.sectionHeading}>{heading}</h3>
-				<p className={css.mutedText}>No removed {contentLabel} in User Modlog</p>
+				<p className={css.mutedText}>
+					{capped
+						? `No removed ${contentLabel} in the latest ${removalScanLimit} mod actions`
+						: `No removed ${contentLabel} in User Modlog`}
+					{capped && <CountAllButton onClick={onCountAll} />}
+				</p>
 			</section>
 		)
 	}
+	const visible = summary.removals.slice(0, shown,)
+	const remaining = summary.removals.length - visible.length
 	return (
 		<section className={css.section}>
 			<h3 className={css.sectionHeading}>{heading}</h3>
 			<p className={css.count}>
 				{complete
-					? formatRemovalCount(summary,)
-					: <span className={css.loadingText}>Counting…</span>}
+					? formatRemovalCount(summary.total, visible.length, capped,)
+					: <span className={css.loadingText}>Counting...</span>}
+				{complete && capped && <CountAllButton onClick={onCountAll} />}
 			</p>
-			{summary.recent.length > 0 && (
-				<table className={css.table}>
-					<tbody>
-						{summary.recent.map((removal,) => (
-							<RemovalRow
-								key={removal.redditId}
-								removal={removal}
-								preview={previews.get(removal.redditId,)}
-							/>
-						))}
-					</tbody>
-				</table>
+			{visible.length > 0 && (
+				<div ref={listRef} className={css.scrollList}>
+					<table className={css.table}>
+						<tbody>
+							{visible.map((removal,) => (
+								<RemovalRow
+									key={removal.redditId}
+									removal={removal}
+									preview={previews.get(removal.redditId,)}
+								/>
+							))}
+						</tbody>
+					</table>
+				</div>
+			)}
+			{complete && remaining > 0 && (
+				<ActionButton type="button" inline onClick={onShowMore}>
+					Show {Math.min(remaining, removalPageSize,)} more
+				</ActionButton>
 			)}
 		</section>
+	)
+}
+
+/** Starts a full count of the user's removals; offered only when the total was capped. */
+function CountAllButton ({onClick,}: {onClick: () => void},) {
+	return (
+		<>
+			{' '}
+			<ActionButton type="button" inline onClick={onClick}>Count all</ActionButton>
+		</>
 	)
 }
 
@@ -387,7 +507,7 @@ function RemovalRow ({removal, preview,}: RemovalRowProps,) {
 			</td>
 			<td className={css.previewBody}>
 				{preview === undefined
-					? <span className={css.loadingText}>Loading…</span>
+					? <span className={css.loadingText}>Loading...</span>
 					: preview === null
 					? <span className={css.mutedText}>[unavailable]</span>
 					: (
@@ -412,9 +532,13 @@ function toContentPreview (data: PreviewData,): ContentPreview {
 	}
 }
 
-/** Formats a removal total, noting when only the most recent removals are shown (e.g. "12 removed, most recent 3 shown"). */
-function formatRemovalCount ({total, recent,}: RemovalSummary,): string {
-	return total > recent.length ? `${total} removed, most recent ${recent.length} shown` : `${total} removed`
+/**
+ * Formats a removal total, noting when only the most recent removals are shown and when the
+ * total is a lower bound (e.g. "12+ removed in the latest 500 mod actions, most recent 3 shown").
+ */
+function formatRemovalCount (total: number, shown: number, capped: boolean,): string {
+	const count = capped ? `${total}+ removed in the latest ${removalScanLimit} mod actions` : `${total} removed`
+	return total > shown ? `${count}, most recent ${shown} shown` : count
 }
 
 /** Builds a link to a user's profile. */
