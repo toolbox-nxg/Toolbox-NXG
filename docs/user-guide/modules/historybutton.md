@@ -18,6 +18,8 @@ It also lists the off-site accounts (YouTube channels, social and creator profil
 
 **Search links** — each domain and subreddit in the submission tables links to a Reddit search of the user's posts there. NSFW posts are left out of those searches unless you turn on **Include NSFW submissions**.
 
+**Pinned current subreddit** — turn on **Pin the current subreddit** and the subreddit you opened the popup from moves to the top of both subreddit tables, above a divider, instead of sitting in count order.
+
 **Configurable fetch depth** — controls how many comments are retrieved per user history lookup (100–1000).
 
 ## Settings
@@ -27,3 +29,4 @@ It also lists the off-site accounts (YouTube channels, social and creator profil
 | Load comment history immediately | On      | Load comment history at the same time as submission history _(advanced)_ |
 | Number of comments to retrieve   | 1000    | How many comments to fetch per history lookup _(advanced)_               |
 | Include NSFW submissions         | Off     | Include NSFW posts in the Reddit searches linked from the popup          |
+| Pin the current subreddit        | Off     | Move the current subreddit to the top of the subreddit tables            |

@@ -14,6 +14,7 @@ import {getCommentHistoryData, getSubmissionHistoryData, getUserInfo,} from '../
 
 import {AccountTable,} from './AccountTable'
 import css from './historybutton.module.css'
+import {sortByCountWithPinned,} from './HistoryPopup.helpers'
 
 /** Props for the HistoryPopup component. */
 interface HistoryPopupProps {
@@ -56,6 +57,8 @@ export function HistoryPopup ({user, subreddit: currentSubreddit, initialPositio
 	const commentCount = parseInt(useSetting(historyButton, 'commentCount', '1000',), 10,)
 	const includeNsfwSearches = useSetting(historyButton, 'includeNsfwSearches', false,)
 	const alwaysComments = useSetting(historyButton, 'alwaysComments', true,)
+	// Off by default: moving a row out of count order changes a layout moderators have long relied on.
+	const pinnedSubreddit = useSetting(historyButton, 'pinCurrentSubreddit', false,) ? currentSubreddit : null
 
 	// Memoize the fetch promises: invoking these in the render body created a new
 	// promise (and fired the paginated API requests, ~10 of them) on every
@@ -233,8 +236,11 @@ export function HistoryPopup ({user, subreddit: currentSubreddit, initialPositio
 							</tr>
 						</thead>
 						<tbody>
-							{Object.entries(submissionData.subreddits,)
-								.sort(([_, a,], [__, b,],) => b.count - a.count)
+							{sortByCountWithPinned(
+								Object.entries(submissionData.subreddits,),
+								(s,) => s.count,
+								pinnedSubreddit,
+							)
 								.map(([subreddit, {count, karma, removed,},],) => {
 									const ratio = count / submissionData.total
 									const subredditSearchQuery = baseSearchParams(includeNsfwSearches,)
@@ -248,6 +254,7 @@ export function HistoryPopup ({user, subreddit: currentSubreddit, initialPositio
 											className={classes(
 												ratioClassName(ratio, count,),
 												subreddit === currentSubreddit && css.currentSubreddit,
+												subreddit === pinnedSubreddit && css.pinnedSubreddit,
 											)}
 										>
 											<td>
@@ -312,8 +319,11 @@ export function HistoryPopup ({user, subreddit: currentSubreddit, initialPositio
 									</tr>
 								</thead>
 								<tbody>
-									{Object.entries(commentData.subreddits,)
-										.sort(([_, a,], [__, b,],) => b - a)
+									{sortByCountWithPinned(
+										Object.entries(commentData.subreddits,),
+										(c,) => c,
+										pinnedSubreddit,
+									)
 										.map(([subreddit, count,],) => {
 											const ratio = count / commentData.total
 											return (
@@ -322,6 +332,7 @@ export function HistoryPopup ({user, subreddit: currentSubreddit, initialPositio
 													className={classes(
 														ratioClassName(ratio, count,),
 														subreddit === currentSubreddit && css.currentSubreddit,
+														subreddit === pinnedSubreddit && css.pinnedSubreddit,
 													)}
 												>
 													<td>{subreddit}</td>

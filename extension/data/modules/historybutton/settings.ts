@@ -27,6 +27,13 @@ export const settings = defineSettings(
 			default: false,
 			description: 'Include NSFW submissions in searches',
 		},
+		{
+			id: 'pinCurrentSubreddit',
+			sharedPolicy: 'raw',
+			type: 'boolean',
+			default: false,
+			description: 'Pin the current subreddit to the top of the subreddit tables',
+		},
 	] as const,
 )
 

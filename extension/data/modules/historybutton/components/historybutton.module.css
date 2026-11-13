@@ -143,6 +143,12 @@
 	font-weight: bold;
 }
 
+/* Separates the pinned row from the count-ordered rows below it; must follow .table td to beat its border. */
+/* stylelint-disable-next-line no-descending-specificity -- targets different rows than tr:last-child td; no actual cascade conflict */
+.pinnedSubreddit td {
+	border-bottom: 2px solid var(--toolbox-surface-border);
+}
+
 /* intentional: warning/danger colours are visual severity encoding for history entries, not UI chrome */
 .warning {
 	background: rgb(255 210 0 / 22%);
