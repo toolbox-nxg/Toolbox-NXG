@@ -6,7 +6,6 @@ import type {ModNote, ModNoteModActionData,} from '../../shared/modnotes/schema'
 import {
 	classifyContent,
 	createNotesAccumulator,
-	formatShortDate,
 	type ModNotesSummary,
 	processNote,
 	recentRemovalLimit,
@@ -327,19 +326,6 @@ describe('classifyContent', () => {
 	it.each([true, 'some_mod', null, undefined,],)('classifies as available when bannedBy is %s', (bannedBy,) => {
 		expect(classifyContent({text: 'text', author: 'alice', bannedBy,},),).toBe('available',)
 	},)
-})
-
-describe('formatShortDate', () => {
-	// The reader's locale decides the order and month names, so check the parts, not the layout.
-	it('shows the zero-padded day, short month and two-digit year', () => {
-		const date = new Date(2024, 0, 3,)
-		const month = new Intl.DateTimeFormat(undefined, {month: 'short',},).format(date,)
-		const formatted = formatShortDate(date,)
-		expect(formatted,).toContain('03',)
-		expect(formatted,).toContain(month,)
-		expect(formatted,).toContain('24',)
-		expect(formatted,).not.toContain('2024',)
-	})
 })
 
 describe('truncateText', () => {

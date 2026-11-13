@@ -9,8 +9,8 @@ import {getInfoBulk, type RedditThing,} from '../../../api/resources/things'
 import {aboutUser,} from '../../../api/resources/users'
 import type {UserAbout,} from '../../../api/resources/users'
 import {ActionButton,} from '../../../shared/controls/ActionButton'
-import {RelativeTime,} from '../../../shared/controls/RelativeTime'
 import {SelectInput,} from '../../../shared/controls/SelectInput'
+import {Timestamp,} from '../../../shared/controls/Timestamp'
 import createLogger from '../../../util/infra/logging'
 import {link,} from '../../../util/reddit/pageContext'
 
@@ -19,7 +19,6 @@ import {
 	type BanEntry,
 	classifyContent,
 	type ContentClassification,
-	formatShortDate,
 	type ModNotesSummary,
 	recentRemovalLimit,
 	type RemovalEntry,
@@ -344,7 +343,7 @@ function AccountHeader ({user, info,}: AccountHeaderProps,) {
 			<a href={userLink(user,)}>/u/{user}</a>
 			<span className={css.accountMeta}>
 				{'- Account created '}
-				<time dateTime={created.toISOString()}>{formatShortDate(created,)}</time>
+				<Timestamp date={created} />
 			</span>
 			{info.is_suspended && <span className={`${css.badge} ${css.errorBadge}`}>SUSPENDED</span>}
 		</div>
@@ -381,7 +380,9 @@ function BanSection ({bans, currentlyBanned,}: BanSectionProps,) {
 									{bans.value.map((ban,) => (
 										<tr key={ban.id}>
 											<td className={css.banDuration}>{ban.duration}</td>
-											<td className={css.banDate}>{formatShortDate(ban.date,)}</td>
+											<td className={css.banDate}>
+												<Timestamp date={ban.date} />
+											</td>
 											<td className={css.banModerator}>
 												<a href={userLink(ban.moderator,)}>/u/{ban.moderator}</a>
 											</td>
@@ -481,8 +482,14 @@ function RemovalSection (
 	)
 }
 
+/** Props for CountAllButton. */
+interface CountAllButtonProps {
+	/** Starts the uncapped count. */
+	onClick: () => void
+}
+
 /** Starts a full count of the user's removals; offered only when the total was capped. */
-function CountAllButton ({onClick,}: {onClick: () => void},) {
+function CountAllButton ({onClick,}: CountAllButtonProps,) {
 	return (
 		<>
 			{' '}
@@ -503,7 +510,7 @@ function RemovalRow ({removal, preview,}: RemovalRowProps,) {
 	return (
 		<tr>
 			<td className={css.previewDate}>
-				<RelativeTime date={removal.date} />
+				<Timestamp date={removal.date} />
 			</td>
 			<td className={css.previewBody}>
 				{preview === undefined

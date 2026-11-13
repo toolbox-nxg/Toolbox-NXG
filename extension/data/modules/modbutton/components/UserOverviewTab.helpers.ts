@@ -77,9 +77,6 @@ const removalActions = new Map<string, ContentType>([
 ],)
 const approvalActions = new Set(['approvecomment', 'approvelink',],)
 
-// The reader's locale, as elsewhere in Toolbox; only the parts and their order vary.
-const shortDateFormat = new Intl.DateTimeFormat(undefined, {day: '2-digit', month: 'short', year: '2-digit',},)
-
 /** Creates a fresh accumulator for use with `processNote`. */
 export function createNotesAccumulator (): NotesAccumulator {
 	return {
@@ -213,16 +210,6 @@ export function classifyContent (input: ContentClassificationInput,): ContentCla
 		return 'removed-by-reddit'
 	}
 	return 'available'
-}
-
-/**
- * Formats a date as a short day, month and two-digit year in the reader's locale
- * (e.g. "14 Jun 25" or "Jun 14, 25").
- * @param date The date to format.
- * @returns The formatted date string.
- */
-export function formatShortDate (date: Date,): string {
-	return shortDateFormat.format(date,)
 }
 
 /**
