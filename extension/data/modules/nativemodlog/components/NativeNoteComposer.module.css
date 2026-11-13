@@ -81,16 +81,28 @@
 	gap: var(--toolbox-sp-8);
 }
 
+/* The ban checkbox row plus the days hint beside it; keeps both on the left of the footer. */
+.banGroup {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: var(--toolbox-sp-5);
+	margin-right: auto;
+}
+
 .banRow {
 	display: flex;
 	align-items: center;
 	gap: var(--toolbox-sp-5);
 	white-space: nowrap;
-	margin-right: auto;
 }
 
 .banDaysInput {
 	width: 52px;
 	box-sizing: border-box;
 	padding: var(--toolbox-sp-2) var(--toolbox-sp-4);
+}
+
+.banDaysHint {
+	color: var(--toolbox-text-muted);
 }

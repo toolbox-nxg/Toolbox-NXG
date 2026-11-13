@@ -47,6 +47,15 @@ export const settings = defineSettings(
 				'Turn on the ban option when choosing the Ban or Permaban label for a new native note (off: tick it to ban)',
 		},
 		{
+			id: 'banNoteDuration',
+			sharedPolicy: 'raw',
+			type: 'text',
+			default: '',
+			advanced: true,
+			description:
+				'Read the ban duration from the note: a regular expression whose first capture group is the days (Ban label only)',
+		},
+		{
 			id: 'showAiSummaries',
 			sharedPolicy: 'raw',
 			type: 'boolean',
