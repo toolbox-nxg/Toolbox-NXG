@@ -23,6 +23,7 @@ import {provideLocation,} from '../../dom/uiLocations'
 import createLogger from '../../util/infra/logging'
 import {RedditPlatform,} from '../../util/infra/platform'
 import {postSite,} from '../../util/reddit/pageContext'
+import {notifyNewThings,} from '../../util/ui/listener'
 import {tagToolboxContainer,} from '../../util/ui/toolboxContainer'
 import {type OldRedditSettings,} from './settings'
 
@@ -275,9 +276,11 @@ export function createOldRedditHandlers (_s: OldRedditSettings,): OldRedditHandl
 	}
 
 	// RES infinite scroll appends new .thing elements to div.content without
-	// firing TBNewThings, so the MutationObserver callback re-runs the crawler.
-	// Debounce so that a burst of mutation records from a single RES scroll event
-	// only triggers one crawler run.
+	// firing TBNewThings, so the MutationObserver callback fires it on RES's behalf.
+	// That re-runs the crawler (it listens for TBNewThings) and lets every other
+	// module -- mass moderation's selection checkboxes, usernotes, etc. -- pick up
+	// the new page. Debounce so that a burst of mutation records from a single RES
+	// scroll event only fires one signal.
 	let crawlerTimer: ReturnType<typeof setTimeout> | undefined
 	let userListTimer: ReturnType<typeof setTimeout> | undefined
 	const resObserverCallback: MutationCallback = (mutations,) => {
@@ -289,7 +292,7 @@ export function createOldRedditHandlers (_s: OldRedditSettings,): OldRedditHandl
 		)
 		if (hasNewThings) {
 			clearTimeout(crawlerTimer,)
-			crawlerTimer = setTimeout(thingCrawler, 50,)
+			crawlerTimer = setTimeout(notifyNewThings, 50,)
 		}
 		if (isUserListPage) {
 			const hasNewAuthors = mutations.some((mutation,) =>
