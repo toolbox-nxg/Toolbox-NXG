@@ -782,8 +782,9 @@ describe('recoverLegacyUsernoteColors', () => {
 
 			expect(repairs,).toEqual(
 				new Map([
-					[0, 'This is a [{choice#kind: repost | spam}](https://example.com) post.',],
-					[2, 'Pick {choice#r: a}',],
+					// Restored as the dropdowns 6.x showed.
+					[0, 'This is a [{dropdown#kind: repost | spam}](https://example.com) post.',],
+					[2, 'Pick {dropdown#r: a}',],
 				],),
 			)
 		})

@@ -12,6 +12,7 @@ import {
 	findUnfilledRequired,
 	htmlFieldsToTokens,
 	htmlSimpleFieldsToTokens,
+	ignorePickStyle,
 	inlineSelectDefinitions,
 	type InteractiveToken,
 	type LegacySelectDefinition,
@@ -200,7 +201,7 @@ describe('canonicalizeChoiceBlocks', () => {
 		const once = canonicalizeChoiceBlocks(
 			htmlFieldsToTokens('<select id="r"><option>a</option><option></option></select>',),
 		)
-		expect(once,).toBe('{choice#r}\n- a\n-',)
+		expect(once,).toBe('{dropdown#r}\n- a\n-',)
 		expect(canonicalizeChoiceBlocks(once,),).toBe(once,)
 	})
 
@@ -278,64 +279,81 @@ describe('substituteTokenValues', () => {
 })
 
 describe('htmlFieldsToTokens', () => {
-	it('rewrites a select with an id on its own line into a choice block', () => {
+	it('rewrites a select with an id on its own line into a dropdown block', () => {
 		const html = 'Pick:\n<select id="rule"><option>Rule 1</option><option>Rule 2</option></select>'
 		expect(canonicalizeChoiceBlocks(htmlFieldsToTokens(html,),),)
-			.toBe('Pick:\n\n{choice#rule}\n- Rule 1\n- Rule 2',)
+			.toBe('Pick:\n\n{dropdown#rule}\n- Rule 1\n- Rule 2',)
 	})
 
 	it('keeps a select that shares its line with text inline, in place', () => {
 		const html = 'This is a <select id="rule"><option>repost</option><option>spam</option></select> post.'
 		expect(canonicalizeChoiceBlocks(htmlFieldsToTokens(html,),),)
-			.toBe('This is a {choice#rule: repost | spam} post.',)
+			.toBe('This is a {dropdown#rule: repost | spam} post.',)
 	})
 
 	it('keeps a select used as link text inside the link', () => {
 		const html = 'This is a [<select><option>repost</option><option>spam</option></select>](https://example.com).'
 		expect(canonicalizeChoiceBlocks(htmlFieldsToTokens(html,),),)
-			.toBe('This is a [{choice: repost | spam}](https://example.com).',)
+			.toBe('This is a [{dropdown: repost | spam}](https://example.com).',)
 	})
 
 	it('keeps inline an option that is itself a link, escaping a literal pipe', () => {
 		const html =
 			'See <select><option>\\[the rules\\]\\(https://example.com\\)</option><option>a|b</option></select>'
-		expect(htmlFieldsToTokens(html,),).toBe('See {choice: [the rules](https://example.com) | a\\|b}',)
+		expect(htmlFieldsToTokens(html,),).toBe('See {dropdown: [the rules](https://example.com) | a\\|b}',)
 	})
 
-	it('round-trips an inline select through the token form', () => {
+	it('round-trips an inline select through the token form, marking it a dropdown', () => {
 		const html = 'This is a <select id="r"><option>repost</option><option>spam</option></select> post.'
-		expect(tokensToHtmlFields(htmlFieldsToTokens(html,),),).toBe(html,)
+		const marked =
+			'This is a <select id="r" data-tbx-dropdown="1"><option>repost</option><option>spam</option></select> post.'
+		expect(tokensToHtmlFields(htmlFieldsToTokens(html,),),).toBe(marked,)
+		expect(tokensToHtmlFields(htmlFieldsToTokens(marked,),),).toBe(marked,)
 	})
 
-	it('drops a missing or non-slug-safe id to a bare choice', () => {
+	it('reads a select marked data-tbx-choice back as a choice', () => {
+		expect(
+			htmlFieldsToTokens(
+				'Pick <select id="r" data-tbx-choice="1"><option>a</option><option>b</option></select>',
+			),
+		)
+			.toBe('Pick {choice#r: a | b}',)
+	})
+
+	it('keeps an unmarked inline faked tick box a choice, so it can be promoted', () => {
+		expect(htmlFieldsToTokens('- <select><option>a</option><option>**a**</option></select>',),)
+			.toBe('- {choice: a | **a**}',)
+	})
+
+	it('drops a missing or non-slug-safe id to a bare dropdown', () => {
 		expect(canonicalizeChoiceBlocks(htmlFieldsToTokens('<select><option>a</option></select>',),),)
-			.toBe('{choice}\n- a',)
+			.toBe('{dropdown}\n- a',)
 		expect(canonicalizeChoiceBlocks(htmlFieldsToTokens('<select id="not valid!"><option>a</option></select>',),),)
-			.toBe('{choice}\n- a',)
+			.toBe('{dropdown}\n- a',)
 	})
 
 	it('turns a label attribute into a markdown line above the block', () => {
 		const html = '<select id="r" label="Pick one"><option>a</option></select>'
 		expect(canonicalizeChoiceBlocks(htmlFieldsToTokens(html,),),)
-			.toBe('Pick one\n\n{choice#r}\n- a',)
+			.toBe('Pick one\n\n{dropdown#r}\n- a',)
 	})
 
 	it('prefers an explicit option value attribute over the text', () => {
 		expect(canonicalizeChoiceBlocks(
 			htmlFieldsToTokens('<select><option value="short">A much longer label</option></select>',),
-		),).toBe('{choice}\n- short',)
+		),).toBe('{dropdown}\n- short',)
 	})
 
 	it('recovers the trailing ) of a markdown link inside an option', () => {
 		expect(canonicalizeChoiceBlocks(
 			htmlFieldsToTokens('<select><option>[see rules](https://example.com/rules\\))</option></select>',),
-		),).toBe('{choice}\n- [see rules](https://example.com/rules)',)
+		),).toBe('{dropdown}\n- [see rules](https://example.com/rules)',)
 	})
 
 	it('tolerates a misspelled </option> closer without merging options', () => {
 		expect(canonicalizeChoiceBlocks(
 			htmlFieldsToTokens('<select><option>Rule 1</optiom><option>Rule 2</option></select>',),
-		),).toBe('{choice}\n- Rule 1\n- Rule 2',)
+		),).toBe('{dropdown}\n- Rule 1\n- Rule 2',)
 	})
 
 	it('strips v1 markdown escapes from option text so links render in token form', () => {
@@ -343,13 +361,13 @@ describe('htmlFieldsToTokens', () => {
 			htmlFieldsToTokens(
 				'<select><option>**No slurs.** \\[See the rule.\\]\\(https://example.com/rule\\)</option></select>',
 			),
-		),).toBe('{choice}\n- **No slurs.** [See the rule.](https://example.com/rule)',)
+		),).toBe('{dropdown}\n- **No slurs.** [See the rule.](https://example.com/rule)',)
 	})
 
-	it('keeps a blank placeholder <option> as a blank choice option', () => {
+	it('keeps a blank placeholder <option> as a blank dropdown option', () => {
 		expect(canonicalizeChoiceBlocks(
 			htmlFieldsToTokens('<select id="r"><option></option><option>Rule 1</option></select>',),
-		),).toBe('{choice#r}\n- \n- Rule 1',)
+		),).toBe('{dropdown#r}\n- \n- Rule 1',)
 	})
 
 	it('converts every select when an earlier one opens with a blank option (issue #22)', () => {
@@ -359,9 +377,9 @@ describe('htmlFieldsToTokens', () => {
 		const tokens = parseReasonSegments(htmlFieldsToTokens(html,),)
 			.flatMap((s,) => s.type === 'token' ? [s.token,] : [])
 		expect(tokens,).toEqual([
-			{kind: 'choice', id: 'a', placeholder: '', options: ['A1', 'A2',],},
-			{kind: 'choice', id: 'b', placeholder: '', options: ['', 'B1',],},
-			{kind: 'choice', id: 'c', placeholder: '', options: ['', 'C1',],},
+			{kind: 'choice', dropdown: true, id: 'a', placeholder: '', options: ['A1', 'A2',],},
+			{kind: 'choice', dropdown: true, id: 'b', placeholder: '', options: ['', 'B1',],},
+			{kind: 'choice', dropdown: true, id: 'c', placeholder: '', options: ['', 'C1',],},
 		],)
 	})
 
@@ -426,17 +444,21 @@ describe('tokenToLegacyHtml / tokensToHtmlFields', () => {
 		expect(tokenToLegacyHtml({kind: 'textarea', placeholder: 'P "q"', options: [],},),)
 			.toBe('<textarea placeholder="P &quot;q&quot;"></textarea>',)
 		expect(tokenToLegacyHtml({kind: 'choice', id: 's', placeholder: '', options: ['a', 'b',],},),)
-			.toBe('<select id="s"><option>a</option><option>b</option></select>',)
+			.toBe('<select id="s" data-tbx-choice="1"><option>a</option><option>b</option></select>',)
 	})
 
 	it('expands a choice block into a <select> and leaves the rest alone', () => {
 		expect(tokensToHtmlFields('Pick:\n\n{choice#choice}\n- a\n- b\n\nthen {author}',),)
-			.toBe('Pick:\n\n<select id="choice"><option>a</option><option>b</option></select>\n\nthen {author}',)
+			.toBe(
+				'Pick:\n\n<select id="choice" data-tbx-choice="1"><option>a</option><option>b</option></select>\n\nthen {author}',
+			)
 	})
 
 	it('expands a block whose list sat below a blank line into a single <select>', () => {
 		expect(tokensToHtmlFields('Pick:\n\n{choice#choice}\n\n- a\n- b\n\nthen {author}',),)
-			.toBe('Pick:\n\n<select id="choice"><option>a</option><option>b</option></select>\n\nthen {author}',)
+			.toBe(
+				'Pick:\n\n<select id="choice" data-tbx-choice="1"><option>a</option><option>b</option></select>\n\nthen {author}',
+			)
 	})
 
 	it('round-trips a canonical choice block through the legacy mirror and back', () => {
@@ -452,7 +474,7 @@ describe('tokenToLegacyHtml / tokensToHtmlFields', () => {
 	it('round-trips a blank option through the legacy mirror', () => {
 		const text = '{choice#r}\n- \n- a'
 		expect(tokensToHtmlFields(text,),)
-			.toBe('<select id="r"><option></option><option>a</option></select>',)
+			.toBe('<select id="r" data-tbx-choice="1"><option></option><option>a</option></select>',)
 		expect(canonicalizeChoiceBlocks(htmlFieldsToTokens(tokensToHtmlFields(text,),),),).toBe(text,)
 	})
 
@@ -460,7 +482,7 @@ describe('tokenToLegacyHtml / tokensToHtmlFields', () => {
 		expect(
 			tokensToHtmlFields('{choice#r}\n- [See the rule.](https://example.com/rule)\n- b',),
 		).toBe(
-			'<select id="r"><option>\\[See the rule.\\]\\(https://example.com/rule)</option><option>b</option></select>',
+			'<select id="r" data-tbx-choice="1"><option>\\[See the rule.\\]\\(https://example.com/rule)</option><option>b</option></select>',
 		)
 	})
 
@@ -471,7 +493,7 @@ describe('tokenToLegacyHtml / tokensToHtmlFields', () => {
 
 	it('collapses multi-line option text on the legacy mirror', () => {
 		expect(tokenToLegacyHtml({kind: 'choice', id: 'r', placeholder: '', options: ['line one\nline two',],},),)
-			.toBe('<select id="r"><option>line one line two</option></select>',)
+			.toBe('<select id="r" data-tbx-choice="1"><option>line one line two</option></select>',)
 	})
 })
 
@@ -511,7 +533,7 @@ describe('inline choice tokens', () => {
 
 	it('down-converts to a select in place', () => {
 		expect(tokensToHtmlFields('a {choice#r: one | two} b',),)
-			.toBe('a <select id="r"><option>one</option><option>two</option></select> b',)
+			.toBe('a <select id="r" data-tbx-choice="1"><option>one</option><option>two</option></select> b',)
 	})
 
 	it('is not reported as a literal choice marker', () => {
@@ -664,11 +686,11 @@ describe('tick-box fields', () => {
 
 	it('down-converts each item to a <select> of its two outputs, ticked output first', () => {
 		expect(tokensToHtmlFields('{highlight#r}\n- [ ] a\n- [x] b',),).toBe(
-			'- <select><option>a</option><option>**a**</option></select>\n'
-				+ '- <select><option>**b**</option><option>b</option></select>',
+			'- <select data-tbx-choice="1"><option>a</option><option>**a**</option></select>\n'
+				+ '- <select data-tbx-choice="1"><option>**b**</option><option>b</option></select>',
 		)
 		expect(tokensToHtmlFields('x {check#c: y} z',),).toBe(
-			'x <select id="c"><option></option><option>y</option></select> z',
+			'x <select id="c" data-tbx-choice="1"><option></option><option>y</option></select> z',
 		)
 	})
 
@@ -797,7 +819,7 @@ describe('required fields', () => {
 		const text = 'Why: {input#why!: why}. Pick {choice!: a | b}. {highlight!: c}'
 		const legacy = tokensToHtmlFields(text,)
 		expect(legacy,).toContain('<input id="why" required="required" placeholder="why">',)
-		expect(legacy,).toContain('<select required="required"><option>a</option>',)
+		expect(legacy,).toContain('<select required="required" data-tbx-choice="1"><option>a</option>',)
 		expect(promoteLegacyToggles(htmlFieldsToTokens(legacy,),),).toBe(text,)
 		// A bare 6.x-style attribute reads the same.
 		expect(htmlFieldsToTokens('<input required placeholder="x">',),).toBe('{input!: x}',)
@@ -805,7 +827,7 @@ describe('required fields', () => {
 
 	it('drops the required mark of a block tick box from its per-item mirror selects', () => {
 		expect(tokensToHtmlFields('{multi!}\n- [ ] a',),).toBe(
-			'- <select><option></option><option>a</option></select>',
+			'- <select data-tbx-choice="1"><option></option><option>a</option></select>',
 		)
 	})
 })
@@ -855,13 +877,18 @@ describe('{dropdown}', () => {
 		)
 	})
 
-	it('keeps an unmarked <select> a {choice}', () => {
+	it('reads an unmarked <select> as a {dropdown}, as 6.x showed it', () => {
 		expect(
 			canonicalizeChoiceBlocks(
 				htmlFieldsToTokens('<select id="rule"><option>a</option><option>b</option></select>',),
 			),
 		)
-			.toBe('{choice#rule}\n- a\n- b',)
+			.toBe('{dropdown#rule}\n- a\n- b',)
+	})
+
+	it('ignorePickStyle reads every dropdown as a choice', () => {
+		expect(ignorePickStyle('{dropdown#r!}\n- a\n\nPick {dropdown: x | y} {dropdowns}',),)
+			.toBe('{choice#r!}\n- a\n\nPick {choice: x | y} {dropdowns}',)
 	})
 
 	it('is never promoted to a tick box', () => {

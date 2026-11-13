@@ -152,7 +152,7 @@
 	margin: 0;
 }
 
-.previewWrap :global(.toolbox-radio-text) a {
+.previewWrap :global(.toolbox-radio-text .toolbox-choice-link) {
 	color: var(--toolbox-action-text);
 }
 

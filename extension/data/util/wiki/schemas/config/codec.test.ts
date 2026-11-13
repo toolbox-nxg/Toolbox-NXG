@@ -75,7 +75,7 @@ describe('encodeClassicConfig', () => {
 		const classic = encodeClassicConfig(config,)
 
 		expect(unescape(classic.removalReasons.reasons[0].text,),).toBe(
-			'Pick:\n\n<select id="rule"><option>Rule 1</option><option>Rule 2</option></select>\n\n'
+			'Pick:\n\n<select id="rule" data-tbx-choice="1"><option>Rule 1</option><option>Rule 2</option></select>\n\n'
 				+ 'explain <input placeholder="why">',
 		)
 	})

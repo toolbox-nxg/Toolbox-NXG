@@ -431,8 +431,8 @@ describe('normalizeConfig', () => {
 		normalizeConfig(configData,)
 
 		expect(configData.ver,).toBe(2,)
-		// The select shared its line with text, so it stays inline in the sentence.
-		expect(configData.removalReasons.reasons[0].text,).toBe('Pick {choice#r: a}',)
+		// The select shared its line with text, so it stays inline in the sentence, as the dropdown 6.x showed.
+		expect(configData.removalReasons.reasons[0].text,).toBe('Pick {dropdown#r: a}',)
 		expect(configData.removalReasons.reasons[0].selects,).toBeUndefined()
 		expect(configData.removalReasons.header,).toBe('hello there',)
 	})
@@ -452,8 +452,8 @@ describe('normalizeConfig', () => {
 
 		normalizeConfig(configData,)
 
-		// The select shared its line with text, so it stays inline in the sentence.
-		expect(configData.removalReasons.reasons[0].text,).toBe('Pick {choice#r: a}',)
+		// The select shared its line with text, so it stays inline in the sentence, as the dropdown 6.x showed.
+		expect(configData.removalReasons.reasons[0].text,).toBe('Pick {dropdown#r: a}',)
 		expect(configData.removalReasons.reasons[0].selects,).toBeUndefined()
 	})
 
@@ -1018,7 +1018,7 @@ describe('saveToolboxConfig', () => {
 		expect((legacyWrite[2] as ToolboxConfig).ver,).toBe(1,)
 		expect(legacyReason.id,).toBeUndefined()
 
-		expect(unescape(legacyReason.text,),).toBe('<select id="r"><option>a</option></select>',)
+		expect(unescape(legacyReason.text,),).toBe('<select id="r" data-tbx-choice="1"><option>a</option></select>',)
 		// The NXG copy keeps the v2 shape untouched.
 		const nxgReason = (nxgWrite[2] as ToolboxConfig).removalReasons.reasons[0]
 		expect((nxgWrite[2] as ToolboxConfig).ver,).toBe(2,)

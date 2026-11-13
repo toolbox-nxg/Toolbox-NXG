@@ -132,6 +132,7 @@ export function choiceTokenToRadioGroup (
 		const span = doc.createElement('span',)
 		span.className = 'toolbox-radio-text'
 		span.innerHTML = renderLabelMarkdown(parser, option,)
+		unwrapLinks(span,)
 
 		label.appendChild(radio,)
 		label.appendChild(span,)
@@ -235,6 +236,7 @@ export function toggleTokenToCheckboxGroup (
 		const span = doc.createElement('span',)
 		span.className = 'toolbox-radio-text'
 		span.innerHTML = renderLabelMarkdown(parser, option,)
+		unwrapLinks(span,)
 
 		label.appendChild(box,)
 		label.appendChild(span,)
@@ -287,11 +289,32 @@ const inlineChoicePlaceholder = 'TBXINLINECHOICE'
 const inlineChoicePlaceholderRe = new RegExp(`${inlineChoicePlaceholder}(\\d+)Q`, 'g',)
 
 /**
- * Replaces any link that contains an inline choice with a `span` holding the same
- * content (the URL kept as its tooltip). A choice used as a link's text would
- * otherwise sit inside an anchor, and clicking an option would follow the link
- * instead of picking it. Only the overlay's display changes - the sent markdown
- * keeps the link around the picked value.
+ * Replaces a link with a `span` holding the same content, the URL kept as its tooltip,
+ * so a click on it reaches the radio button or tick box it labels instead of following
+ * the link. Only the overlay's display changes - the sent markdown keeps the link.
+ */
+function unwrapLink (anchor: Element,): void {
+	const span = anchor.ownerDocument.createElement('span',)
+	span.className = 'toolbox-choice-link'
+	const href = anchor.getAttribute('href',)
+	if (href) { span.title = href }
+	span.append(...Array.from(anchor.childNodes,),)
+	anchor.replaceWith(span,)
+}
+
+/**
+ * Unwraps every link in an option or item label (see {@link unwrapLink}), so a click
+ * anywhere on the option's line picks it. A `{note}` keeps its links: it is guidance
+ * for the moderator, who may want to follow them.
+ */
+function unwrapLinks (label: Element,): void {
+	label.querySelectorAll('a',).forEach(unwrapLink,)
+}
+
+/**
+ * Unwraps any link that contains an inline choice (see {@link unwrapLink}). A choice
+ * used as a link's text would otherwise sit inside an anchor, and clicking an option
+ * would follow the link instead of picking it.
  */
 function unwrapLinksAroundChoices (html: string,): string {
 	if (!html.includes('<a',)) { return html }
@@ -299,12 +322,7 @@ function unwrapLinksAroundChoices (html: string,): string {
 	let changed = false
 	doc.body.querySelectorAll('a',).forEach((anchor,) => {
 		if (!anchor.querySelector('.toolbox-radio-group-inline, .toolbox-reason-select',)) { return }
-		const span = doc.createElement('span',)
-		span.className = 'toolbox-choice-link'
-		const href = anchor.getAttribute('href',)
-		if (href) { span.title = href }
-		span.append(...Array.from(anchor.childNodes,),)
-		anchor.replaceWith(span,)
+		unwrapLink(anchor,)
 		changed = true
 	},)
 	return changed ? doc.body.innerHTML : html

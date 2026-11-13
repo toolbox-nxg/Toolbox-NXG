@@ -112,10 +112,22 @@ describe('renderReasonHtml', () => {
 		expect(doc.querySelector('.toolbox-radio-group',)?.classList.contains('toolbox-field-required',),).toBe(true,)
 	})
 
-	it('converts legacy HTML select elements the same way', () => {
+	it('renders a legacy HTML select as the dropdown 6.x showed', () => {
 		const html = renderReasonHtml(
 			parser,
 			'Pick one: <select id="pick"><option>first</option><option>second</option></select>',
+		)
+		const doc = new DOMParser().parseFromString(html, 'text/html',)
+		const select = doc.querySelector<HTMLSelectElement>('select#pick.toolbox-reason-select',)
+		expect(select,).not.toBeNull()
+		expect(select!.value,).toBe('first',)
+		expect(html,).not.toContain('type="radio"',)
+	})
+
+	it('renders a legacy select NXG marked as a choice as radio buttons', () => {
+		const html = renderReasonHtml(
+			parser,
+			'Pick one: <select id="pick" data-tbx-choice="1"><option>first</option><option>second</option></select>',
 		)
 		expect(html,).toContain('toolbox-radio-group',)
 		expect(html,).toContain('type="radio"',)
@@ -131,15 +143,15 @@ describe('renderReasonHtml', () => {
 				+ '<select id="second"><option></option><option>B1</option></select>',
 		)
 		const doc = new DOMParser().parseFromString(html, 'text/html',)
-		const groups = doc.querySelectorAll('.toolbox-radio-group',)
-		expect(groups.length,).toBe(2,)
+		const selects = doc.querySelectorAll<HTMLSelectElement>('select.toolbox-reason-select',)
+		expect(selects.length,).toBe(2,)
 
-		const radios = Array.from(groups[1]!.querySelectorAll<HTMLInputElement>('input[type="radio"]',),)
-		expect(radios.map((radio,) => radio.value),).toEqual(['', 'B1',],)
+		const options = Array.from(selects[1]!.options,)
+		expect(options.map((option,) => option.value),).toEqual(['', 'B1',],)
 		// The blank placeholder stays selected, so picking the reason inserts nothing
 		// until a real rule is chosen - matching the 6.x dropdown default.
-		expect(radios[0]!.hasAttribute('checked',),).toBe(true,)
-		expect(doc.querySelector<HTMLInputElement>('input[type="hidden"]#second',)?.value,).toBe('',)
+		expect(selects[1]!.id,).toBe('second',)
+		expect(selects[1]!.value,).toBe('',)
 	})
 
 	it('renders an inline choice token as a radio group inside its paragraph', () => {
@@ -168,7 +180,7 @@ describe('renderReasonHtml', () => {
 		)
 		const doc = new DOMParser().parseFromString(html, 'text/html',)
 		expect(doc.querySelectorAll('p',).length,).toBe(1,)
-		expect(doc.querySelector('p .toolbox-radio-group-inline',),).not.toBeNull()
+		expect(doc.querySelector('p select.toolbox-reason-select',),).not.toBeNull()
 	})
 
 	it('renders an inline (not own-line) choice marker literally', () => {
@@ -191,7 +203,24 @@ describe('renderReasonHtml', () => {
 		expect(html,).toContain('<em>applicable</em>',)
 		// Pipes inside an option are plain text, and option markdown still renders.
 		expect(html,).toContain('value="Rule 1 | [details](https://example.com)"',)
-		expect(html,).toContain('<a href="https://example.com">details</a>',)
+		expect(html,).toContain('<span class="toolbox-choice-link" title="https://example.com">details</span>',)
+	})
+
+	it('unwraps links in option and item labels so a click picks the option', () => {
+		const html = renderReasonHtml(
+			parser,
+			'{choice}\n- [impersonate](https://example.com/a)\n- b\n\n{multi}\n- [ ] [dox](https://example.com/b)',
+		)
+		const doc = new DOMParser().parseFromString(html, 'text/html',)
+		expect(doc.querySelector('.toolbox-radio-label a',),).toBeNull()
+		const links = Array.from(doc.querySelectorAll('.toolbox-radio-label .toolbox-choice-link',),)
+		expect(links.map((link,) => link.getAttribute('title',)),).toEqual([
+			'https://example.com/a',
+			'https://example.com/b',
+		],)
+		// The sent value keeps the link.
+		expect(doc.querySelector('input[type="radio"]',)?.getAttribute('value',),)
+			.toBe('[impersonate](https://example.com/a)',)
 	})
 
 	it('renders input and textarea tokens inline as form fields', () => {

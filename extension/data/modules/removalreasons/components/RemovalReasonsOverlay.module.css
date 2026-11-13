@@ -634,8 +634,8 @@
 	margin: 0;
 }
 
-.reasonContent :global(.toolbox-radio-text) a,
-.reasonPreview :global(.toolbox-radio-text) a {
+.reasonContent :global(.toolbox-radio-text .toolbox-choice-link),
+.reasonPreview :global(.toolbox-radio-text .toolbox-choice-link) {
 	color: var(--toolbox-action-text);
 }
 

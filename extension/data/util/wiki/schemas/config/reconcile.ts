@@ -34,6 +34,7 @@ import {getWikiRevisions, readFromWiki,} from '../../../../api/resources/wiki'
 import {purifyObject,} from '../../../data/purify'
 import createLogger from '../../../infra/logging'
 import {isTombstone, OLD_WIKI_PATHS,} from '../../wikiConstants'
+import {ignorePickStyle,} from '../shared/tokens'
 import {encodeClassicConfig,} from './codec'
 import {ensureStableIds, normalizeConfig,} from './schema'
 import type {ToolboxConfig,} from './schema'
@@ -111,6 +112,61 @@ export function legacyOwnedFieldsEqual (nxg: ToolboxConfig, legacy: ToolboxConfi
 }
 
 /**
+ * A copy of the config with every reason's text passed through {@link ignorePickStyle}.
+ * A mirror written before NXG marked its `<select>`s reads every `{choice}` back as a
+ * `{dropdown}` (an unmarked select is a 6.x dropdown), and that mirror is usually the
+ * newer page, since it is written just after the canonical one. Comparing without the
+ * pick style keeps such a mirror from being taken for a 6.x edit and turning every
+ * choice into a dropdown.
+ */
+function withoutPickStyle (config: ToolboxConfig,): ToolboxConfig {
+	return {
+		...config,
+		removalReasons: {
+			...config.removalReasons,
+			reasons: config.removalReasons.reasons.map((reason,) => ({
+				...reason,
+				text: ignorePickStyle(reason.text,),
+			})),
+		},
+	}
+}
+
+/**
+ * Whether the mirror carries no 6.x edit: equal to the NXG config, to the mirror it
+ * would produce, or to that mirror once the pick style is set aside (see
+ * {@link withoutPickStyle}).
+ */
+function mirrorHoldsNoEdit (nxg: ToolboxConfig, legacy: ToolboxConfig,): boolean {
+	if (legacyOwnedFieldsEqual(nxg, legacy,)) { return true }
+	const view = mirrorViewOfConfig(nxg,)
+	return legacyOwnedFieldsEqual(view, legacy,)
+		|| legacyOwnedFieldsEqual(withoutPickStyle(view,), withoutPickStyle(legacy,),)
+}
+
+/**
+ * Gives each adopted reason the NXG text it matches once the pick style is set aside,
+ * so a 6.x save adopted from an unmarked mirror keeps the reasons it did not touch as
+ * they were rather than turning their choices into dropdowns. Runs before the id
+ * matching, which compares text exactly.
+ */
+function restorePickStyle (
+	adopted: ToolboxConfig['removalReasons']['reasons'],
+	existing: ToolboxConfig['removalReasons']['reasons'],
+): void {
+	const unclaimed = [...existing,]
+	for (const entry of adopted) {
+		const blind = ignorePickStyle(entry.text,)
+		const match = unclaimed.findIndex((candidate,) =>
+			candidate.title === entry.title && ignorePickStyle(candidate.text,) === blind
+		)
+		if (match === -1) { continue }
+		entry.text = unclaimed[match]!.text
+		unclaimed.splice(match, 1,)
+	}
+}
+
+/**
  * Copies the matched NXG entry's `id` onto each adopted entry, matching by
  * content (title + text). Each NXG id is used at most once so duplicated
  * content can't produce duplicated ids; unmatched entries are left id-less
@@ -168,6 +224,10 @@ export function adoptLegacyConfigFields (nxg: ToolboxConfig, legacy: ToolboxConf
 	// match a synced one would otherwise claim its id and leave two entries carrying it, which
 	// breaks every lookup keyed on a reason id (`suggestedReasons`, proposal re-seeding).
 	const synced = nxg.removalReasons.reasons.filter((reason,) => reason.nativeReasonId)
+	restorePickStyle(
+		adopted.removalReasons.reasons,
+		nxg.removalReasons.reasons.filter((reason,) => !reason.nativeReasonId),
+	)
 	preserveIdsByContent(
 		adopted.removalReasons.reasons,
 		nxg.removalReasons.reasons.filter((reason,) => !reason.nativeReasonId),
@@ -256,8 +316,7 @@ export async function legacyMirrorMatchesConfig (
 ): Promise<boolean | undefined> {
 	const legacy = await readLegacyConfig(subreddit,)
 	if (legacy === undefined) { return undefined }
-	return legacyOwnedFieldsEqual(nxgConfig, legacy,)
-		|| legacyOwnedFieldsEqual(mirrorViewOfConfig(nxgConfig,), legacy,)
+	return mirrorHoldsNoEdit(nxgConfig, legacy,)
 }
 
 /** What a reconcile decided, for callers that log or surface the reason. */
@@ -303,14 +362,10 @@ export async function reconcileConfigFromLegacy (
 		return {config: nxgConfig, changed: false, outcome: 'equal',}
 	}
 
-	if (legacyOwnedFieldsEqual(nxgConfig, legacy,)) {
-		return {config: nxgConfig, changed: false, outcome: 'equal',}
-	}
-
 	// Guard 1: the difference may be an artifact of the v1 down-convert rather than a
 	// 6.x edit. Compare against the mirror this config would produce, which round-trips
 	// identically to the one on the wiki.
-	if (legacyOwnedFieldsEqual(mirrorViewOfConfig(nxgConfig,), legacy,)) {
+	if (mirrorHoldsNoEdit(nxgConfig, legacy,)) {
 		return {config: nxgConfig, changed: false, outcome: 'equal',}
 	}
 

@@ -371,7 +371,7 @@ describe('reconcileConfigFromLegacy', () => {
 						title: 'Rules',
 
 						text: escape(
-							'<select id="rule"><option>Rule 1 (edited)</option><option>Rule 2</option></select>',
+							'<select id="rule" data-tbx-choice="1"><option>Rule 1 (edited)</option><option>Rule 2</option></select>',
 						),
 					},],
 				},
@@ -382,6 +382,64 @@ describe('reconcileConfigFromLegacy', () => {
 
 		expect(result.changed,).toBe(true,)
 		expect(result.config.removalReasons.reasons[0]!.text,).toBe('{choice#rule}\n- Rule 1 (edited)\n- Rule 2',)
+	})
+
+	it('does not take a mirror written before selects were marked for a 6.x edit', async () => {
+		const nxg = makeConfig({
+			removalReasons: {reasons: [{id: 'reason01', title: 'Rules', text: '{choice#rule}\n- Rule 1\n- Rule 2',},],},
+		},)
+		readFromWiki.mockResolvedValue({
+			ok: true,
+			data: {
+				ver: 1,
+				removalReasons: {
+					reasons: [{
+						title: 'Rules',
+						text: escape('<select id="rule"><option>Rule 1</option><option>Rule 2</option></select>',),
+					},],
+				},
+			},
+		},)
+
+		const result = await reconcileConfigFromLegacy('sub', nxg, canonicalAt1000,)
+
+		expect(result.outcome,).toBe('equal',)
+		expect(result.config,).toBe(nxg,)
+	})
+
+	it('keeps the choices of reasons a 6.x edit to an unmarked mirror did not touch', async () => {
+		const nxg = makeConfig({
+			removalReasons: {
+				reasons: [
+					{id: 'reason01', title: 'Rules', text: '{choice#rule}\n- Rule 1\n- Rule 2',},
+					{id: 'reason02', title: 'Spam', text: 'no spam',},
+				],
+			},
+		},)
+		readFromWiki.mockResolvedValue({
+			ok: true,
+			data: {
+				ver: 1,
+				removalReasons: {
+					reasons: [
+						{
+							title: 'Rules',
+							text: escape('<select id="rule"><option>Rule 1</option><option>Rule 2</option></select>',),
+						},
+						{title: 'Spam', text: 'no spam (edited)',},
+					],
+				},
+			},
+		},)
+
+		const result = await reconcileConfigFromLegacy('sub', nxg, canonicalAt1000,)
+
+		expect(result.outcome,).toBe('adopted',)
+		expect(result.config.removalReasons.reasons[0],).toMatchObject({
+			id: 'reason01',
+			text: '{choice#rule}\n- Rule 1\n- Rule 2',
+		},)
+		expect(result.config.removalReasons.reasons[1]!.text,).toBe('no spam (edited)',)
 	})
 
 	it('adopts 6.x edits when the mirror diverges', async () => {

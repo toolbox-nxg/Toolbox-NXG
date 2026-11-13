@@ -221,17 +221,19 @@ Any `{…}` content that doesn't match a known interactive token or substitution
 
 During the v1 → v2 up-convert, legacy HTML form elements are translated automatically:
 
-| v1 HTML                                   | v2 token                                         |
-| ----------------------------------------- | ------------------------------------------------ |
-| `<input placeholder="…">`                 | `{input: …}`                                     |
-| `<textarea placeholder="…">`              | `{textarea: …}`                                  |
-| `<select id="rule">…</select>` on its own | `{choice#rule}` block, one `-` line per option   |
-| `<select id="rule">…</select>` in a line  | `{choice#rule: a \| b}` inline, in the same spot |
-| `<br>`                                    | `\n\n` (paragraph break)                         |
+| v1 HTML                                   | v2 token                                           |
+| ----------------------------------------- | -------------------------------------------------- |
+| `<input placeholder="…">`                 | `{input: …}`                                       |
+| `<textarea placeholder="…">`              | `{textarea: …}`                                    |
+| `<select id="rule">…</select>` on its own | `{dropdown#rule}` block, one `-` line per option   |
+| `<select id="rule">…</select>` in a line  | `{dropdown#rule: a \| b}` inline, in the same spot |
+| `<br>`                                    | `\n\n` (paragraph break)                           |
 
 A `<select>` counts as being on its own when nothing but whitespace, `<br>`, or other `<select>` elements shares its line; anything else, such as words of a sentence or the brackets of a link around it, keeps it inline so the picked option stays in its sentence. A slug-safe `id` attribute is kept as the choice's id; one that is missing or not slug-safe gives a choice without an id. An option's `value` attribute, when present, is used instead of its text, because that is what 6.x inserted. Backslash escapes that 6.x needed around link syntax in options (`\[`, `\]`, `\(`, `\)`) are removed, so links in options work as normal markdown.
 
-The v2 → v1 down-convert reverses this: inline tokens become HTML form elements, and each choice, in either form, becomes a `<select>` in the same place, with link syntax in its options escaped again for 6.x.
+A 6.x `<select>` was a dropdown, so it stays one. Two exceptions read as `{choice}` instead: a `<select>` NXG wrote for a `{choice}`, which carries a `data-tbx-choice="1"` attribute, and the two-option shape 6.x configs used to fake a tick box (see below), which then becomes the tick-box token. Mirrors written before NXG added that attribute read every `{choice}` back as a `{dropdown}`, so the config reconcile ignores the difference between the two and never takes it for a 6.x edit.
+
+The v2 → v1 down-convert reverses this: inline tokens become HTML form elements, and each choice, in either form, becomes a `<select>` in the same place, with link syntax in its options escaped again for 6.x. A `{choice}` gets a `data-tbx-choice="1"` attribute and a `{dropdown}` a `data-tbx-dropdown="1"` one; 6.x ignores both and keeps them.
 
 #### Notes, required fields, and link tokens on the v1 mirror
 

@@ -34,9 +34,13 @@
  * `{dropdown}` is a choice in every respect - same forms, ids, required mark and
  * options - except that the overlay shows it as a dropdown instead of radio buttons,
  * which suits a long option list. It parses to a `choice` token with `dropdown` set,
- * so everything that handles a choice handles it too. On the v1 mirror it is the same
- * `<select>` with a `data-tbx-dropdown` attribute (ignored by 6.x), which brings it
- * back as a dropdown; a `<select>` without it comes back as a `{choice}`.
+ * so everything that handles a choice handles it too. A 6.x `<select>` was a dropdown,
+ * so an unmarked `<select>` up-converts to `{dropdown}`. NXG marks what it writes to the
+ * v1 mirror so the round trip keeps the style: a `{choice}` becomes a `<select>` with a
+ * `data-tbx-choice` attribute (ignored by 6.x, which keeps it), and a `{dropdown}` one
+ * with `data-tbx-dropdown`, which builds that read unmarked selects as `{choice}` need.
+ * The one unmarked shape still read as a `{choice}` is the two-option select 6.x configs
+ * used to fake a tick box, so {@link promoteLegacyToggles} can still turn it into one.
  *
  * The list may also be separated from the marker by blank lines, which is how
  * markdown lists are usually written; the block is canonicalized back to the
@@ -87,8 +91,8 @@
  * This module is the only code that knows both representations: it parses token
  * text into segments for rendering, and converts between tokens and the legacy
  * HTML form for the classic (v1) wiki mirror. The v1 -> v2 up-convert rewrites
- * each legacy `<select>` into a `{choice}` block when it had a line to itself,
- * or into an inline `{choice: ...}` token when it shared its line with text;
+ * each legacy `<select>` into a `{dropdown}` (or `{choice}`, see above) block when it
+ * had a line to itself, or into an inline token when it shared its line with text;
  * the v2 -> v1 down-convert expands either form back into `<select>` HTML in
  * place so 6.x can read it. {@link inlineSelectDefinitions} migrates the older v2 shape (a
  * `{select:name}` reference into a separate definition) into the inline form.
@@ -654,10 +658,22 @@ export function splitInlineChoices (text: string,): string {
 		segments.map((segment,) => {
 			if (segment.type === 'text') { return segment.text }
 			if (!isInlineChoice(segment.token,)) { return serializeToken(segment.token,) }
-			const {inline: _inline, ...block} = segment.token
+			// Those builds had no dropdowns, so a select read back as one was split as a `{choice}`.
+			const {inline: _inline, dropdown: _dropdown, ...block} = segment.token
 			return `\n\n${serializeToken(block,)}\n\n`
 		},).join('',),
 	)
+}
+
+/**
+ * Rewrites every `{dropdown` keyword as `{choice`, for comparisons that should not see
+ * the pick style. A v1 mirror written before selects carried a style mark reads back
+ * with dropdowns where the NXG page has choices, and that difference is not a 6.x edit.
+ * The result is for comparing only; it is never stored.
+ * @param text Token-form reason text.
+ */
+export function ignorePickStyle (text: string,): string {
+	return text.replace(/\{dropdown(?=[#!:}\s])/gi, '{choice',)
 }
 
 /**
@@ -923,16 +939,26 @@ function getAttr (tag: string, name: string,): string | undefined {
 }
 
 /**
- * The attribute that marks a `<select>` on the v1 mirror as a `{dropdown}` rather than a
+ * The attribute that marks a `<select>` on the v1 mirror as a `{dropdown}`. An unmarked
+ * select reads as one anyway; the mark is kept for builds that read unmarked selects as
  * `{choice}`. 6.x ignores it but keeps it, as it does `required`; it is written with a
  * value because SnuOwnd drops valueless attributes.
  */
 const legacyDropdownAttr = 'data-tbx-dropdown'
 
+/**
+ * The attribute that marks a `<select>` on the v1 mirror as a `{choice}` (radio buttons)
+ * rather than the dropdown an unmarked 6.x select reads as. Kept by 6.x like
+ * {@link legacyDropdownAttr}.
+ */
+const legacyChoiceAttr = 'data-tbx-choice'
+
 /** A legacy `<select>` parsed into a choice token, plus its `label` prompt if it had one. */
 interface ParsedLegacySelect {
 	token: InteractiveToken
 	prompt?: string
+	/** Set when the select carried neither style mark, so its style is still to be decided. */
+	unmarked?: true
 }
 
 /**
@@ -978,7 +1004,9 @@ function parseLegacySelect (selectHtml: string,): ParsedLegacySelect {
 	if (hasBooleanAttr(openTag, 'required',)) { token.required = true }
 	if (hasBooleanAttr(openTag, legacyDropdownAttr,)) { token.dropdown = true }
 	const prompt = getAttr(openTag, 'label',)
-	return prompt ? {token, prompt,} : {token,}
+	const parsed: ParsedLegacySelect = prompt ? {token, prompt,} : {token,}
+	if (!token.dropdown && !hasBooleanAttr(openTag, legacyChoiceAttr,)) { parsed.unmarked = true }
+	return parsed
 }
 
 /**
@@ -1003,13 +1031,16 @@ function isSelectInline (text: string, start: number, end: number,): boolean {
 
 /**
  * Converts one legacy `<select>...</select>` element to its token form. A select
- * that shared its line with text becomes an inline `{choice: ...}` token spliced in
- * place, so the picked value lands mid-sentence just as 6.x inserted it; one on a
- * line of its own becomes a `{choice}` block between blank lines, its `label`
- * prompt (if any) as a markdown line above the marker.
+ * that shared its line with text becomes an inline token spliced in place, so the
+ * picked value lands mid-sentence just as 6.x inserted it; one on a line of its own
+ * becomes a block between blank lines, its `label` prompt (if any) as a markdown line
+ * above the marker. An unmarked select becomes a `{dropdown}`, as 6.x showed it,
+ * unless it is an inline faked tick box, which stays a `{choice}` for
+ * {@link promoteLegacyToggles} to promote.
  */
 function selectHtmlToTokenText (selectHtml: string, inline: boolean,): string {
-	const {token, prompt,} = parseLegacySelect(selectHtml,)
+	const {token, prompt, unmarked,} = parseLegacySelect(selectHtml,)
+	if (unmarked && !(inline && toggleFromChoice({...token, inline: true,},))) { token.dropdown = true }
 	if (inline) {
 		// The prompt was never visible in 6.x and has no place inside a sentence.
 		return serializeToken({...token, inline: true,},)
@@ -1052,7 +1083,8 @@ function fieldHtmlToToken (html: string,): InteractiveToken {
 /**
  * Up-converts legacy (schema v1) reason text to token form: `<input>` and
  * `<textarea>` elements become inline tokens, `<br>` becomes a paragraph break,
- * and each `<select>` becomes a `{choice}`: an inline `{choice: ...}` token when
+ * and each `<select>` becomes a `{dropdown}` or `{choice}` (see
+ * {@link selectHtmlToTokenText}): an inline token when
  * the select shared its line with text, otherwise a block spliced in between
  * blank lines so the marker lands on its own line (the caller's
  * {@link canonicalizeChoiceBlocks} pass tidies the spacing).
@@ -1129,9 +1161,10 @@ export function tokenToLegacyHtml (token: InteractiveToken,): string {
 		`<select${attr}>${
 			options.map((option,) => `<option>${escapeOptionMarkdown(collapseToLine(option,),)}</option>`).join('',)
 		}</select>`
+	const choiceAttr = ` ${legacyChoiceAttr}="1"`
 	switch (token.kind) {
 		case 'choice':
-			return selectHtml(token.dropdown ? `${idAttr} ${legacyDropdownAttr}="1"` : idAttr, token.options,)
+			return selectHtml(`${idAttr} ${token.dropdown ? legacyDropdownAttr : legacyChoiceAttr}="1"`, token.options,)
 		case 'multi':
 		case 'highlight': {
 			// 6.x has no tick box, so each item becomes a `<select>` offering its two
@@ -1142,7 +1175,7 @@ export function tokenToLegacyHtml (token: InteractiveToken,): string {
 			const kind = token.kind
 			const selects = token.options.map((option, index,) =>
 				selectHtml(
-					token.inline ? idAttr : '',
+					(token.inline ? idAttr : '') + choiceAttr,
 					toggleChoiceOptions(kind, collapseToLine(option,), token.checked?.[index] ?? false,),
 				)
 			)
