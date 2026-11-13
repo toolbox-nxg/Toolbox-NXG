@@ -59,6 +59,8 @@ interface ModBarProps {
 	unmoderatedOn: boolean
 	/** Whether to show the "Moderated Subreddits" drawer button. */
 	enableModSubs: boolean
+	/** Whether to show the "Recent Actions" drawer button. */
+	enableRecentActions: boolean
 	/** Whether to show the old/new Reddit toggle link. */
 	enableOldNewToggle: boolean
 	/** Salt for deterministic subreddit accent-color generation. */
@@ -95,6 +97,7 @@ export function ModBar ({
 	showCounters,
 	unmoderatedOn,
 	enableModSubs,
+	enableRecentActions,
 	enableOldNewToggle,
 	subredditColorSalt,
 	initialHidden,
@@ -342,12 +345,14 @@ export function ModBar ({
 						Moderated Subreddits
 					</ModbarButton>
 				)}
-				<ModbarButton
-					className="toolbox-toolbar-recent-actions"
-					onClick={handleRecentActionsClick}
-				>
-					Recent Actions
-				</ModbarButton>
+				{enableRecentActions && (
+					<ModbarButton
+						className="toolbox-toolbar-recent-actions"
+						onClick={handleRecentActionsClick}
+					>
+						Recent Actions
+					</ModbarButton>
+				)}
 				<LocationRenderers
 					location="modbarContent"
 					context={{platform: currentPlatform ?? 0, kind: 'modbar',}}

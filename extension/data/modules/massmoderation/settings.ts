@@ -121,6 +121,18 @@ export const settings = defineSettings(
 			oldReddit: true,
 		},
 		{
+			id: 'bulkConfirmThreshold',
+			sharedPolicy: 'raw',
+			type: 'number',
+			min: 0,
+			max: null,
+			step: 1,
+			default: 10,
+			description:
+				'Ask for confirmation before a bulk action on this many or more selected items (0 = never ask).',
+			oldReddit: true,
+		},
+		{
 			// What the queue toolbar's select panel does on apply; remembered from the last use.
 			id: 'selectFilterMode',
 			sharedPolicy: 'raw',

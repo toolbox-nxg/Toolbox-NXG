@@ -11,6 +11,9 @@ vi.mock('webextension-polyfill', () => ({
 	},
 }),)
 
+const reactAlert = vi.hoisted(() => vi.fn<(args: {message: string},) => Promise<boolean>>())
+vi.mock('../../../shared/controls/ReactAlert', () => ({reactAlert,}),)
+
 import {emptyCriteria,} from '../schema'
 import {ModtoolsToolbar, type ModtoolsToolbarControls, type ModtoolsToolbarProps,} from './ModtoolsToolbar'
 ;(globalThis as {IS_REACT_ACT_ENVIRONMENT?: boolean}).IS_REACT_ACT_ENVIRONMENT = true
@@ -30,6 +33,7 @@ function defaultProps (overrides: Partial<ModtoolsToolbarProps>,): ModtoolsToolb
 		initialSortLocked: false,
 		initialGroupBySubreddit: false,
 		initialAutoRefresh: true,
+		bulkConfirmThreshold: 10,
 		onMount: vi.fn(),
 		onInvert: vi.fn(),
 		onSelectAll: vi.fn(),
@@ -303,6 +307,61 @@ describe('ModtoolsToolbar selection controls', () => {
 			buttonByText('spam selected',).dispatchEvent(new MouseEvent('click', {bubbles: true,},),)
 		},)
 		expect(onActionButton,).toHaveBeenCalledWith('negative',)
+	})
+})
+
+describe('ModtoolsToolbar bulk confirmation', () => {
+	afterEach(() => {
+		act(() => {
+			roots.forEach((root,) => root.unmount())
+		},)
+		roots.length = 0
+		document.body.innerHTML = ''
+		reactAlert.mockReset()
+	},)
+
+	/** Renders a toolbar with `selected` items ticked and clicks "approve selected". */
+	async function approveSelected (selected: number, bulkConfirmThreshold: number,) {
+		const onActionButton = vi.fn<(type: string,) => Promise<number>>().mockResolvedValue(0,)
+		let controls: ModtoolsToolbarControls | undefined
+		renderToolbar({
+			initialAutoRefresh: false,
+			bulkConfirmThreshold,
+			onActionButton,
+			onMount: (c,) => {
+				controls = c
+			},
+		},)
+		act(() => {
+			controls!.setSelectAll(true, false,)
+			controls!.setSelectedCount(selected,)
+		},)
+		await act(async () => {
+			buttonByText('approve selected',).dispatchEvent(new MouseEvent('click', {bubbles: true,},),)
+		},)
+		return onActionButton
+	}
+
+	it('asks before acting on as many items as the threshold', async () => {
+		reactAlert.mockResolvedValue(false,)
+		const onActionButton = await approveSelected(10, 10,)
+
+		expect(reactAlert,).toHaveBeenCalledWith({message: 'approve 10 items?',},)
+		expect(onActionButton,).not.toHaveBeenCalled()
+	})
+
+	it('acts without asking below the threshold', async () => {
+		const onActionButton = await approveSelected(9, 10,)
+
+		expect(reactAlert,).not.toHaveBeenCalled()
+		expect(onActionButton,).toHaveBeenCalledWith('positive',)
+	})
+
+	it('never asks when the threshold is 0', async () => {
+		const onActionButton = await approveSelected(500, 0,)
+
+		expect(reactAlert,).not.toHaveBeenCalled()
+		expect(onActionButton,).toHaveBeenCalledWith('positive',)
 	})
 })
 

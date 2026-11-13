@@ -66,3 +66,4 @@ Items the filter hides are unticked and are never selected or included in a bulk
 | Prevent re-sort on load      | Off     | Lock the current sort when new items load _(advanced)_                                         |
 | Group by subreddit           | Off     | Group queue items by subreddit _(advanced)_                                                    |
 | Auto-refresh                 | Off     | Auto-refresh queue items periodically _(advanced)_                                             |
+| Bulk action confirmation     | 10      | Ask before a bulk action on this many or more selected items (0 = never ask)                   |

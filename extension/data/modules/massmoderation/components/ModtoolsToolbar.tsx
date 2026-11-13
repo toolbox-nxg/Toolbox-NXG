@@ -25,8 +25,6 @@ const SORT_CYCLE_KEY = 'o'
 // something new arrives or the user takes an action.
 const MIN_AUTO_REFRESH_INTERVAL_S = 5
 const MAX_AUTO_REFRESH_INTERVAL_S = 60
-/** Prompt for confirmation before bulk-actioning this many or more items. */
-const BULK_CONFIRM_THRESHOLD = 10
 const ACTION_LOG_MAX = 3
 const TOAST_DURATION_MS = 3000
 
@@ -77,6 +75,8 @@ export interface ModtoolsToolbarProps {
 	initialSortLocked: boolean
 	initialGroupBySubreddit: boolean
 	initialAutoRefresh: boolean
+	/** Ask for confirmation before a bulk action on this many or more selected items; 0 never asks. */
+	bulkConfirmThreshold: number
 	/** Called once on mount with the imperative controls object. */
 	onMount: (controls: ModtoolsToolbarControls,) => void
 	/** Called when the user clicks the "invert" button to flip all checkbox states. */
@@ -152,6 +152,7 @@ export function ModtoolsToolbar ({
 	initialSortLocked,
 	initialGroupBySubreddit,
 	initialAutoRefresh,
+	bulkConfirmThreshold,
 	onMount,
 	onInvert,
 	onSelectAll,
@@ -529,7 +530,7 @@ export function ModtoolsToolbar ({
 		// Alt+S/R/A/G reach these buttons by accessKey; browsers suppress activation of a disabled
 		// button, but guard here too so a bulk action can never run against an empty selection.
 		if (!anySelected) { return }
-		if (selectedCount >= BULK_CONFIRM_THRESHOLD) {
+		if (bulkConfirmThreshold > 0 && selectedCount >= bulkConfirmThreshold) {
 			const label = type === 'negative'
 				? 'spam'
 				: type === 'positive'

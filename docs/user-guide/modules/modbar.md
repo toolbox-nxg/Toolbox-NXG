@@ -16,6 +16,8 @@ The Modbar is always on and appears on both old and new Reddit. It shows counter
 
 **Moderated subreddits list** — a slide-out drawer listing every subreddit you moderate, each row with direct links to that subreddit's mod tools. See [Subreddits you moderate drawer](#subreddits-you-moderate-drawer) below for the full breakdown.
 
+**Recent actions** — a slide-out drawer of recent moderator actions across your subreddits. Can be turned off with **Show recent actions**.
+
 **Old/New Reddit toggle** — a button to switch between `old.reddit.com` and `www.reddit.com` while preserving your current page.
 
 **Custom shortcuts** — add named links to any URL for one-click access from the Modbar.
@@ -56,5 +58,6 @@ The subreddit name itself is also a link to `/r/<sub>`. The queue and unmoderate
 | Show beta version label   | On        | Show the version label on beta builds; when off, a reminder popup shows in each new tab instead _(advanced)_ |
 | Show unmoderated icon     | Off       | Add an unmoderated-queue counter to the Modbar                                                               |
 | Show moderated subreddits | On        | List moderated subreddits in the Modbar                                                                      |
+| Show recent actions       | On        | Show the Recent Actions button in the Modbar                                                                 |
 | Old/New Reddit toggle     | On        | Show a button to switch between old and new Reddit                                                           |
 | Shortcuts                 | _(empty)_ | Named URL shortcuts shown in the Modbar                                                                      |

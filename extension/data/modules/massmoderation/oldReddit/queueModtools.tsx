@@ -245,6 +245,7 @@ export function createModtoolsHandlers (
 		sortLocked: initialSortLocked,
 		groupBySubreddit: initialGroupBySubreddit,
 		autoRefresh: initialAutoRefresh,
+		bulkConfirmThreshold,
 		selectFilterMode,
 		selectFilterLast,
 	}: MassModerationSettings,
@@ -545,6 +546,7 @@ export function createModtoolsHandlers (
 				initialSortLocked={initialSortLocked}
 				initialGroupBySubreddit={initialGroupBySubreddit}
 				initialAutoRefresh={initialAutoRefresh}
+				bulkConfirmThreshold={bulkConfirmThreshold}
 				initialSelectFilterMode={selectFilterMode}
 				initialSelectFilterCriteria={parseStoredCriteria(selectFilterLast,)}
 				onSelectFilterPreview={previewSelectFilter}

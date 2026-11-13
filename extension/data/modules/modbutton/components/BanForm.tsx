@@ -93,6 +93,8 @@ export function BanForm ({
 					<GeneralInlineButton
 						className={css.fromNotesBtn}
 						stopPropagation={false}
+						// Kept out of the tab order so Tab goes straight from the note to the message.
+						tabIndex={-1}
 						onClick={onSuggestFromNotes}
 					>
 						from notes

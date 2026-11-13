@@ -45,6 +45,13 @@ export const settings = defineSettings(
 			default: true,
 		},
 		{
+			id: 'enableRecentActions',
+			sharedPolicy: 'raw',
+			description: 'Show Recent Actions in the modbar',
+			type: 'boolean' as const,
+			default: true,
+		},
+		{
 			id: 'enableOldNewToggle',
 			sharedPolicy: 'raw',
 			description: 'Include a button in the modbar to swap between old and new Reddit',

@@ -31,6 +31,7 @@ export async function createModbarHandlers (
 		showCounters,
 		unmoderatedOn,
 		enableModSubs,
+		enableRecentActions,
 		enableOldNewToggle,
 		modbarHidden,
 		subredditColorSalt,
@@ -84,6 +85,7 @@ export async function createModbarHandlers (
 				showCounters={showCounters}
 				unmoderatedOn={unmoderatedOn}
 				enableModSubs={enableModSubs}
+				enableRecentActions={enableRecentActions}
 				enableOldNewToggle={enableOldNewToggle}
 				subredditColorSalt={subredditColorSalt}
 				initialHidden={modbarHidden}
