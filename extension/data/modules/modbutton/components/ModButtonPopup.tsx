@@ -3,9 +3,11 @@
 import {type ChangeEvent, useEffect, useEffectEvent, useMemo, useRef, useState,} from 'react'
 
 import {getFlairSelector, getUserFlairTemplates,} from '../../../api/resources/flair'
+import type {FlairSelectorResponse,} from '../../../api/resources/flair'
 import {getCurrentUser,} from '../../../api/resources/me'
 import {getModSubs,} from '../../../api/resources/modSubs'
 import {getModLog,} from '../../../api/resources/subreddits'
+import {aboutUser,} from '../../../api/resources/users'
 import type {RequestError,} from '../../../api/transport/http'
 import {ActionButton,} from '../../../shared/controls/ActionButton'
 import {ActionSelect,} from '../../../shared/controls/ActionSelect'
@@ -82,6 +84,22 @@ interface ModButtonPopupProps {
 	onClose: () => void
 	/** Write operations and cross-module reads delegated to the parent layer. */
 	actions: ModButtonActions
+}
+
+/**
+ * Reads a user's current flair in a subreddit, confirming the account exists first. For a
+ * deleted account, flairselector silently answers with the requesting moderator's own flair
+ * and nothing in the response says whose it is, so it is only trusted once about.json
+ * resolves. That 404s for deleted, nonexistent and shadowbanned accounts alike.
+ */
+async function loadCurrentFlair (subreddit: string, user: string,): Promise<FlairSelectorResponse> {
+	await aboutUser(user,)
+	return getFlairSelector(subreddit, user,)
+}
+
+/** True when a request failed with a 404 response. */
+function isNotFound (reason: unknown,): boolean {
+	return reason instanceof Error && (reason as RequestError).response?.status === 404
 }
 
 /** Renders the full mod-button popup window with Role, User Flair, Send Modmail, and User Modlog tabs. */
@@ -371,7 +389,7 @@ export function ModButtonPopup ({
 		void (async () => {
 			// Loaded independently so one failing endpoint cannot blank the other half of the tab.
 			const [infoResult, templatesResult,] = await Promise.allSettled([
-				getFlairSelector(activeSub, user,),
+				loadCurrentFlair(activeSub, user,),
 				getUserFlairTemplates(activeSub,),
 			],)
 			if (templatesResult.status === 'fulfilled') {
@@ -390,7 +408,9 @@ export function ModButtonPopup ({
 			} else if (infoResult.status === 'rejected') {
 				log.error('Error loading user flair info:', infoResult.reason,)
 			}
-			if (infoResult.status === 'rejected' || templatesResult.status === 'rejected') {
+			if (infoResult.status === 'rejected' && isNotFound(infoResult.reason,)) {
+				setStatus('user not found (deleted, or hidden by Reddit); current flair not shown',)
+			} else if (infoResult.status === 'rejected' || templatesResult.status === 'rejected') {
 				setStatus('error: could not load flair from reddit',)
 			}
 			setFlairLoaded(true,)
