@@ -1,4 +1,4 @@
-/** Tests for mountToTarget. */
+/** Tests for mountToTarget and stylesheet placement. */
 
 import {afterEach, beforeEach, describe, expect, it, vi,} from 'vitest'
 
@@ -21,7 +21,8 @@ vi.mock('./dom', () => ({
 }),)
 
 import {createLifecycle,} from '../../framework/lifecycle'
-import {mountToTarget,} from './reactMount'
+import {applyStylesToShadow, mountReactInLightBody, mountToTarget,} from './reactMount'
+import {getUserStyleSheet, setUserCss,} from './userStyles'
 
 afterEach(() => {
 	document.body.innerHTML = ''
@@ -92,5 +93,46 @@ describe('mountToTarget', () => {
 		expect(host,).not.toBeNull()
 		// no shadow root in light mode
 		expect((host as HTMLElement).shadowRoot,).toBeNull()
+	})
+})
+
+describe('custom CSS placement', () => {
+	afterEach(() => {
+		setUserCss('',)
+		document.head.innerHTML = ''
+	},)
+
+	// Order matters: once the adopted path fails, reactMount disables it for good.
+	it('adopts the custom CSS sheet after the bundled sheet', async () => {
+		const root = document.createElement('div',).attachShadow({mode: 'open',},)
+		// The bundled sheet is fetched at import; wait until it has been adopted.
+		await vi.waitFor(() => {
+			applyStylesToShadow(root,)
+			expect(root.adoptedStyleSheets,).toHaveLength(2,)
+		},)
+		expect(root.adoptedStyleSheets[1],).toBe(getUserStyleSheet(),)
+		expect(root.querySelector('style',),).toBeNull()
+	})
+
+	it('puts a custom CSS copy after the bundled <link> when adoption is refused', () => {
+		setUserCss('a { color: red; }',)
+		const root = document.createElement('div',).attachShadow({mode: 'open',},)
+		// Firefox content scripts throw here (Xray wrapper); simulate that.
+		Object.defineProperty(root, 'adoptedStyleSheets', {
+			set () {
+				throw new Error('Accessing from Xray wrapper is not supported.',)
+			},
+		},)
+		applyStylesToShadow(root,)
+		const sheets = [...root.querySelectorAll('link, style',),]
+		expect(sheets.map((el,) => el.tagName),).toEqual(['LINK', 'STYLE',],)
+		expect(sheets[1]?.textContent,).toBe('a { color: red; }',)
+	})
+
+	it('inserts the bundled stylesheet ahead of the custom CSS in the head', () => {
+		setUserCss('a { color: red; }',)
+		mountReactInLightBody(<></>,)
+		const sheets = [...document.head.querySelectorAll('link, style',),]
+		expect(sheets.map((el,) => el.tagName),).toEqual(['LINK', 'STYLE',],)
 	})
 })

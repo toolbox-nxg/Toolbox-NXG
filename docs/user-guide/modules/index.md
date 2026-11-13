@@ -17,6 +17,7 @@ These modules cannot be disabled.
 | ------------------------------------------------- | ------- | ---------- |
 | [Comment Nuke](nukecomments.md)                   | Off     | Both       |
 | [Comments](comments.md)                           | On      | Both       |
+| [Custom CSS](custom-css.md)                       | Off     | Both       |
 | [Domain Tagger](domaintagger.md)                  | On      | Both       |
 | [History Button](historybutton.md)                | On      | Both       |
 | [Mod Macros](macros.md)                           | On      | Both       |
@@ -63,6 +64,7 @@ notifier
 
 nukecomments
 comments
+custom-css
 domaintagger
 historybutton
 macros

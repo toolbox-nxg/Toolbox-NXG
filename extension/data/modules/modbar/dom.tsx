@@ -32,7 +32,6 @@ export async function createModbarHandlers (
 		unmoderatedOn,
 		enableModSubs,
 		enableOldNewToggle,
-		customCSS,
 		modbarHidden,
 		subredditColorSalt,
 	} = s
@@ -86,7 +85,6 @@ export async function createModbarHandlers (
 				unmoderatedOn={unmoderatedOn}
 				enableModSubs={enableModSubs}
 				enableOldNewToggle={enableOldNewToggle}
-				customCSS={customCSS}
 				subredditColorSalt={subredditColorSalt}
 				initialHidden={modbarHidden}
 				modmailUrl={modmailUrl}

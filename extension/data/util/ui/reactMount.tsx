@@ -6,6 +6,7 @@ import {type ReactElement, type ReactNode,} from 'react'
 import {createRoot,} from 'react-dom/client'
 import {onDOMAttach,} from './dom'
 import {clampIntoViewport,} from './drawPosition'
+import {appendUserStyleElement, getDocumentUserStyleElement, getUserStyleSheet,} from './userStyles'
 
 import browser from 'webextension-polyfill'
 import {type Lifecycle,} from '../../framework/lifecycle'
@@ -26,12 +27,14 @@ fetch(bundledCssUrl,)
 	},)
 	.catch(() => {},) // fall back to <link> on failure
 
-// Attach the bundled stylesheet to a shadow root. Uses adoptedStyleSheets when
-// available (synchronous, no FOUC), otherwise falls back to a <link> element.
+// Attach the bundled stylesheet, then the moderator's custom CSS, to a shadow root.
+// Uses adoptedStyleSheets when available (synchronous, no FOUC), otherwise falls back
+// to a <link> element. Either way the custom CSS comes last so it wins ties.
 export function applyStylesToShadow (shadowRoot: ShadowRoot,) {
-	if (adoptedSheet) {
+	const userSheet = getUserStyleSheet()
+	if (adoptedSheet && userSheet) {
 		try {
-			shadowRoot.adoptedStyleSheets = [adoptedSheet,]
+			shadowRoot.adoptedStyleSheets = [adoptedSheet, userSheet,]
 			return
 		} catch {
 			// On Firefox a content script cannot assign a sandbox-constructed
@@ -47,6 +50,7 @@ export function applyStylesToShadow (shadowRoot: ShadowRoot,) {
 	link.type = 'text/css'
 	link.href = bundledCssUrl
 	shadowRoot.appendChild(link,)
+	appendUserStyleElement(shadowRoot,)
 }
 
 function ensureBundledStylesheetInDocument () {
@@ -55,7 +59,8 @@ function ensureBundledStylesheetInDocument () {
 		link.rel = 'stylesheet'
 		link.type = 'text/css'
 		link.href = bundledCssUrl
-		document.head.appendChild(link,)
+		// Ahead of the custom CSS copy (null appends), so the user's rules still win ties.
+		document.head.insertBefore(link, getDocumentUserStyleElement(),)
 	}
 }
 

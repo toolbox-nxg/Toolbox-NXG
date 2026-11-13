@@ -60,7 +60,7 @@ describe('settings utilities', () => {
 			tbsettings: {
 				'Toolbox.Utils.debugMode': true,
 				'Toolbox.Future.sensitiveThing': 'do not share',
-				'Toolbox.Modbar.customCSS': 'body { background: red; }',
+				'Toolbox.CustomCSS.css': 'body { background: red; }',
 			},
 		},)
 
@@ -71,7 +71,7 @@ describe('settings utilities', () => {
 		)
 		const result = await getAnonymizedSettings()
 		expect(result,).not.toHaveProperty('Toolbox.Future.sensitiveThing',)
-		expect(result,).not.toHaveProperty('Toolbox.Modbar.customCSS',)
+		expect(result,).not.toHaveProperty('Toolbox.CustomCSS.css',)
 	})
 
 	it('summarizes length-only and populated-only settings', async () => {

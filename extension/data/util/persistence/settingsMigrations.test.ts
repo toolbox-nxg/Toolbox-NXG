@@ -131,6 +131,46 @@ describe('settings migrations', () => {
 		expect(store.get('Toolbox.NativeModLog.defaultNoteLabel',),).toBe('spam_watch',)
 	})
 
+	it('moves custom CSS from the Modbar into the Custom CSS module and switches it on', async () => {
+		store.set('Toolbox.Modbar.customCSS', '.toolbox-counter-badge { font-weight: bold; }',)
+
+		await doSettingsUpdates()
+
+		expect(store.has('Toolbox.Modbar.customCSS',),).toBe(false,)
+		expect(store.get('Toolbox.CustomCSS.css',),).toBe('.toolbox-counter-badge { font-weight: bold; }',)
+		expect(store.get('Toolbox.CustomCSS.enabled',),).toBe(true,)
+	})
+
+	it('leaves an explicit Custom CSS module toggle alone when moving the CSS', async () => {
+		store.set('Toolbox.Modbar.customCSS', 'a { color: red; }',)
+		store.set('Toolbox.CustomCSS.enabled', false,)
+
+		await doSettingsUpdates()
+
+		expect(store.get('Toolbox.CustomCSS.css',),).toBe('a { color: red; }',)
+		expect(store.get('Toolbox.CustomCSS.enabled',),).toBe(false,)
+	})
+
+	it('drops an empty Modbar custom CSS without enabling the Custom CSS module', async () => {
+		store.set('Toolbox.Modbar.customCSS', '',)
+
+		await doSettingsUpdates()
+
+		expect(store.has('Toolbox.Modbar.customCSS',),).toBe(false,)
+		expect(store.has('Toolbox.CustomCSS.css',),).toBe(false,)
+		expect(store.has('Toolbox.CustomCSS.enabled',),).toBe(false,)
+	})
+
+	it('does not overwrite existing Custom CSS module CSS', async () => {
+		store.set('Toolbox.Modbar.customCSS', 'a { color: red; }',)
+		store.set('Toolbox.CustomCSS.css', 'b { color: blue; }',)
+
+		await doSettingsUpdates()
+
+		expect(store.has('Toolbox.Modbar.customCSS',),).toBe(false,)
+		expect(store.get('Toolbox.CustomCSS.css',),).toBe('b { color: blue; }',)
+	})
+
 	it('seeds the NN tag character limit from the Usernotes one without removing it', async () => {
 		store.set('Toolbox.UserNotes.maxChars', 50,)
 

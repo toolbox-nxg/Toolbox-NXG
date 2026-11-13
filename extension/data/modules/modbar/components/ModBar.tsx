@@ -61,8 +61,6 @@ interface ModBarProps {
 	enableModSubs: boolean
 	/** Whether to show the old/new Reddit toggle link. */
 	enableOldNewToggle: boolean
-	/** Custom CSS injected into the page head while the bar is mounted. */
-	customCSS: string
 	/** Salt for deterministic subreddit accent-color generation. */
 	subredditColorSalt: string
 	/** Whether the bar starts in the hidden state (the stored state; later changes from other tabs are followed). */
@@ -98,7 +96,6 @@ export function ModBar ({
 	unmoderatedOn,
 	enableModSubs,
 	enableOldNewToggle,
-	customCSS,
 	subredditColorSalt,
 	initialHidden,
 	modmailUrl,
@@ -167,14 +164,6 @@ export function ModBar ({
 		document.body.classList.remove('toolbox-modbar-shown',)
 		clearTimeout(hoverTimeoutRef.current,)
 	}, [],)
-
-	useEffect(() => {
-		if (!customCSS) { return }
-		const el = document.createElement('style',)
-		el.textContent = customCSS
-		document.head.appendChild(el,)
-		return () => el.remove()
-	}, [customCSS,],)
 
 	useMountEffect(() => {
 		if (!enableModSubs) { return }

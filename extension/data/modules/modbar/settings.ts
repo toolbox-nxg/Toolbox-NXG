@@ -75,12 +75,6 @@ export const settings = defineSettings(
 			hidden: true,
 		},
 		{
-			id: 'customCSS',
-			type: 'code' as const,
-			default: '',
-			hidden: true,
-		},
-		{
 			id: 'lastExport',
 			sharedPolicy: 'populated',
 			type: 'number' as const,

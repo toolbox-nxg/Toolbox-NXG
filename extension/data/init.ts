@@ -34,6 +34,7 @@ import Comment from './modules/comment'
 import CommentActions from './modules/commentActions'
 import CommentTriage from './modules/commenttriage'
 import Config from './modules/config'
+import CustomCss from './modules/customcss'
 import Devtools from './modules/devtools'
 import DomainTagger from './modules/domaintagger'
 import General from './modules/general'
@@ -149,6 +150,8 @@ async function startToolbox () {
 		const m of [
 			Devtools,
 			Support,
+			// Early, so the custom CSS is in place before most Toolbox UI first renders.
+			CustomCss,
 			Modbar,
 			Config,
 			BetterButtons,

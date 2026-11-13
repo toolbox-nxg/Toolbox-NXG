@@ -309,6 +309,20 @@ export async function doSettingsUpdates () {
 		migratedDeletes.push(oldKey,)
 	}
 
+	// Custom CSS moved from a hidden Modbar setting to its own opt-in module, so it no longer
+	// depends on the modbar being mounted and also reaches Toolbox's shadow-DOM windows.
+	// Anyone who had CSS keeps it applied: the module is switched on for them.
+	const oldCustomCssKey = 'Toolbox.Modbar.customCSS'
+	if (oldCustomCssKey in allSettings) {
+		const newKey = 'Toolbox.CustomCSS.css'
+		const enabledKey = 'Toolbox.CustomCSS.enabled'
+		if (!(newKey in allSettings) && allSettings[oldCustomCssKey]) {
+			migratedWrites[newKey] = allSettings[oldCustomCssKey]
+			if (!(enabledKey in allSettings)) { migratedWrites[enabledKey] = true }
+		}
+		migratedDeletes.push(oldCustomCssKey,)
+	}
+
 	const oldQueueToolsEnabled = allSettings['Toolbox.QueueTools.enabled'] as unknown
 	if (oldQueueToolsEnabled !== undefined) {
 		for (const newModule of ['MassModeration', 'ModViewEnhancements',]) {
