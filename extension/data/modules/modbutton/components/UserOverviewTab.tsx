@@ -62,6 +62,9 @@ type LoadState<T,> =
 	| {status: 'loaded'; value: T}
 	| {status: 'error'; message: string}
 
+/** Account state; `missing` means about.json returned 404 (deleted, never existed, or shadowbanned). */
+type AccountState = LoadState<UserAbout['data']> | {status: 'missing'}
+
 /** Mod notes state; while `scanning`, `summary` holds partial results and is not yet complete. */
 type NotesState =
 	| {status: 'scanning'; summary: ModNotesSummary}
@@ -107,7 +110,7 @@ interface Props {
 export function UserOverviewTab ({user, defaultSub, modSubs, subStatuses, onSubredditSelect,}: Props,) {
 	const selectId = useId()
 	const [selectedSub, setSelectedSub,] = useState(defaultSub,)
-	const [account, setAccount,] = useState<LoadState<UserAbout['data']>>({status: 'loading',},)
+	const [account, setAccount,] = useState<AccountState>({status: 'loading',},)
 	const [flair, setFlair,] = useState<LoadState<FlairSelectorResponse['current']>>({status: 'loading',},)
 	const [notes, setNotes,] = useState<NotesState>({status: 'scanning', summary: emptySummary,},)
 	const [bans, setBans,] = useState<LoadState<BanEntry[]>>({status: 'loading',},)
@@ -131,6 +134,10 @@ export function UserOverviewTab ({user, defaultSub, modSubs, subStatuses, onSubr
 				const result = await aboutUser(user,)
 				if (!cancelled) { setAccount({status: 'loaded', value: result.data,},) }
 			} catch (error) {
+				if (isNotFound(error,)) {
+					if (!cancelled) { setAccount({status: 'missing',},) }
+					return
+				}
 				log.error('Failed to load account info:', error,)
 				if (!cancelled) { setAccount({status: 'error', message: errorMessage(error,),},) }
 			}
@@ -140,9 +147,14 @@ export function UserOverviewTab ({user, defaultSub, modSubs, subStatuses, onSubr
 		}
 	}, [user,],)
 
+	// flairselector answers with the requesting mod's own flair when the named account does not
+	// exist, so flair is only requested once the account is confirmed. The wait costs nothing
+	// visible, as flair is not shown before then anyway.
+	const accountFound = account.status === 'loaded'
 	useEffect(() => {
 		let cancelled = false
 		setFlair({status: 'loading',},)
+		if (!accountFound) { return }
 		void (async () => {
 			try {
 				const result = await getFlairSelector(selectedSub, user,)
@@ -155,7 +167,7 @@ export function UserOverviewTab ({user, defaultSub, modSubs, subStatuses, onSubr
 		return () => {
 			cancelled = true
 		}
-	}, [user, selectedSub,],)
+	}, [user, selectedSub, accountFound,],)
 
 	useEffect(() => {
 		const cached = notesCacheRef.current.get(selectedSub,)
@@ -267,6 +279,11 @@ export function UserOverviewTab ({user, defaultSub, modSubs, subStatuses, onSubr
 	const subStatus = subStatuses.get(selectedSub,)
 	const currentlyBanned = subStatus !== undefined && !subStatus.loading && subStatus.banned
 
+	// Mod notes reads fail for most accounts Reddit can't find; say so plainly instead of
+	// showing the raw request error. (Shadowbanned accounts can still have readable notes.)
+	const readErrorText = (message: string,) =>
+		account.status === 'missing' ? 'Not available for this account' : message
+
 	return (
 		<div className={css.container}>
 			<div className={css.subSelector}>
@@ -279,6 +296,10 @@ export function UserOverviewTab ({user, defaultSub, modSubs, subStatuses, onSubr
 			<section className={css.section}>
 				{account.status === 'loaded'
 					? <AccountHeader user={user} info={account.value} />
+					: account.status === 'missing'
+					? <p className={css.mutedText}>
+						/u/{user} was not found: the account is deleted, or hidden by Reddit.
+					</p>
 					: account.status === 'error'
 					? <p className={css.errorText}>{account.message}</p>
 					: <p className={css.loadingText}>Loading...</p>}
@@ -287,18 +308,16 @@ export function UserOverviewTab ({user, defaultSub, modSubs, subStatuses, onSubr
 			<section className={css.section}>
 				<p className={css.flairRow}>
 					<span className={css.flairLabel}>Flair:</span>
-					{flair.status === 'loading'
-						? <span className={css.loadingText}>Loading...</span>
-						: flair.status === 'error'
-						? <span className={css.errorText}>{flair.message}</span>
-						: flair.value?.flair_text || <span className={css.mutedText}>Not set</span>}
+					<FlairValue account={account} flair={flair} />
 				</p>
 			</section>
 
-			<BanSection bans={bans} currentlyBanned={currentlyBanned} />
+			<BanSection bans={bans} currentlyBanned={currentlyBanned} errorText={readErrorText} />
 
 			{notes.status === 'error'
-				? <p className={css.errorText}>{notes.message}</p>
+				? <p className={account.status === 'missing' ? css.mutedText : css.errorText}>
+					{readErrorText(notes.message,)}
+				</p>
 				: (
 					<>
 						<RemovalSection
@@ -350,15 +369,38 @@ function AccountHeader ({user, info,}: AccountHeaderProps,) {
 	)
 }
 
+/** Props for FlairValue. */
+interface FlairValueProps {
+	account: AccountState
+	flair: LoadState<FlairSelectorResponse['current']>
+}
+
+/** The user's flair text, or why it can't be shown. */
+function FlairValue ({account, flair,}: FlairValueProps,) {
+	// Flair is never requested for an account that wasn't confirmed (see the flair effect)
+	if (account.status === 'missing' || account.status === 'error') {
+		return <span className={css.mutedText}>Unavailable</span>
+	}
+	if (account.status === 'loading' || flair.status === 'loading') {
+		return <span className={css.loadingText}>Loading...</span>
+	}
+	if (flair.status === 'error') {
+		return <span className={css.errorText}>{flair.message}</span>
+	}
+	return flair.value?.flair_text || <span className={css.mutedText}>Not set</span>
+}
+
 /** Props for BanSection. */
 interface BanSectionProps {
 	/** Every ban in the user's modlog, read with the BAN filter. */
 	bans: LoadState<BanEntry[]>
 	currentlyBanned: boolean
+	/** Turns a read error into the text shown, e.g. a plain notice when the account doesn't exist. */
+	errorText: (message: string,) => string
 }
 
 /** Ban history table with a "Currently banned" badge. */
-function BanSection ({bans, currentlyBanned,}: BanSectionProps,) {
+function BanSection ({bans, currentlyBanned, errorText,}: BanSectionProps,) {
 	return (
 		<section className={css.section}>
 			<h3 className={css.sectionHeading}>
@@ -368,7 +410,7 @@ function BanSection ({bans, currentlyBanned,}: BanSectionProps,) {
 			{bans.status === 'loading'
 				? <p className={css.loadingText}>Loading ban history...</p>
 				: bans.status === 'error'
-				? <p className={css.errorText}>{bans.message}</p>
+				? <p className={css.errorText}>{errorText(bans.message,)}</p>
 				: bans.value.length === 0
 				? <p className={css.mutedText}>No Bans in User Modlog</p>
 				: (
@@ -551,6 +593,12 @@ function formatRemovalCount (total: number, shown: number, capped: boolean,): st
 /** Builds a link to a user's profile. */
 function userLink (user: string,): string {
 	return link(`/user/${encodeURIComponent(user,)}`,)
+}
+
+/** True when a request failed with a 404, as about.json does for deleted, nonexistent and shadowbanned accounts. */
+function isNotFound (error: unknown,): boolean {
+	return error instanceof Error && 'response' in error && error.response instanceof Response
+		&& error.response.status === 404
 }
 
 /** Extracts a displayable message from an unknown thrown value. */
