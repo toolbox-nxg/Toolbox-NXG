@@ -167,6 +167,21 @@ describe('incrementDomainStat', () => {
 		// Counts are not on the classic page; rewriting it on every approve/remove would be pure churn.
 		expect(refreshClassicConfigInlineFields,).not.toHaveBeenCalled()
 		expect(unsyncedClassicEditsWarning,).not.toHaveBeenCalled()
+		// The bump rides along with an approve/remove; wiki-save toasts there read as if the
+		// mod action itself were a wiki edit.
+		expect(neutralTextFeedback,).not.toHaveBeenCalled()
+		expect(positiveTextFeedback,).not.toHaveBeenCalled()
+	})
+
+	it('keeps a failed counter write out of the toasts', async () => {
+		const wiki = fakeWiki()
+		wiki.seed([tag('example.com',),],)
+		readFromWiki.mockResolvedValue({ok: true, data: clone(wiki.get(),),},)
+		writeWikiPageConditional.mockRejectedValueOnce({responseText: 'no wiki permission',},)
+
+		await incrementDomainStat('sub', 'example.com', 'remove',)
+
+		expect(negativeTextFeedback,).not.toHaveBeenCalled()
 	})
 })
 

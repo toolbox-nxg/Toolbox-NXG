@@ -113,8 +113,9 @@ export async function getDomainTagsData (subreddit: string,): Promise<DomainTags
 		const reason = legacyTags.length > 0
 			? 'domain tagger: migrate tags to dedicated page'
 			: 'domain tagger: initialize domain tags page'
-		// No classic-page refresh: this data was just read from it.
-		await replaceDomainTagsData(subreddit, freshData, reason, false,)
+		// No classic-page refresh: this data was just read from it. Silent: the moderator
+		// only opened something that reads tags, so a save toast would be unexplained noise.
+		await replaceDomainTagsData(subreddit, freshData, reason, {refreshClassic: false, silent: true,},)
 	}
 
 	dataCache.set(subreddit, freshData,)
@@ -178,26 +179,32 @@ async function repairLegacyDomainTags (subreddit: string,): Promise<void> {
  * 6.x reads domain tags inline from the classic config page, so a tag edit also
  * rewrites that page on subs that keep it (compat mirror or legacy fallback). Owns
  * the standard save feedback + cache invalidation; never rejects (failures surface
- * as a toast), matching the old fire-and-forget save.
+ * as a toast, or the log when silent), matching the old fire-and-forget save.
  * @param subreddit The subreddit whose domain tags to mutate.
  * @param mutator Applies the change to the current data (re-run on every conflict retry).
  * @param reason The wiki revision note.
- * @param refreshClassic Whether to rewrite the classic config page after a write.
+ * @param options Write options.
+ * @param options.refreshClassic Whether to rewrite the classic config page after a write.
  *   Off for changes it doesn't carry (stat counters) or data read from it.
+ * @param options.silent Report progress and failures to the log instead of the feedback
+ *   toasts, for background writes the moderator did not ask for. A stat bump rides along
+ *   with an approve/remove, where "saving to wiki" reads as if the action itself were a
+ *   wiki edit, and a failure (e.g. no wiki permission) is one they can do nothing about.
  */
 async function mutateDomainTags (
 	subreddit: string,
 	mutator: WikiMutator<DomainTagsData, void>,
 	reason: string,
-	refreshClassic: boolean,
+	options: {refreshClassic: boolean; silent: boolean},
 ): Promise<void> {
+	const {refreshClassic, silent,} = options
 	log.debug('saving domain tags to wiki',)
 	// Dynamic import: config/moduleapi imports this module (for its down-convert),
 	// so a static import would form a cycle.
 	const configApi = refreshClassic ? await import('../config/moduleapi') : undefined
 	// Checked before the write, which bumps the page it compares against.
 	const overwriteWarning = await configApi?.unsyncedClassicEditsWarning(subreddit, 'domainTags',)
-	neutralTextFeedback('saving to wiki',)
+	if (!silent) { neutralTextFeedback('saving to wiki',) }
 	let committed = false
 	try {
 		await mutateWikiPage<DomainTagsData, void>({
@@ -219,7 +226,14 @@ async function mutateDomainTags (
 			await clearCache()
 			// 6.x reads domain tags inline from the classic config page.
 			const classic = await configApi?.refreshClassicConfigInlineFields(subreddit, reason,)
-			if (classic && !classic.ok) {
+			if (silent) {
+				if (classic && !classic.ok) {
+					log.warn(
+						`Domain tags saved for /r/${subreddit}, but the classic config page was not updated:`,
+						classic.message,
+					)
+				}
+			} else if (classic && !classic.ok) {
 				negativeTextFeedback(
 					`Domain tags saved, but the toolbox config page was not updated - mods on Toolbox 6.x will see `
 						+ `the old tags: ${classic.message}`,
@@ -232,11 +246,15 @@ async function mutateDomainTags (
 			}
 		}
 	} catch (err: unknown) {
-		log.error(err,)
 		const responseText = err && typeof err === 'object' && 'responseText' in err
 			? String(err.responseText,)
 			: String(err,)
-		negativeTextFeedback(responseText,)
+		if (silent) {
+			log.warn(`Background domain tags save for /r/${subreddit} failed:`, responseText,)
+		} else {
+			log.error(err,)
+			negativeTextFeedback(responseText,)
+		}
 	}
 }
 
@@ -249,15 +267,15 @@ async function mutateDomainTags (
  * @param reason The wiki revision note.
  */
 export function saveDomainTagsData (subreddit: string, data: DomainTagsData, reason: string,): Promise<void> {
-	return replaceDomainTagsData(subreddit, data, reason, true,)
+	return replaceDomainTagsData(subreddit, data, reason, {refreshClassic: true, silent: false,},)
 }
 
-/** Implements {@link saveDomainTagsData}; see {@link mutateDomainTags} for `refreshClassic`. */
+/** Implements {@link saveDomainTagsData}; see {@link mutateDomainTags} for `options`. */
 function replaceDomainTagsData (
 	subreddit: string,
 	data: DomainTagsData,
 	reason: string,
-	refreshClassic: boolean,
+	options: {refreshClassic: boolean; silent: boolean},
 ): Promise<void> {
 	return mutateDomainTags(
 		subreddit,
@@ -270,7 +288,7 @@ function replaceDomainTagsData (
 			return {write: true, result: undefined,}
 		},
 		reason,
-		refreshClassic,
+		options,
 	)
 }
 
@@ -317,7 +335,7 @@ export async function saveDomainTag (subreddit: string, domainTag: DomainTag,): 
 			return {write: true, result: undefined,}
 		},
 		reason,
-		true,
+		{refreshClassic: true, silent: false,},
 	)
 }
 
@@ -335,9 +353,9 @@ export async function incrementDomainStat (
 	action: 'approve' | 'remove',
 ): Promise<void> {
 	// Cheap cached pre-check: most mod actions are on untagged domains, and this is
-	// called on every approve/remove. Skip the whole save path (and its "saving..."
-	// toast) when the cached view has no matching tag; the mutator re-checks fresh
-	// data for correctness when there is one.
+	// called on every approve/remove. Skip the whole save path when the cached view
+	// has no matching tag; the mutator re-checks fresh data for correctness when
+	// there is one.
 	const cached = await getDomainTagsData(subreddit,)
 	if (!findTagForDomain(domain, cached.tags,)) { return }
 
@@ -357,7 +375,9 @@ export async function incrementDomainStat (
 			return {write: true, result: undefined,}
 		},
 		`domain tagger: recorded ${action} for ${domain}`,
-		false,
+		// Silent: the counter rides along with the moderator's approve/remove, which has
+		// its own feedback; a wiki-save toast there reads as if the action were a wiki edit.
+		{refreshClassic: false, silent: true,},
 	)
 }
 
