@@ -216,6 +216,12 @@ export interface InteractiveToken {
 	 * than radio buttons. Nothing else about the choice changes.
 	 */
 	dropdown?: true
+	/**
+	 * Set on an inline `choice` written across lines, one option per line. It serializes
+	 * back that way so a long option list stays readable in the editor; the sent value and
+	 * the v1 mirror (where options are single-line) are unaffected.
+	 */
+	multiline?: true
 }
 
 /** A piece of reason text: either literal text or an interactive token. */
@@ -380,9 +386,16 @@ export function serializeToken (token: InteractiveToken,): string {
 	const idPart = `${token.id ? `#${token.id}` : ''}${token.required ? '!' : ''}`
 	if (token.kind === 'choice') {
 		const keyword = token.dropdown ? 'dropdown' : 'choice'
-		if (token.inline) {
-			return `{${keyword}${idPart}: ${token.options.map(escapeInlineOption,).join(' | ',)}}`
+		const options = token.options.map(escapeInlineOption,)
+		// A blank last option would leave a blank line inside the token, which reads as a
+		// paragraph break; that layout falls back to a single line.
+		if (token.inline && token.multiline && options[options.length - 1] !== '') {
+			const lines = options.map((option, index,) =>
+				index === options.length - 1 ? option : option ? `${option} |` : '|'
+			)
+			return `{${keyword}${idPart}:\n${lines.join('\n',)}\n}`
 		}
+		if (token.inline) { return `{${keyword}${idPart}: ${options.join(' | ',)}}` }
 		return fieldBlock(keyword, token.id, token.options, undefined, token.required,)
 	}
 	if (isToggleKind(token.kind,)) {
@@ -448,6 +461,7 @@ function parseSourcedSegments (text: string,): SourcedSegment[] {
 				const options = splitInlineOptions(content!,)
 				token = options.length > 0 ? {kind: 'choice', placeholder: '', options, inline: true,} : null
 				if (token && lowerKeyword === 'dropdown') { token.dropdown = true }
+				if (token && content!.includes('\n',)) { token.multiline = true }
 			} else if (lowerKeyword === 'check' || lowerKeyword === 'highlight') {
 				token = parseInlineToggle(lowerKeyword === 'check' ? 'multi' : 'highlight', content!,)
 			} else if (lowerKeyword === 'note') {
@@ -659,21 +673,28 @@ export function splitInlineChoices (text: string,): string {
 			if (segment.type === 'text') { return segment.text }
 			if (!isInlineChoice(segment.token,)) { return serializeToken(segment.token,) }
 			// Those builds had no dropdowns, so a select read back as one was split as a `{choice}`.
-			const {inline: _inline, dropdown: _dropdown, ...block} = segment.token
+			const {inline: _inline, dropdown: _dropdown, multiline: _multiline, ...block} = segment.token
 			return `\n\n${serializeToken(block,)}\n\n`
 		},).join('',),
 	)
 }
 
 /**
- * Rewrites every `{dropdown` keyword as `{choice`, for comparisons that should not see
- * the pick style. A v1 mirror written before selects carried a style mark reads back
- * with dropdowns where the NXG page has choices, and that difference is not a 6.x edit.
+ * Rewrites every pick-one field as a plain single-line `{choice}`, for comparisons that
+ * should see only what a field offers, not how it is shown. The v1 mirror loses both
+ * styles: a mirror written before selects carried a style mark reads back with
+ * dropdowns where the NXG page has choices, and options laid out one per line come
+ * back on a single line. Neither difference is a 6.x edit. Every other byte is kept.
  * The result is for comparing only; it is never stored.
  * @param text Token-form reason text.
  */
-export function ignorePickStyle (text: string,): string {
-	return text.replace(/\{dropdown(?=[#!:}\s])/gi, '{choice',)
+export function ignoreFieldStyle (text: string,): string {
+	if (!FIELD_HINT_RE.test(text,)) { return text }
+	return parseSourcedSegments(text,).map(({segment, source,},) => {
+		if (segment.type === 'text' || segment.token.kind !== 'choice') { return source }
+		const {dropdown: _dropdown, multiline: _multiline, ...plain} = segment.token
+		return serializeToken(plain,)
+	},).join('',)
 }
 
 /**

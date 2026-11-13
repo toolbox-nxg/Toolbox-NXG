@@ -12,7 +12,7 @@ import {
 	findUnfilledRequired,
 	htmlFieldsToTokens,
 	htmlSimpleFieldsToTokens,
-	ignorePickStyle,
+	ignoreFieldStyle,
 	inlineSelectDefinitions,
 	type InteractiveToken,
 	type LegacySelectDefinition,
@@ -886,9 +886,13 @@ describe('{dropdown}', () => {
 			.toBe('{dropdown#rule}\n- a\n- b',)
 	})
 
-	it('ignorePickStyle reads every dropdown as a choice', () => {
-		expect(ignorePickStyle('{dropdown#r!}\n- a\n\nPick {dropdown: x | y} {dropdowns}',),)
+	it('ignoreFieldStyle reads every dropdown as a choice', () => {
+		expect(ignoreFieldStyle('{dropdown#r!}\n- a\n\nPick {dropdown: x | y} {dropdowns}',),)
 			.toBe('{choice#r!}\n- a\n\nPick {choice: x | y} {dropdowns}',)
+	})
+
+	it('ignoreFieldStyle puts options laid out one per line on a single line', () => {
+		expect(ignoreFieldStyle('Pick {dropdown#r:\nx |\ny\n} now',),).toBe('Pick {choice#r: x | y} now',)
 	})
 
 	it('is never promoted to a tick box', () => {
@@ -906,5 +910,54 @@ describe('{dropdown}', () => {
 		const text = '{dropdown!}\n- \n- picked'
 		expect(substituteTokenValues(text, ['picked',],),).toBe('picked',)
 		expect(findUnfilledRequired(text, ['',],),).toEqual([0,],)
+	})
+})
+
+describe('inline choices written across lines', () => {
+	const written = '**No titles that {dropdown#Option: \nare all-caps | \nare clickbait | \ncontain emoji\n}.**'
+	const canonical = '**No titles that {dropdown#Option:\nare all-caps |\nare clickbait |\ncontain emoji\n}.**'
+
+	it('parses one option per line', () => {
+		const [, segment,] = parseReasonSegments(written,)
+		expect(segment,).toEqual({
+			type: 'token',
+			token: {
+				kind: 'choice',
+				id: 'Option',
+				placeholder: '',
+				options: ['are all-caps', 'are clickbait', 'contain emoji',],
+				inline: true,
+				dropdown: true,
+				multiline: true,
+			},
+		},)
+	})
+
+	it('keeps the layout through canonicalization and normalize, idempotently', () => {
+		expect(canonicalizeChoiceBlocks(written,),).toBe(canonical,)
+		expect(canonicalizeChoiceBlocks(canonical,),).toBe(canonical,)
+	})
+
+	it('sends the picked option in place, with no line breaks', () => {
+		expect(substituteTokenValues(canonical, ['are clickbait',],),).toBe('**No titles that are clickbait.**',)
+	})
+
+	it('down-converts to a single-line select for 6.x', () => {
+		expect(tokensToHtmlFields(canonical,),).toBe(
+			'**No titles that <select id="Option" data-tbx-dropdown="1"><option>are all-caps</option>'
+				+ '<option>are clickbait</option><option>contain emoji</option></select>.**',
+		)
+	})
+
+	it('writes a blank option as a bare separator line', () => {
+		expect(canonicalizeChoiceBlocks('Do not {choice:\n|\na |\nb\n}',),).toBe('Do not {choice:\n|\na |\nb\n}',)
+	})
+
+	it('falls back to a single line when the last option is blank', () => {
+		expect(canonicalizeChoiceBlocks('Do not {choice:\na |\n}',),).toBe('Do not {choice: a | }',)
+	})
+
+	it('leaves a single-line choice on one line', () => {
+		expect(canonicalizeChoiceBlocks('a {choice: x | y} b',),).toBe('a {choice: x | y} b',)
 	})
 })

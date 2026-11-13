@@ -107,6 +107,16 @@ Image posts must:
 
 Add `!` after a field's kind to make it required, as in `{input!: why}`, `{choice!}`, or `{multi!}`. The dialog won't send until it is filled, a non-blank option is picked, or at least one box is ticked, and it outlines anything left unfilled. A blank first option in a required `{choice!}` makes the moderator pick one deliberately.
 
+A long inline choice can be written one option per line, keeping the `|` at the end of each line except the last. It still sits inside its sentence:
+
+```
+**Rule 8: No titles that {dropdown#titles:
+are all-caps |
+are clickbait |
+contain emoji
+}.**
+```
+
 A stable field ID can be appended for persistence between dialog opens: `{input#flightnum: Flight number}`, `{choice#rule}`, `{highlight#imagerules}`. See [Schema Changes](../../migration/schema-changes.md#brace-tokens) for the full syntax.
 
 ## Suggested removal reasons

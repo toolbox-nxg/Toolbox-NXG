@@ -206,6 +206,17 @@ describe('renderReasonHtml', () => {
 		expect(html,).toContain('<span class="toolbox-choice-link" title="https://example.com">details</span>',)
 	})
 
+	it('renders an inline dropdown written across lines in place in its sentence', () => {
+		const html = renderReasonHtml(parser, '**No titles that {dropdown#o:\nare all-caps |\nare clickbait\n}.**',)
+		const doc = new DOMParser().parseFromString(html, 'text/html',)
+		expect(doc.querySelectorAll('p',).length,).toBe(1,)
+		const select = doc.querySelector<HTMLSelectElement>('p strong select#o',)
+		expect(Array.from(select?.options ?? [],).map((option,) => option.value),).toEqual([
+			'are all-caps',
+			'are clickbait',
+		],)
+	})
+
 	it('unwraps links in option and item labels so a click picks the option', () => {
 		const html = renderReasonHtml(
 			parser,

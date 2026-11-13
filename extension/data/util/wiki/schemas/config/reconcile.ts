@@ -34,7 +34,7 @@ import {getWikiRevisions, readFromWiki,} from '../../../../api/resources/wiki'
 import {purifyObject,} from '../../../data/purify'
 import createLogger from '../../../infra/logging'
 import {isTombstone, OLD_WIKI_PATHS,} from '../../wikiConstants'
-import {ignorePickStyle,} from '../shared/tokens'
+import {ignoreFieldStyle,} from '../shared/tokens'
 import {encodeClassicConfig,} from './codec'
 import {ensureStableIds, normalizeConfig,} from './schema'
 import type {ToolboxConfig,} from './schema'
@@ -112,21 +112,21 @@ export function legacyOwnedFieldsEqual (nxg: ToolboxConfig, legacy: ToolboxConfi
 }
 
 /**
- * A copy of the config with every reason's text passed through {@link ignorePickStyle}.
+ * A copy of the config with every reason's text passed through {@link ignoreFieldStyle}.
  * A mirror written before NXG marked its `<select>`s reads every `{choice}` back as a
  * `{dropdown}` (an unmarked select is a 6.x dropdown), and that mirror is usually the
- * newer page, since it is written just after the canonical one. Comparing without the
- * pick style keeps such a mirror from being taken for a 6.x edit and turning every
- * choice into a dropdown.
+ * newer page, since it is written just after the canonical one. Options laid out one
+ * per line also come back on a single line from any mirror. Comparing without either
+ * keeps such a mirror from being taken for a 6.x edit and restyling every choice.
  */
-function withoutPickStyle (config: ToolboxConfig,): ToolboxConfig {
+function withoutFieldStyle (config: ToolboxConfig,): ToolboxConfig {
 	return {
 		...config,
 		removalReasons: {
 			...config.removalReasons,
 			reasons: config.removalReasons.reasons.map((reason,) => ({
 				...reason,
-				text: ignorePickStyle(reason.text,),
+				text: ignoreFieldStyle(reason.text,),
 			})),
 		},
 	}
@@ -134,31 +134,31 @@ function withoutPickStyle (config: ToolboxConfig,): ToolboxConfig {
 
 /**
  * Whether the mirror carries no 6.x edit: equal to the NXG config, to the mirror it
- * would produce, or to that mirror once the pick style is set aside (see
- * {@link withoutPickStyle}).
+ * would produce, or to that mirror once the field style is set aside (see
+ * {@link withoutFieldStyle}).
  */
 function mirrorHoldsNoEdit (nxg: ToolboxConfig, legacy: ToolboxConfig,): boolean {
 	if (legacyOwnedFieldsEqual(nxg, legacy,)) { return true }
 	const view = mirrorViewOfConfig(nxg,)
 	return legacyOwnedFieldsEqual(view, legacy,)
-		|| legacyOwnedFieldsEqual(withoutPickStyle(view,), withoutPickStyle(legacy,),)
+		|| legacyOwnedFieldsEqual(withoutFieldStyle(view,), withoutFieldStyle(legacy,),)
 }
 
 /**
- * Gives each adopted reason the NXG text it matches once the pick style is set aside,
- * so a 6.x save adopted from an unmarked mirror keeps the reasons it did not touch as
- * they were rather than turning their choices into dropdowns. Runs before the id
- * matching, which compares text exactly.
+ * Gives each adopted reason the NXG text it matches once the field style is set aside,
+ * so a 6.x save adopted from the mirror keeps the reasons it did not touch as they were,
+ * rather than turning their choices into dropdowns or flattening options laid out one
+ * per line. Runs before the id matching, which compares text exactly.
  */
-function restorePickStyle (
+function restoreFieldStyle (
 	adopted: ToolboxConfig['removalReasons']['reasons'],
 	existing: ToolboxConfig['removalReasons']['reasons'],
 ): void {
 	const unclaimed = [...existing,]
 	for (const entry of adopted) {
-		const blind = ignorePickStyle(entry.text,)
+		const blind = ignoreFieldStyle(entry.text,)
 		const match = unclaimed.findIndex((candidate,) =>
-			candidate.title === entry.title && ignorePickStyle(candidate.text,) === blind
+			candidate.title === entry.title && ignoreFieldStyle(candidate.text,) === blind
 		)
 		if (match === -1) { continue }
 		entry.text = unclaimed[match]!.text
@@ -224,7 +224,7 @@ export function adoptLegacyConfigFields (nxg: ToolboxConfig, legacy: ToolboxConf
 	// match a synced one would otherwise claim its id and leave two entries carrying it, which
 	// breaks every lookup keyed on a reason id (`suggestedReasons`, proposal re-seeding).
 	const synced = nxg.removalReasons.reasons.filter((reason,) => reason.nativeReasonId)
-	restorePickStyle(
+	restoreFieldStyle(
 		adopted.removalReasons.reasons,
 		nxg.removalReasons.reasons.filter((reason,) => !reason.nativeReasonId),
 	)

@@ -80,6 +80,19 @@ This is a [{choice: repost | duplicate}](https://www.reddit.com/r/example/wiki/r
 
 Write `\|` for a pipe that belongs to an option's text. A brace inside an option is saved as a parenthesis, since `}` ends the token. An inline choice with no option text, such as `{choice:}`, is sent as written.
 
+A long inline choice can be written one option per line. It still sits inside its sentence, and it keeps that layout when saved, with each `|` at the end of its option's line:
+
+```
+**Rule 8: No titles that {dropdown#titles:
+are all-caps, clickbait, PSAs, or pro-tips |
+are all-caps |
+are clickbait |
+contain emoji
+}.**
+```
+
+Only the layout differs: the picked option is sent in place, and the v1 mirror gets the same single-line `<select>`. Keep the last option non-blank. A blank last option would leave a blank line inside the field, so that choice is saved on one line instead.
+
 **`{dropdown}`** — a `{choice}` shown as a dropdown instead of radio buttons, which is easier to use with a long list of options and is how 6.x showed every pick-one field. It takes both forms (`{dropdown}` above a list, or `{dropdown: a | b}` inside a line), an id and `!` exactly as `{choice}` does, and sends the picked option the same way. Since a dropdown can't show formatting, an option with a link shows the link's text; the whole option, link included, is still what's sent.
 
 **`{multi}`** and **`{highlight}`** — tick-box fields, shown in the overlay as a group of checkboxes, so the mod can tick any number of items. They have no 6.x counterpart. The marker goes on a line of its own with the items as a GFM task list directly below it: `- [ ] item`, or `- [x] item` for an item that starts ticked. As with `{choice}`, blank lines between the marker and the list are fine, any bullet (`-`, `*`, `+`, `1.`) is accepted, and the block is tidied to the form below on save. What is sent is always a `-` list, with the boxes removed:

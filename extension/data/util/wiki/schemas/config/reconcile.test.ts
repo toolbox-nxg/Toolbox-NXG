@@ -407,6 +407,41 @@ describe('reconcileConfigFromLegacy', () => {
 		expect(result.config,).toBe(nxg,)
 	})
 
+	it('keeps options laid out one per line through an untouched mirror and a 6.x edit elsewhere', async () => {
+		const multiline = 'No titles that {dropdown#o:\nare all-caps |\nare clickbait\n}.'
+		const nxg = makeConfig({
+			removalReasons: {
+				reasons: [
+					{id: 'reason01', title: 'Titles', text: multiline,},
+					{id: 'reason02', title: 'Spam', text: 'no spam',},
+				],
+			},
+		},)
+		const select = '<select id="o" data-tbx-dropdown="1"><option>are all-caps</option>'
+			+ '<option>are clickbait</option></select>'
+		const mirror = (spam: string,) => ({
+			ok: true,
+			data: {
+				ver: 1,
+				removalReasons: {
+					reasons: [{title: 'Titles', text: escape(`No titles that ${select}.`,),}, {
+						title: 'Spam',
+						text: spam,
+					},],
+				},
+			},
+		})
+
+		readFromWiki.mockResolvedValue(mirror('no spam',),)
+		expect((await reconcileConfigFromLegacy('sub', nxg, canonicalAt1000,)).outcome,).toBe('equal',)
+
+		readFromWiki.mockResolvedValue(mirror('no spam (edited)',),)
+		const result = await reconcileConfigFromLegacy('sub', nxg, canonicalAt1000,)
+		expect(result.outcome,).toBe('adopted',)
+		expect(result.config.removalReasons.reasons[0],).toMatchObject({id: 'reason01', text: multiline,},)
+		expect(result.config.removalReasons.reasons[1]!.text,).toBe('no spam (edited)',)
+	})
+
 	it('keeps the choices of reasons a 6.x edit to an unmarked mirror did not touch', async () => {
 		const nxg = makeConfig({
 			removalReasons: {
