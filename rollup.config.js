@@ -6,7 +6,7 @@ import commonjs from '@rollup/plugin-commonjs'
 import {DEFAULTS as nodeResolveDefaults, nodeResolve,} from '@rollup/plugin-node-resolve'
 import replace from '@rollup/plugin-replace'
 import terser from '@rollup/plugin-terser'
-import typescript from '@rollup/plugin-typescript'
+import {transform as oxcTransform,} from 'oxc-transform'
 import copy from 'rollup-plugin-copy'
 import postcss from 'rollup-plugin-postcss'
 
@@ -143,19 +143,41 @@ function buildDefines (platform,) {
 	},)
 }
 
-function sharedScriptPlugins (outDir,) {
+const typeScriptSourcePattern = /\.[cm]?tsx?$/
+
+/**
+ * Rollup plugin that strips TypeScript and compiles JSX with oxc, one file at a time. It does not
+ * type-check: `npm run typecheck` (tsc) is the type gate, and CI runs it before building.
+ */
+function typeScriptTransformPlugin () {
+	return {
+		name: 'oxc-typescript',
+		async transform (code, id,) {
+			if (!typeScriptSourcePattern.test(id,) || id.includes('node_modules',)) {
+				return null
+			}
+			const result = await oxcTransform(id, code, {
+				// Matches tsconfig's `"jsx": "react-jsx"` (production runtime, not react-jsxdev).
+				jsx: {runtime: 'automatic', development: false,},
+				target: 'esnext',
+				sourcemap: true,
+			},)
+			const [firstError,] = result.errors.filter((error,) => error.severity === 'Error')
+			if (firstError) {
+				this.error(`${firstError.message}\n${firstError.codeframe ?? ''}`,)
+			}
+			return {code: result.code, map: result.map,}
+		},
+	}
+}
+
+function sharedScriptPlugins () {
 	return [
 		nodeResolve({
 			extensions: [...nodeResolveDefaults.extensions, '.ts', '.tsx',],
 		},),
 		commonjs(),
-		typescript({
-			compilerOptions: {
-				// Keep TS emit paths aligned with manifest paths like data/init.js.
-				rootDir: 'extension/data',
-				outDir,
-			},
-		},),
+		typeScriptTransformPlugin(),
 	]
 }
 
@@ -204,7 +226,7 @@ function contentScriptConfig (platformConfig,) {
 				// Only *.module.css files are treated as modules either way (autoModules).
 				modules: {root: '',},
 			},),
-			...sharedScriptPlugins(`${platformConfig.outputDir}/data`,),
+			...sharedScriptPlugins(),
 			...(!isDevBuild ? [terser({format: {ascii_only: true,},},),] : []),
 			// Copy files not processed by Rollup over to the build directory.
 			copyManifestAndStaticAssets(platformConfig,),
@@ -295,7 +317,7 @@ function backgroundConfig (platformConfig,) {
 		},
 		plugins: [
 			buildDefines(platformConfig.platform,),
-			...sharedScriptPlugins(`${platformConfig.outputDir}/data/background`,),
+			...sharedScriptPlugins(),
 			zipBuildOutputPlugin(platformConfig, manifest.version,),
 		],
 	}
