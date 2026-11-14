@@ -56,6 +56,13 @@ export interface DomainTaggerHandlers {
 	 * @param mutations DOM mutation records to scan for new posts.
 	 */
 	handleShredditMutations: (mutations: MutationRecord[],) => void
+	/**
+	 * Counts a removal announced by another module (`TB_THING_REMOVED`). Removal Reasons
+	 * replaces Reddit's native remove control, so its removals never reach the click and
+	 * `mod-status` watchers this module otherwise relies on.
+	 * @param event The `TB_THING_REMOVED` event; `detail.thingId` is the removed fullname.
+	 */
+	handleThingRemoved: (event: Event,) => void
 }
 
 /** Context data carried through the Shreddit thingDomainControls slot. */
@@ -290,6 +297,9 @@ export function createDomainTaggerHandlers (
 	// existing observer instead of stacking another - N stacked observers would
 	// fire N times on a single approval and inflate the wiki stat counter.
 	const shredditObservers = new Map<Element, MutationObserver>()
+	// Shreddit posts whose removal was already counted from `TB_THING_REMOVED`, so a later
+	// `mod-status` flip to removed (if Reddit re-renders the post) doesn't count it again.
+	const announcedRemovals = new WeakSet<Element>()
 	lifecycle.mount(() => {
 		for (const observer of shredditObservers.values()) { observer.disconnect() }
 		shredditObservers.clear()
@@ -327,7 +337,8 @@ export function createDomainTaggerHandlers (
 	lifecycle.delegate(
 		document.body,
 		'click',
-		'.flat-list .remove-button .togglebutton, .big-mod-buttons > span > .pretty-button.negative',
+		// The modqueue's plain remove is the `.neutral` pretty-button; `.negative` is spam.
+		'.flat-list .remove-button .togglebutton, .big-mod-buttons > span > .pretty-button:is(.neutral, .negative)',
 		(el,) => {
 			void recordModAction(el, 'remove',)
 		},
@@ -609,6 +620,7 @@ export function createDomainTaggerHandlers (
 					if (newStatus === 'approved') {
 						await incrementDomainStat(subreddit, domain, 'approve',)
 					} else if (newStatus === 'removed' || newStatus === 'spam') {
+						if (announcedRemovals.delete(postEl,)) { continue }
 						await incrementDomainStat(subreddit, domain, 'remove',)
 					}
 				}
@@ -758,5 +770,33 @@ export function createDomainTaggerHandlers (
 		},
 
 		handleTagButtonClick,
+
+		handleThingRemoved (event: Event,) {
+			if (!(event instanceof CustomEvent)) { return }
+			const detail: unknown = event.detail
+			if (!detail || typeof detail !== 'object' || !('thingId' in detail)) { return }
+			const {thingId,} = detail
+			// Only posts carry a domain.
+			if (typeof thingId !== 'string' || !thingId.startsWith('t3_',)) { return }
+
+			const oldThing = document.querySelector(`.thing[data-fullname="${thingId}"]`,)
+			if (oldThing) {
+				const domain = getThingDomain(oldThing,)
+				const subredditName = getThingSubreddit(oldThing,)
+				if (!domain || !subredditName) { return }
+				void incrementDomainStat(cleanSubredditName(subredditName,), domain, 'remove',)
+				return
+			}
+
+			const post = document.querySelector<HTMLElement>(`shreddit-post[id="${thingId}"]`,)
+			if (!post) { return }
+			const domain = post.dataset.toolboxDomain || getShredditPostDomain(post,)
+			const subredditName = post.getAttribute('subreddit-name',)
+			if (!domain || !subredditName) { return }
+			if (post.getAttribute('mod-status',) !== 'removed' && post.getAttribute('mod-status',) !== 'spam') {
+				announcedRemovals.add(post,)
+			}
+			void incrementDomainStat(cleanSubredditName(subredditName,), domain, 'remove',)
+		},
 	}
 }

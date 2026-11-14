@@ -5,6 +5,7 @@ import {createLifecycle,} from '../../framework/lifecycle'
 import {Module,} from '../../framework/module'
 import {domainTagger,} from '../../framework/moduleIds'
 import {isOldReddit,} from '../../util/infra/platform'
+import {events,} from '../../util/reddit/events'
 import {onSharedMutation,} from '../../util/ui/dom'
 import {createDomainTaggerHandlers,} from './dom'
 import {type DomainTaggerSettings, settings,} from './settings'
@@ -28,6 +29,7 @@ export default new Module<DomainTaggerSettings>({
 		'.add-domain-tag',
 		(target, event,) => void handlers.handleTagButtonClick(target, event,),
 	)
+	lifecycle.on(window, events.TB_THING_REMOVED, handlers.handleThingRemoved,)
 
 	if (isOldReddit) {
 		handlers.handleNewThings()
