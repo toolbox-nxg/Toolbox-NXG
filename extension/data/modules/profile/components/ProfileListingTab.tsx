@@ -459,7 +459,7 @@ export function ListingTab ({
 		cancelSearchRef.current = false
 
 		const sortMethod = state.sort
-		let after: string | undefined = undefined
+		let after: string | undefined
 		let pageCount = 0
 		let resultCount = 0
 		let hits = false

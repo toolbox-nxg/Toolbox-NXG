@@ -36,7 +36,7 @@ export function forEachChunked<T,> (
 		if (counter === 0 && start) {
 			start()
 		}
-		for (let end = Math.min(array!.length, counter + chunkSize,); counter < end; counter++) {
+		for (const end = Math.min(array!.length, counter + chunkSize,); counter < end; counter++) {
 			const ret = call(array![counter]!, counter, array!,)
 			if (ret === false) {
 				window.setTimeout(finish, delay,)

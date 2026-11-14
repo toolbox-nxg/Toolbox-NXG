@@ -18,9 +18,8 @@ Closes #
 <!-- Run these locally before requesting review. -->
 
 - [ ] `npm run fmt` passes (dprint formatting)
-- [ ] `npm run lint` passes (ESLint + `lint:guard`)
+- [ ] `npm run lint` passes (includes the guard and parameter-convention rules)
 - [ ] `npm run lint:css` passes (Stylelint)
-- [ ] `npm run lint:params` passes (parameter-order check)
 - [ ] `npm run typecheck` passes
 - [ ] `npm test` passes
 - [ ] `npm run build` succeeds

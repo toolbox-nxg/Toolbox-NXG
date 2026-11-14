@@ -2,23 +2,25 @@
 
 To keep call sites predictable, functions across `extension/` should take the
 same domain concepts in the same **order** and under the same **name**. The
-scanner at `scripts/check-param-order.mjs`
-reports where the codebase drifts from the convention below. It is **report
-only** — it never edits code.
+`toolbox/param-conventions` lint rule (`lint/rules/param-conventions.mjs`, part of
+Toolbox's own oxlint plugin) reports where the codebase drifts from the convention
+below. It never edits code.
 
-Run it with:
+It runs as part of `npm run lint`, over non-test TypeScript under `extension/`. To check
+specific files or directories, pass them to oxlint:
 
 ```sh
-npm run lint:params                       # scan all of extension/
-node scripts/check-param-order.mjs <path> # scan specific files/dirs
+npx oxlint extension/data/modules/usernotes
 ```
 
-It exits non-zero when any violation is found.
+A violation is a lint error. Fix it rather than suppressing it; if a function genuinely
+has to break the convention, an `// oxlint-disable-next-line toolbox/param-conventions`
+comment with a justification documents why.
 
 ## The convention
 
 The source of truth is the data in
-`scripts/param-conventions.mjs`. Each
+`lint/param-conventions.mjs`. Each
 recognized _concept_ has one **canonical name**. The order of the concept list
 is the canonical **parameter order**: a concept listed earlier must appear
 earlier in a function's parameter list.
@@ -35,9 +37,9 @@ earlier in a function's parameter list.
 | 8     | `id`            | A bare base-36 id (`abcdef`)      |
 
 A handful of legacy **synonyms** (e.g. an old `sub`, `username`, or `post`
-parameter) are also recognized in `scripts/param-conventions.mjs` and reported
+parameter) are also recognized in `lint/param-conventions.mjs` and reported
 as rename candidates. The codebase is currently fully compliant — none remain —
-but the synonyms stay defined so the scanner catches any regression.
+but the synonyms stay defined so the rule catches any regression.
 
 Any other **data parameters** (`text`, `reason`, `title`, …) and a destructured
 **options object** may appear among these; their positions are not enforced.
@@ -56,7 +58,7 @@ they are overloaded and cannot be classified by name alone:
 - `link` / `postLink` — `link` is sometimes a raw URL being submitted (not a reference to a submission); `postLink` is a submission's `fullname`.
 - `subredditName` — an explicit name often paired with a sibling `subredditUrl`, and threaded through JSX props / custom-event detail contracts.
 
-## What the scanner checks
+## What the rule checks
 
 - **ORDER** — only the **relative** order of recognized concepts is enforced (e.g. `subreddit` before `submission`, or an `id` before a `subreddit`). Generic data params and the options object are skipped, so a leading unrecognized param never triggers an order flag.
 - **NAMING** — a parameter (or a destructured object key) uses a synonym instead of the canonical name.
@@ -66,7 +68,7 @@ they are overloaded and cannot be classified by name alone:
 
 The convention is intended to be adjusted as the report is reviewed — nothing is
 auto-fixed, so changes here only affect what gets reported. Edit
-`scripts/param-conventions.mjs` to:
+`lint/param-conventions.mjs` to:
 
 - add or remove synonyms (overloaded names are deliberately left out — only add a synonym when one name unambiguously means one concept),
 - reorder concepts, or

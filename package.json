@@ -10,10 +10,9 @@
         "build:watch": "rollup -c rollup.config.js --watch",
         "build:watch:chrome": "cross-env BUILD_TARGET=chrome npm run build:watch",
         "build:watch:firefox": "cross-env BUILD_TARGET=firefox npm run build:watch",
-        "lint": "eslint . && npm run lint:guard",
+        "lint": "eslint . && oxlint",
         "lint:fix": "eslint . --fix",
-        "lint:params": "node scripts/check-param-order.mjs",
-        "lint:guard": "node scripts/check-moderation-imports.mjs && node scripts/check-transport-leak.mjs",
+        "lint:params": "oxlint",
         "lint:css": "stylelint \"extension/**/*.css\"",
         "lint:css:fix": "stylelint \"extension/**/*.css\" --fix",
         "fmt": "dprint check",
@@ -23,8 +22,7 @@
         "typecheck": "tsc --noEmit",
         "docs:api": "typedoc",
         "release": "node scripts/release.mjs",
-        "postinstall": "patch-package",
-        "lint:ox": "oxlint"
+        "postinstall": "patch-package"
     },
     "homepage": "http://www.reddit.com/r/toolbox_nxg",
     "repository": {

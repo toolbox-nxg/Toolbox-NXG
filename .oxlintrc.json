@@ -1,6 +1,9 @@
 {
     "$schema": "./node_modules/oxlint/configuration_schema.json",
     "plugins": [],
+    "jsPlugins": [
+        "./lint/toolbox-plugin.mjs"
+    ],
     "categories": {
         "correctness": "off"
     },
@@ -80,7 +83,10 @@
         "preserve-caught-error": "error",
         "require-yield": "error",
         "use-isnan": "error",
-        "valid-typeof": "error"
+        "valid-typeof": "error",
+        "toolbox/no-direct-moderation-imports": "error",
+        "toolbox/no-listing-envelope": "error",
+        "toolbox/param-conventions": "error"
     },
     "overrides": [
         {

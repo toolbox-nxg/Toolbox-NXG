@@ -11,9 +11,8 @@ Most style rules are automatically enforced. Before submitting a pull request, r
 ```sh
 npm run fmt         # check formatting (dprint)
 npm run fmt:fix     # auto-fix formatting
-npm run lint        # check linting (ESLint), then the lint:guard scanners
+npm run lint        # check linting, including the guard and parameter-convention rules
 npm run lint:css    # check CSS linting (stylelint)
-npm run lint:params # check parameter order and naming
 npm run typecheck   # type-check without emitting (tsc)
 ```
 

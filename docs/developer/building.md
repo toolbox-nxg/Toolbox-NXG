@@ -52,10 +52,8 @@ Build output goes to `build/chrome/` and `build/firefox/`.
 npm test             # Run unit tests (Vitest)
 npm run test:watch   # Run tests in watch mode
 npm run typecheck    # TypeScript type-check (no emit)
-npm run lint         # ESLint, then lint:guard
-npm run lint:guard   # Moderation-import and listing-envelope guards (also run by lint)
+npm run lint         # Lint rules, including Toolbox's own rules in lint/
 npm run lint:css     # Stylelint
-npm run lint:params  # Parameter-order convention check
 npm run fmt          # Formatting check (dprint)
 npm run fmt:fix      # Auto-fix formatting
 ```
@@ -68,9 +66,9 @@ pass cleanly.
 
 ```sh
 npm run fmt             # Formatting check (dprint)
-npm run lint            # ESLint + lint:guard
+npm run lint            # Lint, including the guard and parameter-convention rules
 npm run lint:css        # Stylelint
-npm run lint:params     # Parameter-order and naming conventions
+npm run lint:params     # Same as lint (kept until CI drops the step)
 npm run typecheck       # TypeScript type-check (no emit)
 npm test                # Unit tests (Vitest)
 npm run build           # Full production build (Chrome + Firefox)

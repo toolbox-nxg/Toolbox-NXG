@@ -290,7 +290,7 @@ cursor-connection API — so it stays inside `api/`.
 - Resource modules unwrap it with `pageFromListing` and return `Page<T>` from `api/transport/pagination`
 - Feature code reads `.items` and `.cursor`, and treats `cursor` as opaque: hand it back to the next
   fetch unchanged, never parse or construct one
-- `npm run lint:guard` fails on `RedditListing` imports or `.data.after` / `.data.before` access outside `api/`
+- The `toolbox/no-listing-envelope` lint rule (`npm run lint`) fails on `RedditListing` imports or `.data.after` / `.data.before` access outside `api/`
 
 `.data.children` is _not_ restricted: Reddit's comment tree nests Listings recursively
 (`RedditThing.replies`, and a `more` node's `children` array of comment ids), so that access is
@@ -302,7 +302,7 @@ UI code must not import the mutating moderation primitives (`approveThing`, `rem
 
 Two guards enforce this:
 
-- `npm run lint:guard` (`scripts/check-moderation-imports.mjs`) fails when a file outside its `ALLOWLIST` imports a restricted primitive. Only extend the allowlist with a written justification.
+- The `toolbox/no-direct-moderation-imports` lint rule (`lint/rules/no-direct-moderation-imports.mjs`, run by `npm run lint`) fails when a file outside its `ALLOWLIST` imports or re-exports a restricted primitive. Only extend the allowlist with a written justification.
 - At runtime, each primitive calls `assertActionAllowed` (`util/infra/captureGuard.ts`), which blocks a real action for a sandboxed user even if a code path skipped the gateway.
 
 ---
@@ -310,7 +310,7 @@ Two guards enforce this:
 ## Pre-PR checklist
 
 1. The full CI gate passes (see the [pre-commit checklist](building.md#pre-commit-checklist)), including `npm test` and `npm run build` for Chrome and Firefox
-2. No direct imports of mutating moderation primitives outside the proposals gateway (`npm run lint:guard`)
+2. No direct imports of mutating moderation primitives outside the proposals gateway (`npm run lint`)
 3. `index.ts` contains no helper function definitions, inline business logic, DOM queries, or state initialization
 4. `dom.ts` factory functions contain no `lifecycle.on` / `lifecycle.observe` calls
 5. All domain interfaces live in `schema.ts`, not inline in component files

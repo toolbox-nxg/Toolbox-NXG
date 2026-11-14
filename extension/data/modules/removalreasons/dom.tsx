@@ -1217,8 +1217,8 @@ export function createRemovalReasonsHandlers ({
 
 			let thingID: string | undefined
 			let thingSubreddit: string | undefined
-			let isComment = false
-			let thingElement: HTMLElement | null = null
+			let isComment: boolean
+			let thingElement: HTMLElement | null
 
 			if (isOldReddit || element.matches('.toolbox-submission-button-remove, .toolbox-comment-button-remove',)) {
 				let thing = (isOldReddit ? getThingOld(element,) : getThingShreddit(element,)) as HTMLElement | null

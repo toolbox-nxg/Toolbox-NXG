@@ -232,7 +232,7 @@ async function checkCanWrite (subreddit: string, page: string, result: WikiMigra
 		return false
 	}
 
-	let canWrite = false
+	let canWrite: boolean
 	try {
 		canWrite = await hasWikiWritePermission(subreddit,)
 	} catch (error) {
