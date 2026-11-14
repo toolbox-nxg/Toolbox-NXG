@@ -86,7 +86,7 @@
         "globals": "^17.12.0",
         "happy-dom": "^21.0.4",
         "patch-package": "^8.0.1",
-        "rollup": "^4.62.2",
+        "rollup": "^4.67.5",
         "rollup-plugin-copy": "^3.5.0",
         "rollup-plugin-postcss": "^4.0.2",
         "stylelint": "^17.15.0",
