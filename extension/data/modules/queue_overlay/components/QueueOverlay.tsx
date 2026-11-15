@@ -216,6 +216,7 @@ function QueueOverlay ({initialType, initialSubreddit, baseUrls, onClose, instan
 											<Icon icon="refresh" />
 										</span>
 									</div>
+									{/* oxlint-disable-next-line react/iframe-missing-sandbox -- the frame is a same-origin Reddit queue page that needs scripts and same-origin access; a sandbox allowing both can lift itself, so it would add no protection. */}
 									<iframe
 										ref={(element,) => {
 											iframeRefs.current[t.key] = element

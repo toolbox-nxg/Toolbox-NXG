@@ -313,6 +313,7 @@ function ReasonForm ({
 								? (
 									<div
 										className={css.previewFull}
+										// oxlint-disable-next-line react/no-danger -- renderReasonHtml output: SnuOwnd-rendered with escaped labels (see RemovalReasonsOverlay.helpers)
 										dangerouslySetInnerHTML={{__html: previewHtml,}}
 									/>
 								)
@@ -614,6 +615,7 @@ function ReasonCard ({
 								<div
 									ref={previewRef}
 									className={expanded ? css.previewFull : css.previewClamped}
+									// oxlint-disable-next-line react/no-danger -- renderReasonHtml output: SnuOwnd-rendered with escaped labels (see RemovalReasonsOverlay.helpers)
 									dangerouslySetInnerHTML={{__html: previewHtml,}}
 								/>
 								{(overflows || expanded) && (

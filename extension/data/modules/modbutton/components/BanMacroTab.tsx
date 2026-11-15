@@ -175,6 +175,7 @@ export function BanMacroTab ({state, saveRef, onSave,}: Props,) {
 				<div className={css.fieldLabel}>Duration preset buttons</div>
 				<div className={css.presetList}>
 					{banDurationPresets.map((days, i,) => (
+						// oxlint-disable-next-line react/no-array-index-key -- presets are bare numbers with no id; each row is a controlled input holding no local state, so position is enough
 						<div key={i} className={css.presetRow}>
 							<TextInput
 								type="number"

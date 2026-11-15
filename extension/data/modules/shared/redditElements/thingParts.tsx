@@ -120,6 +120,7 @@ export function ThingReports ({userReports, modReports, ignoreReports, userRepor
 				<ul className="toolbox-user-reports">
 					<li>user reports</li>
 					{userReports.map((report, i,) => (
+						// oxlint-disable-next-line react/no-array-index-key -- a static list rendered once per item, never reordered; entries have no stable id
 						<li key={i} className={userReportClass}>
 							<strong>{report[1]} :</strong> {report[0]}
 						</li>
@@ -135,6 +136,7 @@ export function ThingReports ({userReports, modReports, ignoreReports, userRepor
 				<ul className="toolbox-user-reports">
 					<li>mod reports</li>
 					{modReports.map((report, i,) => (
+						// oxlint-disable-next-line react/no-array-index-key -- a static list rendered once per item, never reordered; entries have no stable id
 						<li key={i} className="toolbox-mod-report">
 							<strong>{report[1]} :</strong> {report[0]}
 						</li>

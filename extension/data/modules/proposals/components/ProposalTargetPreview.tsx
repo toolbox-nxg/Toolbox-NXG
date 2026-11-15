@@ -12,10 +12,10 @@ import {useEffect, useMemo, useRef, useState,} from 'react'
 
 import {ActionButton,} from '../../../shared/controls/ActionButton'
 import {getApiThingInfo, isInfoRemoved, ThingNotFoundError,} from '../../../util/reddit/thingInfo'
+import {getMarkdownParser,} from '../../../util/ui/markdown'
 import {classes,} from '../../../util/ui/reactMount'
 import {markProposalObsolete,} from '../../shared/proposals/moduleapi'
 import {isOpen, type ProposalAt,} from '../../shared/proposals/selectors'
-import {getRemovalReasonParser,} from '../../shared/removalReasons/parser'
 import {ProposalSpinner,} from './ProposalSpinner'
 import css from './ProposalsReviewPopup.module.css'
 
@@ -108,7 +108,9 @@ const BODY_CLAMP_CHARS = 280
 /** The loaded post/comment, with its body rendered as markdown and a Show full/less toggle. */
 function LoadedTargetPreview ({info,}: {info: ThingInfo},) {
 	const [expanded, setExpanded,] = useState(false,)
-	const parser = useMemo(() => getRemovalReasonParser(), [],)
+	// The body is any Reddit user's post or comment, so it gets the standard Reddit renderer,
+	// not the removal-reason one, whose extra form-element whitelist is for moderator templates.
+	const parser = useMemo(() => getMarkdownParser(), [],)
 	const isPost = info.kind === 'submission'
 	const removed = isInfoRemoved(info,)
 	const reportCount = (info.userReports?.length ?? 0) + (info.modReports?.length ?? 0)
@@ -130,6 +132,7 @@ function LoadedTargetPreview ({info,}: {info: ThingInfo},) {
 			{bodyHtml && (
 				<div
 					className={classes(css.targetBody, !expanded && longBody && css.targetBodyClamped,)}
+					// oxlint-disable-next-line react/no-danger -- SnuOwnd-rendered markdown: raw HTML is escaped apart from its element whitelist, which strips attributes like event handlers
 					dangerouslySetInnerHTML={{__html: bodyHtml,}}
 				/>
 			)}

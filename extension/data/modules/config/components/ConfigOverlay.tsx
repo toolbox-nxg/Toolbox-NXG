@@ -110,7 +110,9 @@ function ConfigOverlay ({
 			title: tab.title,
 			...(tab.tooltip != null && {tooltip: tab.tooltip,}),
 			content: activeIndex === i
-				? <TabErrorBoundary key={i}>{tab.contentNode}</TabErrorBoundary>
+				// Keyed by tab, so switching tabs resets the boundary and a crashed tab's error stays with it
+				// even when toggling advanced tabs shifts the indices.
+				? <TabErrorBoundary key={tab.title}>{tab.contentNode}</TabErrorBoundary>
 				: null,
 			...(tab.footer != null && {footer: tab.footer,}),
 		},)

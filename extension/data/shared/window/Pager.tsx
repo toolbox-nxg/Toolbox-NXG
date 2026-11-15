@@ -155,6 +155,7 @@ export const Pager = ({
 			{/* a button for each page we've already loaded */}
 			{cachedPages.map((_page, i,) => (
 				<GeneralButton
+					// oxlint-disable-next-line react/no-array-index-key -- the index is the page number, which is the button's identity
 					key={i}
 					className={classes(
 						css.control,

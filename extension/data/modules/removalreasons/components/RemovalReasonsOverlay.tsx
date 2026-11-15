@@ -1265,6 +1265,7 @@ export function RemovalReasonsOverlay ({
 						{includeHeader && (
 							<div
 								className={css.reasonPreview}
+								// oxlint-disable-next-line react/no-danger -- SnuOwnd-rendered markdown: raw HTML is escaped apart from its element whitelist, which strips attributes like event handlers
 								dangerouslySetInnerHTML={{__html: headerHtml,}}
 							/>
 						)}
@@ -1352,6 +1353,7 @@ export function RemovalReasonsOverlay ({
 						{includeFooter && (
 							<div
 								className={css.reasonPreview}
+								// oxlint-disable-next-line react/no-danger -- SnuOwnd-rendered markdown: raw HTML is escaped apart from its element whitelist, which strips attributes like event handlers
 								dangerouslySetInnerHTML={{__html: footerHtml,}}
 							/>
 						)}

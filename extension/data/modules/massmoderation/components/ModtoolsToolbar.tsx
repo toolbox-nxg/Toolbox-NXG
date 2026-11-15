@@ -767,6 +767,7 @@ export function ModtoolsToolbar ({
 			{actionLog.length > 0 && (
 				<div className={css.actionLogRow}>
 					{actionLog.map((entry, i,) => (
+						// oxlint-disable-next-line react/no-array-index-key -- log entries are plain strings with no id, rendered as stateless spans
 						<span key={i} className={css.actionLogEntry}>{entry}</span>
 					))}
 				</div>

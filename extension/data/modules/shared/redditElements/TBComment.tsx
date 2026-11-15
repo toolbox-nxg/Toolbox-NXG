@@ -191,6 +191,7 @@ export function TBComment ({comment, options = {}, subredditColorSalt,}: TBComme
 					<div
 						className="toolbox-comment-body"
 						style={collapsed ? {display: 'none',} : undefined}
+						// oxlint-disable-next-line react/no-danger -- Reddit-rendered HTML, sanitized by purifyHTML
 						dangerouslySetInnerHTML={{__html: purifyHTML(c.body_html ?? '',),}}
 					/>
 					{(hasControversiality || status !== 'neutral') && (
@@ -341,6 +342,7 @@ export function TBCommentChildren ({items, options, subredditColorSalt,}: TBComm
 					const count = item.data.count
 					const ids = item.data.children.toString()
 					return (
+						// oxlint-disable-next-line react/no-array-index-key -- a listing has at most one `more` node per sibling list and Reddit gives it no reliable id, so its position is its identity
 						<span key={`more-${i}`} className="toolbox-more-comments">
 							<a
 								className="toolbox-load-more-comments"

@@ -387,6 +387,7 @@ export function WikiEditorTab ({subreddit, page, literalPage, saveRef, revisionN
 				<div className={css.warning}>
 					<b>Config not saved!</b>
 					<br />
+					{/* oxlint-disable-next-line react/no-danger -- Reddit's AutoModerator error, sanitized by purifyHTML in saveWikiEditorPage */}
 					<pre dangerouslySetInnerHTML={{__html: automodError,}} />
 				</div>
 			)}

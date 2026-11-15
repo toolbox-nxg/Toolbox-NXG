@@ -12,6 +12,8 @@ import css from './RecentActionsPopup.module.css'
 
 /** A single entry from the Reddit moderation log API. */
 interface ModAction extends RedditModLogEntry {
+	/** Unique entry id (`ModAction_<uuid>`). */
+	id: string
 	target_author: string
 	target_title: string | null
 	target_permalink: string | null
@@ -42,6 +44,9 @@ const familyRowClass: Record<ActionFamily, string> = {
 /** Renders the "Recent mod actions" slide-out drawer with filtering and a refresh button. */
 export function RecentActionsPopup ({onClose,}: {onClose: () => void},) {
 	const [actions, setActions,] = useState<ModAction[] | null>(null,)
+	// When `actions` was shown (ms). The "Active (15m)" window is measured from here: reading the
+	// clock during render would make the output depend on when React happens to re-render.
+	const [shownAt, setShownAt,] = useState(0,)
 	const [error, setError,] = useState<string | null>(null,)
 	const [refreshKey, setRefreshKey,] = useState(0,)
 	const [filter, setFilter,] = useState<FilterCategory>('all',)
@@ -52,11 +57,13 @@ export function RecentActionsPopup ({onClose,}: {onClose: () => void},) {
 		setError(null,)
 		if (cacheRef.current && Date.now() - cacheRef.current.ts < cacheTtl) {
 			setActions(cacheRef.current.actions,)
+			setShownAt(Date.now(),)
 			return
 		}
 		getModLogEntries<ModAction>('mod', '50',).then((list,) => {
 			cacheRef.current = {actions: list, ts: Date.now(),}
 			setActions(list,)
+			setShownAt(Date.now(),)
 		},).catch((err: unknown,) => {
 			setError(err instanceof Error ? err.message : String(err,),)
 		},)
@@ -80,7 +87,7 @@ export function RecentActionsPopup ({onClose,}: {onClose: () => void},) {
 		? [
 			...new Set(
 				actions
-					.filter((a,) => (Date.now() / 1000 - a.created_utc) < 15 * 60)
+					.filter((a,) => (shownAt / 1000 - a.created_utc) < 15 * 60)
 					.map((a,) => a.mod),
 			),
 		]
@@ -139,7 +146,7 @@ export function RecentActionsPopup ({onClose,}: {onClose: () => void},) {
 					{!error && filtered !== null && filtered.length === 0 && (
 						<div className={css.empty}>No actions.</div>
 					)}
-					{!error && filtered !== null && filtered.map((action, i,) => {
+					{!error && filtered !== null && filtered.map((action,) => {
 						const label = actionLabels[action.action] ?? action.action
 						const family = actionFamily[action.action] ?? 'other'
 						const rowClass = familyRowClass[family]
@@ -147,7 +154,7 @@ export function RecentActionsPopup ({onClose,}: {onClose: () => void},) {
 							? `https://www.reddit.com${action.target_permalink}`
 							: null
 						return (
-							<div key={i} className={rowClass}>
+							<div key={action.id} className={rowClass}>
 								<span className={css.actionType}>{label}</span>
 								<span className={css.sub}>/r/{action.subreddit}</span>
 								{action.target_author && (

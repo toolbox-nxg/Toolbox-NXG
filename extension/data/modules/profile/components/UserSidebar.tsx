@@ -145,6 +145,7 @@ export function UserSidebar ({user,}: UserSidebarProps,) {
 							</>
 						)
 						return (
+							// oxlint-disable-next-line react/no-array-index-key -- a static list rendered once per item, never reordered; entries have no stable id
 							<div key={i} className={css.trophyInfo}>
 								{trophy.data.url
 									? <a href={trophy.data.url} className={css.trophyLink}>{inner}</a>

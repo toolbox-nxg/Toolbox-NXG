@@ -785,6 +785,7 @@ export function SubredditNotesPopup ({
 											{renderMarkdown
 												? <div
 													className="md"
+													// oxlint-disable-next-line react/no-danger -- SnuOwnd-rendered markdown, sanitized by purifyHTML
 													dangerouslySetInnerHTML={{__html: previewHtml,}}
 												/>
 												: <div className={css.previewPlain}>{editorValue}</div>}
