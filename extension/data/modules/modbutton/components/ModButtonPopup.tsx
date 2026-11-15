@@ -1,6 +1,6 @@
 /** Multi-tab popup for performing mod actions (ban, flair, modmail, etc.) on a Reddit user. */
 
-import {type ChangeEvent, useEffect, useEffectEvent, useMemo, useRef, useState,} from 'react'
+import {type ChangeEvent, useEffect, useEffectEvent, useMemo, useState,} from 'react'
 
 import {getFlairSelector, getUserFlairTemplates,} from '../../../api/resources/flair'
 import type {FlairSelectorResponse,} from '../../../api/resources/flair'
@@ -55,6 +55,24 @@ const log = createLogger('ModButton',)
  * the item fields when the button was opened from a post or comment. Empty values are left out so
  * an unfilled token is flagged rather than silently blanked (see `banTokenInfo`).
  */
+/**
+ * The action to pre-select once the target's status in a subreddit loads, or null to keep the
+ * current pick: demod a mod, change an existing ban, remove a contributor, or - without access -
+ * the mute toggle.
+ */
+function suggestedAction (status: SubStatus,): ActionKind | null {
+	if (hasPermission(status.currentUserPermissions, 'access',)) {
+		if (status.isMod) { return 'demod' }
+		if (status.banned) { return 'change ban' }
+		if (status.isContributor) { return 'remove submitter' }
+		return null
+	}
+	if (hasPermission(status.currentUserPermissions, 'mail',)) {
+		return status.isMuted ? 'unmute' : 'mute'
+	}
+	return null
+}
+
 function modButtonBanTokens (info: ThingInfo, user: string,): Record<string, string> {
 	return banTokenInfo({author: info.author || user, subreddit: info.subreddit, mod: info.mod,}, info,)
 }
@@ -128,7 +146,9 @@ export function ModButtonPopup ({
 	// Action select
 	const initialAction = getDefaultActionForUrl()
 		?? (rememberLastAction ? (lastAction as ActionKind) : 'ban')
-	const [actionType, setActionType,] = useState<ActionKind>(initialAction,)
+	// The action the moderator (or auto-selection) picked; `actionType` below is what is in effect,
+	// which falls back when the pick isn't available for the active subreddit.
+	const [selectedAction, setSelectedAction,] = useState<ActionKind>(initialAction,)
 
 	// Subreddit selection state
 	const [currentSubChecked, setCurrentSubChecked,] = useState(
@@ -160,17 +180,65 @@ export function ModButtonPopup ({
 	// Per-subreddit lazy-loaded status map
 	const [subStatuses, setSubStatuses,] = useState<Map<string, SubStatus>>(new Map(),)
 
+	const activeSubStatus = subStatuses.get(activeSub,)
+
+	const visibleActions = useMemo((): ActionKind[] => {
+		if (!activeSubStatus || activeSubStatus.loading) {
+			return ['ban', 'change ban', 'add submitter', 'remove submitter', 'mod', 'demod', 'mute', 'unmute',]
+		}
+		const perms = activeSubStatus.currentUserPermissions
+		const hasAccess = hasPermission(perms, 'access',)
+		const hasMail = hasPermission(perms, 'mail',)
+		const actions: ActionKind[] = []
+
+		if (hasAccess) {
+			// Mods can't be banned or muted - only demoddable
+			if (activeSubStatus.isMod) {
+				actions.push('demod',)
+			} else {
+				actions.push(activeSubStatus.banned ? 'change ban' : 'ban',)
+				actions.push('mod',)
+				actions.push(activeSubStatus.isContributor ? 'remove submitter' : 'add submitter',)
+			}
+		}
+		if (hasMail && !activeSubStatus.isMod) {
+			actions.push(activeSubStatus.isMuted ? 'unmute' : 'mute',)
+		}
+		return actions
+	}, [activeSubStatus,],)
+
+	// If the picked action isn't available (e.g. switched from a subreddit where the target was a mod,
+	// so 'demod' was picked, to one where they're not), the first available one is in effect.
+	const actionType: ActionKind = visibleActions.length > 0 && !visibleActions.includes(selectedAction,)
+		? visibleActions[0]!
+		: selectedAction
+
 	// Current moderator's username (fetched once on mount)
 	const [currentUser, setCurrentUser,] = useState('',)
 
 	// Status / error message in Role tab footer
 	const [status, setStatus,] = useState('',)
 
-	// Global mode toggle
-	const [isGlobalMode, setIsGlobalMode,] = useState(false,)
+	// Global mode and a pending confirmation belong to the action they were set under: whenever the
+	// action in effect changes, by any route, they read as off/none, so a "Confirm" can never run
+	// an action other than the one it was asked for.
+	const [globalModeAction, setGlobalModeAction,] = useState<ActionKind | null>(null,)
+	const isGlobalMode = globalModeAction === actionType
+	const setIsGlobalMode = (on: boolean,) => setGlobalModeAction(on ? actionType : null,)
 
-	// In-popup confirmation dialog state
-	const [pendingConfirm, setPendingConfirm,] = useState<{message: string; onConfirm: () => void} | null>(null,)
+	const [pendingConfirmFor, setPendingConfirmFor,] = useState<
+		{action: ActionKind; message: string; onConfirm: () => void} | null
+	>(null,)
+	const pendingConfirm = pendingConfirmFor?.action === actionType ? pendingConfirmFor : null
+	const setPendingConfirm = (confirm: {message: string; onConfirm: () => void} | null,) =>
+		setPendingConfirmFor(confirm && {...confirm, action: actionType,},)
+
+	/** Picks an action from the menu, clearing the status message left by the previous one. */
+	const selectAction = (next: ActionKind,) => {
+		if (next === actionType) { return }
+		setSelectedAction(next,)
+		setStatus('',)
+	}
 
 	// Progress tracking for mass actions
 	const [actionProgress, setActionProgress,] = useState<{done: number; total: number} | null>(null,)
@@ -238,7 +306,6 @@ export function ModButtonPopup ({
 	}, [],)
 
 	// When activeSub changes, reset per-subreddit state and re-fetch
-	const statusAutoApplied = useRef(false,)
 	// Effect event: the loader re-runs only when the target sub/user changes; everything
 	// else is read as of that moment rather than being a trigger.
 	const readLoaderContext = useEffectEvent(() => ({actions, info, currentUser, checkedSubs,}))
@@ -266,7 +333,6 @@ export function ModButtonPopup ({
 		setSavedBanMacros([],)
 		setFlairLoaded(false,)
 		setUserModlogLoaded(false,)
-		statusAutoApplied.current = false
 
 		ctx.actions.getBanMacros(activeSub,).then((macros: BanMacros | null,) => {
 			if (cancelled || !macros) { return }
@@ -302,6 +368,12 @@ export function ModButtonPopup ({
 			if (cancelled) { return }
 
 			setSubStatuses((prev,) => new Map(prev,).set(activeSub, status,))
+			// Once per subreddit switch, pre-select the action that fits the target's status there.
+			const suggested = suggestedAction(status,)
+			if (suggested) {
+				setSelectedAction(suggested,)
+				setStatus('',)
+			}
 
 			if (banInfo) {
 				const userFullname = banInfo.id
@@ -340,37 +412,6 @@ export function ModButtonPopup ({
 		}
 	}, [activeSub, user,],)
 
-	// Clear stale status/error/global-mode when action type changes
-	useEffect(() => {
-		setStatus('',)
-		setIsGlobalMode(false,)
-		setPendingConfirm(null,)
-	}, [actionType,],)
-
-	// Auto-select the most appropriate action once active subreddit status loads
-	useEffect(() => {
-		if (statusAutoApplied.current) { return }
-		const s = subStatuses.get(activeSub,)
-		if (!s || s.loading) { return }
-		statusAutoApplied.current = true
-
-		const perms = s.currentUserPermissions
-		const hasAccess = hasPermission(perms, 'access',)
-		const hasMail = hasPermission(perms, 'mail',)
-
-		if (hasAccess) {
-			if (s.isMod) {
-				setActionType('demod',)
-			} else if (s.banned) {
-				setActionType('change ban',)
-			} else if (s.isContributor) {
-				setActionType('remove submitter',)
-			}
-		} else if (hasMail) {
-			setActionType(s.isMuted ? 'unmute' : 'mute',)
-		}
-	}, [subStatuses, activeSub,],)
-
 	const loadSubStatus = async (subreddit: string,) => {
 		if (subStatuses.has(subreddit,)) { return }
 		setSubStatuses((prev,) => new Map(prev,).set(subreddit, loadingStatus,))
@@ -378,11 +419,16 @@ export function ModButtonPopup ({
 		setSubStatuses((prev,) => new Map(prev,).set(subreddit, status,))
 	}
 
-	// User modlog tab - mark loaded when tab becomes active
-	useEffect(() => {
-		if (!activeSub || !user || activeTabIndex !== 3 || userModlogLoaded) { return }
-		setUserModlogLoaded(true,)
-	}, [activeSub, user, activeTabIndex, userModlogLoaded,],)
+	// The User Modlog tab mounts its pager the first time it's opened for the active subreddit, and
+	// stays mounted after (the loader clears the latch on a subreddit switch).
+	const userModlogTabIndex = 3
+	const showUserModlog = Boolean(activeSub && user,) && (userModlogLoaded || activeTabIndex === userModlogTabIndex)
+	const handleTabChange = (index: number,) => {
+		// Latch on entering the tab, and on leaving it too: a subreddit switch while it's open clears
+		// the latch, and leaving must not unmount what the moderator was just looking at.
+		if (index === userModlogTabIndex || activeTabIndex === userModlogTabIndex) { setUserModlogLoaded(true,) }
+		setActiveTabIndex(index,)
+	}
 
 	useEffect(() => {
 		if (!activeSub || !user || activeTabIndex !== 1 || flairLoaded) { return }
@@ -461,7 +507,14 @@ export function ModButtonPopup ({
 		text: '',
 		kind: '',
 	},)
-	const [modmailSub, setModmailSub,] = useState<string>(contextSub,)
+	const [pickedModmailSub, setModmailSub,] = useState<string>(contextSub,)
+	// The "from" subreddit must be one the moderator mods: until they pick, that is the context sub
+	// when they mod it, else their first mod sub.
+	const modmailSub = modSubs.length === 0 || modSubs.includes(pickedModmailSub,)
+		? pickedModmailSub
+		: modSubs.includes(contextSub,)
+		? contextSub
+		: modSubs[0]!
 	const [modmailIsHidden, setModmailIsHidden,] = useState(false,)
 
 	const handleSendModmail = async () => {
@@ -528,6 +581,7 @@ export function ModButtonPopup ({
 
 	// Auto-uncheck subs that become non-applicable when status loads or action changes
 	useEffect(() => {
+		// oxlint-disable-next-line react/set-state-in-effect -- deliberately state, not derived: an unchecked sub must stay unchecked when the action changes back, so an action can never silently re-include a subreddit the moderator saw unchecked
 		setCheckedSubs((prev,) => {
 			const next = new Set(prev,)
 			let changed = false
@@ -760,49 +814,6 @@ export function ModButtonPopup ({
 		setShowCustomDuration(!banDurationPresets.includes(resolved.days,),)
 	}
 
-	const activeSubStatus = subStatuses.get(activeSub,)
-
-	const visibleActions = useMemo((): ActionKind[] => {
-		if (!activeSubStatus || activeSubStatus.loading) {
-			return ['ban', 'change ban', 'add submitter', 'remove submitter', 'mod', 'demod', 'mute', 'unmute',]
-		}
-		const perms = activeSubStatus.currentUserPermissions
-		const hasAccess = hasPermission(perms, 'access',)
-		const hasMail = hasPermission(perms, 'mail',)
-		const actions: ActionKind[] = []
-
-		if (hasAccess) {
-			// Mods can't be banned or muted - only demoddable
-			if (activeSubStatus.isMod) {
-				actions.push('demod',)
-			} else {
-				actions.push(activeSubStatus.banned ? 'change ban' : 'ban',)
-				actions.push('mod',)
-				actions.push(activeSubStatus.isContributor ? 'remove submitter' : 'add submitter',)
-			}
-		}
-		if (hasMail && !activeSubStatus.isMod) {
-			actions.push(activeSubStatus.isMuted ? 'unmute' : 'mute',)
-		}
-		return actions
-	}, [activeSubStatus,],)
-
-	// Once modSubs loads, ensure the selection is valid - default to contextSub if available, else first modsub.
-	useEffect(() => {
-		if (modSubs.length === 0) { return }
-		if (!modSubs.includes(modmailSub,)) {
-			setModmailSub(modSubs.includes(contextSub,) ? contextSub : modSubs[0]!,)
-		}
-	}, [modSubs, modmailSub, contextSub,],)
-
-	// If the current action is no longer available (e.g. switched from a subreddit where the target was
-	// a mod so 'demod' was selected, to one where they're not), fall back to the first available.
-	useEffect(() => {
-		if (visibleActions.length > 0 && !visibleActions.includes(actionType,)) {
-			setActionType(visibleActions[0]!,)
-		}
-	}, [visibleActions, actionType,],)
-
 	const isBanRelated = actionType === 'ban' || actionType === 'change ban'
 	const isMuteAction = actionType === 'mute'
 
@@ -833,7 +844,7 @@ export function ModButtonPopup ({
 					<ActionSelect
 						className={css.modAction}
 						value={actionType}
-						onChange={(event,) => setActionType(event.target.value as ActionKind,)}
+						onChange={(event,) => selectAction(event.target.value as ActionKind,)}
 					>
 						{visibleActions.map((name,) => (
 							<option
@@ -1125,7 +1136,7 @@ export function ModButtonPopup ({
 				},
 				{
 					title: 'User Modlog',
-					content: userModlogLoaded
+					content: showUserModlog
 						? <ModNotesPager user={user} subreddit={activeSub} filter="MOD_ACTION" />
 						: null,
 				},
@@ -1142,7 +1153,7 @@ export function ModButtonPopup ({
 			onClose={onClose}
 			footer={footer}
 		>
-			<WindowTabs tabs={tabItems} defaultTabIndex={0} onTabChange={setActiveTabIndex} />
+			<WindowTabs tabs={tabItems} defaultTabIndex={0} onTabChange={handleTabChange} />
 		</Window>
 	)
 }
