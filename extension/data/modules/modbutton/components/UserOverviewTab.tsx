@@ -13,6 +13,7 @@ import {SelectInput,} from '../../../shared/controls/SelectInput'
 import {Timestamp,} from '../../../shared/controls/Timestamp'
 import createLogger from '../../../util/infra/logging'
 import {link,} from '../../../util/reddit/pageContext'
+import {type Loaded, useLoaded,} from '../../../util/ui/hooks'
 
 import type {SubStatus,} from '../schema'
 import {
@@ -65,6 +66,19 @@ type LoadState<T,> =
 /** Account state; `missing` means about.json returned 404 (deleted, never existed, or shadowbanned). */
 type AccountState = LoadState<UserAbout['data']> | {status: 'missing'}
 
+/** Maps a {@link useLoaded} outcome onto this tab's {@link LoadState}. */
+function toLoadState<T,> (loaded: Loaded<T>,): LoadState<T> {
+	if (loaded.status === 'loading') { return {status: 'loading',} }
+	if (loaded.status === 'error') { return {status: 'error', message: errorMessage(loaded.error,),} }
+	return {status: 'loaded', value: loaded.value,}
+}
+
+/** The account's state from its about.json load, where a 404 means the account is missing. */
+function toAccountState (loaded: Loaded<UserAbout['data']>,): AccountState {
+	if (loaded.status === 'error' && isNotFound(loaded.error,)) { return {status: 'missing',} }
+	return toLoadState(loaded,)
+}
+
 /** Mod notes state; while `scanning`, `summary` holds partial results and is not yet complete. */
 type NotesState =
 	| {status: 'scanning'; summary: ModNotesSummary}
@@ -110,8 +124,6 @@ interface Props {
 export function UserOverviewTab ({user, defaultSub, modSubs, subStatuses, onSubredditSelect,}: Props,) {
 	const selectId = useId()
 	const [selectedSub, setSelectedSub,] = useState(defaultSub,)
-	const [account, setAccount,] = useState<AccountState>({status: 'loading',},)
-	const [flair, setFlair,] = useState<LoadState<FlairSelectorResponse['current']>>({status: 'loading',},)
 	const [notes, setNotes,] = useState<NotesState>({status: 'scanning', summary: emptySummary,},)
 	const [bans, setBans,] = useState<LoadState<BanEntry[]>>({status: 'loading',},)
 	// Subreddits where the mod asked to count past removalScanLimit (the "Count all" button)
@@ -126,48 +138,32 @@ export function UserOverviewTab ({user, defaultSub, modSubs, subStatuses, onSubr
 	const bansCacheRef = useRef(new Map<string, BanEntry[]>(),)
 	const requestedPreviewIdsRef = useRef(new Set<string>(),)
 
-	useEffect(() => {
-		let cancelled = false
-		setAccount({status: 'loading',},)
-		void (async () => {
-			try {
-				const result = await aboutUser(user,)
-				if (!cancelled) { setAccount({status: 'loaded', value: result.data,},) }
-			} catch (error) {
-				if (isNotFound(error,)) {
-					if (!cancelled) { setAccount({status: 'missing',},) }
-					return
-				}
-				log.error('Failed to load account info:', error,)
-				if (!cancelled) { setAccount({status: 'error', message: errorMessage(error,),},) }
-			}
-		})()
-		return () => {
-			cancelled = true
+	const account = toAccountState(useLoaded(user, async (name,) => {
+		try {
+			return (await aboutUser(name,)).data
+		} catch (error) {
+			// A 404 is an expected outcome (the account is missing), not a failure worth logging.
+			if (!isNotFound(error,)) { log.error('Failed to load account info:', error,) }
+			throw error
 		}
-	}, [user,],)
+	},),)
 
 	// flairselector answers with the requesting mod's own flair when the named account does not
 	// exist, so flair is only requested once the account is confirmed. The wait costs nothing
 	// visible, as flair is not shown before then anyway.
-	const accountFound = account.status === 'loaded'
-	useEffect(() => {
-		let cancelled = false
-		setFlair({status: 'loading',},)
-		if (!accountFound) { return }
-		void (async () => {
-			try {
-				const result = await getFlairSelector(selectedSub, user,)
-				if (!cancelled) { setFlair({status: 'loaded', value: result.current,},) }
-			} catch (error) {
-				log.error('Failed to load flair:', error,)
-				if (!cancelled) { setFlair({status: 'error', message: errorMessage(error,),},) }
-			}
-		})()
-		return () => {
-			cancelled = true
+	const flairKey = account.status === 'loaded' ? `${selectedSub}/${user}` : null
+	const flairLoad = useLoaded(flairKey, async (key,) => {
+		if (key === null) { return null }
+		try {
+			return (await getFlairSelector(selectedSub, user,)).current
+		} catch (error) {
+			log.error('Failed to load flair:', error,)
+			throw error
 		}
-	}, [user, selectedSub, accountFound,],)
+	},)
+	const flair: LoadState<FlairSelectorResponse['current']> = flairKey === null
+		? {status: 'loading',}
+		: toLoadState(flairLoad,)
 
 	useEffect(() => {
 		const cached = notesCacheRef.current.get(selectedSub,)
@@ -377,7 +373,7 @@ interface FlairValueProps {
 
 /** The user's flair text, or why it can't be shown. */
 function FlairValue ({account, flair,}: FlairValueProps,) {
-	// Flair is never requested for an account that wasn't confirmed (see the flair effect)
+	// Flair is never requested for an account that wasn't confirmed (see the flair load)
 	if (account.status === 'missing' || account.status === 'error') {
 		return <span className={css.mutedText}>Unavailable</span>
 	}
