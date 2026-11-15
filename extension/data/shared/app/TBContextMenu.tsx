@@ -21,17 +21,13 @@ export function TBContextMenu () {
 	const clickActivated = useSetting<boolean>(genSettings, 'contextMenuClick', false,)
 
 	const [open, setOpen,] = useState(false,)
-	const [showAttention, setShowAttention,] = useState(false,)
-
-	// Briefly highlight the menu when an item is added
+	// Briefly highlight the menu when an item is added: the highlight shows while the store holds an
+	// attention request, and the timer below clears that request. (Removing the item clears it too.)
+	const showAttention = attentionId != null
 	useEffect(() => {
 		if (!attentionId) { return }
-		setShowAttention(true,)
 		const duration = attention === 'fade' ? 6000 : 1000
-		const t = setTimeout(() => {
-			setShowAttention(false,)
-			dispatch(clearAttention(),)
-		}, duration,)
+		const t = setTimeout(() => dispatch(clearAttention(),), duration,)
 		return () => clearTimeout(t,)
 	}, [attentionId, attention, dispatch,],)
 

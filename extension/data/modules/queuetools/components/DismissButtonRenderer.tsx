@@ -1,5 +1,5 @@
 /** React renderer that shows a "dismiss" button on already-actioned Old Reddit queue items. */
-import {useEffect, useState,} from 'react'
+import {useCallback, useSyncExternalStore,} from 'react'
 
 import {GeneralInlineButton,} from '../../../shared/controls/GeneralInlineButton'
 
@@ -40,16 +40,15 @@ export function DismissButtonRenderer (
 	},
 ) {
 	const thing = target.closest('.thing',)
-	const [visible, setVisible,] = useState(() => (thing ? isDismissable(thing,) : false))
-
-	useEffect(() => {
-		if (!thing) { return }
-		const observer = new MutationObserver(() => setVisible(isDismissable(thing,),))
+	// The item's classes and byline are an external store: re-read whenever they change. React
+	// also re-reads after subscribing, so an item actioned before the observer attached still shows.
+	const subscribe = useCallback((onChange: () => void,) => {
+		if (!thing) { return () => {} }
+		const observer = new MutationObserver(onChange,)
 		observer.observe(thing, {attributes: true, attributeFilter: ['class',], subtree: true, childList: true,},)
-		// Re-evaluate immediately in case the item became actioned before the observer attached.
-		setVisible(isDismissable(thing,),)
 		return () => observer.disconnect()
 	}, [thing,],)
+	const visible = useSyncExternalStore(subscribe, () => thing ? isDismissable(thing,) : false,)
 
 	if (!thing || !visible) { return null }
 

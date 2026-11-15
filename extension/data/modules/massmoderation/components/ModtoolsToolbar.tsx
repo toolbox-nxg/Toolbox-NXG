@@ -416,7 +416,6 @@ export function ModtoolsToolbar ({
 	// Auto-refresh: count down each second; when it reaches zero, run a poll which applies the backoff
 	// (reset to the minimum interval when something new was found, otherwise double up to the maximum).
 	useEffect(() => {
-		resetAutoRefreshInterval()
 		if (!autoRefresh) { return }
 		const tick = setInterval(() => {
 			if (refreshingRef.current) { return }
@@ -430,7 +429,7 @@ export function ModtoolsToolbar ({
 			void runAutoRefreshTick()
 		}, 1000,)
 		return () => clearInterval(tick,)
-	}, [autoRefresh, resetAutoRefreshInterval, runAutoRefreshTick,],)
+	}, [autoRefresh, runAutoRefreshTick,],)
 
 	// Coming back to the tab resets the backoff and polls right away, so items other mods handled
 	// while it was in the background are caught up immediately instead of on the next countdown.
@@ -866,11 +865,12 @@ export function ModtoolsToolbar ({
 					title={autoRefresh
 						? `auto-refresh active - next check in ${refreshCountdown}s`
 						: 'enable auto-refresh to periodically check for new queue items'}
-					onClick={() =>
-						setAutoRefresh((r,) => {
-							onAutoRefreshChange(!r,)
-							return !r
-						},)}
+					onClick={() => {
+						// Switching auto-refresh either way starts the countdown over from the minimum.
+						resetAutoRefreshInterval()
+						setAutoRefresh(!autoRefresh,)
+						onAutoRefreshChange(!autoRefresh,)
+					}}
 				>
 					{autoRefresh ? `auto-refresh (${refreshCountdown}s)` : 'auto-refresh'}
 				</GeneralButton>

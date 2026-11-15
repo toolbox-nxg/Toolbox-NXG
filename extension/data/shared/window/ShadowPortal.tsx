@@ -35,6 +35,7 @@ export function ShadowPortal ({children,}: {children: ReactNode},) {
 		const root = host.attachShadow({mode: 'open',},)
 		applyStylesToShadow(root,)
 		document.body.appendChild(host,)
+		// oxlint-disable-next-line react/set-state-in-effect -- the host can only join the document after commit, so its root is handed to render from here
 		setShadowRoot(root,)
 		return () => {
 			host.remove()
