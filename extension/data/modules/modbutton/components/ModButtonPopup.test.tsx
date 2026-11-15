@@ -172,6 +172,32 @@ describe('ModButtonPopup action selection', () => {
 		expect(host.querySelector('footer',)!.textContent,).not.toContain('no subreddits selected',)
 	})
 
+	it('starts the ban fields over when switching subreddit, rather than keeping the last sub\'s', async () => {
+		vi.mocked(fetchSubStatus,).mockImplementation(async (subreddit,) =>
+			subreddit === 'sub1'
+				? {status: loadedStatus({},), banInfo: null,}
+				: new Promise(() => {},)
+		)
+		vi.mocked(actions.getBanMacros,).mockImplementation(async (subreddit,) =>
+			subreddit === 'sub1' ? {banNote: 'note from sub1 macros',} as never : null
+		)
+		const host = await renderPopup()
+		const banNote = () => host.querySelector<HTMLTextAreaElement>('[placeholder="(ban note - internal)"]',)!
+		expect(banNote().value,).toBe('note from sub1 macros',)
+
+		const expander = [...host.querySelectorAll('*',),].find((el,) =>
+			el.children.length === 0 && el.textContent?.startsWith('▶',)
+		)!
+		await click(expander,)
+		const sub2 = [...host.querySelectorAll('[title="Set as active subreddit"]',),]
+			.find((el,) => el.textContent === '/r/sub2')!
+		await click(sub2,)
+
+		expect(banNote().value,).toBe('',)
+		// sub2's status is still loading, so every action is on offer again.
+		expect([...actionMenu(host,).options,].length,).toBe(8,)
+	})
+
 	it('sends modmail from a moderated subreddit when the context one is not', async () => {
 		const host = await renderPopup({subreddit: 'elsewhere',},)
 		await click([...host.querySelectorAll('[role="tab"]',),].find((t,) => t.textContent === 'Send Modmail')!,)

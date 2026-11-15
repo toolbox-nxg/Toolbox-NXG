@@ -305,34 +305,41 @@ export function ModButtonPopup ({
 		},)
 	}, [],)
 
-	// When activeSub changes, reset per-subreddit state and re-fetch
+	// When the target sub or user changes, the per-subreddit state starts over and the status shows
+	// as loading, adjusted during render so the previous sub's ban details never render under the
+	// new one; the effect below then re-fetches. A sub switched to from the checked list moves to
+	// the "current sub" checkbox.
+	const [perSubFor, setPerSubFor,] = useState({activeSub, user,},)
+	if (perSubFor.activeSub !== activeSub || perSubFor.user !== user) {
+		setPerSubFor({activeSub, user,},)
+		if (activeSub && user) {
+			if (checkedSubs.has(activeSub,)) {
+				const next = new Set(checkedSubs,)
+				next.delete(activeSub,)
+				setCheckedSubs(next,)
+				setCurrentSubChecked(true,)
+			}
+			setExistingBan(null,)
+			setBanNote('',)
+			setBanMessage('',)
+			setBanDuration('',)
+			setBanPermanent(true,)
+			setRemoveAll(false,)
+			setBanDurationPresets(DEFAULT_BAN_PRESETS,)
+			setSavedBanMacros([],)
+			setFlairLoaded(false,)
+			setUserModlogLoaded(false,)
+			setSubStatuses(new Map(subStatuses,).set(activeSub, loadingStatus,),)
+		}
+	}
+
 	// Effect event: the loader re-runs only when the target sub/user changes; everything
 	// else is read as of that moment rather than being a trigger.
-	const readLoaderContext = useEffectEvent(() => ({actions, info, currentUser, checkedSubs,}))
+	const readLoaderContext = useEffectEvent(() => ({actions, info, currentUser,}))
 	useEffect(() => {
 		if (!activeSub || !user) { return }
 		let cancelled = false
 		const ctx = readLoaderContext()
-
-		if (ctx.checkedSubs.has(activeSub,)) {
-			setCheckedSubs((prev,) => {
-				const next = new Set(prev,)
-				next.delete(activeSub,)
-				return next
-			},)
-			setCurrentSubChecked(true,)
-		}
-
-		setExistingBan(null,)
-		setBanNote('',)
-		setBanMessage('',)
-		setBanDuration('',)
-		setBanPermanent(true,)
-		setRemoveAll(false,)
-		setBanDurationPresets(DEFAULT_BAN_PRESETS,)
-		setSavedBanMacros([],)
-		setFlairLoaded(false,)
-		setUserModlogLoaded(false,)
 
 		ctx.actions.getBanMacros(activeSub,).then((macros: BanMacros | null,) => {
 			if (cancelled || !macros) { return }
@@ -359,7 +366,6 @@ export function ModButtonPopup ({
 			if (!cancelled) { setSavedBanMacros(list,) }
 		},)
 		void (async () => {
-			setSubStatuses((prev,) => new Map(prev,).set(activeSub, loadingStatus,))
 			const currentUserName = ctx.currentUser || await getCurrentUser()
 			if (cancelled) { return }
 			if (!ctx.currentUser) { setCurrentUser(currentUserName,) }

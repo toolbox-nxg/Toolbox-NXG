@@ -1,7 +1,7 @@
 /** Paged content viewer: displays one page of an iterable at a time with
  * navigation controls. */
 
-import {type ReactNode, useEffect, useEffectEvent, useMemo, useState,} from 'react'
+import {type ReactNode, useEffect, useEffectEvent, useMemo, useRef, useState,} from 'react'
 import type {MaybeAsyncIterable,} from '../../util/data/iter'
 import createLogger from '../../util/infra/logging'
 import {classes,} from '../../util/ui/reactMount'
@@ -19,8 +19,6 @@ interface PagerState {
 	pages: ReactNode[]
 	/** Whether the iterator has finished (or failed). */
 	done: boolean
-	/** Whether a page is being read, so two are never requested at once. */
-	awaiting: boolean
 	/** The page being viewed; one past the cache while "load more" fetches it. */
 	index: number
 	/** The page that was showing when `index` was requested, kept on screen while it loads. */
@@ -34,7 +32,7 @@ interface PagerState {
 
 /** The state for an iterator nothing has been read from yet. */
 function initialPagerState (iterator: PageIterator,): PagerState {
-	return {iterator, pages: [], done: false, awaiting: false, index: 0, fallbackIndex: 0, carriedPage: null,}
+	return {iterator, pages: [], done: false, index: 0, fallbackIndex: 0, carriedPage: null,}
 }
 
 /** The index actually displayed: `index`, or `fallbackIndex` while `index` is still loading. */
@@ -88,7 +86,7 @@ export const Pager = ({
 	const state = storedState.iterator === iterator
 		? storedState
 		: {...freshState, carriedPage: displayedPage(storedState,),}
-	const {pages: cachedPages, done: pagesDone, awaiting: awaitingNextPage,} = state
+	const {pages: cachedPages, done: pagesDone,} = state
 
 	/** Updates the current iterator's state (from a handler or effect of the latest render). */
 	const update = (change: (current: PagerState,) => Partial<PagerState>,) => {
@@ -98,36 +96,51 @@ export const Pager = ({
 		},)
 	}
 
-	/** Updates `forIterator`'s state from an async result, dropping it if the pager has moved on. */
-	const updateIfCurrent = (forIterator: PageIterator, change: (current: PagerState,) => Partial<PagerState>,) => {
-		setStoredState((prev,) => prev.iterator === forIterator ? {...prev, ...change(prev,),} : prev)
-	}
-
 	// Past the last page of a finished iterator there is nothing to load: show the last page
 	// instead (or page 0, the empty state, when there are no pages at all).
 	const currentPageIndex = pagesDone && state.index >= cachedPages.length
 		? Math.max(0, cachedPages.length - 1,)
 		: state.index
 
-	/** Loads the next value from the iterator into our page cache. */
+	// A page is needed when the viewed one isn't cached yet (or, when not lazy, until all are), and
+	// one is being read exactly then: the effect below starts the read. Derived rather than flagged
+	// when a read starts, so it can never get out of step with the read itself.
+	const awaitingNextPage = !pagesDone && (!lazy || currentPageIndex >= cachedPages.length)
+
+	// The iterator the latest render is showing, so a read that settles after the source changed
+	// can tell it is stale; and the iterator being read, so two reads never run at once.
+	const currentIteratorRef = useRef(iterator,)
+	const readingRef = useRef<PageIterator | null>(null,)
+	useEffect(() => {
+		currentIteratorRef.current = iterator
+	}, [iterator,],)
+
+	/** Reads the next value from the iterator into our page cache. */
 	async function cacheNextPage () {
-		if (pagesDone || awaitingNextPage) {
+		const forIterator = iterator
+		if (pagesDone || readingRef.current === forIterator) {
 			return
 		}
+		readingRef.current = forIterator
 
-		const forIterator = iterator
-		update(() => ({awaiting: true,}))
+		/** Applies a read's result, unless the pager has moved on to another source. */
+		const commit = (change: (current: PagerState,) => Partial<PagerState>,) => {
+			if (currentIteratorRef.current !== forIterator) { return }
+			setStoredState((prev,) => {
+				const base = prev.iterator === forIterator ? prev : {...freshState, carriedPage: displayedPage(prev,),}
+				return {...base, ...change(base,),}
+			},)
+		}
 		try {
 			const {value, done,} = await forIterator.next()
-			updateIfCurrent(forIterator, (current,) => done ? {done: true,} : {pages: [...current.pages, value,],},)
+			commit((current,) => done ? {done: true,} : {pages: [...current.pages, value,],})
 		} catch (error: unknown) {
-			// A failed page fetch must not wedge the pager: `finally` clears the
-			// in-flight flag, and marking paging done stops a tight retry loop for
-			// what is almost always a persistent error (there's nothing more to load).
+			// A failed page fetch must not wedge the pager: marking paging done stops a tight retry
+			// loop for what is almost always a persistent error (there's nothing more to load).
 			log.error('Failed to load next page', error,)
-			updateIfCurrent(forIterator, () => ({done: true,}),)
+			commit(() => ({done: true,}))
 		} finally {
-			updateIfCurrent(forIterator, () => ({awaiting: false,}),)
+			if (readingRef.current === forIterator) { readingRef.current = null }
 		}
 	}
 
