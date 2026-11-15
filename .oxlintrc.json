@@ -86,7 +86,8 @@
         "valid-typeof": "error",
         "toolbox/no-direct-moderation-imports": "error",
         "toolbox/no-listing-envelope": "error",
-        "toolbox/param-conventions": "error"
+        "toolbox/param-conventions": "error",
+        "toolbox/jsx-no-key-after-spread": "error"
     },
     "overrides": [
         {

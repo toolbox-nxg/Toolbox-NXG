@@ -7,8 +7,11 @@
  * - `toolbox/no-listing-envelope` — the REST listing envelope stays inside `extension/data/api/`.
  * - `toolbox/param-conventions` — canonical parameter order/naming and matching `@param` tags
  *   (convention in `lint/param-conventions.mjs`; see docs/developer/param-conventions.md).
+ * - `toolbox/jsx-no-key-after-spread` — `key` before any `{...spread}` in JSX (a React rule
+ *   oxlint's built-in `react` plugin lacks).
  */
 
+import jsxNoKeyAfterSpread from './rules/jsx-no-key-after-spread.mjs'
 import noDirectModerationImports from './rules/no-direct-moderation-imports.mjs'
 import noListingEnvelope from './rules/no-listing-envelope.mjs'
 import paramConventions from './rules/param-conventions.mjs'
@@ -16,6 +19,7 @@ import paramConventions from './rules/param-conventions.mjs'
 export default {
 	meta: {name: 'toolbox',},
 	rules: {
+		'jsx-no-key-after-spread': jsxNoKeyAfterSpread,
 		'no-direct-moderation-imports': noDirectModerationImports,
 		'no-listing-envelope': noListingEnvelope,
 		'param-conventions': paramConventions,
