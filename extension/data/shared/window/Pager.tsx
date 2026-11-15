@@ -10,6 +10,43 @@ import css from './Pager.module.css'
 
 const log = createLogger('Pager',)
 
+type PageIterator = AsyncIterator<ReactNode, void> | Iterator<ReactNode, void>
+
+/** Everything the pager knows about one iterator. A new iterator starts from a fresh state. */
+interface PagerState {
+	iterator: PageIterator
+	/** Pages read from the iterator so far. */
+	pages: ReactNode[]
+	/** Whether the iterator has finished (or failed). */
+	done: boolean
+	/** Whether a page is being read, so two are never requested at once. */
+	awaiting: boolean
+	/** The page being viewed; one past the cache while "load more" fetches it. */
+	index: number
+	/** The page that was showing when `index` was requested, kept on screen while it loads. */
+	fallbackIndex: number
+	/**
+	 * The page the previous iterator was showing, kept on screen until this iterator's first page
+	 * arrives, so switching sources doesn't flash a loading state.
+	 */
+	carriedPage: ReactNode
+}
+
+/** The state for an iterator nothing has been read from yet. */
+function initialPagerState (iterator: PageIterator,): PagerState {
+	return {iterator, pages: [], done: false, awaiting: false, index: 0, fallbackIndex: 0, carriedPage: null,}
+}
+
+/** The index actually displayed: `index`, or `fallbackIndex` while `index` is still loading. */
+function displayedIndex (state: PagerState,): number {
+	return state.index < state.pages.length ? state.index : state.fallbackIndex
+}
+
+/** The page on screen for `state`, if any. */
+function displayedPage (state: PagerState,): ReactNode {
+	return state.pages[displayedIndex(state,)] ?? state.carriedPage
+}
+
 /**
  * Displays one page at a time from an iterable of sequential content pages,
  * with a button row for navigating between them.
@@ -37,91 +74,71 @@ export const Pager = ({
 	// Extract the iterator from the iterable we're passed in. Annotate the union
 	// explicitly: indexing a `MaybeAsyncIterable` by its iterator symbol otherwise
 	// widens the result to `any`, which would taint every page value read below.
-	const iterator = useMemo((): AsyncIterator<ReactNode, void> | Iterator<ReactNode, void> => {
+	const iterator = useMemo((): PageIterator => {
 		if (Symbol.asyncIterator in pages) {
 			return pages[Symbol.asyncIterator]()
 		}
 		return pages[Symbol.iterator]()
 	}, [pages,],)
 
-	// Store the pages we've read from the iterator
-	const [cachedPages, setCachedPages,] = useState([] as ReactNode[],)
-	// Keep track of whether the iterator has finished
-	const [pagesDone, setPagesDone,] = useState(false,)
-	// The page we're currently looking at
-	const [currentPageIndex, setCurrentPageIndex,] = useState(0,)
+	const [storedState, setStoredState,] = useState(() => initialPagerState(iterator,))
+	// A different iterator starts over from its first page. Derived during render rather than
+	// reset in an effect, so the old iterator's pages never render against the new one.
+	const freshState = useMemo(() => initialPagerState(iterator,), [iterator,],)
+	const state = storedState.iterator === iterator
+		? storedState
+		: {...freshState, carriedPage: displayedPage(storedState,),}
+	const {pages: cachedPages, done: pagesDone, awaiting: awaitingNextPage,} = state
 
-	// Reset our page cache and start over from the first page if we ever end up
-	// working with a different iterator
-	useEffect(() => {
-		setCachedPages([],)
-		setPagesDone(false,)
-		setCurrentPageIndex(0,)
-	}, [iterator,],)
+	/** Updates the current iterator's state (from a handler or effect of the latest render). */
+	const update = (change: (current: PagerState,) => Partial<PagerState>,) => {
+		setStoredState((prev,) => {
+			const base = prev.iterator === iterator ? prev : {...freshState, carriedPage: displayedPage(prev,),}
+			return {...base, ...change(base,),}
+		},)
+	}
 
-	// Keep track of whether we're already loading a page so we don't attempt to
-	// load two pages at the same time
-	const [awaitingNextPage, setAwaitingNextPage,] = useState(false,)
+	/** Updates `forIterator`'s state from an async result, dropping it if the pager has moved on. */
+	const updateIfCurrent = (forIterator: PageIterator, change: (current: PagerState,) => Partial<PagerState>,) => {
+		setStoredState((prev,) => prev.iterator === forIterator ? {...prev, ...change(prev,),} : prev)
+	}
 
-	// Hold on to the last page we successfully rendered so we can show it
-	// while the next page is loading, rather than flashing a loading state
-	const [lastRenderedPage, setLastRenderedPage,] = useState<ReactNode>(null,)
-	useEffect(() => {
-		if (currentPageIndex < cachedPages.length) {
-			setLastRenderedPage(cachedPages[currentPageIndex],)
-		}
-	}, [cachedPages, currentPageIndex,],)
+	// Past the last page of a finished iterator there is nothing to load: show the last page
+	// instead (or page 0, the empty state, when there are no pages at all).
+	const currentPageIndex = pagesDone && state.index >= cachedPages.length
+		? Math.max(0, cachedPages.length - 1,)
+		: state.index
 
 	/** Loads the next value from the iterator into our page cache. */
 	async function cacheNextPage () {
-		if (pagesDone) {
-			return
-		}
-		if (awaitingNextPage) {
+		if (pagesDone || awaitingNextPage) {
 			return
 		}
 
-		setAwaitingNextPage(true,)
+		const forIterator = iterator
+		update(() => ({awaiting: true,}))
 		try {
-			const {value, done,} = await iterator.next()
-			if (done) {
-				setPagesDone(true,)
-			} else {
-				setCachedPages((pages,) => [...pages, value,])
-			}
+			const {value, done,} = await forIterator.next()
+			updateIfCurrent(forIterator, (current,) => done ? {done: true,} : {pages: [...current.pages, value,],},)
 		} catch (error: unknown) {
 			// A failed page fetch must not wedge the pager: `finally` clears the
 			// in-flight flag, and marking paging done stops a tight retry loop for
 			// what is almost always a persistent error (there's nothing more to load).
 			log.error('Failed to load next page', error,)
-			setPagesDone(true,)
+			updateIfCurrent(forIterator, () => ({done: true,}),)
 		} finally {
-			setAwaitingNextPage(false,)
+			updateIfCurrent(forIterator, () => ({awaiting: false,}),)
 		}
 	}
 
 	// Effect event so the effect below re-runs only on paging state, not on each new cacheNextPage closure
 	const requestNextPage = useEffectEvent(() => void cacheNextPage())
 
-	// Pull new pages off our iterator as needed
+	// Pull new pages off our iterator as needed: all of them when not lazy, otherwise until the
+	// page being viewed is cached.
 	useEffect(() => {
-		// if we're not lazy, gotta cache 'em all
-		if (!lazy && !pagesDone) {
+		if (!pagesDone && (!lazy || currentPageIndex >= cachedPages.length)) {
 			requestNextPage()
-			return
-		}
-
-		if (currentPageIndex >= cachedPages.length) {
-			// We're looking at a page we don't have cached
-			if (pagesDone) {
-				// There are no more pages to load, so we can never see this
-				// page; snap back to the last available page (if we have *no*
-				// pages then we go to page 0 and display the `emptyContent`)
-				setCurrentPageIndex(Math.max(0, cachedPages.length - 1,),)
-			} else {
-				// Cache additional pages until we get the one we want
-				requestNextPage()
-			}
 		}
 	}, [lazy, cachedPages, pagesDone, currentPageIndex,],)
 
@@ -131,23 +148,19 @@ export const Pager = ({
 		if (currentPageIndex < cachedPages.length) {
 			return cachedPages[currentPageIndex]
 		}
-
+		// a finished iterator with nothing at the (clamped) index has no pages at all
 		if (pagesDone) {
-			if (!cachedPages.length) {
-				// if there are *no* pages to show, display the `emptyContent`
-				return emptyContent
-			}
-
-			// if we don't have this page and can't get more, display an error.
-			// this should basically never be seen since we immediately set the
-			// index back to the last page in the effect above, but shrug
-			return <p>Error: there is no {currentPageIndex}th page</p>
+			return emptyContent
 		}
-
-		// if we *can* get more pages, show the last rendered page while we
+		// if we *can* get more pages, keep showing the page we came from while we
 		// work to avoid a flash; fall back to a loading state on first load
-		return lastRenderedPage ?? <p>Loading...</p>
-	}, [cachedPages, pagesDone, currentPageIndex, lastRenderedPage, emptyContent,],)
+		return cachedPages[state.fallbackIndex] ?? state.carriedPage ?? <p>Loading...</p>
+	}, [cachedPages, pagesDone, currentPageIndex, state.fallbackIndex, state.carriedPage, emptyContent,],)
+
+	/** Moves to page `index`, remembering the page on screen to show while it loads. */
+	const goToPage = (index: number,) => {
+		update((current,) => ({index, fallbackIndex: displayedIndex(current,),}))
+	}
 
 	// Render the controls
 	const controls = (
@@ -161,7 +174,7 @@ export const Pager = ({
 						css.control,
 						currentPageIndex === i && css.active,
 					)}
-					onClick={() => setCurrentPageIndex(i,)}
+					onClick={() => goToPage(i,)}
 				>
 					{i + 1}
 				</GeneralButton>
@@ -171,7 +184,7 @@ export const Pager = ({
 				<GeneralButton
 					className={css.control}
 					disabled={awaitingNextPage}
-					onClick={() => setCurrentPageIndex(cachedPages.length,)}
+					onClick={() => goToPage(cachedPages.length,)}
 				>
 					{awaitingNextPage ? 'loading...' : 'load more...'}
 				</GeneralButton>

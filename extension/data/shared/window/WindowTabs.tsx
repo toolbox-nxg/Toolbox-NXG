@@ -1,6 +1,6 @@
 /** Flexible tab panel with optional vertical layout, section headers, and scrollable sections. */
 
-import {type ReactNode, useEffect, useId, useState,} from 'react'
+import {type ReactNode, useId, useState,} from 'react'
 import {classes,} from '../../util/ui/reactMount'
 import css from './WindowTabs.module.css'
 
@@ -76,24 +76,16 @@ export const WindowTabs = (
 ) => {
 	const selectableTabs = tabs.filter((t,): t is WindowTab => !isSection(t,))
 
-	const [activeIndex, setActiveIndex,] = useState(
-		Math.max(0, Math.min(selectableTabs.length - 1, defaultTabIndex,),),
-	)
+	const clampedDefault = Math.max(0, Math.min(selectableTabs.length - 1, defaultTabIndex,),)
+	const [selectedIndex, setSelectedIndex,] = useState(clampedDefault,)
+	// When the tab list shrinks past the selection, show the default tab instead. Derived during
+	// render rather than corrected in an effect, so no frame renders an out-of-range tab.
+	const activeIndex = selectedIndex < selectableTabs.length ? selectedIndex : clampedDefault
 	const [collapsedSections, setCollapsedSections,] = useState<Set<string>>(new Set(),)
 	const panelId = useId()
 
-	useEffect(() => {
-		// Use functional update to read current activeIndex without adding it to deps,
-		// avoiding a feedback loop. Also re-clamp when defaultTabIndex changes.
-		setActiveIndex((current,) =>
-			current >= selectableTabs.length
-				? Math.max(0, Math.min(selectableTabs.length - 1, defaultTabIndex,),)
-				: current
-		)
-	}, [selectableTabs.length, defaultTabIndex,],)
-
 	const handleTabChange = (i: number,) => {
-		setActiveIndex(i,)
+		setSelectedIndex(i,)
 		onTabChange?.(i,)
 	}
 

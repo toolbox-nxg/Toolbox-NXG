@@ -104,6 +104,23 @@ describe('WindowTabs', () => {
 		expect(onTabChange,).toHaveBeenCalledWith(0,)
 	})
 
+	it('shows the default tab when the tab list shrinks past the selected one', () => {
+		const tabs = (count: number,) =>
+			['One', 'Two', 'Three',].slice(0, count,).map((title,) => ({title, content: <p>{title} content</p>,}))
+		const host = document.createElement('div',)
+		document.body.appendChild(host,)
+		const root = createRoot(host,)
+		roots.push(root,)
+		act(() => root.render(<WindowTabs defaultTabIndex={0} tabs={tabs(3,)} />,))
+
+		click(host.querySelectorAll('[role="tab"]',)[2]!,)
+		expect(host.textContent,).toContain('Three content',)
+
+		act(() => root.render(<WindowTabs defaultTabIndex={0} tabs={tabs(2,)} />,))
+		expect(host.textContent,).toContain('One content',)
+		expect(host.querySelector('[aria-selected="true"]',)?.textContent,).toBe('One',)
+	})
+
 	it('renders tab toggles without switching tabs when toggled', () => {
 		const onToggle = vi.fn()
 		const host = render(
