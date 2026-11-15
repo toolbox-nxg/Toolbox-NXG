@@ -19,12 +19,12 @@ npm run typecheck   # type-check without emitting (tsc)
 The full CI gate (which also runs the tests and the build) is listed in
 [Building and Testing](building.md#pre-commit-checklist).
 
-| Tool                                                        | Enforces                                                                                                                      |
-| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| [dprint](https://dprint.dev/)                               | Formatting: indentation, line width, quotes, semicolons, trailing commas                                                      |
-| [ESLint](https://eslint.org/)                               | Code quality: variable declarations, arrow callbacks, strict equality, restricted imports, React Hooks rules                  |
-| [stylelint](https://stylelint.io/)                          | CSS quality: no hex colors, no named colors, no `rem`, `--toolbox-*` custom property naming, radius/shadow tokens, type scale |
-| [TypeScript](https://www.typescriptlang.org/) (strict mode) | Type safety, unused locals, optional property exactness                                                                       |
+| Tool                                                        | Enforces                                                                                                                                                                                                            |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [dprint](https://dprint.dev/)                               | Formatting: indentation, line width, quotes, semicolons, trailing commas                                                                                                                                            |
+| [oxlint](https://oxc.rs/docs/guide/usage/linter)            | Code quality: variable declarations, arrow callbacks, strict equality, restricted imports, React and Hooks rules, plus Toolbox's own rules in `lint/` (moderation imports, listing envelope, parameter conventions) |
+| [stylelint](https://stylelint.io/)                          | CSS quality: no hex colors, no named colors, no `rem`, `--toolbox-*` custom property naming, radius/shadow tokens, type scale                                                                                       |
+| [TypeScript](https://www.typescriptlang.org/) (strict mode) | Type safety, unused locals, optional property exactness                                                                                                                                                             |
 
 ---
 
@@ -182,7 +182,7 @@ When in doubt, spell it out.
 
 Mark type-only imports as such: `import type` when everything imported is a type, or an
 inline `type` on the individual names in an import that also brings in values. It signals
-which imports have runtime effects. ESLint enforces this (`consistent-type-imports`), and
+which imports have runtime effects. oxlint enforces this (`consistent-type-imports`), and
 `npm run lint:fix` rewrites violations:
 
 ```ts
@@ -291,7 +291,7 @@ for the guarded code.
 ### Callbacks
 
 Anonymous callbacks must be arrow functions — `prefer-arrow-callback` is enforced
-by ESLint (with `allowNamedFunctions`, so a _named_ function-expression callback
+by oxlint (with `allowNamedFunctions`, so a _named_ function-expression callback
 such as a module's `function init()` is still permitted). Arrow functions do not
 have their own `this`, which avoids an entire class of bugs:
 
@@ -323,7 +323,7 @@ export const formatDate = (date: Date,): string => date.toLocaleDateString()
 
 ### Arrow body style
 
-Implicit returns are expected for simple expressions: ESLint's
+Implicit returns are expected for simple expressions:
 `arrow-body-style: as-needed` rejects a braced body whose only statement is a
 `return`. Use braces and an explicit `return` for multi-statement logic:
 

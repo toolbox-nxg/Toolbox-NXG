@@ -498,7 +498,7 @@ export async function migrateSubredditToNxg (
 	}
 
 	// Holds a ToolboxConfig, a legacy-config spread, or {} - a union the upcoming LegacyConfig model will type.
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- accumulator holding a full ToolboxConfig, a legacy-config spread, or {}, plus an injected COMPAT_WRITES_KEY bookkeeping field; ToolboxConfig (an interface) is not assignable to Record<string, unknown>
+	// oxlint-disable-next-line typescript/no-explicit-any -- accumulator holding a full ToolboxConfig, a legacy-config spread, or {}, plus an injected COMPAT_WRITES_KEY bookkeeping field; ToolboxConfig (an interface) is not assignable to Record<string, unknown>
 	let nxgConfig: Record<string, any>
 	if (storedNxgConfig && legacyData && !legacyOwnedFieldsEqual(storedNxgConfig, legacyData,)) {
 		nxgConfig = adoptLegacyConfigFields(storedNxgConfig, legacyData,)
@@ -512,7 +512,7 @@ export async function migrateSubredditToNxg (
 	// 6.x-owned fields and same compat flag) - re-runs stay cheap.
 	if (
 		storedNxgConfig && nxgConfig === storedNxgConfig
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- reads the injected COMPAT_WRITES_KEY bookkeeping field, which is not part of the ToolboxConfig interface
+		// oxlint-disable-next-line typescript/no-explicit-any -- reads the injected COMPAT_WRITES_KEY bookkeeping field, which is not part of the ToolboxConfig interface
 		&& (storedNxgConfig as Record<string, any>)[COMPAT_WRITES_KEY] === compatibilityWrites
 	) {
 		result.skipped.push(NEW_WIKI_PATHS.settings,)

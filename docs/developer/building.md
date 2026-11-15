@@ -79,7 +79,7 @@ issues; re-run the checks afterwards:
 
 ```sh
 npm run fmt:fix         # Auto-fix formatting with dprint
-npm run lint:fix        # Auto-fix ESLint issues
+npm run lint:fix        # Auto-fix lint issues (oxlint)
 npm run lint:css:fix    # Auto-fix CSS style issues with Stylelint
 ```
 

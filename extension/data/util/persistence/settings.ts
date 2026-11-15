@@ -40,7 +40,7 @@ export const sharedSettingPolicies: Record<string, SharedSettingPolicy> = {
  * and there is no central registry of what type each key holds.
  */
 export interface SettingsObject {
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- heterogeneous store: each Toolbox.{module}.{setting} key holds a different type with no central registry; unknown would force a narrowing cast at every read site for no safety gain
+	// oxlint-disable-next-line typescript/no-explicit-any -- heterogeneous store: each Toolbox.{module}.{setting} key holds a different type with no central registry; unknown would force a narrowing cast at every read site for no safety gain
 	[key: string]: any
 }
 

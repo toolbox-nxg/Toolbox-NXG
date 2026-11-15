@@ -52,7 +52,7 @@ function FlatViewOverlay ({openContextInPopup, onClose,}: FlatViewOverlayProps,)
 		// Recursive walk over heterogeneous comment-tree nodes (Listing / t1 / more) that also
 		// deep-clones and reads dynamic fields; `RedditThing.kind` being a broad string makes a
 		// typed discriminated walk impractical here.
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped recursive JSON walk
+		// oxlint-disable-next-line typescript/no-explicit-any -- untyped recursive JSON walk
 		function parseComments (object: any,) {
 			switch (object.kind) {
 				case 'Listing':
@@ -82,7 +82,7 @@ function FlatViewOverlay ({openContextInPopup, onClose,}: FlatViewOverlayProps,)
 		neutralTextFeedback('Fetching comment data.',)
 		// The fetched listing is augmented in place (`isreply`) before the recursive parse, so it is
 		// consumed as `any` rather than the read-only RedditCommentPageListing[] return type.
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- listing is mutated before parsing
+		// oxlint-disable-next-line typescript/no-explicit-any -- listing is mutated before parsing
 		getCommentsPageListing(location.pathname,).then(async (data: any,) => {
 			if (cancelled) { return }
 			if (!data?.[1]) { return }
@@ -129,7 +129,7 @@ function FlatViewOverlay ({openContextInPopup, onClose,}: FlatViewOverlayProps,)
 		// Mount-once: this effect owns a per-run `cancelled` flag and rebuilds the entire sitetable.
 		// `openContextInPopup` is a fixed setting for the overlay's lifetime, so re-running on it would
 		// only race a fresh build against the prior chain's stale flags.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
+		// oxlint-disable-next-line react/exhaustive-deps
 	}, [],)
 
 	useEffect(() => {

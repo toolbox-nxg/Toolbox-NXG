@@ -18,7 +18,7 @@ This page is a work in progress.
 | `rollup.config.js`  | Rollup bundler configuration                                                                          |
 | `tsconfig.json`     | TypeScript compiler configuration                                                                     |
 | `dprint.json`       | Dprint formatter configuration                                                                        |
-| `eslint.config.js`  | ESLint configuration                                                                                  |
+| `.oxlintrc.json`    | oxlint configuration (loads the local plugin in `lint/`)                                              |
 | `.stylelintrc.json` | Stylelint configuration                                                                               |
 | `vitest.config.ts`  | Vitest test runner configuration                                                                      |
 | `typedoc.json`      | TypeDoc API documentation configuration                                                               |

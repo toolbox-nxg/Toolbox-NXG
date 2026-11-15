@@ -16,7 +16,7 @@ const clearCache = vi.hoisted(() => vi.fn())
 // Minimal stand-in for the real normalizeConfig: backfills the field shapes
 // the reconcile-merge in step 1 relies on, without decoding or migrations.
 const normalizeConfig = vi.hoisted(() =>
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- test double mirrors normalizeConfig's in-place mutation of arbitrary parsed JSON
+	// oxlint-disable-next-line typescript/no-explicit-any -- test double mirrors normalizeConfig's in-place mutation of arbitrary parsed JSON
 	vi.fn((config: any,) => {
 		if (
 			!config.removalReasons || typeof config.removalReasons !== 'object'

@@ -8,7 +8,7 @@ import {getModeratorListResult,} from '../../api/resources/relationships'
 import type {RedditThing, ThingModData,} from '../../api/resources/things'
 import {aboutUser, getUserActivity,} from '../../api/resources/users'
 import {readFromWiki,} from '../../api/resources/wiki'
-// eslint-disable-next-line no-restricted-imports -- getRatelimit is a read-only rate-limit status helper with no resource-level wrapper
+// oxlint-disable-next-line no-restricted-imports -- getRatelimit is a read-only rate-limit status helper with no resource-level wrapper
 import {getRatelimit,} from '../../api/transport/http'
 import {renderAtLocation, type UILocationContext,} from '../../dom/uiLocations'
 import {createLifecycle,} from '../../framework/lifecycle'

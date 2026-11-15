@@ -65,7 +65,7 @@ export function CompatibilityTab ({subreddit,}: Props,) {
 
 	useEffect(() => {
 		void checkLayout()
-		// eslint-disable-next-line react-hooks/exhaustive-deps
+		// oxlint-disable-next-line react/exhaustive-deps
 	}, [],)
 
 	/** Runs a migration-style operation with busy state, summary display, and a status refresh. */

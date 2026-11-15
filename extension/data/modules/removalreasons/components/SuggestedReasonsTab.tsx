@@ -219,7 +219,7 @@ export function SuggestedReasonsTab ({state, addRef, disabledRef, onSave,}: Prop
 	},)
 	useEffect(() => {
 		disabledRef?.current?.(showAddForm,)
-	}, [showAddForm,],) // eslint-disable-line react-hooks/exhaustive-deps
+	}, [showAddForm,],) // oxlint-disable-line react/exhaustive-deps
 
 	// Serializes the full mapping list to config and pushes it upstream. The whole list is written
 	// each time (the wiki stores one object), but the trigger and revision note are per-mapping.

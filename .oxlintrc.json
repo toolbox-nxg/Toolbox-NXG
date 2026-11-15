@@ -92,7 +92,6 @@
         {
             "files": [
                 "**/*.mjs",
-                "eslint.config.js",
                 "rollup.config.js"
             ],
             "rules": {

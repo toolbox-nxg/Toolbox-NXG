@@ -20,10 +20,10 @@ const log = createLogger('TBModule',)
 export {exportSettings, importSettings,}
 
 const TBModule = {
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- registry holds modules of every settings shape; Module<any> is the correct erasure here
+	// oxlint-disable-next-line typescript/no-explicit-any -- registry holds modules of every settings shape; Module<any> is the correct erasure here
 	modules: [] as Module<any>[],
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- accepts a module of any settings shape for registration
+	// oxlint-disable-next-line typescript/no-explicit-any -- accepts a module of any settings shape for registration
 	registerModule (mod: Module<any>,) {
 		TBModule.modules.push(mod,)
 	},
@@ -95,9 +95,9 @@ const TBModule = {
 			}
 		}
 		mounted = mountReactInBody(
-			// eslint-disable-next-line react/no-children-prop -- manual createElement call; children-in-props is the idiomatic non-JSX form
 			createElement(Provider, {
 				store,
+				// oxlint-disable-next-line react/no-children-prop -- manual createElement call; children-in-props is the idiomatic non-JSX form
 				children: createElement(SettingsDialog, {
 					modules: TBModule.modules,
 					onClose: close,

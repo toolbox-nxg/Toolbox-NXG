@@ -33,7 +33,7 @@ export interface CommentUITesterProps {
 	 * Returns `any` because this devtools tester fetches arbitrary dev-entered URLs whose response
 	 * shape varies with the URL and the selected render mode.
 	 */
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- arbitrary dev-entered listing JSON
+	// oxlint-disable-next-line typescript/no-explicit-any -- arbitrary dev-entered listing JSON
 	fetchListing: (url: string, absolute: boolean,) => Promise<any>
 }
 

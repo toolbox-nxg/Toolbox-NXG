@@ -1,9 +1,9 @@
 /**
  * Runtime suppression guard for the proposals (training mode) feature - the
  * fail-closed backstop half of the two-invariant sandbox (the other half is the
- * static ESLint reachability rule). Lives in `util/infra` so the low-level API
- * primitives can import it without a layering inversion; the proposals module
- * wires the warm trainee context into it.
+ * static `toolbox/no-direct-moderation-imports` lint rule). Lives in `util/infra`
+ * so the low-level API primitives can import it without a layering inversion; the
+ * proposals module wires the warm trainee context into it.
  *
  * Contract: every mutating moderation primitive calls {@link assertActionAllowed}
  * before doing anything. When the current user is sandboxed for the action's

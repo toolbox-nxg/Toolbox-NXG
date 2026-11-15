@@ -226,7 +226,7 @@ function ReasonForm ({
 		if (!colors) {
 			void onNoteColorLoad().then(setColors,)
 		}
-	}, [],) // eslint-disable-line react-hooks/exhaustive-deps
+	}, [],) // oxlint-disable-line react/exhaustive-deps
 
 	/** Updates flair text/CSS to match the selected template. */
 	const handleFlairChange = (e: React.ChangeEvent<HTMLSelectElement>,) => {
@@ -797,7 +797,7 @@ export function RemovalReasonList ({state, addRef, disabledRef, sortRef, onSave,
 			setReasons(toEntries(state.config.removalReasons?.reasons ?? [],),)
 			void runSync(false,)
 		}
-	}, [],) // eslint-disable-line react-hooks/exhaustive-deps
+	}, [],) // oxlint-disable-line react/exhaustive-deps
 
 	// Once the reasons are loaded, look (once per subreddit, ever) for choice fields an
 	// earlier build split out of their sentence. Nothing is written until the moderator
@@ -840,7 +840,7 @@ export function RemovalReasonList ({state, addRef, disabledRef, sortRef, onSave,
 		if (reasons.some((r,) => r.default_note_type)) {
 			void loadNoteColors()
 		}
-	}, [reasons,],) // eslint-disable-line react-hooks/exhaustive-deps
+	}, [reasons,],) // oxlint-disable-line react/exhaustive-deps
 
 	useEffect(() => {
 		disabledRef?.current?.(showAddForm,)

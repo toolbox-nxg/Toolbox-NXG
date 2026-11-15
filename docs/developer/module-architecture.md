@@ -278,7 +278,7 @@ The `Lifecycle` object manages everything that needs cleanup when the module re-
 
 - `any` is permitted only at genuine external boundaries: raw Reddit API JSON, extension storage reads
 - Use `unknown` + narrowing (`instanceof Error`) in `catch` blocks
-- For raw Reddit JSON responses (inside `api/` resource modules): `any` at the immediate response boundary is acceptable, with an inline `eslint-disable` justification (`@typescript-eslint/no-explicit-any` is an error); don't carry `any` deeper into business logic
+- For raw Reddit JSON responses (inside `api/` resource modules): `any` at the immediate response boundary is acceptable, with an inline `oxlint-disable` justification (`typescript/no-explicit-any` is an error); don't carry `any` deeper into business logic
 - Domain types flow from `schema.ts` → `moduleapi.ts` / `dom.ts` / `components/`; never in reverse
 
 ### Listing pagination

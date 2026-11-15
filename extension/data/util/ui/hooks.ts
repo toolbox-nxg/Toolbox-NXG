@@ -112,7 +112,7 @@ export const useBusyState = (): [boolean, <T,>(operation: () => Promise<T>,) => 
  */
 export function useMountEffect (effect: EffectCallback,): void {
 	// Mount-only by contract: the first-render `effect` is the one that should run.
-	// eslint-disable-next-line react-hooks/exhaustive-deps
+	// oxlint-disable-next-line react/exhaustive-deps
 	useEffect(effect, [],)
 }
 
@@ -123,7 +123,7 @@ export function useMountEffect (effect: EffectCallback,): void {
  */
 export function useMountLayoutEffect (effect: EffectCallback,): void {
 	// Mount-only by contract, as in useMountEffect.
-	// eslint-disable-next-line react-hooks/exhaustive-deps
+	// oxlint-disable-next-line react/exhaustive-deps
 	useLayoutEffect(effect, [],)
 }
 

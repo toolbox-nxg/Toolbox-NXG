@@ -96,7 +96,7 @@ export function useProposalTarget (at: ProposalAt,): TargetState {
 		return () => {
 			cancelled = true
 		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
+		// oxlint-disable-next-line react/exhaustive-deps
 	}, [subreddit, proposal.id, proposal.itemKind, proposal.itemId, reloadNonce,],)
 
 	return {...state, retry: () => setReloadNonce((n,) => n + 1),}

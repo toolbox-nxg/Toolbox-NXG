@@ -130,6 +130,6 @@ export function useModLogFetch (
 		// the inline callbacks are all current the moment this effect first runs for a given
 		// fetch session. The button is disabled while loading, so enabled never flips
 		// true->true without a false in between.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
+		// oxlint-disable-next-line react/exhaustive-deps
 	}, [enabled,],)
 }
