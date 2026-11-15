@@ -209,6 +209,19 @@ describe('NativeNoteComposer', () => {
 		)
 	})
 
+	it('resets the ban options to the defaults when the label changes', async () => {
+		const {host,} = renderComposer({defaultLabel: 'BAN',},)
+		const banToggle = () => host.querySelector<HTMLInputElement>('input[type="checkbox"]',)!
+		await click(banToggle(),)
+		expect(banToggle().checked,).toBe(false,)
+
+		await click(findButton(host, 'Permaban',),)
+		expect(banToggle().checked,).toBe(true,)
+		await click(banToggle(),)
+		await click(findButton(host, 'Ban',),)
+		expect(banToggle().checked,).toBe(true,)
+	})
+
 	it('leaves the ban off for a Ban label when the setting is off', async () => {
 		banWithBanLabel.value = false
 		createModNote.mockResolvedValue(undefined,)

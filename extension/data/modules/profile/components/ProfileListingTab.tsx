@@ -122,11 +122,22 @@ export function ListingTab ({
 	// `loadPage` is a hoisted function declaration, so it is safe to reference here.
 	loadPageRef.current = loadPage
 
-	useEffect(() => {
+	// The search inputs follow the tab's search state whenever that changes (e.g. a search run from
+	// elsewhere). Adjusted during render rather than in an effect, so stale inputs never render.
+	const [inputsFor, setInputsFor,] = useState({
+		subreddit: state.searchSubreddit,
+		content: state.searchContent,
+		regex: state.searchRegex,
+	},)
+	if (
+		inputsFor.subreddit !== state.searchSubreddit || inputsFor.content !== state.searchContent
+		|| inputsFor.regex !== state.searchRegex
+	) {
+		setInputsFor({subreddit: state.searchSubreddit, content: state.searchContent, regex: state.searchRegex,},)
 		setSearchSubInput(state.searchSubreddit,)
 		setSearchContentInput(state.searchContent,)
 		setSearchRegexInput(state.searchRegex,)
-	}, [state.searchSubreddit, state.searchContent, state.searchRegex,],)
+	}
 
 	useEffect(() => {
 		const sentinel = sentinelRef.current
@@ -146,17 +157,34 @@ export function ListingTab ({
 		// the latest values, so it is set up once and never needs to re-run.
 	}, [],)
 
-	useEffect(() => {
+	// A different searched subreddit (or user, or mod list) starts with no ban state and the bulk
+	// remove panel closed, adjusted during render; the effect below then fetches the ban state.
+	const [banStateFor, setBanStateFor,] = useState({subreddit: state.searchSubreddit, user, modSubsList,},)
+	if (
+		banStateFor.subreddit !== state.searchSubreddit || banStateFor.user !== user
+		|| banStateFor.modSubsList !== modSubsList
+	) {
+		setBanStateFor({subreddit: state.searchSubreddit, user, modSubsList,},)
 		setSubBanState(undefined,)
 		setShowBulkRemove(false,)
+	}
+
+	useEffect(() => {
 		if (
 			!state.searchSubreddit || !modSubsList.some((s,) => s.toLowerCase() === state.searchSubreddit.toLowerCase())
 		) {
 			return
 		}
+		// A slower response for a previous subreddit must not overwrite the current one's.
+		let current = true
 		getBanState(state.searchSubreddit, user,).then((ban,) => {
-			setSubBanState(ban ?? null,)
-		},).catch(() => setSubBanState(null,))
+			if (current) { setSubBanState(ban ?? null,) }
+		},).catch(() => {
+			if (current) { setSubBanState(null,) }
+		},)
+		return () => {
+			current = false
+		}
 	}, [state.searchSubreddit, user, modSubsList,],)
 
 	async function appendItems (items: ProfileEntry[],) {

@@ -899,13 +899,20 @@ export function RemovalReasonList ({state, addRef, disabledRef, sortRef, onSave,
 		onSave(state.config, 'Reordering removal reasons from toolbox config.',)
 	}
 
-	// Entering sort mode closes any open editor; leaving it persists the new
-	// order (once, and only when a drag actually changed it).
-	useEffect(() => {
+	// Entering sort mode closes any open editor. Adjusted during render rather than in an effect,
+	// so an editor never renders inside a collapsed card.
+	const [sortingSeen, setSortingSeen,] = useState(sorting,)
+	if (sortingSeen !== sorting) {
+		setSortingSeen(sorting,)
 		if (sorting) {
 			setEditingIndex(null,)
 			setShowAddForm(false,)
-		} else if (prevSortingRef.current) {
+		}
+	}
+
+	// Leaving sort mode persists the new order (once, and only when a drag actually changed it).
+	useEffect(() => {
+		if (!sorting && prevSortingRef.current) {
 			flushPendingOrderRef.current()
 		}
 		prevSortingRef.current = sorting

@@ -207,11 +207,15 @@ export function AddUserNotePopup ({
 		}
 	}, [onRefreshNotes,],)
 
-	// Switching type resets the ban options, with the message back at the subreddit's default.
-	useEffect(() => {
+	// Switching type resets the ban options, with the message back at the subreddit's default (which
+	// may also arrive after mount). Adjusted during render rather than in an effect, so the stale
+	// options never render under the new type.
+	const [banOptionsFor, setBanOptionsFor,] = useState({selectedType, defaultBanMessage,},)
+	if (banOptionsFor.selectedType !== selectedType || banOptionsFor.defaultBanMessage !== defaultBanMessage) {
+		setBanOptionsFor({selectedType, defaultBanMessage,},)
 		setTriggerBan(true,)
 		setBanMessage(defaultBanMessage,)
-	}, [selectedType, defaultBanMessage,],)
+	}
 
 	const currentColor = selectedType !== undefined ? colors.find((c,) => c.key === selectedType) : undefined
 	const autoBanDuration = currentColor?.banDuration
