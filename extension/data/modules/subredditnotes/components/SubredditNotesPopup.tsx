@@ -1,5 +1,5 @@
 /** Popup window for creating, viewing, and editing shared subreddit wiki-based notes. */
-import {type ReactNode, useEffect, useEffectEvent, useMemo, useRef, useState,} from 'react'
+import {type ReactNode, useEffect, useEffectEvent, useMemo, useState,} from 'react'
 
 import {ActionButton,} from '../../../shared/controls/ActionButton'
 import {ActionSelect,} from '../../../shared/controls/ActionSelect'
@@ -77,6 +77,28 @@ function toggleArrayItem<T,> (prev: T[], item: T,): T[] {
 	return prev.includes(item,) ? prev.filter((v,) => v !== item) : [...prev, item,]
 }
 
+/**
+ * The subreddit the popup opens to before the moderator picks one. modSubs loads asynchronously,
+ * so this starts as the configured notewiki and settles once it arrives: the current page's
+ * subreddit when `defaultToCurrentSub` is set and the moderator mods it (overriding notewiki),
+ * else the first modded sub when no notewiki is configured.
+ */
+export function defaultSubreddit ({modSubs, notewiki, defaultToCurrentSub, currentSubreddit,}: {
+	modSubs: string[]
+	notewiki: string
+	defaultToCurrentSub: boolean
+	currentSubreddit: string | undefined
+},): string {
+	if (modSubs.length === 0) { return notewiki }
+	if (
+		defaultToCurrentSub && currentSubreddit
+		&& modSubs.some((s,) => s.toLowerCase() === currentSubreddit.toLowerCase())
+	) {
+		return currentSubreddit
+	}
+	return notewiki === '' ? modSubs[0]! : notewiki
+}
+
 /** Renders the subreddit notes popup, allowing moderators to list, create, edit, and archive wiki-backed notes. */
 export function SubredditNotesPopup ({
 	notewiki,
@@ -88,14 +110,11 @@ export function SubredditNotesPopup ({
 }: SubredditNotesPopupProps,) {
 	const modSubs = (useFetched(getModSubs(false,),)) ?? noModSubs
 
-	// modSubs loads asynchronously and is empty on the first render, so the active subreddit can't
-	// be resolved at mount. Start with the configured notewiki and let the effect below switch to
-	// the current subreddit (when defaultToCurrentSub is set) or the first modded sub once modSubs
-	// has loaded.
-	const [activeSubreddit, setActiveSubreddit,] = useState(notewiki,)
-	// Guards the one-time initial resolution below so it may override a configured notewiki on first
-	// load, without clobbering a subreddit the user later picks from the dropdown.
-	const initialResolvedRef = useRef(false,)
+	// The subreddit the moderator picked from the dropdown; until they pick one, the active subreddit
+	// is resolved from the settings (see `defaultSubreddit`), which can change once modSubs loads.
+	const [pickedSubreddit, setActiveSubreddit,] = useState<string | null>(null,)
+	const activeSubreddit = pickedSubreddit
+		?? defaultSubreddit({modSubs, notewiki, defaultToCurrentSub, currentSubreddit,},)
 	const [mode, setMode,] = useState<Mode>('loading-list',)
 	const [index, setIndex,] = useState<SubredditNoteIndex>(makeEmptyIndex,)
 	const [activeSlug, setActiveSlug,] = useState<string | null>(null,)
@@ -122,8 +141,28 @@ export function SubredditNotesPopup ({
 	const [tagFilterOpen, setTagFilterOpen,] = useState(false,)
 	const [authorFilterOpen, setAuthorFilterOpen,] = useState(false,)
 
+	// Switching subreddit starts from an empty index, editor and filters while the new index loads.
+	// Adjusted during render, not in an effect, so the old subreddit's notes never render under the new one.
+	const [indexSubreddit, setIndexSubreddit,] = useState(activeSubreddit,)
+	if (indexSubreddit !== activeSubreddit) {
+		setIndexSubreddit(activeSubreddit,)
+		setIndex(makeEmptyIndex(),)
+		clearEditor()
+		setSelectedTagFilters([],)
+		setSelectedAuthorFilters([],)
+	}
+
 	const parser = useMemo(() => getMarkdownParser(), [],)
 	const activeNote = index.notes.find((note,) => note.slug === activeSlug) ?? draftNote
+
+	// Reset the title field only when a different note becomes active, not when the active note's
+	// saved title changes underneath an edit in progress.
+	const activeNoteSlug = activeNote?.slug
+	const [titleNoteSlug, setTitleNoteSlug,] = useState(activeNoteSlug,)
+	if (titleNoteSlug !== activeNoteSlug) {
+		setTitleNoteSlug(activeNoteSlug,)
+		setEditingTitle(activeNote?.title ?? '',)
+	}
 	const isDraftNote = draftNote != null && activeNote?.slug === draftNote.slug
 		&& !index.notes.some((note,) => note.slug === draftNote.slug)
 	const unsaved = shouldWarnUnsaved(savedValue, editorValue, saving,)
@@ -213,33 +252,12 @@ export function SubredditNotesPopup ({
 		}
 	}
 
-	// Once modSubs loads, resolve the initial subreddit a single time. When defaultToCurrentSub is
-	// set and the current page's subreddit is one the user moderates, open to it - overriding any
-	// configured notewiki. Otherwise fall back to the first modded sub when no notewiki is set.
-	useEffect(() => {
-		if (modSubs.length === 0 || initialResolvedRef.current) { return }
-		initialResolvedRef.current = true
-		if (
-			defaultToCurrentSub
-			&& currentSubreddit
-			&& modSubs.some((s,) => s.toLowerCase() === currentSubreddit.toLowerCase())
-		) {
-			setActiveSubreddit(currentSubreddit,)
-		} else if (notewiki === '') {
-			setActiveSubreddit(modSubs[0]!,)
-		}
-	}, [modSubs, defaultToCurrentSub, currentSubreddit, notewiki,],)
-
 	// Effect event: the effect below re-runs only when the subreddit changes. The subreddit is
 	// passed explicitly so a call landing after the await can't read a newer one.
 	const loadIndexFor = useEffectEvent(loadIndex,)
 
 	// Load note index whenever the active subreddit changes
 	useEffect(() => {
-		setIndex(makeEmptyIndex(),)
-		clearEditor()
-		setSelectedTagFilters([],)
-		setSelectedAuthorFilters([],)
 		void (async () => {
 			if (activeSubreddit === '') {
 				setMode('no-subreddit',)
@@ -265,14 +283,6 @@ export function SubredditNotesPopup ({
 	useEffect(() => {
 		getCurrentUser().then(setCurrentUser,).catch(() => setCurrentUser('unknown',))
 	}, [],)
-
-	// Reset the title field only when a different note becomes active, not when the
-	// active note's saved title changes underneath an edit in progress.
-	const resetEditingTitle = useEffectEvent(() => setEditingTitle(activeNote?.title ?? '',))
-	const activeNoteSlug = activeNote?.slug
-	useEffect(() => {
-		resetEditingTitle()
-	}, [activeNoteSlug,],)
 
 	const visibleNotes = useMemo(() =>
 		filterAndSortNotes(index.notes, {
