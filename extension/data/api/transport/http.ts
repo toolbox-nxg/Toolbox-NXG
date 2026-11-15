@@ -14,6 +14,12 @@ export interface RequestError extends Error {
 	response?: Response
 }
 
+/** True when `error` is a {@link RequestError} whose response came back 404 Not Found. */
+export function isNotFound (error: unknown,): boolean {
+	return error instanceof Error && 'response' in error && error.response instanceof Response
+		&& error.response.status === 404
+}
+
 /**
  * Map of query-string parameters appended to a request URL; entries whose value
  * is `undefined` are dropped.

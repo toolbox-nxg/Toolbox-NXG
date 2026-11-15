@@ -6,7 +6,7 @@ import {getFlairSelector,} from '../../../api/resources/flair'
 import type {FlairSelectorResponse,} from '../../../api/resources/flair'
 import {getAllModNotes,} from '../../../api/resources/modnotes'
 import {getInfoBulk, type RedditThing,} from '../../../api/resources/things'
-import {aboutUser,} from '../../../api/resources/users'
+import {aboutUser, isNotFound,} from '../../../api/resources/users'
 import type {UserAbout,} from '../../../api/resources/users'
 import {ActionButton,} from '../../../shared/controls/ActionButton'
 import {SelectInput,} from '../../../shared/controls/SelectInput'
@@ -593,12 +593,6 @@ function formatRemovalCount (total: number, shown: number, capped: boolean,): st
 /** Builds a link to a user's profile. */
 function userLink (user: string,): string {
 	return link(`/user/${encodeURIComponent(user,)}`,)
-}
-
-/** True when a request failed with a 404, as about.json does for deleted, nonexistent and shadowbanned accounts. */
-function isNotFound (error: unknown,): boolean {
-	return error instanceof Error && 'response' in error && error.response instanceof Response
-		&& error.response.status === 404
 }
 
 /** Extracts a displayable message from an unknown thrown value. */

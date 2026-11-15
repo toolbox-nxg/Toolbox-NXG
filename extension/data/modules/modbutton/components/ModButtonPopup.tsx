@@ -7,7 +7,7 @@ import type {FlairSelectorResponse,} from '../../../api/resources/flair'
 import {getCurrentUser,} from '../../../api/resources/me'
 import {getModSubs,} from '../../../api/resources/modSubs'
 import {getModLog,} from '../../../api/resources/subreddits'
-import {aboutUser,} from '../../../api/resources/users'
+import {aboutUser, isNotFound,} from '../../../api/resources/users'
 import type {RequestError,} from '../../../api/transport/http'
 import {ActionButton,} from '../../../shared/controls/ActionButton'
 import {ActionSelect,} from '../../../shared/controls/ActionSelect'
@@ -114,11 +114,6 @@ interface ModButtonPopupProps {
 async function loadCurrentFlair (subreddit: string, user: string,): Promise<FlairSelectorResponse> {
 	await aboutUser(user,)
 	return getFlairSelector(subreddit, user,)
-}
-
-/** True when a request failed with a 404 response. */
-function isNotFound (reason: unknown,): boolean {
-	return reason instanceof Error && (reason as RequestError).response?.status === 404
 }
 
 /** Renders the full mod-button popup window with Role, User Flair, Send Modmail, User Modlog, and User Overview tabs. */
