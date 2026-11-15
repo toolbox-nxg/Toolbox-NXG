@@ -15,6 +15,7 @@ import {
 	clearRatelimitCache,
 	getJSON,
 	getRatelimit,
+	isNotFound,
 	post,
 	sendRequest,
 } from './http'
@@ -137,5 +138,23 @@ describe('getRatelimit', () => {
 		await sendRequest({method: 'GET', endpoint: '/api/test',},)
 		await expect(getRatelimit(),).resolves.toEqual({ratelimitRemaining: '50', ratelimitReset: '30',},)
 		expect(sendMessage,).toHaveBeenCalledTimes(1,)
+	})
+})
+
+describe('isNotFound', () => {
+	/** An Error carrying a response with the given status, as sendRequest throws for non-OK replies. */
+	const failedWith = (status: number,) =>
+		Object.assign(new Error('failed',), {response: new Response(null, {status,},),},)
+
+	it('is true for a request that failed with 404', () => {
+		expect(isNotFound(failedWith(404,),),).toBe(true,)
+	})
+
+	it('is false for other statuses, errors without a response, and non-errors', () => {
+		expect(isNotFound(failedWith(403,),),).toBe(false,)
+		expect(isNotFound(new Error('network down',),),).toBe(false,)
+		expect(isNotFound(Object.assign(new Error('odd',), {response: {status: 404,},},),),).toBe(false,)
+		expect(isNotFound({response: new Response(null, {status: 404,},),},),).toBe(false,)
+		expect(isNotFound(undefined,),).toBe(false,)
 	})
 })

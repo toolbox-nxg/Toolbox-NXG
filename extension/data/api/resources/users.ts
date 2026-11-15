@@ -44,6 +44,12 @@ interface UserListingPage {
  */
 export const aboutUser = (user: string,): Promise<UserAbout> => apiOauthGetJSON<UserAbout>(`/user/${user}/about.json`,)
 
+/**
+ * True when a request failed with 404 Not Found. For {@link aboutUser} that means the account is
+ * deleted, nonexistent or shadowbanned; Reddit answers all three the same way.
+ */
+export {isNotFound,} from '../transport/http'
+
 /** Fetches paginated Reddit listing pages for `user`, stopping early once `maxCount` items are collected. */
 async function fetchUserListing (
 	user: string,

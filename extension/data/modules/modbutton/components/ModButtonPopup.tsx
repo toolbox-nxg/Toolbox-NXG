@@ -1,4 +1,4 @@
-/** Multi-tab popup for performing mod actions (ban, flair, modmail, etc.) on a Reddit user. */
+/** Multi-tab popup for performing mod actions (ban, flair, modmail, User Overview, etc.) on a Reddit user. */
 
 import {type ChangeEvent, useEffect, useEffectEvent, useMemo, useState,} from 'react'
 
@@ -7,7 +7,7 @@ import type {FlairSelectorResponse,} from '../../../api/resources/flair'
 import {getCurrentUser,} from '../../../api/resources/me'
 import {getModSubs,} from '../../../api/resources/modSubs'
 import {getModLog,} from '../../../api/resources/subreddits'
-import {aboutUser,} from '../../../api/resources/users'
+import {aboutUser, isNotFound,} from '../../../api/resources/users'
 import type {RequestError,} from '../../../api/transport/http'
 import {ActionButton,} from '../../../shared/controls/ActionButton'
 import {ActionSelect,} from '../../../shared/controls/ActionSelect'
@@ -47,6 +47,7 @@ import css from './ModButtonPopup.module.css'
 import {SendModmailTab,} from './SendModmailTab'
 import {StatusBadges, SubredditRow,} from './SubredditRow'
 import {type FlairTemplate, UserFlairTab,} from './UserFlairTab'
+import {UserOverviewTab,} from './UserOverviewTab'
 
 const log = createLogger('ModButton',)
 
@@ -115,12 +116,7 @@ async function loadCurrentFlair (subreddit: string, user: string,): Promise<Flai
 	return getFlairSelector(subreddit, user,)
 }
 
-/** True when a request failed with a 404 response. */
-function isNotFound (reason: unknown,): boolean {
-	return reason instanceof Error && (reason as RequestError).response?.status === 404
-}
-
-/** Renders the full mod-button popup window with Role, User Flair, Send Modmail, and User Modlog tabs. */
+/** Renders the full mod-button popup window with Role, User Flair, Send Modmail, User Modlog, and User Overview tabs. */
 export function ModButtonPopup ({
 	info,
 	initialPosition,
@@ -257,6 +253,9 @@ export function ModButtonPopup ({
 	// User Modlog tab
 	const [userModlogLoaded, setUserModlogLoaded,] = useState(false,)
 
+	// User Overview tab
+	const [userOverviewLoaded, setUserOverviewLoaded,] = useState(false,)
+
 	// Mod subs list
 	const modSubs = (useFetched(getModSubs(false,),)) ?? noModSubs
 
@@ -329,6 +328,7 @@ export function ModButtonPopup ({
 			setSavedBanMacros([],)
 			setFlairLoaded(false,)
 			setUserModlogLoaded(false,)
+			setUserOverviewLoaded(false,)
 			setSubStatuses(new Map(subStatuses,).set(activeSub, loadingStatus,),)
 		}
 	}
@@ -425,14 +425,24 @@ export function ModButtonPopup ({
 		setSubStatuses((prev,) => new Map(prev,).set(subreddit, status,))
 	}
 
-	// The User Modlog tab mounts its pager the first time it's opened for the active subreddit, and
-	// stays mounted after (the loader clears the latch on a subreddit switch).
+	const handleOverviewSubredditSelect = (subreddit: string,) => {
+		loadSubStatus(subreddit,).catch((error: unknown,) => log.error('Failed to load sub status:', error,))
+	}
+
+	// The User Modlog and User Overview tabs mount the first time they're opened for the active
+	// subreddit, and stay mounted after (a subreddit switch clears both latches).
 	const userModlogTabIndex = 3
-	const showUserModlog = Boolean(activeSub && user,) && (userModlogLoaded || activeTabIndex === userModlogTabIndex)
+	const userOverviewTabIndex = 4
+	const hasTarget = Boolean(activeSub && user,)
+	const showUserModlog = hasTarget && (userModlogLoaded || activeTabIndex === userModlogTabIndex)
+	const showUserOverview = hasTarget && (userOverviewLoaded || activeTabIndex === userOverviewTabIndex)
 	const handleTabChange = (index: number,) => {
-		// Latch on entering the tab, and on leaving it too: a subreddit switch while it's open clears
+		// Latch on entering a tab, and on leaving it too: a subreddit switch while it's open clears
 		// the latch, and leaving must not unmount what the moderator was just looking at.
 		if (index === userModlogTabIndex || activeTabIndex === userModlogTabIndex) { setUserModlogLoaded(true,) }
+		if (index === userOverviewTabIndex || activeTabIndex === userOverviewTabIndex) {
+			setUserOverviewLoaded(true,)
+		}
 		setActiveTabIndex(index,)
 	}
 
@@ -1146,6 +1156,20 @@ export function ModButtonPopup ({
 						? <ModNotesPager user={user} subreddit={activeSub} filter="MOD_ACTION" />
 						: null,
 				},
+				{
+					title: 'User Overview',
+					content: showUserOverview
+						? (
+							<UserOverviewTab
+								user={user}
+								defaultSub={activeSub}
+								modSubs={modSubs}
+								subStatuses={subStatuses}
+								onSubredditSelect={handleOverviewSubredditSelect}
+							/>
+						)
+						: null,
+				},
 			]
 			: []),
 	]
@@ -1159,7 +1183,12 @@ export function ModButtonPopup ({
 			onClose={onClose}
 			footer={footer}
 		>
-			<WindowTabs tabs={tabItems} defaultTabIndex={0} onTabChange={handleTabChange} />
+			<WindowTabs
+				tabs={tabItems}
+				defaultTabIndex={0}
+				onTabChange={handleTabChange}
+				className={css.popupTabs}
+			/>
 		</Window>
 	)
 }
