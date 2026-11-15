@@ -1,6 +1,6 @@
 /** Custom React hooks for Toolbox: mount effects, promise resolution and settings access. */
 
-import {type EffectCallback, useCallback, useEffect, useLayoutEffect, useRef, useState,} from 'react'
+import {type EffectCallback, useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useState,} from 'react'
 import {useSelector,} from 'react-redux'
 
 import {type RootState,} from '../../store'
@@ -125,6 +125,54 @@ export function useMountLayoutEffect (effect: EffectCallback,): void {
 	// Mount-only by contract, as in useMountEffect.
 	// oxlint-disable-next-line react/exhaustive-deps
 	useLayoutEffect(effect, [],)
+}
+
+/**
+ * The outcome of {@link useLoaded}'s load for the current key. While loading, `stale` holds the
+ * previous key's value if that load succeeded, for views that keep showing it until the new one
+ * arrives (e.g. a status line re-read after each run).
+ */
+export type Loaded<T,> =
+	| {status: 'loading'; stale?: T}
+	| {status: 'ready'; value: T}
+	| {status: 'error'; error: unknown}
+
+const loadingOutcome = {status: 'loading',} as const
+
+/**
+ * Runs `load(key)` and returns its outcome for the current `key`: `loading` until the load for
+ * this key settles - including straight after `key` changes - then `ready` or `error`. A load
+ * that settles after `key` has moved on is dropped. To reload on demand, put a counter in the
+ * key. `key` is compared with `Object.is`, so join multi-part inputs into a string.
+ *
+ * Loading is derived from the key rather than set when a load starts, so no render ever shows
+ * the previous key's result as if it were this key's.
+ */
+export function useLoaded<K, T,> (key: K, load: (key: K,) => Promise<T>,): Loaded<T> {
+	const [settled, setSettled,] = useState<{key: K; outcome: Loaded<T>} | null>(null,)
+	// Effect event: the effect re-runs only when the key changes, not on each new `load` closure.
+	const runLoad = useEffectEvent(load,)
+
+	useEffect(() => {
+		let current = true
+		// The executor runs synchronously, so a `load` that throws before returning a promise
+		// lands in the rejection handler too.
+		new Promise<T>((resolve,) => resolve(runLoad(key,),)).then(
+			(value,) => {
+				if (current) { setSettled({key, outcome: {status: 'ready', value,},},) }
+			},
+			(error: unknown,) => {
+				if (current) { setSettled({key, outcome: {status: 'error', error,},},) }
+			},
+		)
+		return () => {
+			current = false
+		}
+	}, [key,],)
+
+	if (settled === null) { return loadingOutcome }
+	if (Object.is(settled.key, key,)) { return settled.outcome }
+	return settled.outcome.status === 'ready' ? {status: 'loading', stale: settled.outcome.value,} : loadingOutcome
 }
 
 /**

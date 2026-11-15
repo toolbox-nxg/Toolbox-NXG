@@ -1,10 +1,10 @@
-/** Tests for the useEscapeKey modal-stacking discipline. */
+/** Tests for the useEscapeKey modal-stacking discipline and the useLoaded keyed loader. */
 
 import {act,} from 'react'
 import {createRoot, type Root,} from 'react-dom/client'
 import {afterEach, describe, expect, it, vi,} from 'vitest'
 
-import {useEscapeKey,} from './hooks'
+import {type Loaded, useEscapeKey, useLoaded,} from './hooks'
 ;(globalThis as {IS_REACT_ACT_ENVIRONMENT?: boolean}).IS_REACT_ACT_ENVIRONMENT = true
 
 /** Test component that registers an Escape handler. */
@@ -70,5 +70,77 @@ describe('useEscapeKey stacking', () => {
 
 		pressEscape()
 		expect(cb1,).toHaveBeenCalledTimes(1,)
+	})
+})
+
+describe('useLoaded', () => {
+	/** A load whose results are resolved by hand, per key. */
+	function controlledLoad () {
+		const pending = new Map<string, {resolve: (value: string,) => void; reject: (error: Error,) => void}>()
+		const load = vi.fn((key: string,) =>
+			new Promise<string>((resolve, reject,) => {
+				pending.set(key, {resolve, reject,},)
+			},)
+		)
+		return {load, pending,}
+	}
+
+	let outcome: Loaded<string> = {status: 'loading',}
+	function Probe ({k, load,}: {k: string; load: (key: string,) => Promise<string>},) {
+		outcome = useLoaded(k, load,)
+		return null
+	}
+
+	function render () {
+		const host = document.createElement('div',)
+		document.body.appendChild(host,)
+		const root = createRoot(host,)
+		mounted.add({root, host,},)
+		return (k: string, load: (key: string,) => Promise<string>,) =>
+			act(() => root.render(<Probe k={k} load={load} />,))
+	}
+
+	it('is loading until the load settles, then ready with its value', async () => {
+		const {load, pending,} = controlledLoad()
+		const rerender = render()
+		rerender('a', load,)
+		expect(outcome,).toEqual({status: 'loading',},)
+		await act(async () => pending.get('a',)!.resolve('A',))
+		expect(outcome,).toEqual({status: 'ready', value: 'A',},)
+	})
+
+	it('goes back to loading as soon as the key changes, and drops a late result for the old key', async () => {
+		const {load, pending,} = controlledLoad()
+		const rerender = render()
+		rerender('a', load,)
+		await act(async () => pending.get('a',)!.resolve('A',))
+
+		rerender('b', load,)
+		// Still loading for the new key, with the previous key's value offered as stale.
+		expect(outcome,).toEqual({status: 'loading', stale: 'A',},)
+		rerender('c', load,)
+		await act(async () => pending.get('b',)!.resolve('B',))
+		expect(outcome,).toEqual({status: 'loading', stale: 'A',},)
+		await act(async () => pending.get('c',)!.resolve('C',))
+		expect(outcome,).toEqual({status: 'ready', value: 'C',},)
+		expect(load,).toHaveBeenCalledTimes(3,)
+	})
+
+	it('reports a rejected load as an error', async () => {
+		const {load, pending,} = controlledLoad()
+		render()('a', load,)
+		const error = new Error('nope',)
+		await act(async () => pending.get('a',)!.reject(error,))
+		expect(outcome,).toEqual({status: 'error', error,},)
+	})
+
+	it('reports a load that throws before returning a promise as an error', async () => {
+		const error = new Error('sync',)
+		await act(async () =>
+			render()('a', () => {
+				throw error
+			},)
+		)
+		expect(outcome,).toEqual({status: 'error', error,},)
 	})
 })

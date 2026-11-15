@@ -1,12 +1,13 @@
 /** Slide-out drawer showing recent mod-log actions across all moderated subreddits. */
 
-import {useEffect, useRef, useState,} from 'react'
+import {useRef, useState,} from 'react'
 
 import {getModLogEntries, type RedditModLogEntry,} from '../../../api/resources/subreddits'
 import {Icon,} from '../../../shared/controls/Icon'
 import {Timestamp,} from '../../../shared/controls/Timestamp'
 import {ShadowPortal,} from '../../../shared/window/ShadowPortal'
 import {type ActionFamily, actionFamily, actionLabels,} from '../../../util/reddit/modActions'
+import {useLoaded,} from '../../../util/ui/hooks'
 
 import css from './RecentActionsPopup.module.css'
 
@@ -43,31 +44,23 @@ const familyRowClass: Record<ActionFamily, string> = {
 
 /** Renders the "Recent mod actions" slide-out drawer with filtering and a refresh button. */
 export function RecentActionsPopup ({onClose,}: {onClose: () => void},) {
-	const [actions, setActions,] = useState<ModAction[] | null>(null,)
-	// When `actions` was shown (ms). The "Active (15m)" window is measured from here: reading the
-	// clock during render would make the output depend on when React happens to re-render.
-	const [shownAt, setShownAt,] = useState(0,)
-	const [error, setError,] = useState<string | null>(null,)
 	const [refreshKey, setRefreshKey,] = useState(0,)
 	const [filter, setFilter,] = useState<FilterCategory>('all',)
 	const cacheRef = useRef<CacheEntry | null>(null,)
 
-	useEffect(() => {
-		setActions(null,)
-		setError(null,)
-		if (cacheRef.current && Date.now() - cacheRef.current.ts < cacheTtl) {
-			setActions(cacheRef.current.actions,)
-			setShownAt(Date.now(),)
-			return
+	const loaded = useLoaded(refreshKey, async () => {
+		if (!cacheRef.current || Date.now() - cacheRef.current.ts >= cacheTtl) {
+			cacheRef.current = {actions: await getModLogEntries<ModAction>('mod', '50',), ts: Date.now(),}
 		}
-		getModLogEntries<ModAction>('mod', '50',).then((list,) => {
-			cacheRef.current = {actions: list, ts: Date.now(),}
-			setActions(list,)
-			setShownAt(Date.now(),)
-		},).catch((err: unknown,) => {
-			setError(err instanceof Error ? err.message : String(err,),)
-		},)
-	}, [refreshKey,],)
+		// The "Active (15m)" window is measured from when the list is shown: reading the clock
+		// during render would make the output depend on when React happens to re-render.
+		return {actions: cacheRef.current.actions, shownAt: Date.now(),}
+	},)
+	const actions = loaded.status === 'ready' ? loaded.value.actions : null
+	const shownAt = loaded.status === 'ready' ? loaded.value.shownAt : 0
+	const error = loaded.status === 'error'
+		? (loaded.error instanceof Error ? loaded.error.message : String(loaded.error,))
+		: null
 
 	const handleRefresh = () => {
 		cacheRef.current = null

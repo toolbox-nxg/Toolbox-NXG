@@ -1,10 +1,9 @@
 /** Stacked, scrollable replacement for the native modmail user-sidebar tabs. */
 
-import {useEffect, useState,} from 'react'
-
 import {getModmailParticipant,} from '../../../api/resources/modmail'
 import {Timestamp,} from '../../../shared/controls/Timestamp'
 import createLogger from '../../../util/infra/logging'
+import {useLoaded,} from '../../../util/ui/hooks'
 import {ModNotesPager,} from '../../shared/modnotes/ModNotesPager'
 import {normalizeRecentActivity, type SidebarActivityItem,} from '../schema'
 import css from './UserSidebarPanel.module.css'
@@ -34,41 +33,29 @@ type LoadState =
 	| {status: 'error'}
 	| {status: 'ready'; data: ActivityData}
 
+/** Fetches the conversation participant's recent posts, comments, and modmail in one request. */
+async function loadActivity (conversationId: string,): Promise<ActivityData> {
+	try {
+		const participant = await getModmailParticipant(conversationId,)
+		return {
+			posts: normalizeRecentActivity(participant.recentPosts, 'post',),
+			comments: normalizeRecentActivity(participant.recentComments, 'comment',),
+			convos: normalizeRecentActivity(participant.recentConvos, 'convo',),
+		}
+	} catch (error) {
+		log.error('Failed to load modmail participant info:', error,)
+		throw error
+	}
+}
+
 /**
  * Renders the participant's Posts, Comments, Recent Modmail, and Log sections stacked in a single
  * scrollable column, fetching the first three from the modmail conversation `/user` endpoint in one
  * request and delegating Log to the shared {@link ModNotesPager}.
  */
 export function UserSidebarPanel ({subreddit, user, conversationId,}: UserSidebarPanelProps,) {
-	const [state, setState,] = useState<LoadState>({status: 'loading',},)
-
-	useEffect(() => {
-		let active = true
-		setState({status: 'loading',},)
-
-		void (async () => {
-			try {
-				const participant = await getModmailParticipant(conversationId,)
-				if (!active) { return }
-				setState({
-					status: 'ready',
-					data: {
-						posts: normalizeRecentActivity(participant.recentPosts, 'post',),
-						comments: normalizeRecentActivity(participant.recentComments, 'comment',),
-						convos: normalizeRecentActivity(participant.recentConvos, 'convo',),
-					},
-				},)
-			} catch (error) {
-				if (!active) { return }
-				log.error('Failed to load modmail participant info:', error,)
-				setState({status: 'error',},)
-			}
-		})()
-
-		return () => {
-			active = false
-		}
-	}, [conversationId,],)
+	const loaded = useLoaded(conversationId, loadActivity,)
+	const state: LoadState = loaded.status === 'ready' ? {status: 'ready', data: loaded.value,} : loaded
 
 	return (
 		<div className={css.panel}>

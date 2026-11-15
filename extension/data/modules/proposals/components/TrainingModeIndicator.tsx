@@ -11,10 +11,9 @@
  * the explanation lives in its tooltip.
  */
 
-import {useEffect, useState,} from 'react'
-
 import {Icon,} from '../../../shared/controls/Icon'
 import {postSite,} from '../../../util/reddit/pageContext'
+import {useLoaded,} from '../../../util/ui/hooks'
 import {getTrainingStatus, type TrainingStatus,} from '../../shared/proposals/traineeState'
 
 /** Builds the tooltip explaining a visible status. */
@@ -31,24 +30,17 @@ function describeStatus (status: Exclude<TrainingStatus, 'none'>, subreddit: str
 	}
 }
 
+/** The training status for `subreddit`, or `'none'` when there is no subreddit. */
+function loadTrainingStatus (subreddit: string,): Promise<TrainingStatus> {
+	return subreddit ? getTrainingStatus(subreddit,) : Promise.resolve('none',)
+}
+
 /** Renders the modbar training-status chip for the current subreddit. */
 export function TrainingModeIndicator () {
 	const subreddit = postSite
-	const [status, setStatus,] = useState<TrainingStatus>('none',)
-
-	useEffect(() => {
-		if (!subreddit) {
-			setStatus('none',)
-			return
-		}
-		let cancelled = false
-		void getTrainingStatus(subreddit,).then((value,) => {
-			if (!cancelled) { setStatus(value,) }
-		},)
-		return () => {
-			cancelled = true
-		}
-	}, [subreddit,],)
+	const loaded = useLoaded(subreddit, loadTrainingStatus,)
+	// Nothing shows until the status is known (or when there's no subreddit).
+	const status: TrainingStatus = loaded.status === 'ready' ? loaded.value : 'none'
 
 	if (!subreddit || status === 'none') { return null }
 
