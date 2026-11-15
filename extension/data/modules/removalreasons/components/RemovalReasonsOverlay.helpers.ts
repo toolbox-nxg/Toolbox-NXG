@@ -12,6 +12,7 @@
  * identically.
  */
 
+import {escapeHTML,} from '../../../util/data/string'
 import {
 	encodeTicks,
 	findUnfilledRequired,
@@ -260,7 +261,10 @@ function renderLabelMarkdown (parser: ReturnType<typeof getRemovalReasonParser>,
 	const labelHtml = parser.render(option,).trim()
 		.replace(/^<(?:ul|ol)>\s*<li>([\s\S]+)<\/li>\s*<\/(?:ul|ol)>$/, '$1',)
 		.replace(/^<p>([\s\S]+)<\/p>$/, '$1',)
-	return labelHtml || option
+	// Markdown that renders to nothing (a bare link-reference definition like `[x]: url "title"`)
+	// falls back to the label's own text - escaped, never as HTML: labels come from the
+	// subreddit's wiki config, which other moderators can edit.
+	return labelHtml || escapeHTML(option,)
 }
 
 /**

@@ -420,3 +420,22 @@ describe('describeLiteralField', () => {
 		expect(describeLiteralField({kind: 'multi', problem: 'wrong-list',},).fix,).toContain('"- [ ] "',)
 	})
 })
+
+describe('renderReasonHtml label escaping', () => {
+	// A bare link-reference definition renders to nothing, which once made the label's raw text
+	// the HTML. Reasons come from the subreddit wiki, so that let other moderators inject markup.
+	const payload = '[x]: http://a "<img src=x onerror=alert(1)>"'
+	it.each([
+		['a block choice option', `Pick:\n\n{choice#pick}\n- ${payload}\n- second`,],
+		['an inline dropdown option', `A {dropdown#k: ${payload} | dup} post.`,],
+		['an inline choice option', `A {choice#k: ${payload} | dup} post.`,],
+		['a tick-box item', `{highlight#rules}\n- [ ] ${payload}\n- [x] second`,],
+		['a note', `Rule {note: ${payload}} applies.`,],
+	],)('escapes %s whose markdown renders to nothing', (_name, text,) => {
+		const doc = new DOMParser().parseFromString(renderReasonHtml(getRemovalReasonParser(), text,), 'text/html',)
+		// No element is created from the label (the raw text may still sit, inert, in a quoted
+		// `value` attribute); the label shows the literal text instead.
+		expect(doc.querySelector('img',),).toBeNull()
+		expect(doc.body.textContent,).toContain('<img src=x onerror=alert(1)>',)
+	},)
+})
