@@ -27,6 +27,16 @@ vi.mock('../../../shared/window/Window', () => ({
 	),
 }),)
 vi.mock('../../shared/modnotes/ModNotesPager', () => ({ModNotesPager: () => <div>user modlog</div>,}),)
+// Like the real tab, takes defaultSub only as its initial selection.
+vi.mock('./UserOverviewTab', async () => {
+	const {useState,} = await import('react')
+	return {
+		UserOverviewTab: ({defaultSub,}: {defaultSub: string},) => {
+			const [selectedSub,] = useState(defaultSub,)
+			return <div data-testid="user-overview">overview of {selectedSub}</div>
+		},
+	}
+},)
 vi.mock('./ModButtonPopup.helpers', async (importOriginal,) => ({
 	...await importOriginal<typeof import('./ModButtonPopup.helpers')>(),
 	fetchSubStatus: vi.fn(),
@@ -205,5 +215,33 @@ describe('ModButtonPopup action selection', () => {
 			[...s.options,].some((o,) => o.value === 'sub2')
 		)!
 		expect(fromMenu.value,).toBe('sub1',)
+	})
+})
+
+describe('ModButtonPopup User Overview tab', () => {
+	const overview = (host: HTMLElement,) => host.querySelector('[data-testid="user-overview"]',)
+	const tab = (host: HTMLElement, title: string,) =>
+		[...host.querySelectorAll('[role="tab"]',),].find((t,) => t.textContent === title)!
+
+	it('shows once opened, and on the new subreddit after a switch', async () => {
+		const host = await renderPopup()
+		expect(overview(host,),).toBeNull()
+
+		await click(tab(host, 'User Overview',),)
+		expect(overview(host,)?.textContent,).toBe('overview of sub1',)
+
+		// The subreddit picker lives on the Role tab.
+		await click(tab(host, 'Role',),)
+		const expander = [...host.querySelectorAll('*',),].find((el,) =>
+			el.children.length === 0 && el.textContent?.startsWith('▶',)
+		)!
+		await click(expander,)
+		const sub2 = [...host.querySelectorAll('[title="Set as active subreddit"]',),]
+			.find((el,) => el.textContent === '/r/sub2')!
+		await click(sub2,)
+		expect(overview(host,),).toBeNull()
+
+		await click(tab(host, 'User Overview',),)
+		expect(overview(host,)?.textContent,).toBe('overview of sub2',)
 	})
 })

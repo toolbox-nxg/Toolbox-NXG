@@ -429,22 +429,22 @@ export function ModButtonPopup ({
 		loadSubStatus(subreddit,).catch((error: unknown,) => log.error('Failed to load sub status:', error,))
 	}
 
-	// The User Modlog tab mounts its pager the first time it's opened for the active subreddit, and
-	// stays mounted after (the loader clears the latch on a subreddit switch).
+	// The User Modlog and User Overview tabs mount the first time they're opened for the active
+	// subreddit, and stay mounted after (a subreddit switch clears both latches).
 	const userModlogTabIndex = 3
-	const showUserModlog = Boolean(activeSub && user,) && (userModlogLoaded || activeTabIndex === userModlogTabIndex)
+	const userOverviewTabIndex = 4
+	const hasTarget = Boolean(activeSub && user,)
+	const showUserModlog = hasTarget && (userModlogLoaded || activeTabIndex === userModlogTabIndex)
+	const showUserOverview = hasTarget && (userOverviewLoaded || activeTabIndex === userOverviewTabIndex)
 	const handleTabChange = (index: number,) => {
-		// Latch on entering the tab, and on leaving it too: a subreddit switch while it's open clears
+		// Latch on entering a tab, and on leaving it too: a subreddit switch while it's open clears
 		// the latch, and leaving must not unmount what the moderator was just looking at.
 		if (index === userModlogTabIndex || activeTabIndex === userModlogTabIndex) { setUserModlogLoaded(true,) }
+		if (index === userOverviewTabIndex || activeTabIndex === userOverviewTabIndex) {
+			setUserOverviewLoaded(true,)
+		}
 		setActiveTabIndex(index,)
 	}
-
-	// User Overview tab - mark loaded when tab becomes active
-	useEffect(() => {
-		if (!activeSub || !user || activeTabIndex !== 4 || userOverviewLoaded) { return }
-		setUserOverviewLoaded(true,)
-	}, [activeSub, user, activeTabIndex, userOverviewLoaded,],)
 
 	useEffect(() => {
 		if (!activeSub || !user || activeTabIndex !== 1 || flairLoaded) { return }
@@ -1158,7 +1158,7 @@ export function ModButtonPopup ({
 				},
 				{
 					title: 'User Overview',
-					content: userOverviewLoaded
+					content: showUserOverview
 						? (
 							<UserOverviewTab
 								user={user}
