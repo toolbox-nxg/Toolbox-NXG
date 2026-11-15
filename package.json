@@ -74,6 +74,7 @@
         "@types/react": "^19.2.16",
         "@types/react-dom": "^19.2.3",
         "@types/webextension-polyfill": "^0.12.5",
+        "@typescript/native": "npm:typescript@^7.0.2",
         "cross-env": "^10.1.0",
         "del-cli": "^7.0.0",
         "dprint": "^0.55.1",
@@ -88,7 +89,7 @@
         "stylelint-config-standard": "^40.0.0",
         "typedoc": "^0.28.0",
         "typedoc-plugin-markdown": "^4.6.0",
-        "typescript": "^6.0.3",
+        "typescript": "npm:@typescript/typescript6@^6.0.2",
         "vitest": "^4.1.8"
     },
     "optionalDependencies": {

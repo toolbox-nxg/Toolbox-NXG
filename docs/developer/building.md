@@ -22,6 +22,17 @@ npm run build:watch    # Automatically rebuild on file changes
 
 Build output goes to `build/chrome/` and `build/firefox/`.
 
+The build compiles TypeScript with [oxc](https://oxc.rs/) one file at a time and does not
+type-check; `npm run typecheck` is the type gate, and CI runs it before building.
+
+### TypeScript versions
+
+`tsc` is TypeScript 7 (the native compiler), installed as the `@typescript/native` package.
+The `typescript` package name is an alias for `@typescript/typescript6`, which re-exports the
+TypeScript 6 API for tools that still need a JavaScript compiler API — today only TypeDoc
+(`npm run docs:api`). Once TypeDoc supports TypeScript 7, the alias can go and `typescript`
+can point at TypeScript 7 directly.
+
 ### Environment variables
 
 | Variable       | Values                     | Default | Notes                                                         |
