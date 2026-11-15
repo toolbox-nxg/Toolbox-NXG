@@ -38,6 +38,23 @@ function lastMonthRange (): {from: string; to: string} {
 	return {from: toDateString(firstOfLastMonth,), to: toDateString(lastOfLastMonth,),}
 }
 
+/** Days of mod log history Reddit keeps; nothing older can be fetched. */
+const modLogRetentionDays = 90
+
+/** The earliest date with mod log history, in `YYYY-MM-DD` format (the 90d preset's start). */
+function earliestLogDate (): string {
+	return daysAgo(modLogRetentionDays - 1,)
+}
+
+/** Clamps a `YYYY-MM-DD` date to no earlier than {@link earliestLogDate}; empty input is left as is. */
+export function clampToLogHistory (date: string,): string {
+	const earliest = earliestLogDate()
+	// ISO date strings compare correctly as plain strings.
+	return date && date < earliest ? earliest : date
+}
+
+const retentionHint = `Reddit keeps the last ${modLogRetentionDays} days of mod log history`
+
 /** A named date-range shortcut for quick selection (e.g. "Last 7 days"). */
 interface Preset {
 	id: string
@@ -51,7 +68,7 @@ interface Preset {
 const presets: Preset[] = [
 	{id: '7d', label: '7d', from: () => daysAgo(6,), to: today,},
 	{id: '30d', label: '30d', from: () => daysAgo(29,), to: today,},
-	{id: '90d', label: '90d', from: () => daysAgo(89,), to: today,},
+	{id: '90d', label: '90d', from: earliestLogDate, to: today,},
 	{id: 'month', label: 'This month', from: thisMonthStart, to: today,},
 	{id: 'lastmonth', label: 'Last month', from: () => lastMonthRange().from, to: () => lastMonthRange().to,},
 ]
@@ -79,6 +96,7 @@ export function MatrixSettings ({state, csvUrl, onGenerate,}: Props,) {
 	const [activePreset, setActivePreset,] = useState<string | null>('7d',)
 
 	const todayStr = today()
+	const earliestStr = earliestLogDate()
 	const {total, loading, error, firstEntry, lastEntry,} = state
 
 	function handleSubmit (event: React.FormEvent,) {
@@ -130,9 +148,11 @@ export function MatrixSettings ({state, csvUrl, onGenerate,}: Props,) {
 			<input
 				type="date"
 				value={fromDate}
+				min={earliestStr}
 				max={todayStr}
+				title={retentionHint}
 				onChange={(e,) => {
-					setFromDate(e.target.value,)
+					setFromDate(clampToLogHistory(e.target.value,),)
 					setActivePreset(null,)
 				}}
 			/>
@@ -140,9 +160,11 @@ export function MatrixSettings ({state, csvUrl, onGenerate,}: Props,) {
 			<input
 				type="date"
 				value={toDate}
+				min={earliestStr}
 				max={todayStr}
+				title={retentionHint}
 				onChange={(e,) => {
-					setToDate(e.target.value,)
+					setToDate(clampToLogHistory(e.target.value,),)
 					setActivePreset(null,)
 				}}
 			/>

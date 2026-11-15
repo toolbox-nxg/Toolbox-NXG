@@ -14,7 +14,7 @@ Clicking the Mod Log Matrix button on a subreddit opens an overlay that fetches 
 
 **Drilldown** — selecting a cell shows the 20 most recent mod log entries for that moderator/action combination, with a link to the filtered mod log.
 
-**Date range** — choose a from/to date, or a preset (7d, 30d, 90d, this month, last month), and click **Generate**.
+**Date range** — choose a from/to date, or a preset (7d, 30d, 90d, this month, last month), and click **Generate**. Reddit keeps only the last 90 days of mod log history, so dates earlier than that can't be picked.
 
 **CSV export** — once a matrix has been generated, **Download CSV** saves the mod log data as a CSV file.
 

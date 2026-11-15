@@ -94,6 +94,19 @@ export function ActionFilter ({subredditActions, actionFilter, onChange,}: Props
 		onChange(toggleFilterItem(actionFilter, allCodes, code, checked,),)
 	}
 
+	/** Opens the tree with every group and subgroup expanded, or closes it. */
+	function toggleShowGroups () {
+		if (!showGroups) {
+			setExpandedGroups(
+				new Set([
+					...actionGroups.flatMap((g,) => [g.label, ...(g.subs ?? []).map((s,) => `${g.label}:${s.label}`),]),
+					'__other__',
+				],),
+			)
+		}
+		setShowGroups(!showGroups,)
+	}
+
 	function toggleExpanded (key: string,) {
 		setExpandedGroups((prev,) => {
 			const next = new Set(prev,)
@@ -115,7 +128,7 @@ export function ActionFilter ({subredditActions, actionFilter, onChange,}: Props
 					<button
 						type="button"
 						className={css.filterGroupChevron}
-						onClick={() => setShowGroups((v,) => !v)}
+						onClick={toggleShowGroups}
 						aria-expanded={showGroups}
 					>
 						{showGroups ? '▾' : '▸'}
@@ -129,7 +142,7 @@ export function ActionFilter ({subredditActions, actionFilter, onChange,}: Props
 					<button
 						type="button"
 						className={css.filterGroupToggle}
-						onClick={() => setShowGroups((v,) => !v)}
+						onClick={toggleShowGroups}
 						aria-expanded={showGroups}
 					>
 						Show/Hide All
