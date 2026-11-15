@@ -504,7 +504,7 @@ function decodeAllStrings (target: unknown,): void {
 export function normalizeConfig (configInput: unknown,): asserts configInput is ToolboxConfig {
 	// Untrusted wiki JSON coerced in place: every field below is runtime-validated before the
 	// ToolboxConfig assertion holds. A single mutable alias keeps that defensive field work readable.
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- in-place normalization of arbitrary parsed JSON
+	// oxlint-disable-next-line typescript/no-explicit-any -- in-place normalization of arbitrary parsed JSON
 	const config = configInput as Record<string, any>
 
 	// ver: default to the classic version if missing or non-numeric, so the
@@ -641,9 +641,9 @@ export interface ConfigState {
 	// The flair-template types live in api/resources/flair and a modbutton component, which schema.ts
 	// must not import (module layering); these stay loosely typed here and are narrowed at the consumers.
 	/** Cached post flair templates for the current subreddit, or null if not yet loaded. */
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- see note above
+	// oxlint-disable-next-line typescript/no-explicit-any -- see note above
 	postFlairTemplates: any
 	/** Cached user flair templates for the current subreddit, or null if not yet loaded. */
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- see note above
+	// oxlint-disable-next-line typescript/no-explicit-any -- see note above
 	userFlairTemplates: any
 }

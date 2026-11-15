@@ -65,7 +65,7 @@ vi.mock('../../../util/ui/reactMount', () => ({
 }),)
 ;(globalThis as {IS_REACT_ACT_ENVIRONMENT?: boolean}).IS_REACT_ACT_ENVIRONMENT = true
 
-import {SubredditNotesPopup,} from './SubredditNotesPopup'
+import {defaultSubreddit, SubredditNotesPopup,} from './SubredditNotesPopup'
 
 const roots: Root[] = []
 
@@ -591,5 +591,21 @@ describe('SubredditNotesPopup', () => {
 			const select = host.querySelector<HTMLSelectElement>('select[aria-label="Switch subreddit notes space"]',)
 			expect(select?.value,).toBe('notesub',)
 		},)
+	})
+})
+
+describe('defaultSubreddit', () => {
+	const base = {modSubs: ['Alpha', 'beta',], notewiki: 'notes', defaultToCurrentSub: false, currentSubreddit: 'beta',}
+	it('keeps the notewiki while the mod list is still loading', () => {
+		expect(defaultSubreddit({...base, modSubs: [], defaultToCurrentSub: true,},),).toBe('notes',)
+	})
+	it('opens to a current subreddit the moderator mods, matched case-insensitively', () => {
+		expect(defaultSubreddit({...base, defaultToCurrentSub: true, currentSubreddit: 'ALPHA',},),).toBe('ALPHA',)
+	})
+	it('uses the first modded subreddit when no notewiki is configured', () => {
+		expect(defaultSubreddit({...base, notewiki: '',},),).toBe('Alpha',)
+	})
+	it('keeps the notewiki otherwise', () => {
+		expect(defaultSubreddit({...base, defaultToCurrentSub: true, currentSubreddit: 'gamma',},),).toBe('notes',)
 	})
 })

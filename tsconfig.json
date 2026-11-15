@@ -6,9 +6,11 @@
         "moduleResolution": "bundler",
         "jsx": "react-jsx",
 
-        // Rollup owns emit, but this keeps builds from succeeding with type errors.
+        // tsc only type-checks; Rollup emits through oxc, which compiles one file at a time without
+        // type information. isolatedModules makes tsc reject code that per-file compilation can't
+        // handle (const enums across files, re-exported types without `export type`, ...).
         "noEmit": true,
-        "noEmitOnError": true,
+        "isolatedModules": true,
 
         // Strictness ratchet: these pass today; do not relax.
         "strict": true,

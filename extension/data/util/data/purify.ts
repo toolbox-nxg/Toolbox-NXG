@@ -44,7 +44,7 @@ export function purify (input: string,): string {
  * value arrives here as real (decoded) markup, that sink-side DOMPurify pass
  * actually inspects the tags.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- in-place recursive sanitizer that reads and writes arbitrary keys on untrusted parsed JSON
+// oxlint-disable-next-line typescript/no-explicit-any -- in-place recursive sanitizer that reads and writes arbitrary keys on untrusted parsed JSON
 export function purifyObject (input: any,) {
 	for (const key in input) {
 		if (Object.prototype.hasOwnProperty.call(input, key,)) {

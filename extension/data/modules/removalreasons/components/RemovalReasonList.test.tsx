@@ -72,6 +72,7 @@ vi.mock('@dnd-kit/sortable', async () => {
 	}
 },)
 
+import type {SortModeRef,} from '../../../shared/controls/SortToggleButton'
 import type {ConfigState,} from '../../../util/wiki/schemas/config/schema'
 import type {RemovalReason,} from '../schema'
 import {type formOwnedKeys, RemovalReasonList,} from './RemovalReasonList'
@@ -697,5 +698,29 @@ describe('native reason sync toggle', () => {
 		renderList(state,)
 
 		expect(getCheckbox('Import Reddit\'s removal reasons',).checked,).toBe(true,)
+	})
+})
+
+describe('RemovalReasonList sort mode', () => {
+	it('closes an open editor on entering sort mode, and it stays closed after leaving', async () => {
+		const sortRef: SortModeRef = {toggle: null, onChange: null,}
+		act(() => {
+			root.render(
+				<RemovalReasonList
+					state={makeState([{title: 'Rule 1', text: 'Body', removePosts: true,},],)}
+					addRef={{current: null,}}
+					sortRef={sortRef}
+					onSave={onSave}
+				/>,
+			)
+		},)
+		await act(async () => container.querySelector<HTMLButtonElement>('button[title="Edit"]',)!.click())
+		expect(container.querySelector('#edit-reason-0-title',),).not.toBeNull()
+
+		await act(async () => sortRef.toggle!())
+		expect(container.querySelector('#edit-reason-0-title',),).toBeNull()
+
+		await act(async () => sortRef.toggle!())
+		expect(container.querySelector('#edit-reason-0-title',),).toBeNull()
 	})
 })

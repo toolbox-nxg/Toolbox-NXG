@@ -111,6 +111,7 @@ function RemovalReasonSummary (
 			<div
 				className={css.reasonBody}
 				// Composed reason text is token-substituted at capture; render as markdown.
+				// oxlint-disable-next-line react/no-danger -- SnuOwnd-rendered markdown: raw HTML is escaped apart from its element whitelist, which strips attributes like event handlers
 				dangerouslySetInnerHTML={{__html: html,}}
 			/>
 			<div className={css.sectionHeading}>On accept</div>

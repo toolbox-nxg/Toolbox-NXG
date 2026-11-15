@@ -81,13 +81,20 @@ export function NativeNoteComposer ({
 		inputRef.current?.focus({preventScroll: true,},)
 	}, [],)
 
-	// Switching label resets the ban options to the subreddit's defaults so a stale choice never
-	// carries over.
-	useEffect(() => {
+	// Switching label resets the ban options to the subreddit's defaults (which may also arrive after
+	// mount) so a stale choice never carries over. Adjusted during render rather than in an effect,
+	// so the stale options never render under the new label.
+	const banDefaultsKey = {selectedLabel, banWithBanLabel, defaultBanDays, defaultBanMessage,}
+	const [banOptionsFor, setBanOptionsFor,] = useState(banDefaultsKey,)
+	if (
+		banOptionsFor.selectedLabel !== selectedLabel || banOptionsFor.banWithBanLabel !== banWithBanLabel
+		|| banOptionsFor.defaultBanDays !== defaultBanDays || banOptionsFor.defaultBanMessage !== defaultBanMessage
+	) {
+		setBanOptionsFor(banDefaultsKey,)
 		setTriggerBan(banWithBanLabel,)
 		setBanDays(defaultBanDays,)
 		setBanMessage(defaultBanMessage,)
-	}, [selectedLabel, banWithBanLabel, defaultBanDays, defaultBanMessage,],)
+	}
 
 	// Whether the chosen label offers a ban at all; the subreddit can turn this off for every mod.
 	const offersBan = isBanLabel(selectedLabel,) && !banDisabled

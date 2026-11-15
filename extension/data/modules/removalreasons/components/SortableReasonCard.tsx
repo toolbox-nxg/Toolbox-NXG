@@ -185,6 +185,7 @@ export function SortableReasonCard ({
 						ref={setContentRef}
 						className={css.reasonContent}
 						style={hasTitle && !selected ? {display: 'none',} : undefined}
+						// oxlint-disable-next-line react/no-danger -- renderReasonHtml output: SnuOwnd-rendered with escaped labels (see RemovalReasonsOverlay.helpers)
 						dangerouslySetInnerHTML={contentHtml}
 					/>
 				)}

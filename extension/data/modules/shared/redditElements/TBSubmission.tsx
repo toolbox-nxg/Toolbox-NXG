@@ -276,6 +276,7 @@ export function TBSubmission ({submission, options, subredditColorSalt,}: TBSubm
 					<div
 						className="toolbox-self-expando"
 						style={{display: selfExpanded ? 'block' : 'none',}}
+						// oxlint-disable-next-line react/no-danger -- Reddit-rendered HTML, sanitized by purifyHTML
 						dangerouslySetInnerHTML={{__html: purifyHTML(selfTextHtml,),}}
 					/>
 				)}

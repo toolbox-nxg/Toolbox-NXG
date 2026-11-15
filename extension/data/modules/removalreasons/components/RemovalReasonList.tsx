@@ -29,7 +29,7 @@ import {type SortModeRef, useSortMode,} from '../../../shared/controls/SortToggl
 import {TextareaInput,} from '../../../shared/controls/TextareaInput'
 import {TokenChips,} from '../../../shared/controls/TokenChips'
 import {formatRelativeTime,} from '../../../util/data/time'
-import {type TriggerRef, useTriggerRef,} from '../../../util/ui/hooks'
+import {type TriggerRef, useLoaded, useTriggerRef,} from '../../../util/ui/hooks'
 import {type ConfigState, generateConfigId, type ToolboxConfig,} from '../../../util/wiki/schemas/config/schema'
 import {
 	decodeHtmlAngleBrackets,
@@ -226,7 +226,7 @@ function ReasonForm ({
 		if (!colors) {
 			void onNoteColorLoad().then(setColors,)
 		}
-	}, [],) // eslint-disable-line react-hooks/exhaustive-deps
+	}, [],) // oxlint-disable-line react/exhaustive-deps
 
 	/** Updates flair text/CSS to match the selected template. */
 	const handleFlairChange = (e: React.ChangeEvent<HTMLSelectElement>,) => {
@@ -313,6 +313,7 @@ function ReasonForm ({
 								? (
 									<div
 										className={css.previewFull}
+										// oxlint-disable-next-line react/no-danger -- renderReasonHtml output: SnuOwnd-rendered with escaped labels (see RemovalReasonsOverlay.helpers)
 										dangerouslySetInnerHTML={{__html: previewHtml,}}
 									/>
 								)
@@ -614,6 +615,7 @@ function ReasonCard ({
 								<div
 									ref={previewRef}
 									className={expanded ? css.previewFull : css.previewClamped}
+									// oxlint-disable-next-line react/no-danger -- renderReasonHtml output: SnuOwnd-rendered with escaped labels (see RemovalReasonsOverlay.helpers)
 									dangerouslySetInnerHTML={{__html: previewHtml,}}
 								/>
 								{(overflows || expanded) && (
@@ -687,13 +689,22 @@ const emptyReasonValues: ReasonFormValues = {
 
 /** Renders the full list of editable removal reasons for a subreddit's toolbox config. */
 export function RemovalReasonList ({state, addRef, disabledRef, sortRef, onSave,}: RemovalReasonListProps,) {
-	const [reasons, setReasons,] = useState<ReasonEntry[]>([],)
+	// When the wiki was edited elsewhere since the config loaded, the reasons are re-read from it on
+	// mount; otherwise the loaded config is current and the list starts from it.
+	const [reloadFromWiki,] = useState(() => document.body.classList.contains('toolbox-wiki-edited',))
+	const [reasons, setReasons,] = useState<ReasonEntry[]>(() =>
+		reloadFromWiki
+			? []
+			: (state.config.removalReasons?.reasons ?? []).map((r, i,) => ({...r, _key: `reason-initial-${i}`,}))
+	)
 	const [editingIndex, setEditingIndex,] = useState<number | null>(null,)
 	const [showAddForm, setShowAddForm,] = useState(false,)
 	const [flairTemplates, setFlairTemplates,] = useState<FlairTemplate[] | null>(
 		state.postFlairTemplates as FlairTemplate[] | null,
 	)
-	const [noteColors, setNoteColors,] = useState<UserNoteColor[] | null>(null,)
+	// Note colours a form or card asked for (see loadNoteColors); `noteColors` below also covers
+	// the eager fetch for header chips.
+	const [requestedNoteColors, setNoteColors,] = useState<UserNoteColor[] | null>(null,)
 	const [syncNotice, setSyncNotice,] = useState('',)
 	const [nativeSyncEnabled, setNativeSyncEnabled,] = useState(
 		state.config.removalReasons?.nativeSync?.enabled === true,
@@ -705,14 +716,20 @@ export function RemovalReasonList ({state, addRef, disabledRef, sortRef, onSave,
 
 	const subreddit = state.subreddit ?? ''
 
+	// Eagerly fetch note colors so header chips can display type names and colors at rest - only
+	// once some reason has a default note type, since otherwise nothing at rest shows them.
+	const colorsAtRest = useLoaded(
+		reasons.some((r,) => r.default_note_type) ? subreddit : '',
+		(forSubreddit,) => forSubreddit ? getSubredditColors(forSubreddit,) : Promise.resolve(null,),
+	)
+	const noteColors = requestedNoteColors ?? (colorsAtRest.status === 'ready' ? colorsAtRest.value : null)
+
 	// Sync status, shown beside the toggle. `lastSyncedAt` only moves when a sync actually
 	// changed something, so it is labelled as such; the last-checked time is what shows the
 	// sync is alive, and is local to this browser.
 	const nativeSync = state.config.removalReasons?.nativeSync
 	const lastSyncedAt = nativeSync?.lastSyncedAt
 	const syncPersistedOn = nativeSync?.enabled === true
-	const [lastCheckedAt, setLastCheckedAt,] = useState<number | undefined>(undefined,)
-	const [lastFailure, setLastFailure,] = useState<NativeSyncFailure | undefined>(undefined,)
 	// Bumped after every sync run so the two stamps below are re-read. They live in the cache
 	// rather than in the config, so a run that just failed - the case this status line exists
 	// for - moves them without anything in this component's props changing.
@@ -722,23 +739,23 @@ export function RemovalReasonList ({state, addRef, disabledRef, sortRef, onSave,
 	/** Guards the split-choice scan so it starts once, after the reasons first load. */
 	const choiceRepairScanStartedRef = useRef(false,)
 
-	useEffect(() => {
-		if (!syncPersistedOn) {
-			setLastCheckedAt(undefined,)
-			setLastFailure(undefined,)
-			return
-		}
-		let valid = true
-		void Promise.all([getLastNativeSyncCheck(subreddit,), getLastNativeSyncFailure(subreddit,),],)
-			.then(([checked, failure,],) => {
-				if (!valid) { return }
-				setLastCheckedAt(checked,)
-				setLastFailure(failure,)
-			},)
-		return () => {
-			valid = false
-		}
-	}, [subreddit, syncPersistedOn, syncStatusNonce,],)
+	const syncStamps = useLoaded(
+		`${syncPersistedOn}
+${subreddit}
+${syncStatusNonce}`,
+		(): Promise<[number | undefined, NativeSyncFailure | undefined,]> =>
+			syncPersistedOn
+				? Promise.all([getLastNativeSyncCheck(subreddit,), getLastNativeSyncFailure(subreddit,),],)
+				: Promise.resolve([undefined, undefined,],),
+	)
+	// While re-reading after a run, the previous stamps stay up rather than blanking the line.
+	const [lastCheckedAt, lastFailure,] = !syncPersistedOn
+		? [undefined, undefined,]
+		: syncStamps.status === 'ready'
+		? syncStamps.value
+		: syncStamps.status === 'loading'
+		? syncStamps.stale ?? [undefined, undefined,]
+		: [undefined, undefined,]
 
 	/** Assigns a stable runtime key to each reason for React/dnd-kit reconciliation. */
 	const toEntries = (raw: RemovalReason[],): ReasonEntry[] =>
@@ -786,7 +803,7 @@ export function RemovalReasonList ({state, addRef, disabledRef, sortRef, onSave,
 	}
 
 	useEffect(() => {
-		if (document.body.classList.contains('toolbox-wiki-edited',)) {
+		if (reloadFromWiki) {
 			void reloadConfigFromWiki(subreddit,).then((config,) => {
 				if (!config) { return }
 				state.config = config
@@ -794,10 +811,10 @@ export function RemovalReasonList ({state, addRef, disabledRef, sortRef, onSave,
 				void runSync(false,)
 			},)
 		} else {
-			setReasons(toEntries(state.config.removalReasons?.reasons ?? [],),)
+			// oxlint-disable-next-line react/set-state-in-effect -- false positive: every state update in runSync comes after its first await, never synchronously here
 			void runSync(false,)
 		}
-	}, [],) // eslint-disable-line react-hooks/exhaustive-deps
+	}, [],) // oxlint-disable-line react/exhaustive-deps
 
 	// Once the reasons are loaded, look (once per subreddit, ever) for choice fields an
 	// earlier build split out of their sentence. Nothing is written until the moderator
@@ -834,13 +851,6 @@ export function RemovalReasonList ({state, addRef, disabledRef, sortRef, onSave,
 		setNoteColors(colors,)
 		return colors
 	}, [noteColors, subreddit,],)
-
-	// Eagerly fetch note colors so header chips can display type names and colors at rest.
-	useEffect(() => {
-		if (reasons.some((r,) => r.default_note_type)) {
-			void loadNoteColors()
-		}
-	}, [reasons,],) // eslint-disable-line react-hooks/exhaustive-deps
 
 	useEffect(() => {
 		disabledRef?.current?.(showAddForm,)
@@ -897,13 +907,20 @@ export function RemovalReasonList ({state, addRef, disabledRef, sortRef, onSave,
 		onSave(state.config, 'Reordering removal reasons from toolbox config.',)
 	}
 
-	// Entering sort mode closes any open editor; leaving it persists the new
-	// order (once, and only when a drag actually changed it).
-	useEffect(() => {
+	// Entering sort mode closes any open editor. Adjusted during render rather than in an effect,
+	// so an editor never renders inside a collapsed card.
+	const [sortingSeen, setSortingSeen,] = useState(sorting,)
+	if (sortingSeen !== sorting) {
+		setSortingSeen(sorting,)
 		if (sorting) {
 			setEditingIndex(null,)
 			setShowAddForm(false,)
-		} else if (prevSortingRef.current) {
+		}
+	}
+
+	// Leaving sort mode persists the new order (once, and only when a drag actually changed it).
+	useEffect(() => {
+		if (!sorting && prevSortingRef.current) {
 			flushPendingOrderRef.current()
 		}
 		prevSortingRef.current = sorting

@@ -1,6 +1,6 @@
 /** Management overlay: list existing announcements, remove them, or start a new one. */
 
-import {useCallback, useEffect, useState,} from 'react'
+import {useState,} from 'react'
 
 import {ActionButton,} from '../../../shared/controls/ActionButton'
 import {reactAlert,} from '../../../shared/controls/ReactAlert'
@@ -8,6 +8,7 @@ import {Backdrop,} from '../../../shared/window/Backdrop'
 import {Window,} from '../../../shared/window/Window'
 import {negativeTextFeedback, positiveTextFeedback,} from '../../../store/feedback'
 import {nowInSeconds,} from '../../../util/data/time'
+import {type Loaded, useLoaded,} from '../../../util/ui/hooks'
 import {getAnnouncements, removeAnnouncement,} from '../publish'
 import type {AnnouncementNote,} from '../types'
 import {openAnnouncementBuilder,} from './AnnouncementBuilderPopup'
@@ -24,28 +25,27 @@ type LoadState =
 	| {status: 'error'; reason: string}
 	| {status: 'ready'; notes: AnnouncementNote[]}
 
+/** The list's state from the announcements load: its own failure reason, or a thrown error's. */
+function toLoadState (loaded: Loaded<Awaited<ReturnType<typeof getAnnouncements>>>,): LoadState {
+	if (loaded.status === 'loading') { return loaded }
+	if (loaded.status === 'error') { return {status: 'error', reason: String(loaded.error,),} }
+	return loaded.value.ok
+		? {status: 'ready', notes: loaded.value.notes,}
+		: {status: 'error', reason: loaded.value.reason,}
+}
+
 /**
  * Lists every announcement on the wiki (including scheduled and past ones) with
  * a remove action, plus a button to compose a new one not tied to a post.
  */
 export function AnnouncementManagerOverlay ({onClose,}: Props,) {
-	const [state, setState,] = useState<LoadState>({status: 'loading',},)
+	// Bumped to reload the list (refresh, after a removal, after composing one); the list shows
+	// loading until the load for the current count settles.
+	const [loadCount, setLoadCount,] = useState(0,)
+	const loaded = useLoaded(loadCount, () => getAnnouncements(),)
+	const state = toLoadState(loaded,)
+	const load = () => setLoadCount((count,) => count + 1)
 	const [busyId, setBusyId,] = useState<string | null>(null,)
-
-	const load = useCallback(async () => {
-		setState({status: 'loading',},)
-		try {
-			const result = await getAnnouncements()
-			setState(result.ok ? {status: 'ready', notes: result.notes,} : {status: 'error', reason: result.reason,},)
-		} catch (error: unknown) {
-			// A thrown read (not just a reported failure) must not leave the list on "Loading..." forever.
-			setState({status: 'error', reason: String(error,),},)
-		}
-	}, [],)
-
-	useEffect(() => {
-		void load()
-	}, [load,],)
 
 	/** Confirms, removes a note, then refreshes the list. */
 	const handleRemove = async (note: AnnouncementNote,) => {
@@ -60,7 +60,7 @@ export function AnnouncementManagerOverlay ({onClose,}: Props,) {
 		setBusyId(null,)
 		if (result.ok) {
 			positiveTextFeedback('Announcement removed',)
-			void load()
+			load()
 		} else {
 			negativeTextFeedback(result.reason, {duration: 8000,},)
 		}
@@ -70,10 +70,10 @@ export function AnnouncementManagerOverlay ({onClose,}: Props,) {
 
 	const toolbar = (
 		<div className={css.toolbar}>
-			<ActionButton primary onClick={() => openAnnouncementBuilder({onSaved: () => void load(),},)}>
+			<ActionButton primary onClick={() => openAnnouncementBuilder({onSaved: () => load(),},)}>
 				New announcement
 			</ActionButton>
-			<ActionButton onClick={() => void load()} disabled={state.status === 'loading'}>Refresh</ActionButton>
+			<ActionButton onClick={() => load()} disabled={state.status === 'loading'}>Refresh</ActionButton>
 		</div>
 	)
 
@@ -114,7 +114,7 @@ export function AnnouncementManagerOverlay ({onClose,}: Props,) {
 											onClick={() =>
 												openAnnouncementBuilder({
 													initialNote: note,
-													onSaved: () => void load(),
+													onSaved: () => load(),
 												},)}
 										>
 											Edit

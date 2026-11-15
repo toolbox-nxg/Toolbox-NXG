@@ -443,6 +443,7 @@ function MacroCard ({
 								<div
 									ref={previewRef}
 									className={expanded ? css.previewFull : css.previewClamped}
+									// oxlint-disable-next-line react/no-danger -- SnuOwnd-rendered markdown: raw HTML is escaped apart from its element whitelist, which strips attributes like event handlers
 									dangerouslySetInnerHTML={{__html: previewHtml,}}
 								/>
 								{(overflows || expanded) && (
@@ -583,13 +584,20 @@ export function ModMacroList ({state, addRef, disabledRef, sortRef,}: ModMacroLi
 		saveMacroConfig(subreddit, state.config, 'Reordering mod macros from toolbox config.',)
 	}
 
-	// Entering sort mode closes any open editor; leaving it persists the new
-	// order (once, and only when a drag actually changed it).
-	useEffect(() => {
+	// Entering sort mode closes any open editor. Adjusted during render rather than in an effect,
+	// so an editor never renders inside a collapsed card.
+	const [sortingSeen, setSortingSeen,] = useState(sorting,)
+	if (sortingSeen !== sorting) {
+		setSortingSeen(sorting,)
 		if (sorting) {
 			setEditingIndex(null,)
 			setShowAddForm(false,)
-		} else if (prevSortingRef.current) {
+		}
+	}
+
+	// Leaving sort mode persists the new order (once, and only when a drag actually changed it).
+	useEffect(() => {
+		if (!sorting && prevSortingRef.current) {
 			flushPendingOrderRef.current()
 		}
 		prevSortingRef.current = sorting

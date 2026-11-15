@@ -22,6 +22,17 @@ npm run build:watch    # Automatically rebuild on file changes
 
 Build output goes to `build/chrome/` and `build/firefox/`.
 
+The build compiles TypeScript with [oxc](https://oxc.rs/) one file at a time and does not
+type-check; `npm run typecheck` is the type gate, and CI runs it before building.
+
+### TypeScript versions
+
+`tsc` is TypeScript 7 (the native compiler), installed as the `@typescript/native` package.
+The `typescript` package name is an alias for `@typescript/typescript6`, which re-exports the
+TypeScript 6 API for tools that still need a JavaScript compiler API — today only TypeDoc
+(`npm run docs:api`). Once TypeDoc supports TypeScript 7, the alias can go and `typescript`
+can point at TypeScript 7 directly.
+
 ### Environment variables
 
 | Variable       | Values                     | Default | Notes                                                         |
@@ -52,10 +63,8 @@ Build output goes to `build/chrome/` and `build/firefox/`.
 npm test             # Run unit tests (Vitest)
 npm run test:watch   # Run tests in watch mode
 npm run typecheck    # TypeScript type-check (no emit)
-npm run lint         # ESLint, then lint:guard
-npm run lint:guard   # Moderation-import and listing-envelope guards (also run by lint)
+npm run lint         # Lint rules, including Toolbox's own rules in lint/
 npm run lint:css     # Stylelint
-npm run lint:params  # Parameter-order convention check
 npm run fmt          # Formatting check (dprint)
 npm run fmt:fix      # Auto-fix formatting
 ```
@@ -68,9 +77,9 @@ pass cleanly.
 
 ```sh
 npm run fmt             # Formatting check (dprint)
-npm run lint            # ESLint + lint:guard
+npm run lint            # Lint, including the guard and parameter-convention rules
 npm run lint:css        # Stylelint
-npm run lint:params     # Parameter-order and naming conventions
+npm run lint:params     # Same as lint (kept until CI drops the step)
 npm run typecheck       # TypeScript type-check (no emit)
 npm test                # Unit tests (Vitest)
 npm run build           # Full production build (Chrome + Firefox)
@@ -81,7 +90,7 @@ issues; re-run the checks afterwards:
 
 ```sh
 npm run fmt:fix         # Auto-fix formatting with dprint
-npm run lint:fix        # Auto-fix ESLint issues
+npm run lint:fix        # Auto-fix lint issues (oxlint)
 npm run lint:css:fix    # Auto-fix CSS style issues with Stylelint
 ```
 

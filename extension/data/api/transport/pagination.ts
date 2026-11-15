@@ -78,7 +78,7 @@ export async function fetchAllListingPages<T,> (
 	let after: string | undefined
 	let tries = 1
 	while (true) {
-		let children: T[] = []
+		let children: T[]
 		let nextAfter: string | null | undefined
 		try {
 			const page = await fetchPage(after,)
@@ -88,6 +88,7 @@ export async function fetchAllListingPages<T,> (
 		} catch (error) {
 			// Retry on 504 Gateway Timeout up to maxRetries total attempts.
 			if (tries < maxRetries && is504(error,)) {
+				// oxlint-disable-next-line no-useless-assignment -- false positive: `tries` is read when the loop retries
 				tries++
 				continue
 			}

@@ -11,9 +11,9 @@ import type {Page,} from '../transport/pagination'
  *
  * API-layer only: this is the REST wire envelope, and `after`/`before` are REST cursors with
  * no equivalent in a cursor-connection API. Resource modules unwrap it with `pageFromListing`
- * and return `Page<T>`; `npm run lint:guard` fails if it is imported outside `api/`. It stays
- * exported solely so `things.ts` can type `RedditThing.replies`, where Reddit nests a Listing
- * inside the comment tree.
+ * and return `Page<T>`; the `toolbox/no-listing-envelope` lint rule fails if it is imported
+ * outside `api/`. It stays exported solely so `things.ts` can type `RedditThing.replies`, where
+ * Reddit nests a Listing inside the comment tree.
  */
 export interface RedditListing<T = unknown,> {
 	kind: 'Listing'

@@ -12,7 +12,7 @@ vi.mock('./components/FlatListModActions', () => ({FlatListModActions: () => nul
 import {FlatListModActions,} from './components/FlatListModActions'
 import {createModActionsSlot,} from './dom'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- the renderer's context is loosely typed here.
+// oxlint-disable-next-line typescript/no-explicit-any -- the renderer's context is loosely typed here.
 type RenderFn = (args: {context: any; target: Element},) => ReactElement | null
 
 /** Registers the slot and returns the captured renderer callback. */
@@ -65,7 +65,7 @@ describe('createModActionsSlot', () => {
 		},)
 		expect(node,).not.toBeNull()
 		expect(node!.type,).toBe(FlatListModActions,)
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- inspect the element's props.
+		// oxlint-disable-next-line typescript/no-explicit-any -- inspect the element's props.
 		expect((node as any).props,).toMatchObject({
 			subreddit: 'sub',
 			itemId: 't3_x',
@@ -87,7 +87,7 @@ describe('createModActionsSlot', () => {
 			context: {kind: 'post', thingId: 't3_x', subreddit: 'sub', isRemoved: false,},
 			target: slot,
 		},)
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- inspect the element's props.
+		// oxlint-disable-next-line typescript/no-explicit-any -- inspect the element's props.
 		expect((node as any).props,).toMatchObject({initialNsfw: false, initialLocked: false, initialStickied: false,},)
 	})
 
@@ -103,7 +103,7 @@ describe('createModActionsSlot', () => {
 			context: {kind: 'comment', thingId: 't1_c', subreddit: 'sub', isRemoved: false,},
 			target: slot,
 		},)
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- inspect the element's props.
+		// oxlint-disable-next-line typescript/no-explicit-any -- inspect the element's props.
 		expect((node as any).props.initialLocked,).toBe(true,)
 	})
 
@@ -118,7 +118,7 @@ describe('createModActionsSlot', () => {
 			context: {kind: 'comment', thingId: 't1_top', subreddit: 'sub', isRemoved: false,},
 			target: topSlot,
 		},)
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- inspect the element's props.
+		// oxlint-disable-next-line typescript/no-explicit-any -- inspect the element's props.
 		expect((topNode as any).props.isTopLevelComment,).toBe(true,)
 
 		const nested = document.createElement('shreddit-comment',)
@@ -129,7 +129,7 @@ describe('createModActionsSlot', () => {
 			context: {kind: 'comment', thingId: 't1_nested', subreddit: 'sub', isRemoved: false,},
 			target: nestedSlot,
 		},)
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- inspect the element's props.
+		// oxlint-disable-next-line typescript/no-explicit-any -- inspect the element's props.
 		expect((nestedNode as any).props.isTopLevelComment,).toBe(false,)
 	})
 
@@ -143,7 +143,7 @@ describe('createModActionsSlot', () => {
 			context: {kind: 'post', thingId: 't3_x', subreddit: 'sub', isRemoved: false,},
 			target: postSlot,
 		},)
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- inspect the element's props.
+		// oxlint-disable-next-line typescript/no-explicit-any -- inspect the element's props.
 		expect((postNode as any).props.host,).toBe(post,)
 
 		const comment = document.createElement('shreddit-comment',)
@@ -153,7 +153,7 @@ describe('createModActionsSlot', () => {
 			context: {kind: 'comment', thingId: 't1_c', subreddit: 'sub', isRemoved: false,},
 			target: commentSlot,
 		},)
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- inspect the element's props.
+		// oxlint-disable-next-line typescript/no-explicit-any -- inspect the element's props.
 		expect((commentNode as any).props.host,).toBe(comment,)
 	})
 
@@ -163,7 +163,7 @@ describe('createModActionsSlot', () => {
 			context: {kind: 'post', thingId: 't3_x', subreddit: 'sub', isRemoved: false,},
 			target: document.createElement('span',),
 		},)
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- inspect the element's props.
+		// oxlint-disable-next-line typescript/no-explicit-any -- inspect the element's props.
 		expect((node as any).props.host,).toBeNull()
 	})
 
@@ -181,7 +181,7 @@ describe('createModActionsSlot', () => {
 			context: {kind: 'comment', thingId: 't1_parent', subreddit: 'sub', isRemoved: false,},
 			target: slot,
 		},)
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- inspect the element's props.
+		// oxlint-disable-next-line typescript/no-explicit-any -- inspect the element's props.
 		expect((node as any).props.initialLocked,).toBe(false,)
 	})
 })

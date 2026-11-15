@@ -14,7 +14,7 @@ import {ActionButton,} from '../../../shared/controls/ActionButton'
 import {CheckboxInput,} from '../../../shared/controls/CheckboxInput'
 import {Icon,} from '../../../shared/controls/Icon'
 import {TextInput,} from '../../../shared/controls/NormalInput'
-import {type TriggerRef, useTriggerRef,} from '../../../util/ui/hooks'
+import {type TriggerRef, useLoaded, useTriggerRef,} from '../../../util/ui/hooks'
 import {generateConfigId,} from '../../../util/wiki/schemas/config/schema'
 import type {ConfigState, ToolboxConfig,} from '../../../util/wiki/schemas/config/schema'
 import {parseAutomodReasons, staticReasonPart,} from '../automodReasons'
@@ -23,6 +23,17 @@ import css from './SuggestedReasonsTab.module.css'
 
 /** Load state of the subreddit's AutoMod report reasons. */
 type AutomodLoad = 'loading' | 'ok' | 'error'
+
+/** Stable empty list while AutoMod's reasons load, so the pick-lists don't see a new array each render. */
+const noAutomodReasons: string[] = []
+
+/** Reads the report reasons from `subreddit`'s AutoMod config; rejects when the page can't be read. */
+async function loadAutomodReasons (subreddit: string,): Promise<string[]> {
+	if (!subreddit) { return noAutomodReasons }
+	const result = await readFromWiki(subreddit, 'config/automoderator',)
+	if (!result.ok) { throw new Error(`Could not read /r/${subreddit}'s AutoMod config`,) }
+	return parseAutomodReasons(result.data,)
+}
 
 /** Ref whose `.current` toggles external controls (the add button) while the add form is open. */
 type DisabledRef = {current: ((disabled: boolean,) => void) | null}
@@ -187,29 +198,13 @@ export function SuggestedReasonsTab ({state, addRef, disabledRef, onSave,}: Prop
 
 	// Report reasons pulled from the subreddit's AutoMod config, offered as a pick-list on each
 	// pattern field. Best-effort: a missing page or read error surfaces a note rather than failing.
-	const [automodReasons, setAutomodReasons,] = useState<string[]>([],)
-	const [automodLoad, setAutomodLoad,] = useState<AutomodLoad>('loading',)
-	useEffect(() => {
-		const subreddit = state.subreddit
-		if (!subreddit) {
-			setAutomodLoad('error',)
-			return
-		}
-		let cancelled = false
-		setAutomodLoad('loading',)
-		void readFromWiki(subreddit, 'config/automoderator',).then((result,) => {
-			if (cancelled) { return }
-			if (result.ok) {
-				setAutomodReasons(parseAutomodReasons(result.data,),)
-				setAutomodLoad('ok',)
-			} else {
-				setAutomodLoad('error',)
-			}
-		},)
-		return () => {
-			cancelled = true
-		}
-	}, [state.subreddit,],)
+	const automod = useLoaded(state.subreddit ?? '', loadAutomodReasons,)
+	const automodLoad: AutomodLoad = !state.subreddit || automod.status === 'error'
+		? 'error'
+		: automod.status === 'ready'
+		? 'ok'
+		: 'loading'
+	const automodReasons = automod.status === 'ready' ? automod.value : noAutomodReasons
 
 	// Expose the add action to the footer's "Add new suggestion" button, and keep that button
 	// disabled while the add form is already open (mirrors the removal-reasons / macros tabs).
@@ -219,7 +214,7 @@ export function SuggestedReasonsTab ({state, addRef, disabledRef, onSave,}: Prop
 	},)
 	useEffect(() => {
 		disabledRef?.current?.(showAddForm,)
-	}, [showAddForm,],) // eslint-disable-line react-hooks/exhaustive-deps
+	}, [showAddForm,],) // oxlint-disable-line react/exhaustive-deps
 
 	// Serializes the full mapping list to config and pushes it upstream. The whole list is written
 	// each time (the wiki stores one object), but the trigger and revision note are per-mapping.

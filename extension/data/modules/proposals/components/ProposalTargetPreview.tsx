@@ -96,7 +96,7 @@ export function useProposalTarget (at: ProposalAt,): TargetState {
 		return () => {
 			cancelled = true
 		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
+		// oxlint-disable-next-line react/exhaustive-deps
 	}, [subreddit, proposal.id, proposal.itemKind, proposal.itemId, reloadNonce,],)
 
 	return {...state, retry: () => setReloadNonce((n,) => n + 1),}
@@ -132,6 +132,7 @@ function LoadedTargetPreview ({info,}: {info: ThingInfo},) {
 			{bodyHtml && (
 				<div
 					className={classes(css.targetBody, !expanded && longBody && css.targetBodyClamped,)}
+					// oxlint-disable-next-line react/no-danger -- SnuOwnd-rendered markdown: raw HTML is escaped apart from its element whitelist, which strips attributes like event handlers
 					dangerouslySetInnerHTML={{__html: bodyHtml,}}
 				/>
 			)}

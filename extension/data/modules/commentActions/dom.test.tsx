@@ -12,7 +12,7 @@ vi.mock('./components/CommentActions', () => ({CommentVote: () => null, CommentE
 import {CommentExtras, CommentVote,} from './components/CommentActions'
 import {createCommentActionsSlot,} from './dom'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- the renderer's context is loosely typed here.
+// oxlint-disable-next-line typescript/no-explicit-any -- the renderer's context is loosely typed here.
 type RenderFn = (args: {context: any; target: Element},) => ReactElement | null
 
 /** Registers the slots and returns the renderer captured for the given id. */
@@ -71,12 +71,12 @@ describe('createCommentActionsSlot', () => {
 
 		const voteNode = getRendererById('commentActions.vote',)({context, target: slot,},)
 		expect(voteNode!.type,).toBe(CommentVote,)
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- inspect the element's props.
+		// oxlint-disable-next-line typescript/no-explicit-any -- inspect the element's props.
 		expect((voteNode as any).props,).toMatchObject({comment,},)
 
 		const extrasNode = getRendererById('commentActions.extras',)({context, target: slot,},)
 		expect(extrasNode!.type,).toBe(CommentExtras,)
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- inspect the element's props.
+		// oxlint-disable-next-line typescript/no-explicit-any -- inspect the element's props.
 		expect((extrasNode as any).props,).toMatchObject({comment,},)
 	})
 })

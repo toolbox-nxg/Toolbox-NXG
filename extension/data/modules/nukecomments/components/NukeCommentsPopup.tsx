@@ -55,7 +55,7 @@ async function parseChain (
 
 	// Recursive walk over heterogeneous comment-tree nodes (Listing / t1 / more); the broad
 	// `RedditThing.kind` string makes a typed discriminated walk impractical here.
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped recursive JSON walk
+	// oxlint-disable-next-line typescript/no-explicit-any -- untyped recursive JSON walk
 	async function recurse (object: any,) {
 		if (!object) { return }
 		switch (object.kind) {

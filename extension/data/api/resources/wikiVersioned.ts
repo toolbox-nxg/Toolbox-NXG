@@ -244,7 +244,7 @@ async function handleConflict<T,> (
 	response: Response,
 	codec: WikiPageCodec<T>,
 ): Promise<WikiConditionalWriteResult<T>> {
-	let body: EditConflictBody | null = null
+	let body: EditConflictBody | null
 	try {
 		body = await response.json() as EditConflictBody
 	} catch {

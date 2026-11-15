@@ -38,6 +38,6 @@ export default defineConfig({
 		// functions in `environmentOptions` cannot be cloned to the forks pool.
 		setupFiles: ['./vitest.setup.ts',],
 		env: {TZ: 'UTC',},
-		include: ['extension/**/*.test.{ts,tsx}',],
+		include: ['extension/**/*.test.{ts,tsx}', 'lint/**/*.test.mjs',],
 	},
 },)

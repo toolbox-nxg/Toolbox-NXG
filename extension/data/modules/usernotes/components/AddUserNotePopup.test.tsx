@@ -116,6 +116,27 @@ function getSaveButton (host: HTMLElement,) {
 }
 
 describe('AddUserNotePopup', () => {
+	it('resets the ban message to the default when the note type changes', () => {
+		const banColors: UserNoteColor[] = [
+			{key: 'ban', text: 'Ban', color: 'red', banDuration: 7,},
+			{key: 'permban', text: 'Permanent Ban', color: 'darkred', banDuration: 0,},
+		]
+		const host = renderPopup({colors: banColors, defaultBanMessage: 'Default message',},)
+		const banMessage = () => host.querySelector<HTMLTextAreaElement>('textarea[placeholder="ban note to user"]',)!
+
+		clickByText(host, 'Ban',)
+		expect(banMessage().value,).toBe('Default message',)
+		act(() => {
+			const valueSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value',)?.set
+			valueSetter?.call(banMessage(), 'Custom message',)
+			banMessage().dispatchEvent(new InputEvent('input', {bubbles: true, data: 'Custom message',},),)
+		},)
+		expect(banMessage().value,).toBe('Custom message',)
+
+		clickByText(host, 'Permanent Ban',)
+		expect(banMessage().value,).toBe('Default message',)
+	})
+
 	it('closes by default after saving a Toolbox note', async () => {
 		const onSave = vi.fn().mockResolvedValue(
 			{

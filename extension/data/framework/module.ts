@@ -9,7 +9,7 @@ type ModuleCleanup = () => void | Promise<void>
  * The initializer function called when a module is started.
  * Receives all setting values and may return an optional cleanup function.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- heterogeneous settings base: each module has a distinct settings shape; unknown breaks TSettings[K] indexing across the class API
+// oxlint-disable-next-line typescript/no-explicit-any -- heterogeneous settings base: each module has a distinct settings shape; unknown breaks TSettings[K] indexing across the class API
 export type ModuleInitializer<TSettings extends Record<string, any> = Record<string, any>,> = (
 	this: Module<TSettings>,
 	initialValues: TSettings,
@@ -52,7 +52,7 @@ export interface SettingDefinition {
 	type: SettingType
 	description?: string
 	/** Default value, or a function that returns it. */
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- a setting default may be any of the heterogeneous SettingType value shapes
+	// oxlint-disable-next-line typescript/no-explicit-any -- a setting default may be any of the heterogeneous SettingType value shapes
 	default?: any | (() => any)
 	storageKey?: string
 	/** When true, only shown in debug mode. */
@@ -230,7 +230,7 @@ export interface ModuleOptions {
  * to their `sharedPolicy` value.  Settings without a `sharedPolicy` are omitted.
  * Pass the result to `getAnonymizedSettings()` so the anonymizer knows what to include.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- operates over modules of every settings shape; Module<any> is the correct erasure here
+// oxlint-disable-next-line typescript/no-explicit-any -- operates over modules of every settings shape; Module<any> is the correct erasure here
 export function buildPolicyMap (modules: ReadonlyArray<Module<any>>,): Record<string, SharedSettingPolicy> {
 	const map: Record<string, SharedSettingPolicy> = {}
 	for (const mod of modules) {
@@ -244,7 +244,7 @@ export function buildPolicyMap (modules: ReadonlyArray<Module<any>>,): Record<st
 }
 
 /** A user-toggleable Toolbox feature unit; instances are registered and run by the framework. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- heterogeneous settings base: each module has a distinct settings shape; unknown breaks TSettings[K] indexing across the class API
+// oxlint-disable-next-line typescript/no-explicit-any -- heterogeneous settings base: each module has a distinct settings shape; unknown breaks TSettings[K] indexing across the class API
 export class Module<TSettings extends Record<string, any> = Record<string, any>,> {
 	name: string
 	id: string

@@ -697,7 +697,7 @@ export function RemovalReasonsOverlay ({
 			setNativeLabel(undefined,)
 			setLeaveUsernote(false,)
 		}
-	}, [selected, orderedReasons,],) // eslint-disable-line react-hooks/exhaustive-deps
+	}, [selected, orderedReasons,],) // oxlint-disable-line react/exhaustive-deps
 
 	// When the selected note type has an auto-ban duration, pre-populate the Issue Ban section.
 	// Both usernoteType and subredditColors are in deps: colors may load after the type is auto-filled,
@@ -737,7 +737,7 @@ export function RemovalReasonsOverlay ({
 		void getSubredditColors(data.subreddit,)
 			.then((c,) => setSubredditColors(c,))
 			.finally(() => setColorsLoading(false,))
-		// eslint-disable-next-line react-hooks/exhaustive-deps
+		// oxlint-disable-next-line react/exhaustive-deps
 	}, [],)
 
 	async function handleLeaveUsernoteToggle (requested: boolean,) {
@@ -1265,6 +1265,7 @@ export function RemovalReasonsOverlay ({
 						{includeHeader && (
 							<div
 								className={css.reasonPreview}
+								// oxlint-disable-next-line react/no-danger -- SnuOwnd-rendered markdown: raw HTML is escaped apart from its element whitelist, which strips attributes like event handlers
 								dangerouslySetInnerHTML={{__html: headerHtml,}}
 							/>
 						)}
@@ -1352,6 +1353,7 @@ export function RemovalReasonsOverlay ({
 						{includeFooter && (
 							<div
 								className={css.reasonPreview}
+								// oxlint-disable-next-line react/no-danger -- SnuOwnd-rendered markdown: raw HTML is escaped apart from its element whitelist, which strips attributes like event handlers
 								dangerouslySetInnerHTML={{__html: footerHtml,}}
 							/>
 						)}

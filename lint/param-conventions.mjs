@@ -1,8 +1,8 @@
 /**
  * Canonical convention for function parameter ordering and naming across the
  * `extension/` source tree. This file is pure data — the single source of truth
- * consumed by `check-param-order.mjs`. Nothing here edits code; tuning these
- * lists changes only what the scanner reports.
+ * consumed by the `toolbox/param-conventions` lint rule (`lint/rules/param-conventions.mjs`).
+ * Nothing here edits code; tuning these lists changes only what the rule reports.
  *
  * A "concept" is a domain idea that recurs as a function parameter (a
  * subreddit, a user, a submission, …). Each concept has:

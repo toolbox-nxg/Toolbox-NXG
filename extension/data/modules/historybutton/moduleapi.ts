@@ -98,7 +98,6 @@ function submissionAccount (submission: HistorySubmission,): ResolvedAccount | u
  * removals, accounts submitted from, and external domains and accounts linked in selfpost bodies.
  */
 export async function getSubmissionHistoryData (user: string,): Promise<SubmissionHistoryData> {
-	let total = 0
 	const domains = Object.create(null,) as Record<string, {count: number}>
 	const subreddits = Object.create(null,) as Record<string, {count: number; karma: number; removed: number}>
 	let removed = 0
@@ -107,7 +106,7 @@ export async function getSubmissionHistoryData (user: string,): Promise<Submissi
 	const textLinkAccounts = Object.create(null,) as LinkedAccounts
 
 	const children = await getUserSubmissions(user,) as RedditThing<HistorySubmission>[]
-	total = children.length
+	const total = children.length
 
 	children.forEach((value,) => {
 		const submission = value.data

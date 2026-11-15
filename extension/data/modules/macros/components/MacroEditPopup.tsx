@@ -101,11 +101,13 @@ export function MacroEditPopup ({
 					minHeight: `${editMinHeight}px`,
 				}}
 			/>
+			{/* oxlint-disable-next-line react/no-danger -- sanitized by purifyHTML */}
 			<div className={css.actionList} dangerouslySetInnerHTML={{__html: purifyHTML(actionListHtml,),}} />
 			{showMacroPreview && (
 				<div className={css.preview}>
 					<h3 className={css.previewHeading}>Preview</h3>
 					<div className={css.commentBody}>
+						{/* oxlint-disable-next-line react/no-danger -- SnuOwnd-rendered markdown, sanitized by purifyHTML */}
 						<div className="md" dangerouslySetInnerHTML={{__html: previewHtml,}} />
 					</div>
 				</div>

@@ -215,7 +215,7 @@ function ProposalsReviewPopup ({currentSubreddit, onClose,}: Props,) {
 			mountedRef.current = false
 			off()
 		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
+		// oxlint-disable-next-line react/exhaustive-deps
 	}, [],)
 
 	/** Re-reads every moderated sub (forced); wired to the header Refresh button. */
@@ -266,7 +266,7 @@ function ProposalsReviewPopup ({currentSubreddit, onClose,}: Props,) {
 		if (entries !== null && !selected && orderedShown.length > 0) {
 			void selectProposal(orderedShown[0]!,)
 		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
+		// oxlint-disable-next-line react/exhaustive-deps
 	}, [entries, selected, orderedShown,],)
 
 	/**

@@ -180,6 +180,7 @@ export function SettingRow ({
 		// comparison operators like "value < 10" that also contain '<'.
 		const containsHtml = /<[a-zA-Z]/.test(desc,)
 		const labelNode = containsHtml
+			// oxlint-disable-next-line react/no-danger -- setting descriptions are static strings from module definitions in this codebase
 			? <span dangerouslySetInnerHTML={{__html: desc,}} />
 			: desc
 		return (

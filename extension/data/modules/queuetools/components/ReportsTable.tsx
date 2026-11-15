@@ -22,6 +22,7 @@ export function ReportsTable (
 			<tbody>
 				<tr>{['Type', 'Reporter', 'Report',].map((h,) => <th key={h}>{h}</th>)}</tr>
 				{rows.map((r, i,) => (
+					// oxlint-disable-next-line react/no-array-index-key -- a static list rendered once per item, never reordered; entries have no stable id
 					<tr key={`${r.type}${i}`} className={css.row}>
 						<td>{r.type}</td>
 						<td>{r.author}</td>

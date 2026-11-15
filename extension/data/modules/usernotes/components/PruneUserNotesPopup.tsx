@@ -335,6 +335,7 @@ export function PruneUserNotesPanel ({
 														const color = colors.find((c,) => c.key === row.note.type)
 														return (
 															<div
+																// oxlint-disable-next-line react/no-array-index-key -- notes have no id and can share a timestamp; the list is static while shown
 																key={`${row.note.time}-${rowIndex}`}
 																className={css.noteDetails}
 															>

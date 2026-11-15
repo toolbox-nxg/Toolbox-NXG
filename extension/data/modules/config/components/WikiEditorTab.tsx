@@ -193,7 +193,7 @@ export function WikiEditorTab ({subreddit, page, literalPage, saveRef, revisionN
 			editor?.destroy()
 			editorRef.current = null
 		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
+		// oxlint-disable-next-line react/exhaustive-deps
 	}, [],) // intentionally run once on mount (tab is lazy)
 
 	// Load the page content once on mount (the tab is lazy-mounted).
@@ -226,7 +226,7 @@ export function WikiEditorTab ({subreddit, page, literalPage, saveRef, revisionN
 		return () => {
 			stale = true
 		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
+		// oxlint-disable-next-line react/exhaustive-deps
 	}, [],)
 
 	useEffect(() => {
@@ -323,7 +323,7 @@ export function WikiEditorTab ({subreddit, page, literalPage, saveRef, revisionN
 		return () => {
 			historyRef.current = null
 		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
+		// oxlint-disable-next-line react/exhaustive-deps
 	}, [],)
 	if (historyRef && actualPage !== null) {
 		historyRef.current = {
@@ -387,6 +387,7 @@ export function WikiEditorTab ({subreddit, page, literalPage, saveRef, revisionN
 				<div className={css.warning}>
 					<b>Config not saved!</b>
 					<br />
+					{/* oxlint-disable-next-line react/no-danger -- Reddit's AutoModerator error, sanitized by purifyHTML in saveWikiEditorPage */}
 					<pre dangerouslySetInnerHTML={{__html: automodError,}} />
 				</div>
 			)}
